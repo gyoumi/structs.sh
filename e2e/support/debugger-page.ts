@@ -79,7 +79,7 @@ export class DebuggerPage {
     await expect(this.stepForwardButton, 'debug session did not start').toBeEnabled();
   }
 
-  /** Clicks step forward once. Returns false if the session has ended. */
+  /** Clicks step forward once. Returns false once the client reports the session ended. */
   async stepForward(): Promise<boolean> {
     await this.stepForwardButton.click();
     const active = await this.waitUntilIdle();
@@ -150,16 +150,24 @@ export class DebuggerPage {
   }
 
   /**
-   * A step is finished when the step button is usable again. If it stays
-   * disabled, the session has ended. Returns whether the session is active.
+   * A step is finished when the step button is usable again. The session has
+   * ended only if the client showed its "Debug session ended." toast; a button
+   * that stays disabled without it is a stall and throws. Returns whether the
+   * session is still active.
    */
   private async waitUntilIdle(timeoutMs = 10_000): Promise<boolean> {
     await this.page.waitForTimeout(200);
+    const sessionEnded = this.page.getByText('Debug session ended.', { exact: true });
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
+      if (await sessionEnded.isVisible()) return false;
       if (await this.stepForwardButton.isEnabled()) return true;
       await this.page.waitForTimeout(100);
     }
-    return false;
+    throw new Error(
+      `timed out after ${timeoutMs}ms waiting for the step to finish; ` +
+        `step button is disabled and no "Debug session ended." toast appeared; ` +
+        `lines visited: [${this.visitedLines.join(', ')}]`,
+    );
   }
 }

@@ -9,6 +9,7 @@ backend and to the Rust + wasm debugger that will replace it.
 
 ```sh
 docker compose up -d debugger   # the current backend
+(cd client && npm ci)           # the frontend that npm test starts
 cd e2e
 npm ci
 npx playwright install chromium
