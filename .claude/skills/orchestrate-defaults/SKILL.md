@@ -28,7 +28,7 @@ These mean the full contract. The user does not need to restate models, review l
 | Planner and plan-file writer | `sonnet` | `general-purpose` |
 | Griller | `opus` | `general-purpose`, read-only |
 | Phase reviewer (`orchestrate-phase`) | `opus` | `general-purpose`, read-only |
-| Plan reviewer, branch reviewer | Sol, through `sol-loop` | see `sol-loop` |
+| Plan reviewer, branch reviewer | GPT-6.1 Sol from Copilot, through the global `sol-loop` skill (`~/.claude/skills/sol-loop`) | see `sol-loop` |
 | Read-only critics and judges (`how` critique, `eval` judge, `reflect`) | `sonnet` | `general-purpose`, read-only |
 | Read-only lookups (inventory files, summarise logs, find callers) | `haiku` or `sonnet` | `Explore` |
 
