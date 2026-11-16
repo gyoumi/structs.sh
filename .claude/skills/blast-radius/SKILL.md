@@ -32,6 +32,8 @@ Run the narrowest check that fails if you are wrong:
 | Visualiser animation or layout | A screenshot of the risky case (see `ui-visual-test`) |
 | Types or exports | `cd client && npm run tsc` |
 
+For a wide change, you may also run one `sol-loop` round, step `blast-radius`, on the same question.
+
 ## Honesty ladder
 
 Report how far you got. Do not round up.

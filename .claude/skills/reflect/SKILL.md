@@ -17,7 +17,14 @@ Go through the session and list candidate lessons. For each, note the evidence: 
 - Dead ends that cost real time and will recur.
 - Repo facts that were hard to find (ports, setup steps, test commands, quirks of the gdb backend or the e2e suite).
 
-For each candidate, ask two questions. Was the call wrong, or just unlucky? Would writing it down change a future decision?
+For a long session, spawn two read-only reviewers in one message (models from `orchestrate-defaults`) and merge their lists:
+
+| Lens | Model | Question |
+|---|---|---|
+| Judgment | `opus` | Was the call wrong, or just unlucky? Would the lesson change a future decision? |
+| Tooling | `sonnet` | Was a command, flag, or tool sequence the real problem? What is the non-obvious reading? |
+
+Each returns lessons with evidence pointers. Reviewers propose; they do not edit.
 
 ## 2. Sort
 

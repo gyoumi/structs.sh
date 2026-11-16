@@ -14,11 +14,25 @@ One bounded cycle: check reviews and CI, fix, update the branch, report. Run it 
 1. **Find the PR and its tree.** `gh pr view <n> --json url,headRefName,baseRefName,headRefOid,mergeable,reviewDecision`. If the current checkout is on another branch or has unrelated changes, use a worktree for the PR head (`git worktree add ../structs-pr-<n> <headRefName>`). Do not mix trees. Done when you are working in the PR's tree.
 2. **Collect work.** Read unresolved review threads (`gh api repos/{owner}/{repo}/pulls/<n>/comments --paginate`) and checks (`gh pr checks <n>`, then `gh run view <run-id> --log-failed` for failures). Done when you have a list of open threads and failing checks.
 3. **Classify CI failures.** Real failure, flaky (passes on rerun and unrelated to the diff), or already failing on `origin/dev`. Only fix real failures. Rerun flaky ones once with `gh run rerun <run-id> --failed`.
-4. **Fix review comments.** Follow `resolve-review` for deciding apply or skip. For a short cycle the user asked to run through, apply the clear `apply` items directly and list the rest.
+4. **Fix review comments and CI.** Follow `resolve-review` for deciding apply or skip. For a short cycle the user asked to run through, send the clear `apply` items and real CI failures to workers (see "Workers") and list the rest.
 5. **Rebase if `dev` moved.** `git fetch origin dev`; if `git merge-base --is-ancestor origin/dev HEAD` fails, rebase onto `origin/dev`. See "Conflicts" below.
 6. **Verify.** Run the checks for the touched areas (see `review-branch`). Done when they pass, or the remaining failure is reported.
 7. **Push, if the user asked for pushes in this babysit.** Use `git push` for new commits, or `git push --force-with-lease` after a rebase. Never bare `--force`.
 8. **Report.** What changed this cycle, what passed, what is still open. If nothing changed, say so in one line.
+
+## Workers
+
+Fixes go to `sonnet` workers (see `orchestrate-defaults`), one per independent slice, all spawned in one message:
+
+| Slice | Typical files |
+|---|---|
+| CI or build fix | `client/tsconfig.json`, `vite.config.ts`, workflow files, lockfiles |
+| Lint or type finding | the flagged file |
+| Review comment A, B, ... | each comment's paths |
+
+Before spawning, assign non-overlapping files. If two findings share a file, one worker owns it. Workers never run git writes; the orchestrator does, only if the user asked.
+
+For an optional re-check after fixes, run one `sol-loop` round, step `babysit`.
 
 ## Conflicts
 
