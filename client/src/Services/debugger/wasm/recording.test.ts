@@ -345,12 +345,13 @@ describe('recordRun', () => {
           '    char buf[8] = "ab";', // 3
           '    int big[300];', // 4
           '    for (int i = 0; i < 300; i++) big[i] = i;', // 5
-          '    return text[0] + buf[0] + big[299];', // 6
-          '}', // 7
+          '    char odd[] = "\\a\\b\\t\\"\\001";', // 6
+          '    return text[0] + buf[0] + big[299] + odd[0];', // 7
+          '}', // 8
         ].join('\n');
 
         const recording = await record('arrays.c', source);
-        const { text, buf, big } = recording.steps.find((step) => step.line === 6)!.variables;
+        const { text, buf, big, odd } = recording.steps.find((step) => step.line === 7)!.variables;
 
         // GDB sends "hi" with its quotes, and the first 200 elements of an
         // array (its default `print elements`). For buf it sends the unused
@@ -358,6 +359,8 @@ describe('recordRun', () => {
         expect(text.value).toBe('"hi"');
         expect(buf.value).toBe('"ab"');
         expect(big.value).toEqual(Array.from({ length: 200 }, (_, i) => i));
+        // Escaped as GDB escapes them.
+        expect(odd.value).toBe('"\\a\\b\\t\\"\\001"');
       },
       CLANG_TIMEOUT
     );

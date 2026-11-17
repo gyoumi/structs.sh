@@ -75,7 +75,17 @@ const resolve = (types: DebugType[], index: number): DebugType => {
 const isChar = (type: DebugType) =>
   type.kind === 'int' && type.size === 1 && type.name.includes('char');
 
-const ESCAPES: Record<number, string> = { 9: '\\t', 10: '\\n', 13: '\\r', 34: '\\"', 92: '\\\\' };
+const ESCAPES: Record<number, string> = {
+  7: '\\a',
+  8: '\\b',
+  9: '\\t',
+  10: '\\n',
+  11: '\\v',
+  12: '\\f',
+  13: '\\r',
+  34: '\\"',
+  92: '\\\\',
+};
 
 /**
  * A char array as GDB shows it: a quoted C string, up to its terminating NUL
