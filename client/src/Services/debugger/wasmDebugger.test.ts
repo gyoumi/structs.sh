@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DebuggerEvents } from './types';
 import { WasmDebugger } from './wasmDebugger';
 import { CompileResult, Compiler } from './wasm/compiler';
+import type { RunResult } from './wasm/workerRunner';
+import type { Runner } from './wasmDebugger';
 
 const createEvents = (): DebuggerEvents => ({
   sessionStarted: vi.fn(),
@@ -30,6 +32,27 @@ const controlledCompiler = () => {
     dispose: vi.fn(),
   };
   return { compiler, finish: (index: number, result: CompileResult) => finishers[index](result) };
+};
+
+const COMPILED: CompileResult = { ok: true, wasm: new Uint8Array() };
+
+/** A runner that writes `output`, then finishes with `result`. */
+const runnerReturning =
+  (result: RunResult, output: string[] = []): Runner =>
+  async (_wasm, { onOutput }) => {
+    output.forEach(onOutput);
+    return result;
+  };
+
+/** A runner whose runs last until they are cancelled. */
+const endlessRunner = () => {
+  const signals: AbortSignal[] = [];
+  const runner: Runner = (_wasm, { signal }) =>
+    new Promise<RunResult>((resolve) => {
+      signals.push(signal);
+      signal.addEventListener('abort', () => resolve({ stopped: true }));
+    });
+  return { runner, signals };
 };
 
 const flush = () =>
@@ -104,6 +127,74 @@ describe('WasmDebugger', () => {
 
     expect(compiler.dispose).toHaveBeenCalledOnce();
     expect(events.sessionStarted).not.toHaveBeenCalled();
+  });
+
+  it('runs the program once it compiles and shows its output', async () => {
+    const wasm = new WasmDebugger(
+      compilerReturning(COMPILED),
+      runnerReturning({ exitCode: 0 }, ['hello ', 'from structs\n'])
+    );
+    wasm.setEvents(events);
+
+    wasm.start({ name: 'hello.c', code: '' });
+    await flush();
+
+    expect(events.sessionStarted).toHaveBeenCalledOnce();
+    expect(vi.mocked(events.output).mock.calls).toEqual([['hello '], ['from structs\n']]);
+  });
+
+  it('says when a program is stopped for running too long', async () => {
+    const wasm = new WasmDebugger(compilerReturning(COMPILED), runnerReturning({ timedOut: true }));
+    wasm.setEvents(events);
+
+    wasm.start({ name: 'loop.c', code: '' });
+    await flush();
+
+    expect(events.output).toHaveBeenCalledWith(expect.stringMatching(/stopped .*too long/i));
+  });
+
+  it('says when a program crashes', async () => {
+    const wasm = new WasmDebugger(
+      compilerReturning(COMPILED),
+      runnerReturning({ error: 'unreachable' })
+    );
+    wasm.setEvents(events);
+
+    wasm.start({ name: 'crash.c', code: '' });
+    await flush();
+
+    expect(events.output).toHaveBeenCalledWith(expect.stringContaining('unreachable'));
+  });
+
+  it('does not run a program that fails to compile', async () => {
+    const runner = vi.fn(runnerReturning({ exitCode: 0 }));
+    const wasm = new WasmDebugger(compilerReturning({ ok: false, errors: 'oops' }), runner);
+    wasm.setEvents(events);
+
+    wasm.start({ name: 'main.c', code: '' });
+    await flush();
+
+    expect(runner).not.toHaveBeenCalled();
+  });
+
+  it('stops the running program when compiling again, interrupting, or closing', async () => {
+    const { runner, signals } = endlessRunner();
+    const wasm = new WasmDebugger(compilerReturning(COMPILED), runner);
+    wasm.setEvents(events);
+
+    wasm.start({ name: 'loop.c', code: '' });
+    await flush();
+    wasm.start({ name: 'loop.c', code: '' });
+    await flush();
+    expect(signals.map((signal) => signal.aborted)).toEqual([true, false]);
+
+    wasm.interrupt();
+    expect(signals[1].aborted).toBe(true);
+
+    wasm.start({ name: 'loop.c', code: '' });
+    await flush();
+    wasm.close();
+    expect(signals[2].aborted).toBe(true);
   });
 
   it('cannot step yet', async () => {

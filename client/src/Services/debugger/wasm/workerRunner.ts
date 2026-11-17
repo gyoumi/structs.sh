@@ -1,12 +1,18 @@
 import type { RunnerMessage, RunRequest } from './runRequest';
 
-export type RunResult = { exitCode: number } | { timedOut: true } | { error: string };
+export type RunResult =
+  | { exitCode: number }
+  | { timedOut: true }
+  | { stopped: true }
+  | { error: string };
 
 export type RunInWorkerOptions = {
   /** Called with stdout and stderr text as the program writes it. */
   onOutput: (text: string) => void;
   /** How long the program may run before it is stopped. */
   timeLimitMs: number;
+  /** Stops the program early, for example when the student compiles again. */
+  signal?: AbortSignal;
 };
 
 /** The part of a Web Worker a run uses, so tests can pass a fake one. */
@@ -27,7 +33,7 @@ const startRunnerWorker = (): RunnerWorker =>
  */
 export const runInWorker = (
   wasm: Uint8Array<ArrayBuffer>,
-  { onOutput, timeLimitMs }: RunInWorkerOptions,
+  { onOutput, timeLimitMs, signal }: RunInWorkerOptions,
   createWorker: () => RunnerWorker = startRunnerWorker
 ): Promise<RunResult> =>
   new Promise((resolve) => {
@@ -35,13 +41,22 @@ export const runInWorker = (
     let timer: ReturnType<typeof setTimeout> | undefined;
     let ended = false;
 
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
+    const stop = () => end({ stopped: true });
     const end = (result: RunResult) => {
       if (ended) return;
       ended = true;
       clearTimeout(timer);
+      signal?.removeEventListener('abort', stop);
       worker?.terminate();
       resolve(result);
     };
+
+    if (signal?.aborted) {
+      stop();
+      return;
+    }
+    signal?.addEventListener('abort', stop);
     timer = setTimeout(() => end({ timedOut: true }), timeLimitMs);
 
     try {

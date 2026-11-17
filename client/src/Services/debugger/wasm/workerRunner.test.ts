@@ -132,6 +132,36 @@ describe('runInWorker', () => {
     expect(result).toEqual({ error: expect.stringContaining('Workers are not supported') });
   });
 
+  it('stops the program when the run is cancelled', async () => {
+    const worker = new FakeWorker();
+    const controller = new AbortController();
+    const done = runInWorker(
+      WASM,
+      { onOutput: () => {}, timeLimitMs: TIME_LIMIT, signal: controller.signal },
+      () => worker
+    );
+
+    controller.abort();
+
+    expect(await done).toEqual({ stopped: true });
+    expect(worker.terminated).toBe(true);
+  });
+
+  it('does not start a run that was cancelled before it began', async () => {
+    const createWorker = vi.fn(() => new FakeWorker());
+    const controller = new AbortController();
+    controller.abort();
+
+    const result = await runInWorker(
+      WASM,
+      { onOutput: () => {}, timeLimitMs: TIME_LIMIT, signal: controller.signal },
+      createWorker
+    );
+
+    expect(result).toEqual({ stopped: true });
+    expect(createWorker).not.toHaveBeenCalled();
+  });
+
   it('uses a new worker for every run', async () => {
     const createWorker = vi.fn(() => new FakeWorker());
     const options = { onOutput: () => {}, timeLimitMs: TIME_LIMIT };
