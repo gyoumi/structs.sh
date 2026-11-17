@@ -5,15 +5,15 @@
 
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 
 const listFile = new URL('../e2e/known-failures.json', import.meta.url);
 const knownFailures = JSON.parse(readFileSync(listFile, 'utf8'));
 
 // --list only collects tests: it starts no web server and runs nothing.
-const playwright = fileURLToPath(new URL('../node_modules/.bin/playwright', import.meta.url));
+const playwrightCli = createRequire(import.meta.url).resolve('@playwright/test/cli');
 const report = JSON.parse(
-  execFileSync(playwright, ['test', '-c', 'e2e', '--list', '--reporter=json'], {
+  execFileSync(process.execPath, [playwrightCli, 'test', '-c', 'e2e', '--list', '--reporter=json'], {
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
   }),
