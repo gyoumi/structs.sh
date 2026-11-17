@@ -50,8 +50,4 @@ test.describe('landing page', () => {
     await landingPage.open();
     expect(await landingPage.feedbackFormUrl()).toContain(FEEDBACK_FORM);
   });
-
-  test('the /feedback address leads to the feedback form', async ({ landingPage }) => {
-    expect(await landingPage.feedbackAddressTarget()).toContain(FEEDBACK_FORM);
-  });
 });

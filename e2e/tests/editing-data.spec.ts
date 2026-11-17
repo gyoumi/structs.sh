@@ -19,12 +19,8 @@ test.describe('editing data', () => {
 
   test('new data replaces the current data', async ({ visualiser }) => {
     await visualiser.createNew();
-    await expect
-      .poll(async () => {
-        const values = await visualiser.values();
-        return values.length > 0 && values.join() !== '10,20,30';
-      })
-      .toBe(true);
+    await expect.poll(() => visualiser.values()).not.toEqual([10, 20, 30]);
+    expect((await visualiser.values()).length).toBeGreaterThan(0);
   });
 
   test('clearing removes every value', async ({ visualiser }) => {
@@ -35,6 +31,6 @@ test.describe('editing data', () => {
   test('running an operation shows its C code', async ({ visualiser }) => {
     expect(await visualiser.codeLines()).toEqual([]);
     await visualiser.runToEnd('append', 40);
-    await expect.poll(async () => (await visualiser.codeLines()).join('\n')).toMatch(/\w+\s*\(/);
+    expect((await visualiser.codeLines()).join('\n')).toMatch(/\w+\s*\(/);
   });
 });

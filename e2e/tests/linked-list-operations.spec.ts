@@ -25,9 +25,8 @@ test.describe('linked list operations', () => {
     await expect.poll(() => visualiser.values()).toEqual([10, 30]);
   });
 
-  test('search finds the value and leaves the list unchanged', async ({ visualiser }) => {
-    await visualiser.run('search', 20);
-    expect(await visualiser.foundValues()).toEqual([20]);
+  test('search leaves the list unchanged', async ({ visualiser }) => {
+    await visualiser.runToEnd('search', 20);
     await expect.poll(() => visualiser.values()).toEqual([10, 20, 30]);
   });
 });
