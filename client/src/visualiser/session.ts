@@ -94,7 +94,7 @@ export class VisualiserSession {
     setCanvasTheme(theme);
     this.makeData = makeData;
     this.controller.applyTopicTitle(topicTitle);
-    if (data && data.length > 0) {
+    if (data) {
       this.controller.loadData(data);
     } else {
       this.fill(topicTitle);

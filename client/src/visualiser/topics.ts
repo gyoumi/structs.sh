@@ -107,8 +107,20 @@ export const argLabel = (arg: string): string => {
 
 export const randomValue = (): number => Math.floor(Math.random() * 100);
 
-/** A link that reopens the structure with the same values: two digits each, as the route parses them. */
+const EMPTY_DATA = 'empty';
+
+/** A link that reopens the structure with the same values: two digits each, as `parseSharedData` reads them. */
 export const shareLink = (slug: TopicSlug, data: number[], origin: string): string => {
-  const encoded = data.map((value) => String(value).padStart(2, '0')).join('');
-  return `${origin}/visualiser/${slug}${encoded ? `/${encoded}` : ''}`;
+  const encoded =
+    data.length > 0 ? data.map((value) => String(value).padStart(2, '0')).join('') : EMPTY_DATA;
+  return `${origin}/visualiser/${slug}/${encoded}`;
+};
+
+/** The values in a link's data segment: `[]` for an empty structure, undefined to start with random values. */
+export const parseSharedData = (segment: string | undefined): number[] | undefined => {
+  if (segment === EMPTY_DATA) return [];
+  const data = (segment?.match(/.{2}/g) ?? [])
+    .map((chunk) => parseInt(chunk, 10))
+    .filter(Number.isFinite);
+  return data.length > 0 ? data : undefined;
 };
