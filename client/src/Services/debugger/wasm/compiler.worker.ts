@@ -1,6 +1,4 @@
-import { compileC } from './compile';
-
-export type CompileRequest = { id: number; fileName: string; source: string };
+import { answerCompileRequest, CompileRequest } from './compileRequest';
 
 // The page's TypeScript setup has no Web Worker types, so describe the little
 // of the worker scope this file uses.
@@ -9,7 +7,7 @@ const scope = globalThis as unknown as {
   postMessage: (message: unknown, transfer: Transferable[]) => void;
 };
 
-scope.onmessage = async ({ data: { id, fileName, source } }) => {
-  const result = await compileC(fileName, source);
-  scope.postMessage({ id, result }, result.ok ? [result.wasm.buffer] : []);
+scope.onmessage = async ({ data }) => {
+  const response = await answerCompileRequest(data);
+  scope.postMessage(response, response.result.ok ? [response.result.wasm.buffer] : []);
 };

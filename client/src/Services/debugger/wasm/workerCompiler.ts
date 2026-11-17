@@ -1,5 +1,5 @@
 import { CompileResult, Compiler } from './compiler';
-import type { CompileRequest } from './compiler.worker';
+import type { CompileRequest, CompileResponse } from './compileRequest';
 
 /**
  * Compiles in a Web Worker, so loading and running clang doesn't freeze the
@@ -14,7 +14,7 @@ export const createWorkerCompiler = (): Compiler => {
     const created = new Worker(new URL('./compiler.worker.ts', import.meta.url), {
       type: 'module',
     });
-    created.onmessage = ({ data }: MessageEvent<{ id: number; result: CompileResult }>) => {
+    created.onmessage = ({ data }: MessageEvent<CompileResponse>) => {
       pending.get(data.id)?.(data.result);
       pending.delete(data.id);
     };
