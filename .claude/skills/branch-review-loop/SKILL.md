@@ -29,18 +29,24 @@ The reviewer reports two axes separately. Do not merge them into one ranked list
 After each review, before anything is applied, the orchestrator buckets every finding:
 
 - **Act on**: goes to a `sonnet` worker.
-- **Consider**: a real finding that is out of scope. Becomes a follow-up.
-- **Noted**: minor. Becomes a follow-up.
-- **Dismissed**: speculative generality, extra edge states, frozen contracts, or state machines nobody asked for. Show these to the user so they can override.
+- **Consider**: valid but out of scope. Record it as a follow-up; do not expand this branch to include it.
+- **Noted**: a low-value nit. Record the reason for leaving it unchanged.
+- **Dismissed**: speculative generality, extra edge states, frozen contracts, or state machines nobody asked for. Record the evidence and leave it unchanged.
+
+The invocation authorizes the orchestrator to apply valid, in-scope findings and finish the review loop without asking the user to approve a plan or each fix. Do not stop after presenting findings. Ask only when a decision would materially change behavior or scope, a required permission is unavailable, or the findings remain disputed after the Sol loop's retry budget. Report considered, noted, and dismissed findings at the end.
 
 ## Flow
 
-1. If the user said "pull latest" or "rebase", update from the base first (`git fetch` and rebase onto `origin/dev`, or `upstream/dev` in a fork). The orchestrator runs that only because the user asked.
-2. Run `sol-loop` in code mode with step `branch`, the diff from `merge-base HEAD <base>`, and the two axes plus the `review-branch` checklist in the brief's rules.
-3. Rounds, budget, re-review of Act-on deltas, and follow-ups follow `sol-loop`.
-4. When Sol approves, run the `review-branch` checks once more on the final tree and report.
+1. If a PR is named, confirm the checkout is that PR's head branch (`gh pr view <n> --json headRefName,headRepositoryOwner`). If it is not, run `gh pr checkout <n>` or use a separate worktree before anything else. Bring the local branch up to the PR's current head (`git pull --ff-only`) so collaborators' commits are included, and record that SHA. Then fetch the target base (`origin/dev`, or `upstream/dev` when the branch is in a fork) before reviewing. If the base has advanced beyond the branch, rebase onto it whether or not the user explicitly asked. Preserve unrelated work; do not stash or discard it. If the worktree is dirty in a way that makes rebasing unsafe, use a separate worktree or stop and report the blocker. Resolve conflicts before continuing and run checks for the affected files.
+2. If a PR is specified or linked to the branch, collect its unresolved review threads, issue comments, checks, head SHA, and review state. Track each comment and its disposition so none are missed.
+3. Run `sol-loop` in code mode with step `branch`, the diff from `merge-base HEAD <base>`, and the two axes plus the `review-branch` checklist in the brief's rules.
+4. Validate each finding against the code, issue, and checklist. Send valid in-scope fixes to workers without waiting for user approval. Decline nits and out-of-scope requests with a recorded reason. If a PR comment is declined, reply with the reason before resolving its thread. Resolve a declined thread after the reply. Resolve a fixed thread only after its fix passes checks and is pushed. Do not resolve findings that are still open or disputed.
+5. After fixes, run the checks for the changed areas. If the fixes changed the diff, including docs or skill text, run another Sol round on the changes and open findings. Repeat within `sol-loop`'s budget.
+6. When Sol approves the current diff, run the `review-branch` checks on the final tree. For a PR-backed loop, commit and push fixes, and push any rebase with `git push --force-with-lease=<branch>:<recorded PR head SHA>`, when the user asked to complete the PR review. After each push, request a fresh Copilot review and wait for its result and required checks before continuing. Handle new findings the same way. Stop when a review cycle needs no further commit, or report a blocked check or unresolved disagreement.
+7. Merge only when the user asked to take the PR through merge. Before merging, confirm the PR head SHA matches the local HEAD that Sol approved, and confirm with `gh pr checks <n>` that the CI workflows (at least `e2e`) have run on the current head SHA and passed. "No checks reported" or a pending check is not a pass. Actions can start late during GitHub incidents, so keep watching the PR until the checks finish. Then merge and report the merge commit. Otherwise leave the PR open and report its state.
 
 ## Hard stops
 
 - Never apply findings before the review returns.
 - Workers never run git writes.
+- Do not ask for approval for ordinary in-scope fixes. Do not merge unless the user asked.
