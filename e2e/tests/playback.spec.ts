@@ -1,4 +1,22 @@
 import { test, expect } from '../support/test';
+import type { VisualiserPage } from '../support/visualiser-page';
+
+/** Waits until playback stops moving, and returns where it stopped. */
+const settledProgress = async (visualiser: VisualiserPage): Promise<number> => {
+  let previous = -1;
+  await expect
+    .poll(
+      async () => {
+        const now = await visualiser.progress();
+        const still = now === previous;
+        previous = now;
+        return still;
+      },
+      { intervals: [500] }
+    )
+    .toBe(true);
+  return previous;
+};
 
 test.describe('playback', () => {
   test.beforeEach(async ({ visualiser }) => {
@@ -46,16 +64,25 @@ test.describe('playback', () => {
     await visualiser.runToEnd('append', 40);
     await visualiser.stepBack();
     await expect.poll(() => visualiser.progress()).toBeLessThan(100);
-    const before = await visualiser.progress();
+    const oneBack = await visualiser.progress();
+    await visualiser.stepBack();
+    await expect.poll(() => visualiser.progress()).toBeLessThan(oneBack);
+    const twoBack = await visualiser.progress();
 
     await visualiser.stepForward();
-    await expect.poll(() => visualiser.progress()).toBeGreaterThan(before);
+    await expect.poll(() => visualiser.progress()).toBeGreaterThan(twoBack);
+    const stopped = await settledProgress(visualiser);
+    expect(Math.abs(stopped - oneBack)).toBeLessThanOrEqual(3);
   });
 
   test('clicking the timeline jumps to that point', async ({ visualiser }) => {
-    await visualiser.runToEnd('append', 40);
+    await visualiser.open('sorting-algorithms', [50, 40, 30, 20, 10]);
+    await visualiser.runToEnd('bubble');
     await visualiser.seekTo(0.5);
     await expect.poll(async () => Math.abs((await visualiser.progress()) - 50)).toBeLessThan(25);
+    const midway = await visualiser.values();
+    expect(midway).not.toEqual([10, 20, 30, 40, 50]);
+    expect(midway).not.toEqual([50, 40, 30, 20, 10]);
   });
 
   test('offers speeds from 0.25x to 2x', async ({ visualiser }) => {
