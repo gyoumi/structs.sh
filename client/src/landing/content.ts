@@ -11,6 +11,9 @@ import theTradeDeskLogo from '@/assets/img/sponsors/thetradedesk.png';
 
 export const GITHUB = 'https://github.com/devsoc-unsw/structs.sh';
 
+export const FEEDBACK_FORM =
+  'https://docs.google.com/forms/d/e/1FAIpQLScg9AuvsDcrgjzNX3D10l2r09UhQS0WaGiyX3OvyRn4BlwBSQ/viewform';
+
 export const contacts = [
   { label: 'Email us', href: 'mailto:structs@devsoc.app' },
   { label: 'DevSoc', href: 'https://devsoc.app/' },

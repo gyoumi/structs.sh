@@ -2,7 +2,7 @@ import Box from '@mui/material/Box';
 import { ThemeProvider } from '@mui/material/styles';
 import { AnimatePresence } from 'framer-motion';
 import { Route, Routes } from 'react-router-dom';
-import Feedback from '@/Feedback';
+import FeedbackRedirect from '@/landing/FeedbackRedirect';
 import Landing from '@/landing/Landing';
 import NotFound from '@/landing/NotFound';
 import { structsTheme } from '@/structsThemes';
@@ -35,7 +35,7 @@ const App = () => {
             <Route path="/visualiser/:topic/:data?" element={<Visualiser />} />
 
             {/* Feedback and feature request page */}
-            <Route path="/feedback" element={<Feedback />} />
+            <Route path="/feedback" element={<FeedbackRedirect />} />
 
             {/* Development mode */}
             <Route path="/debugger" element={<DevelopmentMode />} />
