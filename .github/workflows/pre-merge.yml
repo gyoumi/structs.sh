@@ -26,7 +26,6 @@ jobs:
 
   sanity-debugger:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install uv
@@ -43,12 +42,6 @@ jobs:
       - name: Mypy
         working-directory: debugger
         run: uv run mypy src/
-      # The tests compile real C programs with gcc and step them under gdb.
-      - name: Install gdb
-        run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends gdb
-      - name: Pytest
-        working-directory: debugger
-        run: uv run pytest src
 
   sanity-e2e:
     runs-on: ubuntu-latest

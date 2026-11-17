@@ -116,6 +116,17 @@ describe('debugger-needs-test', () => {
     assert.deepEqual(result, []);
   });
 
+  it('does not count an e2e change that is not a test', () => {
+    const files = [debuggerChange, { status: 'M', path: 'e2e/README.md' }];
+    assert.deepEqual(rulesHit(checkPr(pr({ files }))), ['debugger-needs-test']);
+  });
+
+  it('does not count a deleted test', () => {
+    const files = [debuggerChange, { status: 'D', path: 'e2e/tests/stepping.spec.ts' }];
+    const result = checkPr(pr({ files, labels: new Set(['removal-ok']) }));
+    assert.deepEqual(rulesHit(result), ['debugger-needs-test']);
+  });
+
   it('is waived by the no-test-needed label', () => {
     assert.deepEqual(checkPr(pr({ files: [debuggerChange], labels: new Set(['no-test-needed']) })), []);
   });

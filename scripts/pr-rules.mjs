@@ -39,6 +39,8 @@ const AGENT_CONFIG = /^(\.claude\/|skills-lock\.json$)/;
 const DEBUGGER_SOURCE = /^debugger\/src\//;
 const DEBUGGER_TESTS = /^debugger\/src\/debugger\/test\//;
 const TEST_FILE = /^(e2e\/tests\/|debugger\/src\/debugger\/test\/)/;
+// Changes that count as test coverage for a debugger change.
+const TEST_CHANGE = /^(e2e\/tests\/|e2e\/programs\/|e2e\/known-failures\.json$|debugger\/src\/debugger\/test\/)/;
 const SHRINK_CHECKED = /^(client\/src|debugger\/src|e2e)\//;
 
 const basename = (path) => path.slice(path.lastIndexOf('/') + 1);
@@ -86,7 +88,7 @@ export function checkPr({ files, tracked, addedLines, labels }) {
 
   // debugger-needs-test
   const debuggerChanged = paths.find((p) => DEBUGGER_SOURCE.test(p) && !DEBUGGER_TESTS.test(p));
-  const testChanged = paths.some((p) => p.startsWith('e2e/') || DEBUGGER_TESTS.test(p));
+  const testChanged = files.some((f) => f.status !== 'D' && TEST_CHANGE.test(f.path));
   if (debuggerChanged && !testChanged && !labels.has(LABELS.noTestNeeded)) {
     add(
       'debugger-needs-test',

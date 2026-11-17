@@ -5,7 +5,7 @@
 //
 // Compares your branch and uncommitted work with origin/dev and runs only the
 // checks for the areas you touched. CI still runs everything, including the
-// client build, the e2e suite and pytest. This is the quick local pass.
+// client build and the e2e suite. This is the quick local pass.
 
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readdirSync } from 'node:fs';
@@ -18,18 +18,21 @@ const git = (...a) => execFileSync('git', a, { cwd: root, encoding: 'utf8' });
 const onPath = (cmd) => spawnSync('sh', ['-c', `command -v ${cmd}`]).status === 0;
 
 const base = git('merge-base', 'HEAD', 'origin/dev').trim();
+// Deleted files still decide which areas to check (a deletion can break
+// imports elsewhere), but only files that still exist are passed to linters.
 const changed = [
-  ...git('diff', '--name-only', '--diff-filter=d', base).split('\n'),
+  ...git('diff', '--name-only', base).split('\n'),
   ...git('ls-files', '--others', '--exclude-standard').split('\n'),
 ].filter(Boolean);
+const present = (files) => files.filter((p) => existsSync(join(root, p)));
 
 const under = (prefix) => changed.filter((p) => p.startsWith(prefix));
 const client = under('client/');
 const e2e = under('e2e/');
 const debuggerFiles = under('debugger/');
 const scripts = under('scripts/');
-const lintable = (files, prefix) => files.filter((p) => /\.(ts|tsx)$/.test(p)).map((p) => p.slice(prefix.length));
-const prose = changed.filter((p) => p.endsWith('.md') && (p.startsWith('docs/') || p.endsWith('README.md')));
+const lintable = (files, prefix) => present(files).filter((p) => /\.(ts|tsx)$/.test(p)).map((p) => p.slice(prefix.length));
+const prose = present(changed).filter((p) => p.endsWith('.md') && (p.startsWith('docs/') || p.endsWith('README.md')));
 
 const checks = [];
 const add = (name, cmd, args, cwd = root) => checks.push({ name, cmd, args, cwd });
@@ -44,13 +47,13 @@ if (scripts.length) {
 if (client.length) {
   add('client: tsc', bin('client', 'tsc'), [], join(root, 'client'));
   // A config or dependency change can affect every file, so lint them all.
-  const onlySource = client.every((p) => p.startsWith('client/src/'));
+  const onlySource = client.every((p) => p.startsWith('client/src/') && existsSync(join(root, p)));
   const files = onlySource ? lintable(client, 'client/') : ['./src/**/*.{tsx,ts}'];
   if (files.length) add('client: eslint', bin('client', 'eslint'), files, join(root, 'client'));
 }
 if (e2e.length || client.length) add('e2e: tsc', bin('.', 'tsc'), ['-p', 'e2e']);
 if (e2e.length) {
-  const files = e2e.filter((p) => p.endsWith('.ts'));
+  const files = present(e2e).filter((p) => p.endsWith('.ts'));
   if (files.length) add('e2e: eslint', bin('.', 'eslint'), files);
   add('e2e: known failures', process.execPath, [join(root, 'scripts/check-known-failures.mjs')]);
 }
@@ -86,4 +89,4 @@ if (failed.length) {
   console.log(`✗ failed: ${failed.join(', ')}`);
   process.exit(1);
 }
-console.log(`✓ ${checks.length - skipped.filter((s) => s.includes('pnpm install')).length} checks passed. CI also runs the client build, e2e and pytest.`);
+console.log(`✓ ${checks.length - skipped.filter((s) => s.includes('pnpm install')).length} checks passed. CI also runs the client build and the e2e suite.`);

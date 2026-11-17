@@ -29,7 +29,7 @@ pnpm check:changed
 
 It compares your branch with `origin/dev` and runs type checks, lint, the e2e
 lint rules, knip, ruff and mypy for the areas you touched. CI runs these plus
-the client build, the e2e suite and the debugger's pytest.
+the client build and the e2e suite.
 
 CI also checks every PR for a few things a reviewer would otherwise have to
 catch (`scripts/pr-rules.mjs`):
