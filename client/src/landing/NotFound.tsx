@@ -26,63 +26,65 @@ const NotFound = () => {
   const { pathname } = useLocation();
 
   return (
-    <div className={`${landing.page} ${landing.hero}`} data-theme={theme}>
-      <title>Page not found | structs.sh</title>
-      <header className={landing.header}>
-        <Link to="/" className={landing.brand}>
-          <img src={logo} alt="" width={36} height={36} />
-          <span>structs.sh</span>
-        </Link>
-        <ThemeToggle className={landing.themeToggle} />
-      </header>
-      <main className={landing.heroBody}>
-        <div>
-          <h1 className={landing.wordmark}>404</h1>
-          <p className={landing.lede}>
-            There’s no page at <code className={styles.path}>{pathname}</code>. Check the address,
-            or pick a structure to visualise.
-          </p>
-          <div className={landing.actions}>
-            <Link to="/" className={landing.primary}>
-              Go to the home page
-              <ArrowIcon size={18} />
-            </Link>
-            <a href="/#structures" className={landing.secondary}>
-              Pick a structure
-            </a>
-          </div>
-        </div>
-        <div className={hero.wrap} aria-hidden="true">
-          <div className={hero.editor}>
-            <div className={hero.editorBar}>
-              <i />
-              <i />
-              <i />
-              <span className={`${hero.editorTitle} ${styles.call}`}>find(head, path)</span>
-              <span className={hero.editorStatus}>returned NULL</span>
+    <div className={landing.page} data-theme={theme}>
+      <div className={landing.hero}>
+        <title>Page not found | structs.sh</title>
+        <header className={landing.header}>
+          <Link to="/" className={landing.brand}>
+            <img src={logo} alt="" width={36} height={36} />
+            <span>structs.sh</span>
+          </Link>
+          <ThemeToggle className={landing.themeToggle} />
+        </header>
+        <main className={landing.heroBody}>
+          <div>
+            <h1 className={landing.wordmark}>404</h1>
+            <p className={landing.lede}>
+              There’s no page at <code className={styles.path}>{pathname}</code>. Check the address,
+              or pick a structure to visualise.
+            </p>
+            <div className={landing.actions}>
+              <Link to="/" className={landing.primary}>
+                Go to the home page
+                <ArrowIcon size={18} />
+              </Link>
+              <a href="/#structures" className={landing.secondary}>
+                Pick a structure
+              </a>
             </div>
-            <div className={styles.list}>
-              {PAGES.map((page) => (
-                <Fragment key={page}>
-                  <span className={styles.node}>{page}</span>
-                  <span className={styles.arrow} />
-                </Fragment>
-              ))}
-              <span className={styles.end}>
-                NULL
-                <span className={styles.cursor}>p</span>
-              </span>
-            </div>
-            <ol className={hero.listing}>
-              {CODE.map((line, index) => (
-                <li key={line} data-active={index === RETURN_LINE || undefined}>
-                  {line}
-                </li>
-              ))}
-            </ol>
           </div>
-        </div>
-      </main>
+          <div className={hero.wrap} aria-hidden="true">
+            <div className={hero.editor}>
+              <div className={hero.editorBar}>
+                <i />
+                <i />
+                <i />
+                <span className={`${hero.editorTitle} ${styles.call}`}>find(head, path)</span>
+                <span className={hero.editorStatus}>returned NULL</span>
+              </div>
+              <div className={styles.list}>
+                {PAGES.map((page) => (
+                  <Fragment key={page}>
+                    <span className={styles.node}>{page}</span>
+                    <span className={styles.arrow} />
+                  </Fragment>
+                ))}
+                <span className={styles.end}>
+                  NULL
+                  <span className={styles.cursor}>p</span>
+                </span>
+              </div>
+              <ol className={hero.listing}>
+                {CODE.map((line, index) => (
+                  <li key={line} data-active={index === RETURN_LINE || undefined}>
+                    {line}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </div>
+        </main>
+      </div>
     </div>
   );
 };
