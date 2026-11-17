@@ -100,6 +100,45 @@ describe('recordRun', () => {
   );
 
   it(
+    'records a file whose name starts with a dash',
+    async () => {
+      // compileC passes this file to clang as ./-counter.c.
+      const recording = await record('-counter.c', program('counter.c'));
+
+      expect(stepsOf(recording)).toEqual([
+        'main:2',
+        'main:3',
+        'main:4',
+        'main:3',
+        'main:4',
+        'main:3',
+        'main:4',
+        'main:3',
+        'main:6',
+      ]);
+    },
+    CLANG_TIMEOUT
+  );
+
+  it(
+    'keeps no more output than the console would show',
+    async () => {
+      // 30,000 characters, over the 20,000 the console shows.
+      const source =
+        '#include <stdio.h>\nint main(void) {\n    for (int i = 0; i < 3000; i++) printf("0123456789");\n}\n';
+
+      const recording = await record('lots.c', source);
+      const output =
+        recording.outputBeforeFirstStep + recording.steps.map((step) => step.output).join('');
+
+      expect(output.length).toBeLessThan(21_000);
+      expect(output.match(/output was stopped/g)).toHaveLength(1);
+      expect(recording.end).toEqual({ exitCode: 0 });
+    },
+    CLANG_TIMEOUT
+  );
+
+  it(
     'tells recursive calls apart by their depth',
     async () => {
       const source = [

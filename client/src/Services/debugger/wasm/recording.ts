@@ -1,3 +1,4 @@
+import { createOutputLimit } from './outputLimit';
 import { runWasi } from './run';
 
 /**
@@ -51,6 +52,7 @@ export const recordRun = async (
   let outputBeforeFirstStep = '';
   let frames = 0;
   let statementsRun = 0;
+  const limitOutput = createOutputLimit();
 
   const addStep = (call: (typeof calls)[number]) => {
     const last = steps.at(-1);
@@ -68,9 +70,10 @@ export const recordRun = async (
   try {
     const { exitCode } = await runWasi(wasm, {
       onOutput: (text) => {
+        const kept = limitOutput(text);
         const last = steps.at(-1);
-        if (last) last.output += text;
-        else outputBeforeFirstStep += text;
+        if (last) last.output += kept;
+        else outputBeforeFirstStep += kept;
       },
       onTrace: (event) => {
         if (event.type === 'enter') {
