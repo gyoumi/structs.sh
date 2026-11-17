@@ -3,7 +3,8 @@ import { quickCodeSnippet } from '../util/codeSnippets';
 import { getX } from '../util/helpers';
 import GraphicalSortsElement from '../data-structure/GraphicalSortsElement';
 import SortsAnimationProducer from './SortsAnimationProducer';
-import { boxWidth, defaultColour, sortedColour } from '../util/constants';
+import { boxWidth } from '../util/constants';
+import { canvasTheme } from '../../common/canvasTheme';
 
 export default class SortsQuickAnimationProducer extends SortsAnimationProducer {
   public renderQuickCode() {
@@ -71,13 +72,13 @@ export default class SortsQuickAnimationProducer extends SortsAnimationProducer 
   }
 
   public makeSolved(array: GraphicalSortsElement[]) {
-    this.highlightBoxes(array, sortedColour);
+    this.highlightBoxes(array, canvasTheme.accent);
     array.forEach((x) => {
       this.addSequenceAnimation(x.boxTarget.animate(300).attr({ opacity: 1 }));
       this.addSequenceAnimation(x.numberTarget.animate(300).attr({ opacity: 1 }));
     });
     this.finishSequence(false);
 
-    this.highlightBoxes(array, defaultColour);
+    this.highlightBoxes(array, canvasTheme.ink);
   }
 }

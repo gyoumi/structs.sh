@@ -2,13 +2,8 @@ import { mergeCodeSnippet } from '../util/codeSnippets';
 import { getX, getCx, getY } from '../util/helpers';
 import GraphicalSortsElement from '../data-structure/GraphicalSortsElement';
 import SortsAnimationProducer from './SortsAnimationProducer';
-import {
-  textCy,
-  defaultColour,
-  sortedColour,
-  checkingColour,
-  selectedColor,
-} from '../util/constants';
+import { textCy } from '../util/constants';
+import { canvasTheme } from '../../common/canvasTheme';
 
 export default class SortsMergeAnimationProducer extends SortsAnimationProducer {
   public renderMergeCode() {
@@ -16,27 +11,28 @@ export default class SortsMergeAnimationProducer extends SortsAnimationProducer 
   }
 
   public highlightSorting(low: number, high: number, elementList: GraphicalSortsElement[]) {
-    this.highlightBoxes(elementList.slice(low, high + 1), checkingColour);
+    this.highlightBoxes(elementList.slice(low, high + 1), canvasTheme.compare);
   }
 
   public compareElements(first: GraphicalSortsElement, second: GraphicalSortsElement) {
-    this.highlightItem(first, selectedColor);
-    this.highlightItem(second, selectedColor);
+    this.highlightItem(first, canvasTheme.pointer);
+    this.highlightItem(second, canvasTheme.pointer);
   }
 
   public moveDown(element: GraphicalSortsElement, index: number) {
     const xTo = getX(index);
     const cxTo = getCx(index);
-    const yTo = getY(element.data.value) + 120;
-    const cyTo = 350;
+    const drop = 120 * canvasTheme.sortBarScale;
+    const yTo = getY(element.data.value) + drop;
+    const cyTo = textCy + drop;
 
     this.addSequenceAnimation(element.boxTarget.animate().x(xTo).y(yTo));
     this.addSequenceAnimation(element.numberTarget.animate().cx(cxTo).cy(cyTo));
     this.addSequenceAnimation(element.boxTarget.animate().attr({ opacity: 1 }));
 
-    this.addSequenceAnimation(element.boxTarget.animate(1).attr({ stroke: sortedColour }));
-    this.addSequenceAnimation(element.boxTarget.animate(1).attr({ fill: sortedColour }));
-    this.addSequenceAnimation(element.numberTarget.animate(1).attr({ fill: sortedColour }));
+    this.addSequenceAnimation(element.boxTarget.animate(1).attr({ stroke: canvasTheme.accent }));
+    this.addSequenceAnimation(element.boxTarget.animate(1).attr({ fill: canvasTheme.accent }));
+    this.addSequenceAnimation(element.numberTarget.animate(1).attr({ fill: canvasTheme.accent }));
   }
 
   public moveUp(element: GraphicalSortsElement, index: number) {
@@ -44,9 +40,9 @@ export default class SortsMergeAnimationProducer extends SortsAnimationProducer 
     const cxTo = getCx(index);
     const yTo = getY(element.data.value);
 
-    this.addSequenceAnimation(element.boxTarget.animate(1).attr({ stroke: defaultColour }));
-    this.addSequenceAnimation(element.boxTarget.animate(1).attr({ fill: defaultColour }));
-    this.addSequenceAnimation(element.numberTarget.animate(1).attr({ fill: defaultColour }));
+    this.addSequenceAnimation(element.boxTarget.animate(1).attr({ stroke: canvasTheme.ink }));
+    this.addSequenceAnimation(element.boxTarget.animate(1).attr({ fill: canvasTheme.ink }));
+    this.addSequenceAnimation(element.numberTarget.animate(1).attr({ fill: canvasTheme.ink }));
 
     this.addSequenceAnimation(element.boxTarget.animate().x(xTo).y(yTo));
     this.addSequenceAnimation(element.numberTarget.animate().cx(cxTo).cy(textCy));
