@@ -20,6 +20,9 @@ jobs:
       - name: Lint
         working-directory: ./client
         run: pnpm run lint
+      - name: Unit tests
+        working-directory: ./client
+        run: pnpm run test
       - name: Build
         working-directory: ./client
         run: pnpm run build
