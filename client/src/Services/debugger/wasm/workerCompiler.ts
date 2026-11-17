@@ -29,6 +29,9 @@ export const createWorkerCompiler = (createWorker = startCompilerWorker): Compil
         ok: false,
         errors: `The compiler failed to load: ${event.message || 'unknown error'}`,
       });
+      // An error event doesn't always stop a worker, so stop it before
+      // forgetting it.
+      created.terminate();
       worker = null;
     };
     return created;

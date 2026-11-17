@@ -39,6 +39,7 @@ describe('createWorkerCompiler', () => {
       ok: false,
       errors: 'The compiler failed to load: network error',
     });
+    expect(worker.terminate).toHaveBeenCalledOnce();
   });
 
   it('answers with an error when the worker cannot be started', async () => {
