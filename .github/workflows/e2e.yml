@@ -21,7 +21,7 @@ jobs:
             status=0
             docker compose up -d --build debugger > "$RUNNER_TEMP/debugger-up.log" 2>&1 || status=$?
             echo "$status" > "$RUNNER_TEMP/debugger-up.exit"
-          ) &
+          ) > /dev/null 2>&1 &
 
       - uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
         with:
