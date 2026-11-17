@@ -1,0 +1,69 @@
+{
+  "frame_info": {
+    "file": "/tmp/tmprydgfzdt.c",
+    "function": "main",
+    "line_num": 20
+  },
+  "stack_data": {
+    "list": {
+      "addr": "0xffffc389bd28",
+      "typeName": "struct node *",
+      "value": "0xb5480cc1e2e0"
+    },
+    "done": {
+      "addr": "0xffffc389bd24",
+      "typeName": "int",
+      "value": 65535
+    }
+  },
+  "heap_data": {
+    "0xb5480cc1e2a0": {
+      "addr": "0xb5480cc1e2a0",
+      "typeName": "struct node",
+      "value": {
+        "value": {
+          "kind": "int",
+          "value": 3,
+          "addr": null
+        },
+        "next": {
+          "kind": "struct node *",
+          "value": "0x0",
+          "addr": null
+        }
+      }
+    },
+    "0xb5480cc1e2c0": {
+      "addr": "0xb5480cc1e2c0",
+      "typeName": "struct node",
+      "value": {
+        "value": {
+          "kind": "int",
+          "value": 2,
+          "addr": null
+        },
+        "next": {
+          "kind": "struct node *",
+          "value": "0xb5480cc1e2a0",
+          "addr": null
+        }
+      }
+    },
+    "0xb5480cc1e2e0": {
+      "addr": "0xb5480cc1e2e0",
+      "typeName": "struct node",
+      "value": {
+        "value": {
+          "kind": "int",
+          "value": 1,
+          "addr": null
+        },
+        "next": {
+          "kind": "struct node *",
+          "value": "0xb5480cc1e2c0",
+          "addr": null
+        }
+      }
+    }
+  }
+}
