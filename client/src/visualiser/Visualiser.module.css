@@ -437,6 +437,10 @@
   display: none;
 }
 
+.page[data-theme='dark'] .error {
+  color: #ff7a7a;
+}
+
 .utilities {
   position: absolute;
   top: 14px;
@@ -1061,7 +1065,7 @@
   }
 
   .brandText,
-  .iconButton {
+  .shortcuts {
     display: none;
   }
 
@@ -1069,6 +1073,16 @@
   .more {
     padding: 0 10px 0 6px;
     font-size: 14px;
+  }
+
+  .structure {
+    flex-shrink: 1;
+    min-width: 0;
+  }
+
+  .structure span {
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .more span {

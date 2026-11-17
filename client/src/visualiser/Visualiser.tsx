@@ -343,7 +343,7 @@ const Workspace = ({ topic, theme }: WorkspaceProps) => {
         </Link>
         <ShortcutsDialog
           trigger={<KeyboardIcon />}
-          triggerClassName={styles.iconButton}
+          triggerClassName={`${styles.iconButton} ${styles.shortcuts}`}
           backdropClassName={styles.backdrop}
           contentClassName={styles.dialog}
           closeClassName={styles.dialogClose}
@@ -411,7 +411,7 @@ const Visualiser = () => {
     <TopicRoute>
       {(topic) => (
         <VisualiserProvider
-          key={`${topic.slug}-${theme}`}
+          key={topic.slug}
           topic={topic}
           theme={canvasThemes[theme]}
           makeData={phoneFriendlyData}

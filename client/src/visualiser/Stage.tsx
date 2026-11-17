@@ -18,10 +18,57 @@ interface View {
 }
 
 const MIN_SCALE = 0.3;
+const MIN_FIT_SCALE = 0.05;
 const MAX_SCALE = 3;
 const FIT_PADDING = 56;
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+const SHAPES = 'circle, ellipse, line, path, polygon, polyline, rect, text, image';
+
+const isShown = (element: Element, root: Element) => {
+  if (element.closest('defs, marker, clipPath, mask, pattern, symbol')) return false;
+  for (let node: Element | null = element; node && node !== root; node = node.parentElement) {
+    const style = getComputedStyle(node);
+    if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) {
+      return false;
+    }
+  }
+  return true;
+};
+
+/**
+ * The bounds of what is visible in the drawing, in its own units. Deleted nodes are faded out rather
+ * than removed so playback can rewind, and `getBBox()` would still count them.
+ */
+const visibleBounds = (svg: SVGSVGElement) => {
+  const toSvg = svg.getCTM()?.inverse();
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  svg.querySelectorAll<SVGGraphicsElement>(SHAPES).forEach((shape) => {
+    if (!isShown(shape, svg)) return;
+    const box = shape.getBBox();
+    const ctm = shape.getCTM();
+    if (!ctm || !toSvg || (box.width === 0 && box.height === 0)) return;
+    const matrix = toSvg.multiply(ctm);
+    [
+      [box.x, box.y],
+      [box.x + box.width, box.y],
+      [box.x, box.y + box.height],
+      [box.x + box.width, box.y + box.height],
+    ].forEach(([x, y]) => {
+      const point = new DOMPoint(x, y).matrixTransform(matrix);
+      minX = Math.min(minX, point.x);
+      minY = Math.min(minY, point.y);
+      maxX = Math.max(maxX, point.x);
+      maxY = Math.max(maxY, point.y);
+    });
+  });
+  if (minX === Infinity) return null;
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+};
 
 /** Space kept clear of the drawing when fitting, set in CSS as `--fit-inset-top` and `--fit-inset-right` in px. */
 const insetOf = (element: Element, side: 'top' | 'right') =>
@@ -57,7 +104,7 @@ const Stage = ({ label, className, style, children }: StageProps) => {
     userMoved.current = true;
     setSmooth(animate);
     setView((prev) => {
-      const k = clamp(prev.k * factor, MIN_SCALE, MAX_SCALE);
+      const k = clamp(prev.k * factor, Math.min(MIN_SCALE, prev.k), MAX_SCALE);
       const ratio = k / prev.k;
       return { k, x: cx - (cx - prev.x) * ratio, y: cy - (cy - prev.y) * ratio };
     });
@@ -76,9 +123,9 @@ const Stage = ({ label, className, style, children }: StageProps) => {
     const svg = svgRef.current;
     const container = containerRef.current;
     if (!svg || !container) return;
-    const box = svg.getBBox();
+    const box = visibleBounds(svg);
     const { width, height } = container.getBoundingClientRect();
-    if (box.width === 0 || box.height === 0 || width === 0) return;
+    if (!box || box.width === 0 || box.height === 0 || width === 0) return;
     const insetTop = insetOf(container, 'top');
     const insetRight = insetOf(container, 'right');
     setView((prev) => {
@@ -96,7 +143,7 @@ const Stage = ({ label, className, style, children }: StageProps) => {
       const roomY = height - insetTop;
       const k = clamp(
         Math.min((roomX - padding * 2) / box.width, (roomY - padding * 2) / box.height),
-        MIN_SCALE,
+        MIN_FIT_SCALE,
         1.25
       );
       return {
