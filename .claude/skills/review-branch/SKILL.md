@@ -45,7 +45,7 @@ For a wide diff, you may hand separate areas (for example `client/` and `debugge
 | 3 | Redundancy | No duplicated logic, dead code, unused imports, variables, or parameters. |
 | 4 | Structure | Logic sits in the right place: React components in `client/src/components` or the visualiser folders, animation logic in `visualiser-src/*/animation-producer`, page internals for e2e only in `e2e/support/debugger-page.ts`. |
 | 5 | Consistency | Naming, imports, and error handling match the surrounding code and the rest of the branch. Flag two files that solve the same concern in different ways. |
-| 6 | Tests | Behaviour changes in the debugger have a pytest or e2e test. User-visible debugger behaviour changes have an e2e test, or an entry in `e2e/known-failures.json` with a reason. |
+| 6 | Tests | Follows `.claude/rules/testing.md`. Behaviour changes have a Vitest, pytest, or e2e test that fails without them. User-visible debugger behaviour changes have an e2e test, or a known-failures entry with a reason. |
 | 7 | Hardcoded values | No hardcoded colours outside the theme or palette, no magic numbers that belong in a `constants.ts`, no secrets. |
 | 8 | Security | Nothing user-controlled reaches a shell, gdb MI command, or nsjail config without escaping. See the path notes in `.coderabbit.yaml`. |
 | 9 | Docs | READMEs, `docs/`, and `e2e/README.md` still describe the code. Outdated docs are a finding. |
@@ -59,7 +59,7 @@ Only after the static review has no blockers. These match `.github/workflows/pre
 
 | Area changed | Commands |
 |---|---|
-| `client/` | `cd client && pnpm run tsc && pnpm run lint && pnpm run build` |
+| `client/` | `cd client && pnpm run tsc && pnpm run lint && pnpm test && pnpm run build` |
 | `debugger/` | `cd debugger && uv sync --locked --all-extras --dev` and the relevant pytest |
 | `client/` or `debugger/` or `e2e/` | `docker compose up -d debugger`, then `pnpm run e2e:typecheck && pnpm run e2e` from the repo root |
 
