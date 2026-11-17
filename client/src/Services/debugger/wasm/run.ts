@@ -19,9 +19,24 @@ const CLOCK_REALTIME = 0;
 // crypto.getRandomValues fills at most this many bytes per call.
 const MAX_RANDOM_BYTES = 65_536;
 
+/**
+ * What an instrumented program reports as it runs (see instrumenter/src/lib.rs):
+ * entering one of the student's functions (an index into its
+ * `structs.functions` section), starting a statement, and returning.
+ */
+export type TraceEvent =
+  | { type: 'enter'; function: number }
+  | { type: 'line'; line: number }
+  | { type: 'exit' };
+
 export type RunOptions = {
   /** Called with stdout and stderr text as the program writes it. */
   onOutput: (text: string) => void;
+  /**
+   * Called as an instrumented program runs. It may throw to stop the program;
+   * runWasi then rejects with that error.
+   */
+  onTrace?: (event: TraceEvent) => void;
 };
 
 /** Thrown by proc_exit to unwind out of the program. */
@@ -39,7 +54,7 @@ const isStdio = (fd: number) => fd === STDIN || fd === STDOUT || fd === STDERR;
  */
 export const runWasi = async (
   wasm: Uint8Array<ArrayBuffer>,
-  { onOutput }: RunOptions
+  { onOutput, onTrace }: RunOptions
 ): Promise<{ exitCode: number }> => {
   const module = await WebAssembly.compile(wasm);
   let memory: WebAssembly.Memory | undefined;
@@ -137,7 +152,16 @@ export const runWasi = async (
       wasi[field] = () => NOSYS;
     });
 
-  const instance = await WebAssembly.instantiate(module, { wasi_snapshot_preview1: wasi });
+  const structs = {
+    enter: (index: number) => onTrace?.({ type: 'enter', function: index }),
+    line: (line: number) => onTrace?.({ type: 'line', line }),
+    exit: () => onTrace?.({ type: 'exit' }),
+  };
+
+  const instance = await WebAssembly.instantiate(module, {
+    wasi_snapshot_preview1: wasi,
+    structs,
+  });
   memory = instance.exports.memory as WebAssembly.Memory;
 
   try {
