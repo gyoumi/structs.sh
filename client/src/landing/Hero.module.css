@@ -1,0 +1,10 @@
+.wrap {
+  display: grid;
+  place-items: center;
+}
+
+.sort {
+  width: min(100%, 30rem);
+  height: auto;
+  overflow: visible;
+}
