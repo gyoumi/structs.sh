@@ -49,7 +49,8 @@ export class FakeSession {
 
   data = [10, 20, 30];
 
-  attach(topicTitle: string) {
+  attach(topicTitle: string, _theme: unknown, data?: number[]) {
+    if (data) this.data = data;
     this.update({ topicTitle, documentation: linkedListDocs });
   }
 

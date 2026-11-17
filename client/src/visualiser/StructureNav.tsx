@@ -72,7 +72,7 @@ const StructureNav = ({
         return;
       }
       let n = topics.length - 1;
-      while (n > 1 && !fits(n, true)) n -= 1;
+      while (n > 0 && !fits(n, true)) n -= 1;
       setCount(n);
     };
 
