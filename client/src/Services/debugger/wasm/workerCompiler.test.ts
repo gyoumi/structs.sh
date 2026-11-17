@@ -41,6 +41,30 @@ describe('createWorkerCompiler', () => {
     });
   });
 
+  it('answers with an error when the worker cannot be started', async () => {
+    const compiler = createWorkerCompiler(() => {
+      throw new Error('Module workers are not supported');
+    });
+
+    await expect(compiler.compile('main.c', '')).resolves.toEqual({
+      ok: false,
+      errors: expect.stringContaining('Module workers are not supported'),
+    });
+  });
+
+  it('answers with an error when the request cannot be sent to the worker', async () => {
+    const worker = createFakeWorker();
+    worker.postMessage.mockImplementation(() => {
+      throw new Error('could not clone');
+    });
+    const compiler = createWorkerCompiler(() => worker as unknown as Worker);
+
+    await expect(compiler.compile('main.c', '')).resolves.toEqual({
+      ok: false,
+      errors: expect.stringContaining('could not clone'),
+    });
+  });
+
   it('stops the worker and settles waiting compiles when disposed', async () => {
     const worker = createFakeWorker();
     const compiler = createWorkerCompiler(() => worker as unknown as Worker);

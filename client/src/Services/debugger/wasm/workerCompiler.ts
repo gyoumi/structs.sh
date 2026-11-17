@@ -36,12 +36,18 @@ export const createWorkerCompiler = (createWorker = startCompilerWorker): Compil
 
   return {
     compile(fileName, source) {
-      worker ??= startWorker();
       const id = nextId++;
       const request: CompileRequest = { id, fileName, source };
       return new Promise((resolve) => {
         pending.set(id, resolve);
-        worker!.postMessage(request);
+        try {
+          worker ??= startWorker();
+          worker.postMessage(request);
+        } catch (error) {
+          pending.delete(id);
+          const reason = error instanceof Error ? error.message : String(error);
+          resolve({ ok: false, errors: `The compiler failed to start: ${reason}` });
+        }
       });
     },
     dispose() {
