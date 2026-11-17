@@ -47,6 +47,8 @@ export class FakeSession {
 
   getSnapshot = () => this.snapshot;
 
+  data = [10, 20, 30];
+
   attach(topicTitle: string) {
     this.update({ topicTitle, documentation: linkedListDocs });
   }

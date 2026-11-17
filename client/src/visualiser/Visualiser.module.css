@@ -596,44 +596,66 @@
 }
 
 .speed {
-  position: relative;
   display: inline-flex;
-  padding: 3px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 82px;
+  height: 38px;
+  padding: 0 10px 0 12px;
   border: 2px solid var(--line);
   border-radius: 10px;
   background: var(--ground);
+  color: var(--ink);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
 }
 
-.speedIndicator {
-  position: absolute;
-  top: var(--segmented-control-indicator-top);
-  left: var(--segmented-control-indicator-left);
-  width: var(--segmented-control-indicator-width);
-  height: var(--segmented-control-indicator-height);
-  border-radius: 7px;
-  background: var(--indigo);
+.speed[data-open] svg {
+  transform: rotate(180deg);
+}
+
+.speedMenu {
+  min-width: var(--anchor-width);
+  margin: 0;
+  padding: 6px;
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 6px 6px 0 var(--shadow);
+  font-family: 'Fredoka Variable', sans-serif;
+  transform-origin: var(--transform-origin);
   transition:
-    left 200ms cubic-bezier(0.3, 1.3, 0.5, 1),
-    width 200ms ease;
+    opacity 140ms ease,
+    transform 140ms ease;
+}
+
+.speedMenu[data-starting-style],
+.speedMenu[data-ending-style] {
+  opacity: 0;
+  transform: translateY(6px);
 }
 
 .speedItem {
-  position: relative;
-  z-index: 1;
-  display: inline-grid;
-  place-items: center;
-  min-width: 42px;
-  height: 30px;
-  border: 0;
-  background: transparent;
-  font-size: 13px !important;
-  font-weight: 700 !important;
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
   cursor: pointer;
-  transition: color 160ms ease;
 }
 
-.speedItem[data-checked] {
-  color: var(--white) !important;
+.speedItem[data-highlighted] {
+  background: var(--ground);
+}
+
+.speedItem[data-selected] {
+  background: var(--indigo);
+  color: var(--white);
 }
 
 /* Code */
@@ -1027,10 +1049,6 @@
   .speed {
     grid-area: speed;
   }
-
-  .speedItem {
-    min-width: 34px;
-  }
 }
 
 @media (max-width: 560px) {
@@ -1076,10 +1094,6 @@
     width: 34px;
   }
 
-  .speedItem {
-    min-width: 30px;
-  }
-
   /* A stage sized to the structure, so the operations are in reach without scrolling. */
   .stageWrap {
     height: auto;
@@ -1115,8 +1129,7 @@
   .zoomButton,
   .debugger,
   .iconButton,
-  .speedIndicator,
-  .speedItem,
+  .speedMenu,
   .codeLine,
   .moreMenu,
   .narration {
