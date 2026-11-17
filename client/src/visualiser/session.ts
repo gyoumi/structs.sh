@@ -80,6 +80,11 @@ export class VisualiserSession {
 
   getSnapshot = (): VisualiserSnapshot => this.snapshot;
 
+  /** The values in the structure now, including the result of a run still animating. */
+  get data(): number[] {
+    return this.controller.data;
+  }
+
   attach(
     topicTitle: string,
     theme: Partial<CanvasTheme>,

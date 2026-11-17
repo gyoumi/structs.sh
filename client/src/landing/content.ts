@@ -11,6 +11,12 @@ import theTradeDeskLogo from '@/assets/img/sponsors/thetradedesk.png';
 
 export const GITHUB = 'https://github.com/devsoc-unsw/structs.sh';
 
+export const contacts = [
+  { label: 'Email us', href: 'mailto:structs@devsoc.app' },
+  { label: 'DevSoc', href: 'https://devsoc.app/' },
+  { label: 'Facebook', href: 'https://www.facebook.com/devsocUNSW' },
+];
+
 export const DESCRIPTION =
   'An interactive learning platform for computer science, tailored to UNSW CSE students.';
 
