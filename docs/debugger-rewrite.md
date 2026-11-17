@@ -67,7 +67,7 @@ first.
 
 **Done when:** the 3 compiling tests pass on wasm. That's 3/15.
 
-**Status:** reached once #12 merges. See "Checkpoint 1, step by step".
+**Status:** reached (#7, #8, #9, #12). See "Checkpoint 1, step by step".
 
 ### 2. It steps
 
@@ -82,8 +82,7 @@ program exits.
 That's 10/15. Four of these tests are on GDB's known-failures list, so wasm
 does better than GDB from this point.
 
-This is the riskiest checkpoint left, and it will be split into smaller
-steps like checkpoint 1 once the approach is agreed.
+This is the riskiest checkpoint left. See "Checkpoint 2, step by step".
 
 ### 3. It sees everything
 
@@ -182,6 +181,69 @@ stepping, which comes in checkpoint 2.
   the Docker image is built, about 27 MB instead of 105 MB, and caches the
   hashed files under `/assets/` for good. A second visit in a normal browser
   profile makes no requests for clang's files.
+
+## Checkpoint 2, step by step
+
+```
+2a. Instrumenter skeleton ──► 2b. Line trace ──► 2c. Replay
+```
+
+### Decisions
+
+- **A step** is one statement. The instrumenter records an event at the start
+  of each new statement in the line table, and replay skips repeats of the
+  same line in the same call. Stepping enters functions the student wrote.
+  The C library gets no tracking calls, so a call like `printf` is stepped
+  over.
+- **One recording** holds line events, output and how the program ended (its
+  exit code, a crash and where it happened, or a limit). Output sits in the
+  same stream as the lines, so it appears when stepping reaches it.
+- **A step limit** (around 100,000 events) sits alongside the 10-second time
+  limit, so a long loop can't use unlimited memory. Hitting either ends the
+  recording with a message, and everything before it can still be stepped
+  through.
+- **The session ends** when stepping goes past the last event: the console
+  says how the program ended, and stepping forward stops. **Stepping back
+  stays available** after the end, which GDB can't do.
+- **Shared code** that GDB also uses can change, as long as GDB's behaviour
+  stays the same or gets better. For example, the fix for needing two clicks
+  per step also takes that test off GDB's known-failures list.
+- **The instrumenter is Rust**, using `walrus` to rewrite the program and
+  `gimli` to read the debug info. It's built for `wasm32-unknown-unknown` with
+  plain `cargo build`. It needs no `wasm-bindgen`, `web-sys` or `wasm-pack`:
+  one function crosses the boundary (bytes in, bytes out), with `alloc`,
+  `instrument` and `free` exports and a few lines of TypeScript.
+- **The `.wasm` is built in CI and in the Docker image**, not committed.
+  Building the client locally needs Rust (`rustup`). crates.io and the Rust
+  toolchain download fine on networks where some npm downloads don't.
+
+### 2a. Instrumenter skeleton
+
+An `instrumenter/` Rust crate, built to wasm and run in the compiler Worker
+after linking. It passes programs through unchanged. `cargo test` runs in CI,
+and the `.wasm` is built in CI and in the Docker image.
+
+**You'll know it's done when** programs still compile and run through the
+instrumenter (wasm stays at 3/15), the Rust tests run in CI, and the Docker
+image builds.
+
+### 2b. Line trace
+
+The instrumenter reads the line table and inserts a call at the start of each
+new statement in the student's code. The runner records lines, output and the
+end of the program in one stream, up to the step limit.
+
+**You'll know it's done when** unit tests show the recorded lines for each
+e2e program in the order a student would step through them.
+
+### 2c. Replay
+
+Stepping forward and back replays the recording, with the current function's
+name. Output appears at the step that printed it, and the session ends at the
+last event. The shared controls stop needing two clicks per step.
+
+**You'll know it's done when** the stepping tests and the program output test
+pass on wasm (10/15).
 
 ## Follow-ups
 
