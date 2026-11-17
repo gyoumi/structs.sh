@@ -1,7 +1,7 @@
 import { selectionCodeSnippet } from '../util/codeSnippets';
 import GraphicalSortsElement from '../data-structure/GraphicalSortsElement';
 import SortsAnimationProducer from './SortsAnimationProducer';
-import { defaultColour, sortedColour, comparingColor, selectedColor } from '../util/constants';
+import { canvasTheme } from '../../common/canvasTheme';
 
 export default class SortsSelectionAnimationProducer extends SortsAnimationProducer {
   public renderSelectionCode() {
@@ -9,22 +9,28 @@ export default class SortsSelectionAnimationProducer extends SortsAnimationProdu
   }
 
   public check(currItem: GraphicalSortsElement) {
-    this.addSequenceAnimation(currItem.boxTarget.animate(1).attr({ stroke: comparingColor }));
-    this.addSequenceAnimation(currItem.boxTarget.animate(1).attr({ fill: comparingColor }));
-    this.addSequenceAnimation(currItem.numberTarget.animate(1).attr({ fill: comparingColor }));
+    this.addSequenceAnimation(currItem.boxTarget.animate(1).attr({ stroke: canvasTheme.compare }));
+    this.addSequenceAnimation(currItem.boxTarget.animate(1).attr({ fill: canvasTheme.compare }));
+    this.addSequenceAnimation(currItem.numberTarget.animate(1).attr({ fill: canvasTheme.compare }));
     this.addSequenceAnimation(currItem.numberTarget.animate());
     this.finishSequence();
   }
 
   public select(newMinItem: GraphicalSortsElement, previousMinItem: GraphicalSortsElement) {
-    this.addSequenceAnimation(previousMinItem.boxTarget.animate(1).attr({ stroke: defaultColour }));
-    this.addSequenceAnimation(previousMinItem.boxTarget.animate(1).attr({ fill: defaultColour }));
     this.addSequenceAnimation(
-      previousMinItem.numberTarget.animate(1).attr({ fill: defaultColour })
+      previousMinItem.boxTarget.animate(1).attr({ stroke: canvasTheme.ink })
     );
-    this.addSequenceAnimation(newMinItem.boxTarget.animate(1).attr({ stroke: selectedColor }));
-    this.addSequenceAnimation(newMinItem.boxTarget.animate(1).attr({ fill: selectedColor }));
-    this.addSequenceAnimation(newMinItem.numberTarget.animate(1).attr({ fill: selectedColor }));
+    this.addSequenceAnimation(previousMinItem.boxTarget.animate(1).attr({ fill: canvasTheme.ink }));
+    this.addSequenceAnimation(
+      previousMinItem.numberTarget.animate(1).attr({ fill: canvasTheme.ink })
+    );
+    this.addSequenceAnimation(
+      newMinItem.boxTarget.animate(1).attr({ stroke: canvasTheme.pointer })
+    );
+    this.addSequenceAnimation(newMinItem.boxTarget.animate(1).attr({ fill: canvasTheme.pointer }));
+    this.addSequenceAnimation(
+      newMinItem.numberTarget.animate(1).attr({ fill: canvasTheme.pointer })
+    );
     // Empty animation so that there's a pause
     this.addSequenceAnimation(newMinItem.numberTarget.animate());
     this.finishSequence();
@@ -37,9 +43,9 @@ export default class SortsSelectionAnimationProducer extends SortsAnimationProdu
     minIndex: number
   ) {
     if (iIndex !== minIndex) {
-      this.addSequenceAnimation(iItem.boxTarget.animate(1).attr({ stroke: selectedColor }));
-      this.addSequenceAnimation(iItem.boxTarget.animate(1).attr({ fill: selectedColor }));
-      this.addSequenceAnimation(iItem.numberTarget.animate(1).attr({ fill: selectedColor }));
+      this.addSequenceAnimation(iItem.boxTarget.animate(1).attr({ stroke: canvasTheme.pointer }));
+      this.addSequenceAnimation(iItem.boxTarget.animate(1).attr({ fill: canvasTheme.pointer }));
+      this.addSequenceAnimation(iItem.numberTarget.animate(1).attr({ fill: canvasTheme.pointer }));
       // Empty animation so that there's a pause
       this.addSequenceAnimation(iItem.numberTarget.animate());
     }
@@ -51,21 +57,25 @@ export default class SortsSelectionAnimationProducer extends SortsAnimationProdu
     prevIthItem: GraphicalSortsElement,
     ithItemChanged: boolean
   ) {
-    this.addSequenceAnimation(newIthItem.boxTarget.animate(1).attr({ stroke: sortedColour }));
-    this.addSequenceAnimation(newIthItem.boxTarget.animate(1).attr({ fill: sortedColour }));
-    this.addSequenceAnimation(newIthItem.numberTarget.animate(1).attr({ fill: sortedColour }));
+    this.addSequenceAnimation(newIthItem.boxTarget.animate(1).attr({ stroke: canvasTheme.accent }));
+    this.addSequenceAnimation(newIthItem.boxTarget.animate(1).attr({ fill: canvasTheme.accent }));
+    this.addSequenceAnimation(
+      newIthItem.numberTarget.animate(1).attr({ fill: canvasTheme.accent })
+    );
     this.addSequenceAnimation(newIthItem.numberTarget.animate());
     if (ithItemChanged) {
-      this.addSequenceAnimation(prevIthItem.boxTarget.animate(1).attr({ stroke: defaultColour }));
-      this.addSequenceAnimation(prevIthItem.boxTarget.animate(1).attr({ fill: defaultColour }));
-      this.addSequenceAnimation(prevIthItem.numberTarget.animate(1).attr({ fill: defaultColour }));
+      this.addSequenceAnimation(prevIthItem.boxTarget.animate(1).attr({ stroke: canvasTheme.ink }));
+      this.addSequenceAnimation(prevIthItem.boxTarget.animate(1).attr({ fill: canvasTheme.ink }));
+      this.addSequenceAnimation(
+        prevIthItem.numberTarget.animate(1).attr({ fill: canvasTheme.ink })
+      );
     }
   }
 
   public bufferUnhighlight(prevMin: GraphicalSortsElement) {
-    this.addSequenceAnimation(prevMin.boxTarget.animate(1).attr({ stroke: defaultColour }));
-    this.addSequenceAnimation(prevMin.boxTarget.animate(1).attr({ fill: defaultColour }));
-    this.addSequenceAnimation(prevMin.numberTarget.animate(1).attr({ fill: defaultColour }));
+    this.addSequenceAnimation(prevMin.boxTarget.animate(1).attr({ stroke: canvasTheme.ink }));
+    this.addSequenceAnimation(prevMin.boxTarget.animate(1).attr({ fill: canvasTheme.ink }));
+    this.addSequenceAnimation(prevMin.numberTarget.animate(1).attr({ fill: canvasTheme.ink }));
   }
 
   public highlightAll(array: GraphicalSortsElement[], color: string) {

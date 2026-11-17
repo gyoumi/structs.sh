@@ -1,3 +1,4 @@
+import { canvasTheme } from '../../common/canvasTheme';
 import { boxWidth, whitespace, textCy, leftOffset } from './constants';
 
 export function getX(index: number): number {
@@ -8,6 +9,10 @@ export function getCx(index: number): number {
   return leftOffset + index * (boxWidth + whitespace) + boxWidth / 2;
 }
 
+export function barHeight(value: number): number {
+  return Math.sqrt(value * 90) * canvasTheme.sortBarScale;
+}
+
 export function getY(value: number): number {
-  return textCy - 10 - Math.sqrt(value * 90);
+  return textCy - 10 - barHeight(value);
 }

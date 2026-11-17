@@ -12,13 +12,7 @@ import SortsInsertionAnimationProducer from '../animation-producer/SortsInsertio
 import SortsCreateAnimationProducer from '../animation-producer/SortsCreateAnimationProducer';
 import SortsQuickAnimationProducer from '../animation-producer/SortsQuickAnimationProducer';
 import SortsSelectionAnimationProducer from '../animation-producer/SortsSelectionAnimationProducer';
-import {
-  sortedColour,
-  defaultColour,
-  comparingColor,
-  selectedColor,
-  redColour,
-} from '../util/constants';
+import { canvasTheme } from '../../common/canvasTheme';
 
 export default class GraphicalSortList extends GraphicalDataStructure {
   public elementList: GraphicalSortsElement[] = [];
@@ -234,7 +228,7 @@ export default class GraphicalSortList extends GraphicalDataStructure {
       true,
       producer.highlightBoxes,
       [this.elementList[0]],
-      sortedColour
+      canvasTheme.accent
     );
 
     for (let i = 1; i < len; i += 1) {
@@ -245,7 +239,7 @@ export default class GraphicalSortList extends GraphicalDataStructure {
         true,
         producer.highlightBoxes,
         [this.elementList[i]],
-        comparingColor
+        canvasTheme.compare
       );
 
       for (j = i; j > 0; j -= 1) {
@@ -255,7 +249,7 @@ export default class GraphicalSortList extends GraphicalDataStructure {
           true,
           producer.highlightBoxes,
           [this.elementList[j - 1]],
-          comparingColor
+          canvasTheme.compare
         );
         // Do Comparison
         producer.doAnimationAndHighlightTimestamp(
@@ -263,7 +257,7 @@ export default class GraphicalSortList extends GraphicalDataStructure {
           true,
           producer.highlightBoxes,
           [this.elementList[j - 1]],
-          comparingColor
+          canvasTheme.compare
         );
         if (val.data.value >= this.elementList[j - 1].data.value) {
           // No swapping needed so turn j green
@@ -272,7 +266,7 @@ export default class GraphicalSortList extends GraphicalDataStructure {
             true,
             producer.highlightBoxes,
             [this.elementList[j - 1]],
-            sortedColour
+            canvasTheme.accent
           );
           break;
         }
@@ -297,18 +291,18 @@ export default class GraphicalSortList extends GraphicalDataStructure {
         true,
         producer.highlightBoxes,
         [this.elementList[j]],
-        sortedColour
+        canvasTheme.accent
       );
     }
     producer.highlightCode(11);
-    producer.highlightBoxes(this.elementList, defaultColour);
+    producer.highlightBoxes(this.elementList, canvasTheme.ink);
     producer.finishSequence();
     return producer;
   }
 
   public quick() {
-    const ipointer = GraphicalSortsElement.pointer(0, '#36CBCC');
-    const jpointer = GraphicalSortsElement.pointer(0, redColour);
+    const ipointer = GraphicalSortsElement.pointer(0, canvasTheme.pointer);
+    const jpointer = GraphicalSortsElement.pointer(0, canvasTheme.danger);
 
     const producer = new SortsQuickAnimationProducer();
     producer.renderQuickCode();
@@ -338,9 +332,9 @@ export default class GraphicalSortList extends GraphicalDataStructure {
         true,
         producer.highlightPointers,
         ipointer,
-        comparingColor,
+        canvasTheme.compare,
         jpointer,
-        comparingColor
+        canvasTheme.compare
       );
       return;
     }
@@ -352,10 +346,10 @@ export default class GraphicalSortList extends GraphicalDataStructure {
       producer.initialisePointers,
       ipointer,
       lo,
-      '#36CBCC',
+      canvasTheme.pointer,
       jpointer,
       hi,
-      redColour
+      canvasTheme.danger
     );
     const i = this.partition(lo, hi, producer, ipointer, jpointer);
 
@@ -368,22 +362,29 @@ export default class GraphicalSortList extends GraphicalDataStructure {
       producer.initialisePointers,
       ipointer,
       lo,
-      '#36CBCC',
+      canvasTheme.pointer,
       jpointer,
       i - 1,
-      redColour
+      canvasTheme.danger
     );
     this.quicksort(lo, i - 1, producer, ipointer, jpointer);
 
     producer.greyOut(this.elementList, i + 1, hi);
-    producer.initialisePointers(ipointer, i + 1, '#36CBCC', jpointer, hi, redColour);
+    producer.initialisePointers(
+      ipointer,
+      i + 1,
+      canvasTheme.pointer,
+      jpointer,
+      hi,
+      canvasTheme.danger
+    );
     // Make everything left of recursing array solved
     producer.doAnimationAndHighlightTimestamp(
       7,
       true,
       producer.highlightBoxes,
       this.elementList.slice(0, i + 1),
-      sortedColour
+      canvasTheme.accent
     );
     this.quicksort(i + 1, hi, producer, ipointer, jpointer);
   }
@@ -402,7 +403,7 @@ export default class GraphicalSortList extends GraphicalDataStructure {
       true,
       producer.highlightBoxes,
       [this.elementList[lo]],
-      comparingColor
+      canvasTheme.compare
     );
 
     let i = lo + 1;
@@ -413,7 +414,7 @@ export default class GraphicalSortList extends GraphicalDataStructure {
       producer.initialisePointer,
       ipointer,
       i,
-      '#36CBCC'
+      canvasTheme.pointer
     );
     let j = hi;
 
@@ -439,13 +440,13 @@ export default class GraphicalSortList extends GraphicalDataStructure {
         }
 
         // Highlight partition
-        producer.highlightBoxes(this.elementList.slice(lo + 1, end), '#36CBCC');
+        producer.highlightBoxes(this.elementList.slice(lo + 1, end), canvasTheme.pointer);
         producer.doAnimationAndHighlightTimestamp(
           16,
           true,
           producer.highlightBoxes,
           this.elementList.slice(end, hi + 1),
-          redColour
+          canvasTheme.danger
         );
         break;
       }
@@ -482,7 +483,7 @@ export default class GraphicalSortList extends GraphicalDataStructure {
       true,
       producer.highlightBoxes,
       this.elementList.slice(lo, hi + 1),
-      defaultColour
+      canvasTheme.ink
     );
 
     return j;
@@ -500,7 +501,7 @@ export default class GraphicalSortList extends GraphicalDataStructure {
         3,
         producer.highlightItem,
         this.elementList[i],
-        selectedColor
+        canvasTheme.pointer
       );
       let minIndex = i;
 
@@ -542,8 +543,13 @@ export default class GraphicalSortList extends GraphicalDataStructure {
       );
     }
 
-    producer.doAnimationAndHighlight(10, producer.highlightAll, this.elementList, sortedColour);
-    producer.doAnimation(producer.highlightAll, this.elementList, defaultColour);
+    producer.doAnimationAndHighlight(
+      10,
+      producer.highlightAll,
+      this.elementList,
+      canvasTheme.accent
+    );
+    producer.doAnimation(producer.highlightAll, this.elementList, canvasTheme.ink);
 
     return producer;
   }

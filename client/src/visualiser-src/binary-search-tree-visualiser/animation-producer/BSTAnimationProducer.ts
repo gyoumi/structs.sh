@@ -3,19 +3,20 @@ import { lineDiffY, canvasPadding } from '../../common/settings';
 import { getPointerStartEndCoordinates } from '../../common/helpers';
 import AnimationProducer from '../../common/AnimationProducer';
 import GraphicalBSTNode from '../data-structure/GraphicalBSTNode';
+import { canvasTheme } from '../../common/canvasTheme';
 
 export default class BSTAnimationProducer extends AnimationProducer {
   public highlightNode(node: GraphicalBSTNode): void {
     this.addSequenceAnimation(
       node.nodeTarget.animate(500).attr({
-        fill: '#39AF8E',
-        stroke: '#39AF8E',
+        fill: canvasTheme.accent,
+        stroke: canvasTheme.accent,
       })
     );
 
     this.addSequenceAnimation(
       node.textTarget.animate(500).attr({
-        fill: '#ffffff',
+        fill: canvasTheme.onAccent,
       })
     );
   }
@@ -23,13 +24,13 @@ export default class BSTAnimationProducer extends AnimationProducer {
   public halfHighlightNode(node: GraphicalBSTNode): void {
     this.addSequenceAnimation(
       node.nodeTarget.animate(500).attr({
-        stroke: '#39AF8E',
+        stroke: canvasTheme.accent,
       })
     );
 
     this.addSequenceAnimation(
       node.textTarget.animate(500).attr({
-        fill: '#39AF8E',
+        fill: canvasTheme.accent,
       })
     );
   }
@@ -37,13 +38,13 @@ export default class BSTAnimationProducer extends AnimationProducer {
   public halfHighlightNodeRed(node: GraphicalBSTNode): void {
     this.addSequenceAnimation(
       node.nodeTarget.animate(500).attr({
-        stroke: '#AF3939',
+        stroke: canvasTheme.danger,
       })
     );
 
     this.addSequenceAnimation(
       node.textTarget.animate(500).attr({
-        fill: '#AF3939',
+        fill: canvasTheme.danger,
       })
     );
   }
@@ -54,14 +55,14 @@ export default class BSTAnimationProducer extends AnimationProducer {
         // If line should be created and highlighted
         this.addSequenceAnimation(
           lineTarget.animate(500).attr({
-            stroke: '#39AF8E',
+            stroke: canvasTheme.accent,
             opacity: 1,
           })
         );
 
         this.addSequenceAnimation(
           arrowTarget.animate(500).attr({
-            fill: '#39AF8E',
+            fill: canvasTheme.accent,
             opacity: 1,
           })
         );
@@ -69,13 +70,13 @@ export default class BSTAnimationProducer extends AnimationProducer {
         // Line will not be highlighted if it doesn't already exist
         this.addSequenceAnimation(
           lineTarget.animate(500).attr({
-            stroke: '#39AF8E',
+            stroke: canvasTheme.accent,
           })
         );
 
         this.addSequenceAnimation(
           arrowTarget.animate(500).attr({
-            fill: '#39AF8E',
+            fill: canvasTheme.accent,
           })
         );
       }
@@ -159,13 +160,13 @@ export default class BSTAnimationProducer extends AnimationProducer {
     if (lineTarget != null) {
       this.addSequenceAnimation(
         lineTarget.animate(500).attr({
-          stroke: '#000000',
+          stroke: canvasTheme.ink,
         })
       );
 
       this.addSequenceAnimation(
         arrowTarget.animate(500).attr({
-          fill: '#000000',
+          fill: canvasTheme.ink,
         })
       );
     }
@@ -191,14 +192,14 @@ export default class BSTAnimationProducer extends AnimationProducer {
   public unhighlightNode(node: GraphicalBSTNode): void {
     this.addSequenceAnimation(
       node.nodeTarget.animate(500).attr({
-        fill: '#EBE8F4',
-        stroke: '#000000',
+        fill: canvasTheme.nodeFill,
+        stroke: canvasTheme.ink,
       })
     );
 
     this.addSequenceAnimation(
       node.textTarget.animate(500).attr({
-        fill: '#000000',
+        fill: canvasTheme.ink,
       })
     );
   }
