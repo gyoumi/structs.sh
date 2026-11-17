@@ -1,0 +1,20 @@
+packages:
+  - client
+
+overrides:
+  react-is: ^18.3.1
+
+# These packages declare old peer ranges but work with the versions we use.
+peerDependencyRules:
+  allowedVersions:
+    flux>react: '18'
+    react-json-view>react: '18'
+    react-json-view>react-dom: '18'
+    '@pigment-css/vite-plugin>vite': '8'
+
+# These install scripts only rebuild or check native binaries that already
+# ship prebuilt, so they don't need to run.
+allowBuilds:
+  '@parcel/watcher': false
+  fsevents: false
+  unrs-resolver: false

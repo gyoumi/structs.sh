@@ -75,6 +75,7 @@
     "@types/d3": "^7.4.3",
     "@types/lodash": "^4.17.24",
     "@types/node": "^22.0.0",
+    "@types/prop-types": "^15.7.15",
     "@types/react": "^18.0.25",
     "@types/react-dom": "^18.0.9",
     "@types/react-syntax-highlighter": "^15.5.13",
@@ -94,19 +95,6 @@
     "typescript": "^6.0.2",
     "vite": "^8.0.0",
     "vite-plugin-checker": "^0.10.0"
-  },
-  "overrides": {
-    "react-is": "^18.3.1",
-    "react-json-view": {
-      "react": "^18.2.0",
-      "react-dom": "^18.2.0"
-    },
-    "flux": {
-      "react": "^18.2.0"
-    },
-    "@pigment-css/vite-plugin": {
-      "vite": "$vite"
-    }
   },
   "browserslist": {
     "production": [

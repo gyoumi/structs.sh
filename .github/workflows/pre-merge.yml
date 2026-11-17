@@ -9,18 +9,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Install Dependency
-        working-directory: ./client
-        run: npm install
+      - uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
+        with:
+          runtime: node@22
+          cache: true
       - name: TypeScript
         working-directory: ./client
-        run: npm run tsc
+        run: pnpm run tsc
       - name: Lint
         working-directory: ./client
-        run: npm run lint
+        run: pnpm run lint
       - name: Build
         working-directory: ./client
-        run: npm run build
+        run: pnpm run build
 
   sanity-debugger:
     runs-on: ubuntu-latest

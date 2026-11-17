@@ -1,0 +1,9 @@
+# Only the client image builds from the repo root. Send it the workspace
+# manifests and the client source, nothing else.
+*
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!client
+client/node_modules
+client/build

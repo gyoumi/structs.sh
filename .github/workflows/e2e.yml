@@ -11,38 +11,41 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: |
-            client/package-lock.json
-            e2e/package-lock.json
-
       # The debugger is started here rather than by Playwright, because it is
-      # the part being replaced. Update this step when the backend changes.
+      # the part being replaced. Update this step and "Wait for debugger" when
+      # the backend changes. The image builds in the background while the
+      # next steps install the frontend and browser.
       - name: Start debugger
         run: |
-          docker compose up -d --build debugger
-          timeout 120 bash -c 'until curl -sf "http://localhost:8000/dapi/?EIO=4&transport=polling" >/dev/null; do sleep 2; done'
+          (
+            status=0
+            docker compose up -d --build debugger > "$RUNNER_TEMP/debugger-up.log" 2>&1 || status=$?
+            echo "$status" > "$RUNNER_TEMP/debugger-up.exit"
+          ) > /dev/null 2>&1 &
 
-      - name: Install client
-        working-directory: client
-        run: npm ci
+      - uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
+        with:
+          runtime: node@22
+          cache: true
 
-      - name: Install e2e
-        working-directory: e2e
-        run: |
-          npm ci
-          npx playwright install --with-deps chromium
+      # The runner image already has Chrome's system libraries, so only the
+      # headless shell is downloaded.
+      - name: Install browser
+        run: pnpm exec playwright install --only-shell chromium
 
       - name: Type-check e2e
-        working-directory: e2e
-        run: npm run typecheck
+        run: pnpm run e2e:typecheck
+
+      - name: Wait for debugger
+        run: |
+          timeout 300 bash -c 'until [ -f "$RUNNER_TEMP/debugger-up.exit" ]; do sleep 1; done' || true
+          cat "$RUNNER_TEMP/debugger-up.log"
+          [ -f "$RUNNER_TEMP/debugger-up.exit" ] || { echo "Debugger build did not finish in 300s"; exit 1; }
+          [ "$(cat "$RUNNER_TEMP/debugger-up.exit")" = 0 ]
+          timeout 120 bash -c 'until curl -sf "http://localhost:8000/dapi/?EIO=4&transport=polling" >/dev/null; do sleep 2; done'
 
       - name: Run e2e tests
-        working-directory: e2e
-        run: npm test
+        run: pnpm run e2e
 
       - name: Debugger logs
         if: failure()

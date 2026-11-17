@@ -5,12 +5,12 @@
 
 ## Getting started
 
-- Clone the repository and install the development dependencies:
+- Install [pnpm](https://pnpm.io/installation), then clone the repository and install the development dependencies:
 
   ```bash
   git clone {{ extra.repo_clone_url }} structs
   cd structs
-  npm install
+  pnpm install
   ```
 
 - Start the project locally:

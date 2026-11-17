@@ -13,8 +13,8 @@ env UV_NO_DEV=1
 env UV_TOOL_BIN_DIR=/usr/local/bin
 
 
-run apt-get update -y
-run apt-get install -y gdb libprotobuf32 libnl-3-200 libnl-route-3-200 flex bison protobuf-compiler libnl-genl-3-dev libnl-3-dev libnl-route-3-dev git
+run apt-get update -y \
+ && apt-get install -y --no-install-recommends gcc libc6-dev gdb libprotobuf32 libnl-3-200 libnl-route-3-200 flex bison protobuf-compiler libnl-genl-3-dev libnl-3-dev libnl-route-3-dev git
 
 run --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \

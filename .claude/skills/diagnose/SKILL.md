@@ -18,9 +18,9 @@ Where failing commands usually live in this repo:
 
 | Area | Command |
 |---|---|
-| Visual debugger, as a student uses it | A Playwright test in `e2e/tests/` (`cd e2e && npx playwright test tests/<file>.spec.ts -g "<name>"`). Start the backend first with `docker compose up -d debugger`. |
+| Visual debugger, as a student uses it | A Playwright test in `e2e/tests/` (`pnpm run e2e tests/<file>.spec.ts -g "<name>"` from the repo root). Start the backend first with `docker compose up -d debugger`. |
 | Debugger backend (gdb, MI parsing, sockets) | A pytest in `debugger/src/debugger/test/` (`cd debugger && uv run pytest src/debugger/test/<file>.py`). Needs `gdb` and `gcc` on the machine. |
-| Client types, lint, build | `cd client && npm run tsc`, `npm run lint`, `npm run build` |
+| Client types, lint, build | `cd client && pnpm run tsc`, `pnpm run lint`, `pnpm run build` |
 | Visualiser animation or layout | A Playwright script that loads the page and screenshots the state; see the `ui-visual-test` skill |
 
 If you cannot reproduce it yet, stop and ask for the missing context: the steps, the C program, the browser, or the CI run link.

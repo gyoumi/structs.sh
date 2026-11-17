@@ -41,7 +41,7 @@ Read failed job logs with `gh run view <run-id> --log-failed`.
 |---|---|---|
 | Real break | Type errors, lint errors, build failure, test failure, changed action inputs | Minimal fix on the bot branch |
 | Action input mismatch | A bumped action's `action.yml` no longer accepts a `with:` key used in `.github/workflows/` | Update the workflow input |
-| Lockfile drift | `npm ci` fails on `client/` or `e2e/` | Regenerate the lockfile in that folder with the bumped version |
+| Lockfile drift | `pnpm install --frozen-lockfile` fails | Run `pnpm install` at the repo root to update `pnpm-lock.yaml` |
 | Flaky e2e | Passes on rerun, failing test is not related to the bump | Rerun with `gh run rerun <run-id> --failed`; note it |
 
 Actions are pinned to full commit SHAs with a version comment. A bump must keep that format.
@@ -52,9 +52,9 @@ Run the checks for what the bump touches (see `review-branch` for the full list)
 
 | Bump | Check |
 |---|---|
-| Vite or a Vite plugin | `cd client && npm ci && npm run tsc && npm run lint && npm run build`, then load `http://localhost:3000` |
+| Vite or a Vite plugin | `pnpm install && cd client && pnpm run tsc && pnpm run lint && pnpm run build`, then load `http://localhost:3000` |
 | GitHub Action or Dockerfile base image | Read the action's release notes for breaking input changes; `docker compose build debugger` for Dockerfile bumps |
-| Anything the e2e suite depends on | `docker compose up -d debugger && cd e2e && npm test` |
+| Anything the e2e suite depends on | `docker compose up -d debugger && pnpm run e2e` |
 
 For a major version bump, read the upstream changelog and list the breaking changes that apply to this repo.
 
