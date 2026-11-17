@@ -9,6 +9,23 @@ export const topicTitles: Record<TopicSlug, string> = {
   'sorting-algorithms': 'Sorting Algorithms',
 };
 
+/** A value in the drawing, with its circle's computed colours. */
+interface DrawnNode {
+  value: number;
+  x: number;
+  y: number;
+  fill: string;
+  stroke: string;
+}
+
+/** Whether a computed colour such as "rgb(255, 0, 0)" has a red hue. A search marks the nodes it passes in red. */
+const isRed = (colour: string): boolean => {
+  const [r, g, b] = (colour.match(/\d+/g) ?? []).map(Number);
+  if (r <= Math.max(g, b)) return false;
+  const hue = (60 * (g - b)) / (r - Math.min(g, b));
+  return Math.abs(hue) < 20;
+};
+
 /** The label the UI shows for each engine command. */
 const operationLabels: Record<string, string> = {
   append: 'Append',
@@ -266,7 +283,53 @@ export class VisualiserPage {
     return (await this.drawnValues()).sort((a, b) => a.y - b.y)[0]?.value;
   }
 
-  private drawnValues(): Promise<{ value: number; x: number; y: number }[]> {
+  /** Steps the running search to its end, and returns the values it marked as found. */
+  async foundValues(): Promise<number[]> {
+    const steps = await this.stepThrough();
+    const resting = new Map(steps[steps.length - 1].map((node) => [node.value, node.stroke]));
+    const found = steps.flat().filter((node) => node.stroke !== resting.get(node.value) && !isRed(node.stroke));
+    return [...new Set(found.map((node) => node.value))];
+  }
+
+  /** Steps the running traversal to its end, and returns the values in the order it visited them. */
+  async visitOrder(): Promise<number[]> {
+    const steps = await this.stepThrough();
+    const resting = new Map(steps[steps.length - 1].map((node) => [node.value, node.fill]));
+    const order: number[] = [];
+    for (const step of steps) {
+      const visited = step.filter((node) => node.fill !== resting.get(node.value) && !order.includes(node.value));
+      if (visited.length > 1) throw new Error(`Several nodes were visited in one step: ${visited.map((node) => node.value)}`);
+      order.push(...visited.map((node) => node.value));
+    }
+    return order;
+  }
+
+  /** Steps the running operation to its end, and returns the drawing after each step. */
+  private async stepThrough(): Promise<DrawnNode[][]> {
+    const steps: DrawnNode[][] = [];
+    while ((await this.progress()) < 100) {
+      const before = await this.progress();
+      await this.stepForward();
+      await expect.poll(() => this.progress()).not.toBe(before);
+      await this.waitForProgressToSettle();
+      steps.push(await this.drawnValues());
+    }
+    return steps;
+  }
+
+  private async waitForProgressToSettle(): Promise<void> {
+    let previous = -1;
+    await expect
+      .poll(async () => {
+        const now = await this.progress();
+        const still = now === previous;
+        previous = now;
+        return still;
+      }, { intervals: [150] })
+      .toBe(true);
+  }
+
+  private drawnValues(): Promise<DrawnNode[]> {
     return this.page.locator('#visualiser-canvas text').evaluateAll((texts) =>
       texts
         .filter((text) => /^\d+$/.test(text.textContent?.trim() ?? ''))
@@ -280,7 +343,9 @@ export class VisualiserPage {
         })
         .map((text) => {
           const box = text.getBoundingClientRect();
-          return { value: Number(text.textContent), x: box.x + box.width / 2, y: box.y };
+          // The engine draws each node's circle just before its value.
+          const shape = getComputedStyle(text.previousElementSibling ?? text);
+          return { value: Number(text.textContent), x: box.x + box.width / 2, y: box.y, fill: shape.fill, stroke: shape.stroke };
         })
         .filter((node) => node.x !== 0 || node.y !== 0),
     );

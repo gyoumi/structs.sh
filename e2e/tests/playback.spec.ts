@@ -90,10 +90,27 @@ test.describe('playback', () => {
     expect(await visualiser.speeds()).toEqual([0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2]);
   });
 
-  test('a speed can be chosen', async ({ visualiser }) => {
+  test('a speed can be chosen', async ({ visualiser, page }) => {
+    const progressInASecond = async (): Promise<number> => {
+      // The timeline can show the last run's end until the new run's first frame.
+      await expect.poll(() => visualiser.progress()).toBeLessThan(100);
+      const start = await visualiser.progress();
+      await page.waitForTimeout(1_000);
+      return (await visualiser.progress()) - start;
+    };
+
     await visualiser.setSpeed(2);
     expect(await visualiser.speed()).toBe(2);
+    await visualiser.run('append', 40);
+    const fast = await progressInASecond();
+    await visualiser.skipToEnd();
+
     await visualiser.setSpeed(0.25);
     expect(await visualiser.speed()).toBe(0.25);
+    await visualiser.run('append', 50);
+    const slow = await progressInASecond();
+
+    expect(slow).toBeGreaterThan(0);
+    expect(fast).toBeGreaterThan(slow * 3);
   });
 });
