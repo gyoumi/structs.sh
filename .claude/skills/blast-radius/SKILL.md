@@ -27,10 +27,10 @@ Run the narrowest check that fails if you are wrong:
 
 | Change | Narrowest proof |
 |---|---|
-| Visual debugger behaviour | The matching e2e test, `cd e2e && npx playwright test -g "<behaviour>"` with the debugger running |
+| Visual debugger behaviour | The matching e2e test, `pnpm run e2e -g "<behaviour>"` with the debugger running |
 | Debugger backend | The matching pytest in `debugger/src/debugger/test/` |
 | Visualiser animation or layout | A screenshot of the risky case (see `ui-visual-test`) |
-| Types or exports | `cd client && npm run tsc` |
+| Types or exports | `cd client && pnpm run tsc` |
 
 For a wide change, you may also run one `sol-loop` round, step `blast-radius`, on the same question.
 

@@ -21,7 +21,7 @@ This session is the orchestrator. It spawns the planner and griller, runs `sol-l
 ## Plan file
 
 - Path: `.tickets/<T>.md` (gitignored). Create `.tickets/` if needed.
-- Sections: Goal, Requirements, Out of scope, Key decisions, then Phase 1..N. Each phase lists its files, tasks as checkboxes, and a `Verification:` line naming the exact check (an e2e behaviour, a pytest, `npm run tsc`, or screenshots of a route).
+- Sections: Goal, Requirements, Out of scope, Key decisions, then Phase 1..N. Each phase lists its files, tasks as checkboxes, and a `Verification:` line naming the exact check (an e2e behaviour, a pytest, `pnpm run tsc`, or screenshots of a route).
 - UI work puts the first screenshot the user can review early, not in the last phase.
 - The planner applies `unslop` and `orchestrate-defaults` "Simplicity first" to everything it writes. No separate writer pass.
 

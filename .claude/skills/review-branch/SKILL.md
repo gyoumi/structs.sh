@@ -59,9 +59,9 @@ Only after the static review has no blockers. These match `.github/workflows/pre
 
 | Area changed | Commands |
 |---|---|
-| `client/` | `cd client && npm run tsc && npm run lint && npm run build` |
+| `client/` | `cd client && pnpm run tsc && pnpm run lint && pnpm run build` |
 | `debugger/` | `cd debugger && uv sync --locked --all-extras --dev` and the relevant pytest |
-| `client/` or `debugger/` or `e2e/` | `docker compose up -d debugger`, then `cd e2e && npm run typecheck && npm test` |
+| `client/` or `debugger/` or `e2e/` | `docker compose up -d debugger`, then `pnpm run e2e:typecheck && pnpm run e2e` from the repo root |
 
 Run each check once. If you change files afterwards, re-run only the checks for the changed area.
 

@@ -42,7 +42,7 @@ These are not ignored. If they show up, do not stage them. Suggest a `.gitignore
 | `*.tsbuildinfo` | TypeScript incremental cache |
 | `.env` files outside `client/` and `debugger/` | Secrets |
 | Stray `*.png` screenshots in the repo root or `e2e/` | Agent or manual screenshots |
-| A `package-lock.json` outside the root, `client/`, or `e2e/` | Created by `npm install` in the wrong folder |
+| Any `package-lock.json`, `yarn.lock`, or `bun.lock` | Created by another package manager; this repo uses pnpm and `pnpm-lock.yaml` |
 | `.claude/settings.local.json` | Personal Claude Code settings |
 
 ## 4. Stage explicitly
