@@ -2,7 +2,7 @@ import { io, Socket } from 'socket.io-client';
 import { isProgramEnd } from '@/visualiser-debugger/Types/backendType';
 import { ServerToClientEvent } from '../socketClientType';
 import { ClientToServerEvents } from '../socketServerType';
-import { Debugger, DebuggerEvents } from './types';
+import { Debugger, DebuggerEvents, SourceFile } from './types';
 
 export type GdbSocket = Socket<ServerToClientEvent, ClientToServerEvents>;
 
@@ -35,7 +35,7 @@ export class GdbDebugger implements Debugger {
     this.events = events;
   }
 
-  start(code: string) {
+  start({ code }: SourceFile) {
     this.socket.emit('mainDebug', code);
   }
 
