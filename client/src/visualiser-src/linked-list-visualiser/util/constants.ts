@@ -1,5 +1,6 @@
 // SVG Attributes
 import { nodeDiameter, strokeWidth, actualNodeDiameter } from '../../common/constants';
+import { canvasTheme } from '../../common/canvasTheme';
 
 export const pathLength = 50;
 export const nodePathWidth = actualNodeDiameter + pathLength;
@@ -11,15 +12,21 @@ export const PREV = '#prev';
 export const CANVAS = '#visualiser-canvas';
 export const nodeAttributes = {
   class: 'node',
-  stroke: 'black',
+  get stroke() {
+    return canvasTheme.ink;
+  },
   opacity: 0,
 };
 
 export const shapeAttributes = {
   r: nodeDiameter / 2,
   'stroke-width': strokeWidth,
-  stroke: 'black',
-  fill: '#EBE8F4',
+  get stroke() {
+    return canvasTheme.ink;
+  },
+  get fill() {
+    return canvasTheme.nodeFill;
+  },
   opacity: 0,
 };
 
@@ -29,14 +36,21 @@ export const textAttributes = {
   'dominant-baseline': 'middle',
   'text-anchor': 'middle',
   'stroke-width': 0,
-  'font-family': 'CodeText',
+  get 'font-family'() {
+    return canvasTheme.fontFamily;
+  },
   'font-size': '24',
+  get fill() {
+    return canvasTheme.ink;
+  },
   opacity: 0,
 };
 
 export const pathAttributes = {
   'stroke-width': strokeWidth,
-  stroke: 'black',
+  get stroke() {
+    return canvasTheme.ink;
+  },
   'stroke-linecap': 'round',
   'stroke-linejoin': 'round',
   class: 'path',

@@ -5,6 +5,7 @@ import {
   pathD,
   VISUALISER_CANVAS,
 } from '@/visualiser-src/common/constants';
+import { canvasTheme } from './canvasTheme';
 import { lineStyle, nodeStyle, textStyle } from './settings';
 
 interface SVGData {
@@ -110,12 +111,12 @@ export default class GenericGraphicalTreeNode {
       .marker(markerLength, markerLength, (add: Marker) => {
         add.path(pathD);
       })
-      .attr('markerUnits', 'userSpaceOnUse');
+      .attr({ markerUnits: 'userSpaceOnUse', fill: canvasTheme.ink });
     const rightArrowTarget = canvas
       .marker(markerLength, markerLength, (add: Marker) => {
         add.path(pathD);
       })
-      .attr('markerUnits', 'userSpaceOnUse');
+      .attr({ markerUnits: 'userSpaceOnUse', fill: canvasTheme.ink });
     const leftLineTarget = canvas.line().attr(lineStyle);
     leftLineTarget.marker('end', leftArrowTarget);
     const rightLineTarget = canvas.line().attr(lineStyle);
