@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import useSocketClientStore from '@/Services/socketClient';
+import { useDebuggerStore } from '@/Services/debugger/debuggerStore';
 import { useFrontendStateStore } from '@/visualiser-debugger/Store/frontendStateStore';
 import { useGlobalStore } from '@/visualiser-debugger/Store/globalStateStore';
 
@@ -11,7 +11,7 @@ function useCursor(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   isCompiled: boolean
 ) {
-  const socketClient = useSocketClientStore((state) => state.socketClient); // i dont understand whats happening and need to clarify
+  const debuggerClient = useDebuggerStore((state) => state.debuggerClient);
   const appendConsoleChunk = useGlobalStore((state) => state.appendConsoleChunks);
   const setActive = useFrontendStateStore((state) => state.setActive);
 
@@ -64,8 +64,8 @@ function useCursor(
         // TODO: Ensure that it's okay to send the PREFIX to the backend
         // because if we remove the PREFIX, we can't tell which command
         // is input while the program is running and while the program is not running
-        if (!socketClient) return;
-        socketClient.serverAction.sendStdin(content);
+        if (!debuggerClient) return;
+        debuggerClient.sendStdin(content);
         appendConsoleChunk(`${content}\n`);
         clearInput();
         scrollToBottom();
@@ -82,15 +82,15 @@ function useCursor(
       default:
         break;
     }
-    if (!socketClient) return;
+    if (!debuggerClient) return;
 
     if (isCtrlPressed && key === 'd') {
-      socketClient.serverAction.sendEOF();
+      debuggerClient.sendEOF();
       setActive(false);
     }
 
     if (isCtrlPressed && key === 'c') {
-      socketClient.serverAction.sendSIGINT();
+      debuggerClient.interrupt();
       setActive(false);
     }
   }

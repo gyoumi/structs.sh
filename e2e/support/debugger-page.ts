@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import { debuggerKind } from './debugger-kind';
 
 /**
  * Drives the visual debugger page the way a user would.
@@ -67,7 +68,7 @@ export class DebuggerPage {
       localStorage.setItem('fileSystem', JSON.stringify(fs));
     }, fileSystem);
 
-    await this.page.goto('/debugger');
+    await this.page.goto(debuggerKind === 'wasm' ? '/debugger?debugger=wasm' : '/debugger');
     await this.page.getByText('root', { exact: true }).click();
     await this.page.getByText('e2e', { exact: true }).click();
     await this.page.getByText(name, { exact: true }).click();

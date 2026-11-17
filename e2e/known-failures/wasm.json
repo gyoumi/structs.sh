@@ -1,0 +1,17 @@
+{
+  "compiling › a valid program starts a debug session": "The wasm debugger doesn't compile yet (checkpoint 1b).",
+  "compiling › a compile error is shown in the console": "The wasm debugger doesn't compile yet (checkpoint 1b).",
+  "compiling › a compile error does not start a session": "The wasm debugger doesn't compile yet (checkpoint 1b).",
+  "stepping › the first step shows the first line of main": "The wasm debugger can't step yet (checkpoint 2).",
+  "stepping › each click moves to the next line": "The wasm debugger can't step yet (checkpoint 2).",
+  "stepping › a loop body is visited once per iteration": "The wasm debugger can't step yet (checkpoint 2).",
+  "stepping › stepping enters functions defined in the program": "The wasm debugger can't step yet (checkpoint 2).",
+  "stepping › stepping back returns to the previous line": "The wasm debugger can't step yet (checkpoint 2).",
+  "stepping › the session ends when the program finishes": "The wasm debugger can't step yet (checkpoint 2).",
+  "program output › printf output appears in the console": "The wasm debugger can't step yet, and this test steps to a line before checking the output (checkpoint 2).",
+  "types and variables › struct types in the program are listed": "The wasm debugger doesn't read types yet (checkpoint 3).",
+  "types and variables › struct fields are listed with their types": "The wasm debugger doesn't read types yet (checkpoint 3).",
+  "types and variables › local variables of the current function are listed": "The wasm debugger doesn't read variables yet (checkpoint 3).",
+  "linked list visualisation › a node appears once it is linked into the list": "The wasm debugger doesn't read the heap yet (checkpoint 3).",
+  "linked list visualisation › every node of a built list is drawn": "The wasm debugger doesn't read the heap yet (checkpoint 3)."
+}

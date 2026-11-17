@@ -6,7 +6,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Fade } from '@mui/material';
 import { handleCompileClicked } from '@/visualiser-debugger/Store/onboardingStore';
-import { useSocketCommunication } from '@/Services/useSocketCommunication';
+import { useDebugger } from '@/Services/useDebugger';
 import { useFrontendStateStore } from '@/visualiser-debugger/Store/frontendStateStore';
 import { Button } from '@/components/Button';
 import Slider from '@/components/Timeline/Slider';
@@ -21,7 +21,7 @@ const BUFFER_THRESHOLD = 30;
 const Controls = () => {
   const { currFrame } = useGlobalStore();
   const { userAnnotation, parser } = useGlobalStore().visualizer;
-  const { sendCode, bulkSendNextStates, getNextState } = useSocketCommunication();
+  const { sendCode, bulkSendNextStates, getNextState } = useDebugger();
   const { states, currentIndex, stepForward, stepBackward, jumpToState, isActive, setActive } =
     useFrontendStateStore();
 
