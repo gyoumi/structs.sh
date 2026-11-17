@@ -62,6 +62,34 @@ describe('answerCompilerMessage', () => {
     ]);
   });
 
+  it('answers a compile with the load error, without compiling, when the compiler fails to load', async () => {
+    const posted: unknown[] = [];
+    const compile = vi.fn();
+
+    await answerCompilerMessage(
+      { id: 2, fileName: 'main.c', source: '' },
+      (message) => posted.push(message),
+      {
+        load: async () => {
+          throw new Error('Failed to fetch llvm.core.wasm');
+        },
+        compile,
+      }
+    );
+
+    expect(compile).not.toHaveBeenCalled();
+    expect(posted).toEqual([
+      { status: { state: 'failed' } },
+      {
+        id: 2,
+        result: {
+          ok: false,
+          errors: expect.stringContaining('Failed to fetch llvm.core.wasm'),
+        },
+      },
+    ]);
+  });
+
   it('only loads for a load request', async () => {
     const posted: unknown[] = [];
     const compile = vi.fn();

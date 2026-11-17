@@ -9,7 +9,10 @@ export type LoadRequest = { load: true };
 /** Tells the page how the compiler's download is going. */
 export type StatusMessage = { status: CompilerStatus };
 
-/** Loads the compiler, posting its progress and then whether it is ready. */
+/**
+ * Loads the compiler, posting its progress and then whether it is ready.
+ * Resolves with why the load failed, or null once the compiler is ready.
+ */
 export const answerLoadRequest = async (
   post: (message: StatusMessage) => void,
   load: (onProgress: (done: number, total: number) => void) => Promise<void> = loadClang
@@ -23,10 +26,11 @@ export const answerLoadRequest = async (
     });
     settled = true;
     post({ status: { state: 'ready' } });
-  } catch {
+    return null;
+  } catch (error) {
     settled = true;
-    // The reason reaches the student when they compile.
     post({ status: { state: 'failed' } });
+    return error instanceof Error ? error.message : String(error);
   }
 };
 
@@ -62,7 +66,16 @@ export const answerCompilerMessage = async (
     compile?: (fileName: string, source: string) => Promise<CompileResult>;
   } = {}
 ) => {
-  await answerLoadRequest(post, load);
+  const loadError = await answerLoadRequest(post, load);
   if ('load' in data) return;
+  if (loadError) {
+    // Answer now rather than have the compile retry the download without
+    // progress. The next compile tries loading again.
+    post({
+      id: data.id,
+      result: { ok: false, errors: `The compiler failed to load: ${loadError}` },
+    });
+    return;
+  }
   post(await answerCompileRequest(data, compile));
 };
