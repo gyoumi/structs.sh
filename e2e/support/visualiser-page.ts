@@ -214,7 +214,9 @@ export class VisualiserPage {
 
   /** The C code shown for the last operation, one entry per line. */
   async codeLines(): Promise<string[]> {
-    const lines = await this.page.locator('#code-canvas text').allTextContents();
+    const panel = this.page.locator('#code-container');
+    if (!(await panel.isVisible())) return [];
+    const lines = await panel.locator('#code-canvas text').allTextContents();
     return lines.map((line) => line.trim()).filter(Boolean);
   }
 
