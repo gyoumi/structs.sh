@@ -109,6 +109,14 @@ export class VisualiserSession {
     });
   }
 
+  /** Redraws the current values in another theme. Colours are fixed when drawn, so the last run's playback is dropped. */
+  retheme(theme: Partial<CanvasTheme>): void {
+    const { data } = this;
+    setCanvasTheme(theme);
+    this.controller.loadData(data);
+    this.resetTrace();
+  }
+
   run(command: string, args: string[]): string {
     const error = this.controller.doOperation(command, () => {}, ...args);
     if (error) return error;

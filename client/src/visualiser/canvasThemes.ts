@@ -29,7 +29,7 @@ export const canvasThemes: Record<Theme, Partial<CanvasTheme>> = {
     ink: '#ECEEFF',
     nodeFill: '#1B1B42',
     accent: '#5B8DB8',
-    onAccent: '#FFFFFF',
+    onAccent: '#1B1B42',
     danger: '#FF7A7A',
     compare: '#DDBB8A',
     pointer: '#8FC1DE',
