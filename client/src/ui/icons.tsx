@@ -100,6 +100,19 @@ export const ClearIcon = (props: IconProps) => (
   </Icon>
 );
 
+export const LinkIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M10 13.5a4.5 4.5 0 0 0 6.4.4l2.8-2.8a4.5 4.5 0 0 0-6.4-6.4l-1.3 1.3" />
+    <path d="M14 10.5a4.5 4.5 0 0 0-6.4-.4l-2.8 2.8a4.5 4.5 0 0 0 6.4 6.4l1.3-1.3" />
+  </Icon>
+);
+
+export const CheckIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M5 12.5l4.5 4.5L19 7.5" />
+  </Icon>
+);
+
 export const KeyboardIcon = (props: IconProps) => (
   <Icon {...props}>
     <rect x="2.5" y="6" width="19" height="12" rx="2" />

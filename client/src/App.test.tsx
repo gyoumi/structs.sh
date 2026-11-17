@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import { cleanup, fireEvent, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { calls } from '@/test/FakeSession';
-import { renderLanding, renderVisualiser } from '@/test/render';
+import { renderLanding, renderNotFound, renderVisualiser } from '@/test/render';
 
 vi.mock('@/visualiser/session', async () => ({
   VisualiserSession: (await import('@/test/FakeSession')).FakeSession,
@@ -31,6 +31,28 @@ describe('landing page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Dark mode' }));
     expect(page.getAttribute('data-theme')).toBe(before === 'dark' ? 'light' : 'dark');
   });
+
+  test('the footer links to the team', () => {
+    renderLanding();
+    const footer = screen.getByRole('navigation', { name: 'Project' });
+    expect([...footer.querySelectorAll('a')].map((link) => link.getAttribute('href'))).toEqual(
+      expect.arrayContaining([
+        'mailto:structs@devsoc.app',
+        'https://devsoc.app/',
+        'https://www.facebook.com/devsocUNSW',
+      ])
+    );
+  });
+});
+
+describe('not found page', () => {
+  test('names the missing address and links home', async () => {
+    renderNotFound('/no-such-page');
+    expect(screen.getByRole('heading', { level: 1, name: '404' })).toBeTruthy();
+    expect(screen.getByText('/no-such-page')).toBeTruthy();
+    await userEvent.setup().click(screen.getByRole('link', { name: 'Go to the home page' }));
+    expect(screen.getByText('Landing')).toBeTruthy();
+  });
 });
 
 describe('visualiser', () => {
@@ -54,6 +76,35 @@ describe('visualiser', () => {
     await user.click(screen.getByRole('button', { name: 'Run insert at index' }));
     expect(calls).toContainEqual({ method: 'run', args: ['insert', ['42', '3']] });
     expect(await screen.findByText('Insert 42 at index 3')).toBeTruthy();
+  });
+
+  test('offers every speed from 0.25x to 2x', async () => {
+    await renderVisualiser();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('combobox', { name: 'Speed' }));
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
+      '0.25×',
+      '0.5×',
+      '0.75×',
+      '1×',
+      '1.25×',
+      '1.5×',
+      '1.75×',
+      '2×',
+    ]);
+    await user.click(screen.getByRole('option', { name: '0.25×' }));
+    expect(calls).toContainEqual({ method: 'setSpeed', args: [0.25] });
+  });
+
+  test('copies a link that reopens the same data', async () => {
+    await renderVisualiser();
+    const user = userEvent.setup();
+    const writeText = vi.spyOn(navigator.clipboard, 'writeText');
+    await user.click(screen.getByRole('button', { name: 'Copy link' }));
+    expect(writeText).toHaveBeenCalledWith(
+      `${window.location.origin}/visualiser/linked-lists/102030`
+    );
+    expect(await screen.findByText('Link copied')).toBeTruthy();
   });
 
   test('an unknown structure goes back to the landing page', async () => {
