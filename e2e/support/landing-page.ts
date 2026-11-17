@@ -38,6 +38,14 @@ export class LandingPage {
     return (await form.getAttribute('src')) ?? '';
   }
 
+  /** Opens /feedback and returns the address of the feedback form it loads, without contacting Google. */
+  async feedbackAddressTarget(): Promise<string> {
+    await this.page.route(/docs\.google\.com/, (route) => route.fulfill({ contentType: 'text/html', body: '' }));
+    const request = this.page.waitForRequest(/docs\.google\.com\/forms/);
+    await this.page.goto('/feedback');
+    return (await request).url();
+  }
+
   /** The heading and message of the page shown for an unknown address. */
   async notFoundMessage(): Promise<string> {
     const message = this.page.getByText(/Couldn.t find a page/);
