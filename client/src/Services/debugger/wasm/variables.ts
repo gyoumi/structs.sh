@@ -319,6 +319,13 @@ export const readHeap = (
     return kind === 'pointer' || kind === 'struct' || kind === 'array';
   };
 
+  /** Counts work done, to check the time now and then. */
+  let work = 0;
+  const tick = () => {
+    work += 1;
+    if (work % 10_000 === 0) checkTime();
+  };
+
   // Places still to look in, as [type, address], and places already seen. A
   // list rather than recursion, so a long linked list can't overflow the
   // call stack.
@@ -348,6 +355,7 @@ export const readHeap = (
         if (allocation === null || tables.has(table)) return;
         tables.add(table);
         for (let at = target; at + pointee.size <= allocation.start + allocation.size; at += 4) {
+          tick();
           if (memory.getUint32(at, true) >= 1024) visit(type.to, at);
         }
       }
@@ -384,15 +392,15 @@ export const readHeap = (
       .filter(({ type }) => leadsSomewhere(type))
       .forEach(({ type, offset }) => visit(type, frameBase + offset))
   );
-  let looked = 0;
   while (pending.length > 0) {
-    looked += 1;
-    if (looked % 10_000 === 0) checkTime();
+    tick();
     const [type, address] = pending.pop()!;
     try {
       look(type, address);
-    } catch {
-      // An address past the end of memory: nothing to follow.
+    } catch (error) {
+      // An address past the end of memory has nothing to follow. Anything
+      // else, such as checkTime stopping the walk, goes on up.
+      if (!(error instanceof RangeError)) throw error;
     }
   }
   return heap;
