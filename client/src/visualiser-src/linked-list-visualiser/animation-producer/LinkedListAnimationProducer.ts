@@ -4,6 +4,7 @@ import { actualNodeDiameter, strokeWidth, nodeDiameter } from '../../common/cons
 import AnimationProducer from '../../common/AnimationProducer';
 import GraphicalLinkedListNode from '../data-structure/GraphicalLinkedListNode';
 import { getPointerPath } from '../util/util';
+import { canvasTheme } from '../../common/canvasTheme';
 
 // Class that produces SVG.Runners animating general linked list operations
 export default class LinkedListAnimationProducer extends AnimationProducer {
@@ -24,18 +25,18 @@ export default class LinkedListAnimationProducer extends AnimationProducer {
   }
 
   public highlightRightNode(node: GraphicalLinkedListNode) {
-    this.addSequenceAnimation(node.boxTarget.animate().attr({ stroke: '#46B493' }));
-    this.addSequenceAnimation(node.numberTarget.animate().attr({ fill: '#46B493' }));
+    this.addSequenceAnimation(node.boxTarget.animate().attr({ stroke: canvasTheme.accent }));
+    this.addSequenceAnimation(node.numberTarget.animate().attr({ fill: canvasTheme.accent }));
   }
 
   public highlightNotRightNode(node: GraphicalLinkedListNode) {
-    this.addSequenceAnimation(node.boxTarget.animate().attr({ stroke: '#FF0000' }));
-    this.addSequenceAnimation(node.numberTarget.animate().attr({ fill: '#FF0000' }));
+    this.addSequenceAnimation(node.boxTarget.animate().attr({ stroke: canvasTheme.danger }));
+    this.addSequenceAnimation(node.numberTarget.animate().attr({ fill: canvasTheme.danger }));
   }
 
   public removeHighlightNode(node: GraphicalLinkedListNode) {
-    this.addSequenceAnimation(node.boxTarget.animate().attr({ stroke: '#000000' }));
-    this.addSequenceAnimation(node.numberTarget.animate().attr({ fill: '#000000' }));
+    this.addSequenceAnimation(node.boxTarget.animate().attr({ stroke: canvasTheme.ink }));
+    this.addSequenceAnimation(node.numberTarget.animate().attr({ fill: canvasTheme.ink }));
   }
 
   public initialisePointer(pointerId: string) {
@@ -56,8 +57,8 @@ export default class LinkedListAnimationProducer extends AnimationProducer {
   }
 
   public resetColorNode(head: GraphicalLinkedListNode) {
-    this.addSequenceAnimation(head.boxTarget.animate().attr({ stroke: '#000000' }));
-    this.addSequenceAnimation(head.numberTarget.animate().attr({ fill: '#000000' }));
+    this.addSequenceAnimation(head.boxTarget.animate().attr({ stroke: canvasTheme.ink }));
+    this.addSequenceAnimation(head.numberTarget.animate().attr({ fill: canvasTheme.ink }));
   }
 
   public resetPositioning(headPointer: Path, head: GraphicalLinkedListNode) {

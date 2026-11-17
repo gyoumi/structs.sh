@@ -8,9 +8,11 @@ import {
 } from '../util/constants';
 import { getPointerPath } from '../util/util';
 import { actualNodeDiameter, markerLength, pathD, VISUALISER_CANVAS } from '../../common/constants';
+import { canvasTheme } from '../../common/canvasTheme';
 
 function addMarker(this: Path, add: Marker) {
   add.path(pathD);
+  add.fill(canvasTheme.ink);
   this.attr('markerUnits', 'userSpaceOnUse');
 }
 interface SVGData {
@@ -38,7 +40,7 @@ export default class GraphicalLinkedListNode {
       .text('head')
       .attr(textAttributes)
       .opacity(1)
-      .attr({ 'font-size': 16, 'font-family': 'CodeText' })
+      .attr({ 'font-size': 16, 'font-family': canvasTheme.fontFamily })
       .addTo(VISUALISER_CANVAS);
     const headPointer = SVG()
       .path()

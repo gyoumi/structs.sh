@@ -4,6 +4,7 @@ import GraphicalLinkedListNode from '../data-structure/GraphicalLinkedListNode';
 import { Style, getPointerPath } from '../util/util';
 import { deleteCodeSnippet } from '../util/codeSnippets';
 import { topOffset } from '../util/constants';
+import { canvasTheme } from '../../common/canvasTheme';
 
 // Class that produces SVG.Runners animating linked list operations specific to deleting
 export default class LinkedListDeleteAnimationProducer extends LinkedListAnimationProducer {
@@ -61,8 +62,8 @@ export default class LinkedListDeleteAnimationProducer extends LinkedListAnimati
     this.resetList(headPointer, head);
     let curr: GraphicalLinkedListNode | null = head;
     while (curr != null) {
-      this.addSequenceAnimation(curr.boxTarget.animate().attr({ stroke: '#000000' }));
-      this.addSequenceAnimation(curr.numberTarget.animate().attr({ fill: '#000000' }));
+      this.addSequenceAnimation(curr.boxTarget.animate().attr({ stroke: canvasTheme.ink }));
+      this.addSequenceAnimation(curr.numberTarget.animate().attr({ fill: canvasTheme.ink }));
       curr = curr.next;
     }
   }
