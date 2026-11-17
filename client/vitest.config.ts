@@ -1,13 +1,13 @@
 import { defineConfig } from 'vitest/config';
+import react from '@vitejs/plugin-react';
 
-// Kept separate from vite.config.ts so tests don't load the type checker or
-// Pigment plugins.
 export default defineConfig({
-  resolve: {
-    tsconfigPaths: true,
-  },
+  plugins: [react()],
+  resolve: { tsconfigPaths: true },
   test: {
+    environment: 'jsdom',
     include: ['src/**/*.test.{ts,tsx}'],
-    environment: 'node',
+    setupFiles: ['./src/test/setup.ts'],
+    css: false,
   },
 });
