@@ -17,7 +17,7 @@ export const canvasThemes: Record<Theme, Partial<CanvasTheme>> = {
     onAccent: '#FFFFFF',
     danger: '#D64545',
     compare: '#6A4FC4',
-    pointer: '#A8741F',
+    pointer: '#93641B',
     currFill: '#E9C98A',
     currStroke: '#A8741F',
     pointerLabel: '#23225E',

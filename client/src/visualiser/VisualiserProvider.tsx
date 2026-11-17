@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 import { CanvasTheme } from '@/visualiser-src/common/canvasTheme';
 import type { StarterData } from './session';
-import { findTopic, TopicInfo } from './topics';
+import { findTopic, parseSharedData, TopicInfo } from './topics';
 import { SessionContext, useCreateSession, usePlaybackShortcuts } from './useVisualiser';
 
 interface VisualiserProviderProps {
@@ -12,11 +12,6 @@ interface VisualiserProviderProps {
   children: ReactNode;
 }
 
-const parseData = (data: string | undefined): number[] | undefined => {
-  if (!data) return undefined;
-  return (data.match(/.{2}/g) ?? []).map((chunk) => parseInt(chunk, 10)).filter(Number.isFinite);
-};
-
 export const VisualiserProvider = ({
   topic,
   theme,
@@ -24,7 +19,7 @@ export const VisualiserProvider = ({
   children,
 }: VisualiserProviderProps) => {
   const { data } = useParams();
-  const session = useCreateSession(topic, theme, parseData(data), makeData);
+  const session = useCreateSession(topic, theme, parseSharedData(data), makeData);
   usePlaybackShortcuts(session);
   return <SessionContext value={session}>{children}</SessionContext>;
 };
