@@ -6,7 +6,7 @@ type CustomCaretProps = {
   handleInput: (currInput: string) => void;
   clearInput: () => void;
   scrollToBottom: () => void;
-  inputRef: React.RefObject<HTMLInputElement>;
+  inputRef: React.RefObject<HTMLInputElement | null>;
   isCompiled: boolean;
 };
 

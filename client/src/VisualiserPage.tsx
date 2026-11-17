@@ -1,6 +1,5 @@
 import { useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import Helmet from 'react-helmet';
 import { toTitleCase, urlToTitle } from '@/utils/url';
 import '@/visualiser-src/linked-list-visualiser/styles/visualiser.css';
 import { TopNavbar } from '@/components/Navbars';
@@ -43,9 +42,7 @@ const VisualiserPage = () => {
     <Box height="100vh" overflow="hidden">
       <TopNavbar position="sticky" />
       <motion.div variants={containerVariants} initial="hidden" animate="visible" exit="exit">
-        <Helmet>
-          <title>{topicTitleCase}</title>
-        </Helmet>
+        <title>{topicTitleCase}</title>
         <Visualiser topicTitle={topicTitleCase} data={integerArray} />
       </motion.div>
     </Box>
