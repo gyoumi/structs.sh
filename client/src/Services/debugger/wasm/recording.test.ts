@@ -380,6 +380,49 @@ describe('recordRun', () => {
     );
 
     it(
+      'reads negative enums, bit-fields and arrays of a typedef’d struct',
+      async () => {
+        const source = [
+          'typedef struct node Node;', // 1
+          'struct node { int value; Node *next; };', // 2
+          'enum status { FAILED = -1, OK = 1 };', // 3
+          'struct flags { unsigned a : 1; unsigned b : 1; int c : 3; };', // 4
+          'int main(void) {', // 5
+          '    struct node first = {1, 0};', // 6
+          '    Node nodes[2] = {{2, 0}, {3, 0}};', // 7
+          '    enum status status = FAILED;', // 8
+          '    struct flags flags = {1, 1, -2};', // 9
+          '    return 0;', // 10
+          '}', // 11
+        ].join('\n');
+
+        const recording = await record('types.c', source);
+        const { nodes, status, flags } = recording.steps.find((s) => s.line === 10)!.variables;
+
+        expect(nodes.value).toEqual([
+          { value: 2, next: '0x0' },
+          { value: 3, next: '0x0' },
+        ]);
+        expect(status.value).toBe(-1);
+        expect(flags.value).toEqual({ a: 1, b: 1, c: -2 });
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'names a pointer to an array as GDB does',
+      async () => {
+        const source =
+          'int main(void) {\n    int a[3] = {0};\n    int (*p)[3] = &a;\n    return 0;\n}\n';
+
+        const recording = await record('pointer.c', source);
+
+        expect(recording.steps.at(-1)!.variables.p.typeName).toBe('int (*)[3]');
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
       'lists the struct types the variables use, with their fields',
       async () => {
         const recording = await record('variables.c', fixture('variables.c'));

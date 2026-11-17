@@ -14,7 +14,14 @@ export type DebugType =
       kind: 'struct';
       name: string;
       size: number;
-      fields: { name: string; type: number; offset: number }[];
+      /** A bit-field also has its first bit from the struct's start, and its width. */
+      fields: {
+        name: string;
+        type: number;
+        offset: number;
+        bitOffset?: number;
+        bitSize?: number;
+      }[];
     }
   | { kind: 'array'; name: string; size: number; of: number; count: number }
   /** A typedef, or a type with `const` or `volatile`. */
@@ -122,6 +129,34 @@ const readNumber = (memory: DataView, address: number, type: DebugType): number 
   }
 };
 
+/** The index of the type `index` is, seen through typedefs and qualifiers. */
+const resolveIndex = (types: DebugType[], index: number): number => {
+  const type = types[index];
+  if ((type.kind === 'typedef' || type.kind === 'qualified') && type.to !== null) {
+    return resolveIndex(types, type.to);
+  }
+  return index;
+};
+
+/** A bit-field: `bitSize` bits starting `bitOffset` bits into the struct. */
+const readBits = (
+  type: DebugType,
+  memory: DataView,
+  struct: number,
+  { bitOffset, bitSize }: { bitOffset: number; bitSize: number }
+) => {
+  const first = struct + Math.floor(bitOffset / 8);
+  const shift = bitOffset % 8;
+  // The bytes it spans, read little-endian, then its bits taken out.
+  let bits = 0n;
+  for (let i = Math.ceil((shift + bitSize) / 8) - 1; i >= 0; i -= 1) {
+    bits = bits * 256n + BigInt(memory.getUint8(first + i));
+  }
+  const value = BigInt.asUintN(bitSize, bits / 2n ** BigInt(shift));
+  const signed = type.kind === 'int' && type.signed;
+  return Number(signed ? BigInt.asIntN(bitSize, value) : value);
+};
+
 /** Reads a value of type `index` at `address`. */
 export const readValue = (
   types: DebugType[],
@@ -140,7 +175,12 @@ export const readValue = (
       return Object.fromEntries(
         type.fields.map((field) => [
           field.name,
-          readValue(types, field.type, memory, address + field.offset),
+          field.bitSize === undefined || field.bitOffset === undefined
+            ? readValue(types, field.type, memory, address + field.offset)
+            : readBits(types[resolveIndex(types, field.type)], memory, address, {
+                bitOffset: field.bitOffset,
+                bitSize: field.bitSize,
+              }),
         ])
       );
     case 'array': {

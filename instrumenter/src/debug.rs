@@ -93,6 +93,8 @@ pub(crate) struct Field {
     pub name: String,
     pub ty: usize,
     pub offset: u64,
+    /// For a bit-field, its first bit from the struct's start, and its width.
+    pub bits: Option<(u64, u64)>,
 }
 
 /// wasm32 pointers.
@@ -411,11 +413,16 @@ impl<'a> UnitReader<'a, '_> {
                     },
                 }
             }
-            gimli::DW_TAG_enumeration_type => Type::Int {
-                name: tagged("enum"),
-                size,
-                signed: false,
-            },
+            gimli::DW_TAG_enumeration_type => {
+                // Signed when clang gives the enum a signed underlying type,
+                // as it does when a value is negative.
+                let underlying = self.type_attribute(&entry)?.map(|ty| &self.types[ty]);
+                Type::Int {
+                    name: tagged("enum"),
+                    size,
+                    signed: matches!(underlying, Some(Type::Int { signed: true, .. })),
+                }
+            }
             gimli::DW_TAG_pointer_type => {
                 let to = self.type_attribute(&entry)?;
                 Type::Pointer {
@@ -431,6 +438,13 @@ impl<'a> UnitReader<'a, '_> {
                 };
                 let name = tagged(keyword);
                 let index = self.placeholder(offset, name.clone());
+                // Its size is known now, for a typedef of it read while its
+                // fields are (`typedef struct node Node` with `Node *next`).
+                self.types[index] = Type::Struct {
+                    name: name.clone(),
+                    size,
+                    fields: Vec::new(),
+                };
                 let mut fields = Vec::new();
                 let mut tree = unit.entries_tree(Some(offset))?;
                 let root = tree.root()?;
@@ -448,10 +462,18 @@ impl<'a> UnitReader<'a, '_> {
                     };
                     let offset =
                         Self::number(member, gimli::DW_AT_data_member_location)?.unwrap_or(0);
+                    let bits = match (
+                        Self::number(member, gimli::DW_AT_data_bit_offset)?,
+                        Self::number(member, gimli::DW_AT_bit_size)?,
+                    ) {
+                        (Some(first), Some(width)) => Some((first, width)),
+                        _ => None,
+                    };
                     fields.push(Field {
                         name: field,
                         ty,
                         offset,
+                        bits,
                     });
                 }
                 self.types[index] = Type::Struct { name, size, fields };
@@ -552,10 +574,23 @@ impl<'a> UnitReader<'a, '_> {
     /// GDB's name for a pointer: `struct node *`, `char **`, `int (*)(int)`.
     fn pointer_name(&self, to: Option<usize>) -> String {
         let target = self.name_of(to);
-        if let Some(Type::Other { name }) = to.map(|to| &self.types[to])
-            && name.contains(" (")
-        {
-            return name.replacen(" (", " (*)(", 1);
+        // A pointer to a pointer to a function or an array: `int (**)[3]`.
+        if target.contains("(*") {
+            return target.replacen("(*", "(**", 1);
+        }
+        match to.map(|to| &self.types[to]) {
+            // A function: `int (int)` becomes `int (*)(int)`.
+            Some(Type::Other { name }) if name.contains(" (") => {
+                return name.replacen(" (", " (*)(", 1);
+            }
+            // An array: `int [3]` becomes `int (*)[3]`, `char *[3]` `char *(*)[3]`.
+            Some(Type::Array { name, .. }) => {
+                let at = name.find('[').unwrap_or(name.len());
+                let element = name[..at].trim_end();
+                let space = if element.ends_with('*') { "" } else { " " };
+                return format!("{element}{space}(*){}", &name[at..]);
+            }
+            _ => {}
         }
         if target.ends_with('*') {
             format!("{target}*")
@@ -649,8 +684,11 @@ fn type_json(ty: &Type) -> String {
             let fields: Vec<String> = fields
                 .iter()
                 .map(|field| {
+                    let bits = field.bits.map_or_else(String::new, |(first, width)| {
+                        format!(",\"bitOffset\":{first},\"bitSize\":{width}")
+                    });
                     format!(
-                        "{{\"name\":{},\"type\":{},\"offset\":{}}}",
+                        "{{\"name\":{},\"type\":{},\"offset\":{}{bits}}}",
                         json_string(&field.name),
                         field.ty,
                         field.offset
