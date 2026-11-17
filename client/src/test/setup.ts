@@ -44,5 +44,6 @@ window.matchMedia = (query: string) =>
 
 (SVGElement.prototype as unknown as SVGGraphicsElement).getBBox = () =>
   ({ x: 0, y: 0, width: 0, height: 0 }) as DOMRect;
+(SVGElement.prototype as unknown as SVGGraphicsElement).getCTM = () => null;
 
 afterEach(cleanup);

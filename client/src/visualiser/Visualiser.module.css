@@ -419,6 +419,10 @@
   display: none;
 }
 
+.page[data-theme='dark'] .error {
+  color: #ff7a7a;
+}
+
 .utilities {
   position: absolute;
   top: 14px;
@@ -1014,7 +1018,7 @@
   }
 
   .brandText,
-  .iconButton {
+  .shortcuts {
     display: none;
   }
 

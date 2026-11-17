@@ -1,4 +1,11 @@
-import { createContext, useContext, useEffect, useState, useSyncExternalStore } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { useShortcut } from '@ui-sdk/react/shortcuts';
 import { CanvasTheme } from '@/visualiser-src/common/canvasTheme';
 import { StarterData, VisualiserSession, VisualiserSnapshot } from './session';
@@ -25,12 +32,20 @@ export const useCreateSession = (
 ): VisualiserSession => {
   const [session] = useState(() => new VisualiserSession());
   const dataKey = data?.join(',') ?? '';
+  const drawnTheme = useRef(theme);
 
   // The engine draws into #visualiser-canvas, so attach after the stage has mounted.
   useEffect(() => {
+    drawnTheme.current = theme;
     session.attach(topic.title, theme, data, makeData);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, topic.title, dataKey]);
+
+  useEffect(() => {
+    if (drawnTheme.current === theme) return;
+    drawnTheme.current = theme;
+    session.retheme(theme);
+  }, [session, theme]);
 
   useEffect(() => () => session.dispose(), [session]);
 
