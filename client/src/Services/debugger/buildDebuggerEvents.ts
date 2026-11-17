@@ -7,6 +7,8 @@ type Page = {
   setMessage: (msg: { content: string; colorTheme: string; durationMs: number }) => void;
   setActive: (active: boolean) => void;
   updateNextFrame: (state: BackendState) => void;
+  /** Adds a state to the steps the controls move through. */
+  addToTimeline: (state: BackendState) => void;
   updateTypeDeclaration: (type: BackendTypeDeclaration) => void;
   appendConsoleChunks: (chunks: string[]) => void;
   updateCurrFocusedTab: (tab: string) => void;
@@ -18,6 +20,7 @@ export const buildDebuggerEvents = ({
   setMessage,
   setActive,
   updateNextFrame,
+  addToTimeline,
   updateTypeDeclaration,
   appendConsoleChunks,
   updateCurrFocusedTab,
@@ -43,6 +46,7 @@ export const buildDebuggerEvents = ({
 
   state: (state: BackendState) => {
     updateNextFrame(state);
+    addToTimeline(state);
   },
 
   typeDeclaration: (type: BackendTypeDeclaration) => {

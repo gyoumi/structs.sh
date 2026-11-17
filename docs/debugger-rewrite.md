@@ -227,6 +227,8 @@ and the `.wasm` is built in CI and in the Docker image.
 instrumenter (wasm stays at 3/15), the Rust tests run in CI, and the Docker
 image builds.
 
+**Done in #16.**
+
 ### 2b. Line trace
 
 The instrumenter reads the line table and inserts a call at the start of each
@@ -236,6 +238,12 @@ end of the program in one stream, up to the step limit.
 **You'll know it's done when** unit tests show the recorded lines for each
 e2e program in the order a student would step through them.
 
+**Done in #17.** The instrumenter adds `structs.line(n)` before each
+statement, and `structs.enter` and `structs.exit` around each of the
+student's functions. `recordRun` (`client/src/Services/debugger/wasm/recording.ts`)
+turns those calls into steps, each with its function, line, call depth and
+the output it printed.
+
 ### 2c. Replay
 
 Stepping forward and back replays the recording, with the current function's
@@ -244,6 +252,20 @@ last event. The shared controls stop needing two clicks per step.
 
 **You'll know it's done when** the stepping tests and the program output test
 pass on wasm (10/15).
+
+**Done in #18.** Compiling now records the whole run in the runner Worker,
+and each step forward sends the page the next step from the recording. The
+page keeps the steps it has been sent, so stepping back needs nothing from
+the debugger, and it still works after the session ends. When stepping goes
+past the last step, the console says how the program ended: its exit code, a
+crash, or which limit stopped it. The recorder checks the 10-second limit
+itself, so a program stopped for running too long keeps the steps it took.
+
+The two-clicks bug was in the shared controls: the flag that said "show the
+next state when it arrives" was cleared before the state arrived. States now
+join the page's list the moment they arrive, and the button moves to them
+once the step finishes. This fixed GDB too, which now passes 12/16. wasm
+passes 11/16, including a new test for stepping back after the end.
 
 ## Follow-ups
 
@@ -260,6 +282,11 @@ Found while building checkpoint 1, and not needed for it:
   which isn't written for students.
 - **Closing stdout** (`close(1)`) doesn't stop later writes.
 - **Firefox** hasn't been measured or tested.
+- **A program stuck in a C library call** for over 10 seconds (for example a
+  huge `memset`) is caught only by the Worker's backstop, which loses the
+  recording. The recorder only checks the time when a statement starts.
+- **The console isn't rewound** when stepping back, so it shows output from
+  steps after the current one. GDB behaves the same way.
 - **A compile still running** when the session is reset or its file is
   deleted can still start a session. Checkpoint 2 reworks the session
   lifecycle.

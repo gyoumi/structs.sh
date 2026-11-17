@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react';
-import { INITIAL_BACKEND_STATE } from '../visualiser-debugger/Types/backendType';
+import { BackendState, INITIAL_BACKEND_STATE } from '../visualiser-debugger/Types/backendType';
 import { useDebuggerStore } from './debugger/debuggerStore';
 import { buildDebuggerEvents } from './debugger/buildDebuggerEvents';
 import { useCompilerStatusStore } from './debugger/compilerStatusStore';
@@ -11,6 +11,14 @@ import {
   useToastStateStore,
 } from '../visualiser-debugger/Store/toastStateStore';
 import { useQueue } from './useQueue';
+
+/** Parses a state for the visualiser and adds it to the steps the controls move through. */
+const addToTimeline = (state: BackendState) => {
+  const { parser, userAnnotation } = useGlobalStore.getState().visualizer;
+  useFrontendStateStore
+    .getState()
+    .appendFrontendNewState(state, parser.parseState(state, userAnnotation));
+};
 
 /** Lets the page drive whichever debugger the URL picked (see debugger/createDebugger.ts). */
 export const useDebugger = () => {
@@ -39,6 +47,7 @@ export const useDebugger = () => {
     const events = buildDebuggerEvents({
       setActive,
       updateNextFrame,
+      addToTimeline,
       updateTypeDeclaration,
       appendConsoleChunks,
       updateCurrFocusedTab,

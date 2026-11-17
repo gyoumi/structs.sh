@@ -2,8 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DebuggerEvents } from './types';
 import { WasmDebugger } from './wasmDebugger';
 import { CompileResult, Compiler, CompilerStatus } from './wasm/compiler';
-import type { RunResult } from './wasm/workerRunner';
-import type { Runner } from './wasmDebugger';
+import type { Recording, RunEnd } from './wasm/recording';
+import type { RecordResult } from './wasm/workerRunner';
+import type { Recorder } from './wasmDebugger';
 
 const createEvents = (): DebuggerEvents => ({
   sessionStarted: vi.fn(),
@@ -39,23 +40,37 @@ const controlledCompiler = () => {
 
 const COMPILED: CompileResult = { ok: true, wasm: new Uint8Array() };
 
-/** A runner that writes `output`, then finishes with `result`. */
-const runnerReturning =
-  (result: RunResult, output: string[] = []): Runner =>
-  async (_wasm, { onOutput }) => {
-    output.forEach(onOutput);
-    return result;
-  };
+const HELLO_SOURCE = 'int main(void) {\n    puts("hi");\n    return 0;\n}\n';
 
-/** A runner whose runs last until they are cancelled. */
-const endlessRunner = () => {
+/** What recording HELLO_SOURCE gives. */
+const HELLO: Recording = {
+  steps: [
+    { function: 'main', line: 2, depth: 0, output: 'hi\n' },
+    { function: 'main', line: 3, depth: 0, output: '' },
+  ],
+  outputBeforeFirstStep: '',
+  end: { exitCode: 0 },
+};
+
+const recorderReturning =
+  (recording: Recording): Recorder =>
+  async () => ({ recording });
+
+/** A recorder whose recordings finish when the test says, or when cancelled. */
+const controlledRecorder = () => {
   const signals: AbortSignal[] = [];
-  const runner: Runner = (_wasm, { signal }) =>
-    new Promise<RunResult>((resolve) => {
+  const finishers: ((result: RecordResult) => void)[] = [];
+  const recorder: Recorder = (_wasm, { signal }) =>
+    new Promise<RecordResult>((resolve) => {
       signals.push(signal);
+      finishers.push(resolve);
       signal.addEventListener('abort', () => resolve({ stopped: true }));
     });
-  return { runner, signals };
+  return {
+    recorder,
+    signals,
+    finish: (index: number, result: RecordResult) => finishers[index](result),
+  };
 };
 
 const flush = () =>
@@ -132,57 +147,148 @@ describe('WasmDebugger', () => {
     expect(events.sessionStarted).not.toHaveBeenCalled();
   });
 
-  it('runs the program once it compiles and shows its output', async () => {
+  it('replays the recording one statement per step, with the output each statement printed', async () => {
+    const wasm = new WasmDebugger(compilerReturning(COMPILED), recorderReturning(HELLO));
+    wasm.setEvents(events);
+    wasm.start({ name: 'hello.c', code: HELLO_SOURCE });
+    await flush();
+
+    expect(await wasm.step()).toBe(true);
+    expect(events.state).toHaveBeenLastCalledWith({
+      frame_info: { file: 'hello.c', line: '    puts("hi");', line_num: 2, function: 'main' },
+      stack_data: {},
+      heap_data: {},
+    });
+    expect(events.output).not.toHaveBeenCalled();
+
+    // puts has now run, so its output shows with the next line.
+    expect(await wasm.step()).toBe(true);
+    expect(vi.mocked(events.output).mock.calls).toEqual([['hi\n']]);
+    expect(vi.mocked(events.state).mock.lastCall?.[0].frame_info).toMatchObject({ line_num: 3 });
+    expect(events.sessionEnded).not.toHaveBeenCalled();
+  });
+
+  it('ends the session after the last step, saying how the program ended', async () => {
+    const wasm = new WasmDebugger(compilerReturning(COMPILED), recorderReturning(HELLO));
+    wasm.setEvents(events);
+    wasm.start({ name: 'hello.c', code: HELLO_SOURCE });
+    await flush();
+
+    await wasm.step();
+    await wasm.step();
+    expect(await wasm.step()).toBe(false);
+
+    expect(events.state).toHaveBeenCalledTimes(2);
+    expect(events.output).toHaveBeenLastCalledWith(expect.stringContaining('exit code 0'));
+    expect(events.sessionEnded).toHaveBeenCalledOnce();
+
+    expect(await wasm.step()).toBe(false);
+    expect(events.sessionEnded).toHaveBeenCalledOnce();
+  });
+
+  it('shows output printed before the first statement with the first step', async () => {
     const wasm = new WasmDebugger(
       compilerReturning(COMPILED),
-      runnerReturning({ exitCode: 0 }, ['hello ', 'from structs\n'])
+      recorderReturning({ ...HELLO, outputBeforeFirstStep: 'early\n' })
     );
     wasm.setEvents(events);
-
-    wasm.start({ name: 'hello.c', code: '' });
+    wasm.start({ name: 'hello.c', code: HELLO_SOURCE });
     await flush();
 
-    expect(events.sessionStarted).toHaveBeenCalledOnce();
-    expect(vi.mocked(events.output).mock.calls).toEqual([['hello '], ['from structs\n']]);
+    await wasm.step();
+
+    expect(vi.mocked(events.output).mock.calls).toEqual([['early\n']]);
   });
 
-  it('says when a program is stopped for running too long', async () => {
-    const wasm = new WasmDebugger(compilerReturning(COMPILED), runnerReturning({ timedOut: true }));
+  it.each([
+    [{ crashed: 'unreachable' }, /crashed.*unreachable/],
+    [{ stepLimit: 100_000 }, /stopped after .*100,000/],
+    [{ timeLimit: 10_000 }, /stopped .*too long/],
+  ] satisfies [RunEnd, RegExp][])(
+    'says how a program that ended with %o ended',
+    async (end, message) => {
+      const wasm = new WasmDebugger(
+        compilerReturning(COMPILED),
+        recorderReturning({ ...HELLO, end })
+      );
+      wasm.setEvents(events);
+      wasm.start({ name: 'hello.c', code: HELLO_SOURCE });
+      await flush();
+
+      await wasm.step();
+      await wasm.step();
+      await wasm.step();
+
+      expect(events.output).toHaveBeenLastCalledWith(expect.stringMatching(message));
+      expect(events.sessionEnded).toHaveBeenCalledOnce();
+    }
+  );
+
+  it.each([
+    [{ timedOut: true }, /stopped .*too long/],
+    [{ error: 'invalid module' }, /invalid module/],
+  ] satisfies [RecordResult, RegExp][])(
+    'ends the session straight away when there is no recording (%o)',
+    async (result, message) => {
+      const wasm = new WasmDebugger(compilerReturning(COMPILED), async () => result);
+      wasm.setEvents(events);
+
+      wasm.start({ name: 'loop.c', code: '' });
+      await flush();
+
+      expect(events.output).toHaveBeenCalledWith(expect.stringMatching(message));
+      expect(events.sessionEnded).toHaveBeenCalledOnce();
+      expect(await wasm.step()).toBe(false);
+    }
+  );
+
+  it('waits for the recording to finish before the first step', async () => {
+    const { recorder, finish } = controlledRecorder();
+    const wasm = new WasmDebugger(compilerReturning(COMPILED), recorder);
+    wasm.setEvents(events);
+    wasm.start({ name: 'hello.c', code: HELLO_SOURCE });
+    await flush();
+
+    const step = wasm.step();
+    await flush();
+    expect(events.state).not.toHaveBeenCalled();
+
+    finish(0, { recording: HELLO });
+    expect(await step).toBe(true);
+    expect(events.state).toHaveBeenCalledOnce();
+  });
+
+  it('steps through the newest program after compiling again', async () => {
+    const recordings = [HELLO, { ...HELLO, steps: [{ ...HELLO.steps[1], line: 1 }] }];
+    const wasm = new WasmDebugger(compilerReturning(COMPILED), async () => ({
+      recording: recordings.shift()!,
+    }));
     wasm.setEvents(events);
 
-    wasm.start({ name: 'loop.c', code: '' });
+    wasm.start({ name: 'hello.c', code: HELLO_SOURCE });
     await flush();
+    await wasm.step();
+    wasm.start({ name: 'hello.c', code: HELLO_SOURCE });
+    await flush();
+    await wasm.step();
 
-    expect(events.output).toHaveBeenCalledWith(expect.stringMatching(/stopped .*too long/i));
+    expect(vi.mocked(events.state).mock.lastCall?.[0].frame_info.line_num).toBe(1);
   });
 
-  it('says when a program crashes', async () => {
-    const wasm = new WasmDebugger(
-      compilerReturning(COMPILED),
-      runnerReturning({ error: 'unreachable' })
-    );
-    wasm.setEvents(events);
-
-    wasm.start({ name: 'crash.c', code: '' });
-    await flush();
-
-    expect(events.output).toHaveBeenCalledWith(expect.stringContaining('unreachable'));
-  });
-
-  it('does not run a program that fails to compile', async () => {
-    const runner = vi.fn(runnerReturning({ exitCode: 0 }));
-    const wasm = new WasmDebugger(compilerReturning({ ok: false, errors: 'oops' }), runner);
+  it('does not record a program that fails to compile', async () => {
+    const recorder = vi.fn(recorderReturning(HELLO));
+    const wasm = new WasmDebugger(compilerReturning({ ok: false, errors: 'oops' }), recorder);
     wasm.setEvents(events);
 
     wasm.start({ name: 'main.c', code: '' });
     await flush();
 
-    expect(runner).not.toHaveBeenCalled();
+    expect(recorder).not.toHaveBeenCalled();
   });
 
-  it('stops the running program when compiling again, interrupting, or closing', async () => {
-    const { runner, signals } = endlessRunner();
-    const wasm = new WasmDebugger(compilerReturning(COMPILED), runner);
+  it('stops the recording when compiling again, interrupting, or closing', async () => {
+    const { recorder, signals } = controlledRecorder();
+    const wasm = new WasmDebugger(compilerReturning(COMPILED), recorder);
     wasm.setEvents(events);
 
     wasm.start({ name: 'loop.c', code: '' });
@@ -200,10 +306,24 @@ describe('WasmDebugger', () => {
     expect(signals[2].aborted).toBe(true);
   });
 
-  it('does not run a program whose compile was interrupted', async () => {
+  it('ends the session when the program is interrupted while it is being recorded', async () => {
+    const { recorder } = controlledRecorder();
+    const wasm = new WasmDebugger(compilerReturning(COMPILED), recorder);
+    wasm.setEvents(events);
+    wasm.start({ name: 'loop.c', code: '' });
+    await flush();
+
+    wasm.interrupt();
+    await flush();
+
+    expect(events.output).toHaveBeenCalledWith(expect.stringMatching(/stopped/));
+    expect(events.sessionEnded).toHaveBeenCalledOnce();
+  });
+
+  it('does not record a program whose compile was interrupted', async () => {
     const { compiler, finish } = controlledCompiler();
-    const runner = vi.fn(runnerReturning({ exitCode: 0 }));
-    const wasm = new WasmDebugger(compiler, runner);
+    const recorder = vi.fn(recorderReturning(HELLO));
+    const wasm = new WasmDebugger(compiler, recorder);
     wasm.setEvents(events);
 
     wasm.start({ name: 'main.c', code: '' });
@@ -211,7 +331,7 @@ describe('WasmDebugger', () => {
     finish(0, COMPILED);
     await flush();
 
-    expect(runner).not.toHaveBeenCalled();
+    expect(recorder).not.toHaveBeenCalled();
     expect(events.sessionStarted).not.toHaveBeenCalled();
   });
 
@@ -232,11 +352,5 @@ describe('WasmDebugger', () => {
       [{ state: 'loading', done: 1, total: 4 }],
       [{ state: 'ready' }],
     ]);
-  });
-
-  it('cannot step yet', async () => {
-    const wasm = new WasmDebugger(compilerReturning({ ok: true, wasm: new Uint8Array() }));
-
-    await expect(wasm.step()).resolves.toBe(false);
   });
 });

@@ -1,15 +1,19 @@
+import type { Recording } from './recording';
 import type { RunnerMessage, RunRequest } from './runRequest';
 
-export type RunResult =
-  | { exitCode: number }
+export type RecordResult =
+  | { recording: Recording }
   | { timedOut: true }
   | { stopped: true }
   | { error: string };
 
-export type RunInWorkerOptions = {
-  /** Called with stdout and stderr text as the program writes it. */
-  onOutput: (text: string) => void;
-  /** How long the program may run before it is stopped. */
+export type RecordInWorkerOptions = {
+  /**
+   * How long the worker may take before it is stopped. The recorder stops a
+   * program at its own time limit and keeps its steps, so this only catches a
+   * program stuck where the recorder can't see it, such as in a long C library
+   * call.
+   */
   timeLimitMs: number;
   /** Stops the program early, for example when the student compiles again. */
   signal?: AbortSignal;
@@ -23,50 +27,31 @@ export interface RunnerWorker {
   terminate(): void;
 }
 
-/**
- * How long output collects before it goes to the console in one update. A
- * printing loop sends thousands of small writes, and the console redraws on
- * each update.
- */
-const OUTPUT_BATCH_MS = 50;
-
 const startRunnerWorker = (): RunnerWorker =>
   new Worker(new URL('./runner.worker.ts', import.meta.url), { type: 'module' });
 
 /**
- * Runs a compiled program in its own Web Worker, so a program that never ends
- * can't freeze the page: past the time limit the worker is stopped. Always
- * resolves, with the exit code, a time-out, or why the run failed.
+ * Records an instrumented program in its own Web Worker, so a program that
+ * never ends can't freeze the page: past the time limit the worker is
+ * stopped. Always resolves, with the recording, a time-out, or why the
+ * recording failed.
  */
-export const runInWorker = (
+export const recordInWorker = (
   wasm: Uint8Array<ArrayBuffer>,
-  { onOutput, timeLimitMs, signal }: RunInWorkerOptions,
+  { timeLimitMs, signal }: RecordInWorkerOptions,
   createWorker: () => RunnerWorker = startRunnerWorker
-): Promise<RunResult> =>
+): Promise<RecordResult> =>
   new Promise((resolve) => {
     let worker: RunnerWorker | undefined;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let ended = false;
-    let batch = '';
-    let batchTimer: ReturnType<typeof setTimeout> | undefined;
-
-    const flushOutput = () => {
-      clearTimeout(batchTimer);
-      batchTimer = undefined;
-      if (!batch) return;
-      const text = batch;
-      batch = '';
-      onOutput(text);
-    };
 
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
     const stop = () => end({ stopped: true });
-    const end = (result: RunResult) => {
+    const end = (result: RecordResult) => {
       if (ended) return;
       ended = true;
       clearTimeout(timer);
-      if ('stopped' in result) clearTimeout(batchTimer);
-      else flushOutput();
       signal?.removeEventListener('abort', stop);
       worker?.terminate();
       resolve(result);
@@ -82,11 +67,7 @@ export const runInWorker = (
     try {
       worker = createWorker();
       worker.onmessage = ({ data }) => {
-        if (ended) return;
-        if (data.type === 'output') {
-          batch += data.text;
-          batchTimer ??= setTimeout(flushOutput, OUTPUT_BATCH_MS);
-        } else if (data.type === 'finished') end({ exitCode: data.exitCode });
+        if (data.type === 'recorded') end({ recording: data.recording });
         else end({ error: data.message });
       };
       worker.onerror = (event) => {
