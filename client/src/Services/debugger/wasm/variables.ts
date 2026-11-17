@@ -279,3 +279,80 @@ export const structDeclarations = (debug: DebugSection): TypeDeclaration[] => {
   );
   return declarations;
 };
+
+/** A struct field in a heap entry, as the GDB debugger sends it. */
+export type HeapField = { kind: string; value: Value; addr: null };
+
+/** A struct on the heap, as the GDB debugger sends it in `heap_data`. */
+export type HeapEntry = { addr: string; typeName: string; value: Record<string, HeapField> };
+
+/** One call's place in the program, from which its variables can be read. */
+export type Frame = { statement: number; frameBase: number };
+
+/**
+ * The structs on the heap that the variables of every frame reach by
+ * following pointers, through struct fields and arrays too, as GDB shows the
+ * heap. A pointer is only followed into memory `isAllocated` says is live, so
+ * freed memory and the stack aren't shown.
+ */
+export const readHeap = (
+  debug: DebugSection,
+  frames: Frame[],
+  memory: DataView,
+  isAllocated: (address: number, size: number) => boolean
+): Record<string, HeapEntry> => {
+  const { types } = debug;
+  const heap: Record<string, HeapEntry> = Object.create(null);
+
+  // Places still to look in, as [type, address]. A list rather than
+  // recursion, so a long linked list can't overflow the call stack.
+  const pending: [number, number][] = [];
+  const follow = (index: number, address: number) => {
+    const type = types[resolveIndex(types, index)];
+    if (type.kind === 'pointer' && type.to !== null) {
+      const target = memory.getUint32(address, true);
+      const structIndex = resolveIndex(types, type.to);
+      const struct = types[structIndex];
+      const key = hex(target);
+      if (struct.kind !== 'struct' || key in heap || !isAllocated(target, struct.size)) return;
+      heap[key] = {
+        addr: key,
+        // An anonymous struct goes by the typedef it was reached through.
+        typeName: struct.name.includes('{') ? types[type.to].name : struct.name,
+        value: Object.fromEntries(
+          struct.fields.map((field) => [
+            field.name,
+            {
+              kind: types[field.type].name,
+              value: readValue(types, field.type, memory, target + field.offset),
+              addr: null,
+            },
+          ])
+        ),
+      };
+      pending.push([structIndex, target]);
+    } else if (type.kind === 'struct') {
+      type.fields.forEach((field) => pending.push([field.type, address + field.offset]));
+    } else if (type.kind === 'array') {
+      const { size } = types[type.of];
+      for (let i = 0; i < Math.min(type.count, ARRAY_LIMIT); i += 1) {
+        pending.push([type.of, address + i * size]);
+      }
+    }
+  };
+
+  frames.forEach(({ statement, frameBase }) =>
+    (debug.statements[statement]?.variables ?? []).forEach(({ type, offset }) =>
+      pending.push([type, frameBase + offset])
+    )
+  );
+  while (pending.length > 0) {
+    const [type, address] = pending.pop()!;
+    try {
+      follow(type, address);
+    } catch {
+      // An address past the end of memory: nothing to follow.
+    }
+  }
+  return heap;
+};

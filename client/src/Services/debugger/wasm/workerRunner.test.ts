@@ -33,7 +33,7 @@ class FakeWorker implements RunnerWorker {
 const WASM = new Uint8Array([0, 97, 115, 109]);
 const TIME_LIMIT = 5_000;
 const RECORDING: Recording = {
-  steps: [{ function: 'main', line: 2, depth: 0, output: 'hi\n', variables: {} }],
+  steps: [{ function: 'main', line: 2, depth: 0, output: 'hi\n', variables: {}, heap: {} }],
   outputBeforeFirstStep: '',
   end: { exitCode: 3 },
   types: [],
