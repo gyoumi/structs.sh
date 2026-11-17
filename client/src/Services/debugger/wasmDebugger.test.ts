@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DebuggerEvents } from './types';
 import { WasmDebugger } from './wasmDebugger';
-import { CompileResult, Compiler } from './wasm/compiler';
+import { CompileResult, Compiler, CompilerStatus } from './wasm/compiler';
 import type { RunResult } from './wasm/workerRunner';
 import type { Runner } from './wasmDebugger';
 
@@ -12,10 +12,12 @@ const createEvents = (): DebuggerEvents => ({
   state: vi.fn(),
   typeDeclaration: vi.fn(),
   sessionEnded: vi.fn(),
+  compilerStatus: vi.fn(),
 });
 
 const compilerReturning = (result: CompileResult): Compiler => ({
   compile: vi.fn(async () => result),
+  preload: vi.fn(),
   dispose: vi.fn(),
 });
 
@@ -29,6 +31,7 @@ const controlledCompiler = () => {
           finishers.push(resolve);
         })
     ),
+    preload: vi.fn(),
     dispose: vi.fn(),
   };
   return { compiler, finish: (index: number, result: CompileResult) => finishers[index](result) };
@@ -210,6 +213,25 @@ describe('WasmDebugger', () => {
 
     expect(runner).not.toHaveBeenCalled();
     expect(events.sessionStarted).not.toHaveBeenCalled();
+  });
+
+  it('starts loading the compiler straight away and reports its status, even to events set later', () => {
+    let report: (status: CompilerStatus) => void = () => {};
+    const compiler = compilerReturning(COMPILED);
+    vi.mocked(compiler.preload).mockImplementation((onStatus) => {
+      report = onStatus;
+    });
+
+    const wasm = new WasmDebugger(compiler);
+    expect(compiler.preload).toHaveBeenCalledOnce();
+    report({ state: 'loading', done: 1, total: 4 });
+    wasm.setEvents(events);
+    report({ state: 'ready' });
+
+    expect(vi.mocked(events.compilerStatus).mock.calls).toEqual([
+      [{ state: 'loading', done: 1, total: 4 }],
+      [{ state: 'ready' }],
+    ]);
   });
 
   it('cannot step yet', async () => {

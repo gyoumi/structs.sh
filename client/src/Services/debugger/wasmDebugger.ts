@@ -1,5 +1,5 @@
 import { Debugger, DebuggerEvents, SourceFile } from './types';
-import { Compiler } from './wasm/compiler';
+import { Compiler, CompilerStatus } from './wasm/compiler';
 import { createWorkerCompiler } from './wasm/workerCompiler';
 import { RunResult, runInWorker } from './wasm/workerRunner';
 
@@ -39,13 +39,23 @@ export class WasmDebugger implements Debugger {
   /** Stops the program that is running, if any. */
   private currentRun: AbortController | null = null;
 
+  /** The latest news about the compiler's download, for events set later. */
+  private compilerStatus: CompilerStatus | null = null;
+
   constructor(
     private readonly compiler: Compiler = createWorkerCompiler(),
     private readonly runner: Runner = runWithTimeLimit
-  ) {}
+  ) {
+    // Start the download when the page opens, not when Compile is clicked.
+    compiler.preload((status) => {
+      this.compilerStatus = status;
+      this.events?.compilerStatus(status);
+    });
+  }
 
   setEvents(events: DebuggerEvents) {
     this.events = events;
+    if (this.compilerStatus) events.compilerStatus(this.compilerStatus);
   }
 
   start({ name, code }: SourceFile) {
