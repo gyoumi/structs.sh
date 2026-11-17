@@ -70,6 +70,30 @@ describe('visualiser', () => {
     expect(screen.getByRole('button', { name: 'Dark mode' })).toBeTruthy();
   });
 
+  test('on a small screen the theme toggle moves into the More menu', async () => {
+    const matchMedia = vi.spyOn(window, 'matchMedia').mockImplementation(
+      (query: string) =>
+        ({
+          matches: query === '(max-width: 560px)',
+          media: query,
+          addEventListener() {},
+          removeEventListener() {},
+        }) as unknown as MediaQueryList
+    );
+    await renderVisualiser();
+    const user = userEvent.setup();
+    expect(screen.queryByRole('button', { name: 'Dark mode' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: /settings/i }));
+    const item = screen.getByRole('menuitemcheckbox', { name: 'Dark mode' });
+    const before = item.getAttribute('aria-checked');
+    await user.click(item);
+    expect(
+      screen.getByRole('menuitemcheckbox', { name: 'Dark mode' }).getAttribute('aria-checked')
+    ).not.toBe(before);
+    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Dark mode' }));
+    matchMedia.mockRestore();
+  });
+
   test('an operation runs with the typed arguments and is titled as a sentence', async () => {
     await renderVisualiser('/visualiser/linked-lists?op=insert');
     const user = userEvent.setup();

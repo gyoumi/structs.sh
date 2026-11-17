@@ -33,7 +33,7 @@ import {
   ToStartIcon,
 } from '@/ui/icons';
 import StructureArt from '@/ui/StructureArt';
-import { Theme, ThemeToggle, useTheme } from '@/ui/theme';
+import { Theme, ThemeMenuItem, ThemeToggle, useTheme } from '@/ui/theme';
 import Stage from './Stage';
 import CodeListing from './CodeListing';
 import Keypad from './Keypad';
@@ -41,7 +41,7 @@ import StepScrubber from './StepScrubber';
 import StructureNav from './StructureNav';
 import ShortcutsDialog from './ShortcutsDialog';
 import { TopicRoute, VisualiserProvider } from './VisualiserProvider';
-import { useSession, useSnapshot } from './useVisualiser';
+import { useMediaQuery, useSession, useSnapshot } from './useVisualiser';
 import { useNarration } from './useNarration';
 import { operationLabel, shareLink, TopicInfo } from './topics';
 import { canvasThemes } from './canvasThemes';
@@ -297,7 +297,12 @@ interface WorkspaceProps {
   theme: Theme;
 }
 
+/** Matches the stylesheet's smallest header, where the theme toggle moves into the More menu. */
+const SMALL_HEADER = '(max-width: 560px)';
+
 const Workspace = ({ topic, theme }: WorkspaceProps) => {
+  const smallHeader = useMediaQuery(SMALL_HEADER);
+
   useEffect(() => {
     const root = document.documentElement;
     root.dataset.structsTheme = theme;
@@ -323,7 +328,13 @@ const Workspace = ({ topic, theme }: WorkspaceProps) => {
             more: styles.more,
             menu: styles.moreMenu,
             menuItem: styles.moreItem,
+            menuSeparator: styles.moreSeparator,
           }}
+          menuExtra={
+            smallHeader && (
+              <ThemeMenuItem className={styles.moreItem} indicatorClassName={styles.moreCheck} />
+            )
+          }
           renderLink={(t) => (
             <>
               <StructureArt id={t.slug} className={styles.structureArt} />
@@ -348,7 +359,7 @@ const Workspace = ({ topic, theme }: WorkspaceProps) => {
           contentClassName={styles.dialog}
           closeClassName={styles.dialogClose}
         />
-        <ThemeToggle className={styles.iconButton} />
+        {!smallHeader && <ThemeToggle className={styles.iconButton} />}
       </header>
 
       <div className={styles.main}>

@@ -227,6 +227,24 @@
   background: var(--ground);
 }
 
+.moreSeparator {
+  height: 2px;
+  margin: 6px 0;
+  border-radius: 1px;
+  background: var(--line);
+  opacity: 0.2;
+}
+
+/* As wide as the structure drawings, so the labels line up. */
+.moreItem[role='menuitemcheckbox'] > svg:first-child {
+  width: 36px;
+}
+
+.moreCheck {
+  display: flex;
+  margin-left: auto;
+}
+
 .debugger {
   display: inline-flex;
   flex: none;

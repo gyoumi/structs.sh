@@ -94,6 +94,8 @@ export class FakeSession {
 
   clear = this.record('clear');
 
+  retheme = this.record('retheme');
+
   setSpeed = (speed: number) => {
     calls.push({ method: 'setSpeed', args: [speed] });
     this.update({ speed });
