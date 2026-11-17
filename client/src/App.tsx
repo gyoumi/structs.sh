@@ -3,11 +3,12 @@ import { ThemeProvider } from '@mui/material/styles';
 import { AnimatePresence } from 'framer-motion';
 import { Route, Routes } from 'react-router-dom';
 import Feedback from '@/Feedback';
-import HomePage from '@/HomePage';
+import Landing from '@/landing/Landing';
 import Page404 from '@/Page404';
-import VisualiserPage from '@/VisualiserPage';
 import { structsTheme } from '@/structsThemes';
+import Visualiser from '@/visualiser/Visualiser';
 import './App.scss';
+import '@/visualiser-src/linked-list-visualiser/styles/visualiser.css';
 import DevelopmentMode from '@/visualiser-debugger/DevelopmentMode';
 import { useGlobalStore } from '@/visualiser-debugger/Store/globalStateStore';
 import { useEffect } from 'react';
@@ -28,10 +29,10 @@ const App = () => {
         <ThemeProvider theme={structsTheme}>
           <Routes>
             {/* Homepage */}
-            <Route path="/" element={<HomePage />} />
+            <Route path="/" element={<Landing />} />
 
             {/* Visualiser routes */}
-            <Route path="/visualiser/:topic/:data?" element={<VisualiserPage />} />
+            <Route path="/visualiser/:topic/:data?" element={<Visualiser />} />
 
             {/* Feedback and feature request page */}
             <Route path="/feedback" element={<Feedback />} />
