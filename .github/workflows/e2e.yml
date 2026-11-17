@@ -16,7 +16,12 @@ jobs:
       # the backend changes. The image builds in the background while the
       # next steps install the frontend and browser.
       - name: Start debugger
-        run: (docker compose up -d --build debugger > "$RUNNER_TEMP/debugger-up.log" 2>&1; echo $? > "$RUNNER_TEMP/debugger-up.exit") &
+        run: |
+          (
+            status=0
+            docker compose up -d --build debugger > "$RUNNER_TEMP/debugger-up.log" 2>&1 || status=$?
+            echo "$status" > "$RUNNER_TEMP/debugger-up.exit"
+          ) &
 
       - uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
         with:
@@ -33,8 +38,9 @@ jobs:
 
       - name: Wait for debugger
         run: |
-          timeout 300 bash -c 'until [ -f "$RUNNER_TEMP/debugger-up.exit" ]; do sleep 1; done'
+          timeout 300 bash -c 'until [ -f "$RUNNER_TEMP/debugger-up.exit" ]; do sleep 1; done' || true
           cat "$RUNNER_TEMP/debugger-up.log"
+          [ -f "$RUNNER_TEMP/debugger-up.exit" ] || { echo "Debugger build did not finish in 300s"; exit 1; }
           [ "$(cat "$RUNNER_TEMP/debugger-up.exit")" = 0 ]
           timeout 120 bash -c 'until curl -sf "http://localhost:8000/dapi/?EIO=4&transport=polling" >/dev/null; do sleep 2; done'
 
