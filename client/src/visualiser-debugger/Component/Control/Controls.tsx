@@ -23,10 +23,13 @@ const Controls = () => {
   const { currFrame } = useGlobalStore();
   const { userAnnotation, parser } = useGlobalStore().visualizer;
   const { sendCode, bulkSendNextStates, getNextState } = useDebugger();
-  const { states, currentIndex, stepForward, stepBackward, jumpToState, isActive, setActive } =
+  const { states, currentIndex, stepForward, stepBackward, jumpToState, isActive } =
     useFrontendStateStore();
 
   const [loading, setLoading] = useState<boolean>(false);
+  /** Whether a step forward is waiting for the debugger's next state. */
+  const [fetching, setFetching] = useState<boolean>(false);
+  const atLatestState = currentIndex >= states.length - 1;
   const [bufferMode, setBufferMode] = useState<boolean>(false);
 
   // Avoid race condition
@@ -88,8 +91,8 @@ const Controls = () => {
     }
   }, [bufferMode, currentIndex, setMessage, startBuffering, states.length]);
 
-  const [autoNext, setAutoNext] = useState<boolean>(false);
-  // To Process new backend frame and store it into frontend state
+  // New states join the timeline as they arrive (see useDebugger). This parses
+  // the latest one again when the annotations or the visualiser change.
   useEffect(() => {
     if (isInitialBackendState(currFrame)) {
       return;
@@ -98,11 +101,6 @@ const Controls = () => {
     if (currFrame && userAnnotation) {
       const newParsedState = parser.parseState(currFrame, userAnnotation);
       useFrontendStateStore.getState().appendFrontendNewState(currFrame, newParsedState);
-
-      if (autoNext === true) {
-        stepForward();
-        setAutoNext(false);
-      }
     } else {
       let issue = 'something';
       if (!currFrame) {
@@ -112,7 +110,7 @@ const Controls = () => {
       }
       console.error(`Unable to parse backend state: ${issue} is undefined`);
     }
-  }, [currFrame, userAnnotation, autoNext, parser, stepForward]);
+  }, [currFrame, userAnnotation, parser]);
 
   return (
     <div className={styles.timeline}>
@@ -145,9 +143,9 @@ const Controls = () => {
         )}
       </Button>
 
-      {/* Step Backward BTN */}
+      {/* Step Backward BTN: still works once the session has ended */}
       <Button
-        disabled={!isActive || currentIndex === 0}
+        disabled={fetching || currentIndex <= 0}
         onClick={() => {
           stepBackward();
         }}
@@ -157,16 +155,17 @@ const Controls = () => {
 
       {/* Step Forward BTN */}
       <Button
-        disabled={!isActive}
+        disabled={fetching || (!isActive && atLatestState)}
         onClick={async () => {
-          if (currentIndex === states.length - 1) {
-            setActive(false);
-            setAutoNext(true);
-            await getNextState();
-            setActive(true);
-          } else {
+          if (!atLatestState) {
             stepForward();
+            return;
           }
+          setFetching(true);
+          const gotState = await getNextState();
+          setFetching(false);
+          // The new state is already on the timeline, so move to it.
+          if (gotState) stepForward();
         }}
       >
         <RedoIcon />

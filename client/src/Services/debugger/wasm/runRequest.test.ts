@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { compileC } from './compile';
+import { compileAndInstrument } from './instrumenter';
 import { answerRunRequest, RunnerMessage } from './runRequest';
 
+// Needs the instrumenter built first: `pnpm run instrumenter` from the repo root.
 // Loading clang (about 100 MB of wasm) takes a few seconds the first time.
 const CLANG_TIMEOUT = 60_000;
 
 const compile = async (source: string) => {
-  const result = await compileC('main.c', source);
+  const result = await compileAndInstrument('main.c', source);
   if (!result.ok) throw new Error(result.errors);
   return result.wasm;
 };
@@ -19,35 +20,25 @@ const answer = async (wasm: Uint8Array<ArrayBuffer>) => {
 
 describe('answerRunRequest', () => {
   it(
-    'posts output as the program writes it, then the exit code',
+    'records the program and posts the recording once it ends',
     async () => {
       const wasm = await compile(
-        '#include <stdio.h>\nint main(void) { printf("one\\n"); printf("two\\n"); return 4; }\n'
+        '#include <stdio.h>\nint main(void) {\n    printf("one\\n");\n    return 4;\n}\n'
       );
 
       expect(await answer(wasm)).toEqual([
-        { type: 'output', text: 'one\n' },
-        { type: 'output', text: 'two\n' },
-        { type: 'finished', exitCode: 4 },
+        {
+          type: 'recorded',
+          recording: {
+            steps: [
+              { function: 'main', line: 3, depth: 0, output: 'one\n' },
+              { function: 'main', line: 4, depth: 0, output: '' },
+            ],
+            outputBeforeFirstStep: '',
+            end: { exitCode: 4 },
+          },
+        },
       ]);
-    },
-    CLANG_TIMEOUT
-  );
-
-  it(
-    'posts an error when the program traps, after the output written before it',
-    async () => {
-      const wasm = await compile(
-        '#include <stdio.h>\nint main(void) { printf("before\\n"); __builtin_trap(); }\n'
-      );
-
-      const messages = await answer(wasm);
-
-      expect(messages).toHaveLength(2);
-      expect(messages[0]).toEqual({ type: 'output', text: 'before\n' });
-      expect(messages[1].type).toBe('error');
-      if (messages[1].type !== 'error') return;
-      expect(messages[1].message).toContain('unreachable');
     },
     CLANG_TIMEOUT
   );
@@ -58,38 +49,4 @@ describe('answerRunRequest', () => {
     expect(messages).toHaveLength(1);
     expect(messages[0].type).toBe('error');
   });
-
-  it(
-    'sends every write as it happens, so nothing is held back if the program never ends',
-    async () => {
-      const wasm = await compile(
-        '#include <stdio.h>\nint main(void) { for (int i = 0; i < 60; i++) puts("x"); return 0; }\n'
-      );
-
-      const messages = await answer(wasm);
-
-      expect(messages.filter((message) => message.type === 'output')).toHaveLength(60);
-    },
-    CLANG_TIMEOUT
-  );
-
-  it(
-    'caps the output of a program that prints a lot',
-    async () => {
-      // 200,000 lines, 400 KB.
-      const wasm = await compile(
-        '#include <stdio.h>\nint main(void) { for (int i = 0; i < 200000; i++) puts("x"); return 0; }\n'
-      );
-
-      const messages = await answer(wasm);
-      const output = messages.flatMap((message) =>
-        message.type === 'output' ? [message.text] : []
-      );
-
-      expect(output.join('').length).toBeLessThan(25_000);
-      expect(output.at(-1)).toMatch(/output .*stopped/i);
-      expect(messages.at(-1)).toEqual({ type: 'finished', exitCode: 0 });
-    },
-    CLANG_TIMEOUT
-  );
 });

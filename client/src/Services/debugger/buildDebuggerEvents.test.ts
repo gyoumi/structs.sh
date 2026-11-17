@@ -7,6 +7,7 @@ describe('buildDebuggerEvents', () => {
     setMessage: vi.fn(),
     setActive: vi.fn(),
     updateNextFrame: vi.fn(),
+    addToTimeline: vi.fn(),
     updateTypeDeclaration: vi.fn(),
     appendConsoleChunks: vi.fn(),
     updateCurrFocusedTab: vi.fn(),
@@ -27,10 +28,13 @@ describe('buildDebuggerEvents', () => {
     );
   });
 
-  it('shows each new state', () => {
+  it('shows each new state, adding it to the timeline as it arrives', () => {
     events.state(INITIAL_BACKEND_STATE);
 
     expect(page.updateNextFrame).toHaveBeenCalledWith(INITIAL_BACKEND_STATE);
+    // Added straight away, not when the page next renders, so a step that
+    // resolves can move to it.
+    expect(page.addToTimeline).toHaveBeenCalledWith(INITIAL_BACKEND_STATE);
   });
 
   it('marks the session inactive when it ends', () => {

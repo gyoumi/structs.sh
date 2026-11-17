@@ -225,6 +225,19 @@ describe('recordRun', () => {
   );
 
   it(
+    'stops a program that runs past the time limit, keeping the steps it took',
+    async () => {
+      const source = 'int main(void) {\n    int i = 0;\n    while (1) {\n        i++;\n    }\n}\n';
+
+      const recording = await record('slow.c', source, { stepLimit: Infinity, timeLimitMs: 50 });
+
+      expect(stepsOf(recording).slice(0, 3)).toEqual(['main:2', 'main:4', 'main:3']);
+      expect(recording.end).toEqual({ timeLimit: 50 });
+    },
+    CLANG_TIMEOUT
+  );
+
+  it(
     'stops a loop that repeats one line forever',
     async () => {
       // Every pass repeats line 2, which isn't a new step, but still counts
