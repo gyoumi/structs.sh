@@ -1,6 +1,6 @@
 import { ReactNode, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Menu, MenuContent, MenuItem, MenuTrigger } from '@ui-sdk/react/menu';
+import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '@ui-sdk/react/menu';
 import { topics, TopicInfo, TopicSlug } from './topics';
 
 export interface StructureNavClasses {
@@ -10,6 +10,7 @@ export interface StructureNavClasses {
   more?: string;
   menu?: string;
   menuItem?: string;
+  menuSeparator?: string;
 }
 
 interface StructureNavProps {
@@ -17,6 +18,8 @@ interface StructureNavProps {
   classes: StructureNavClasses;
   renderLink?: (topic: TopicInfo) => ReactNode;
   moreLabel?: ReactNode;
+  /** Extra rows at the end of the More menu. The menu always shows while there are any. */
+  menuExtra?: ReactNode;
 }
 
 const visibleTopics = (count: number, current: TopicSlug): TopicInfo[] => {
@@ -31,10 +34,12 @@ const StructureNav = ({
   classes,
   renderLink = (topic) => topic.name,
   moreLabel = 'More',
+  menuExtra,
 }: StructureNavProps) => {
   const rootRef = useRef<HTMLElement>(null);
   const measureRef = useRef<HTMLDivElement>(null);
   const [count, setCount] = useState(topics.length);
+  const alwaysMore = Boolean(menuExtra);
 
   useLayoutEffect(() => {
     const root = rootRef.current;
@@ -62,7 +67,7 @@ const StructureNav = ({
         );
       };
 
-      if (fits(topics.length, false)) {
+      if (fits(topics.length, alwaysMore)) {
         setCount(topics.length);
         return;
       }
@@ -75,7 +80,7 @@ const StructureNav = ({
     const observer = new ResizeObserver(update);
     observer.observe(root);
     return () => observer.disconnect();
-  }, [current]);
+  }, [current, alwaysMore]);
 
   const shown = visibleTopics(count, current);
   const hidden = topics.filter((topic) => !shown.includes(topic));
@@ -98,9 +103,16 @@ const StructureNav = ({
             {renderLink(topic)}
           </Link>
         ))}
-        {hidden.length > 0 && (
+        {(hidden.length > 0 || menuExtra) && (
           <Menu>
-            <MenuTrigger className={classes.more} aria-label={`${hidden.length} more structures`}>
+            <MenuTrigger
+              className={classes.more}
+              aria-label={
+                hidden.length > 0
+                  ? `${hidden.length} more structures${menuExtra ? ' and settings' : ''}`
+                  : 'Settings'
+              }
+            >
               {moreLabel}
             </MenuTrigger>
             <MenuContent className={classes.menu} sideOffset={6} align="end">
@@ -113,6 +125,10 @@ const StructureNav = ({
                   {renderLink(topic)}
                 </MenuItem>
               ))}
+              {menuExtra && hidden.length > 0 && (
+                <MenuSeparator className={classes.menuSeparator} />
+              )}
+              {menuExtra}
             </MenuContent>
           </Menu>
         )}
