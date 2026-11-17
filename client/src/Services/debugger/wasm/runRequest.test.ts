@@ -60,7 +60,21 @@ describe('answerRunRequest', () => {
   });
 
   it(
-    'caps and batches the output of a program that prints a lot',
+    'sends every write as it happens, so nothing is held back if the program never ends',
+    async () => {
+      const wasm = await compile(
+        '#include <stdio.h>\nint main(void) { for (int i = 0; i < 60; i++) puts("x"); return 0; }\n'
+      );
+
+      const messages = await answer(wasm);
+
+      expect(messages.filter((message) => message.type === 'output')).toHaveLength(60);
+    },
+    CLANG_TIMEOUT
+  );
+
+  it(
+    'caps the output of a program that prints a lot',
     async () => {
       // 200,000 lines, 400 KB.
       const wasm = await compile(
@@ -72,8 +86,7 @@ describe('answerRunRequest', () => {
         message.type === 'output' ? [message.text] : []
       );
 
-      expect(output.length).toBeLessThan(1_000);
-      expect(output.join('').length).toBeLessThan(150_000);
+      expect(output.join('').length).toBeLessThan(25_000);
       expect(output.at(-1)).toMatch(/output .*stopped/i);
       expect(messages.at(-1)).toEqual({ type: 'finished', exitCode: 0 });
     },

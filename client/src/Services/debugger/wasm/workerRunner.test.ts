@@ -66,7 +66,8 @@ describe('runInWorker', () => {
 
     expect(await run.done).toEqual({ exitCode: 3 });
     expect(run.worker.received).toEqual([{ wasm: WASM }]);
-    expect(run.output).toEqual(['one\n', 'two\n']);
+    // Output that arrives together is passed on together.
+    expect(run.output.join('')).toBe('one\ntwo\n');
     expect(run.worker.terminated).toBe(true);
   });
 
@@ -130,6 +131,36 @@ describe('runInWorker', () => {
     });
 
     expect(result).toEqual({ error: expect.stringContaining('Workers are not supported') });
+  });
+
+  it('passes output on in batches, so a printing loop cannot flood the page', async () => {
+    const run = startRun();
+
+    for (let i = 0; i < 100; i++) run.worker.send({ type: 'output', text: 'x\n' });
+    expect(run.output).toEqual([]);
+
+    await vi.advanceTimersByTimeAsync(100);
+    expect(run.output).toEqual(['x\n'.repeat(100)]);
+  });
+
+  it('passes on output still waiting in a batch when the run ends', async () => {
+    const run = startRun();
+
+    run.worker.send({ type: 'output', text: 'last words\n' });
+    run.worker.send({ type: 'finished', exitCode: 0 });
+
+    expect(await run.done).toEqual({ exitCode: 0 });
+    expect(run.output).toEqual(['last words\n']);
+  });
+
+  it('passes on output still waiting in a batch when the time limit stops the program', async () => {
+    const run = startRun();
+    run.worker.send({ type: 'output', text: 'looping\n' });
+
+    await vi.advanceTimersByTimeAsync(TIME_LIMIT);
+
+    expect(await run.done).toEqual({ timedOut: true });
+    expect(run.output.join('')).toBe('looping\n');
   });
 
   it('stops the program when the run is cancelled', async () => {

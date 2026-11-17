@@ -11,44 +11,30 @@ export type RunnerMessage =
 
 /** The most output one run sends the page. More only slows the console down. */
 const OUTPUT_LIMIT = 20_000;
-/** Writes sent one by one before output is batched. */
-const UNBATCHED_WRITES = 50;
-/** The smallest batch once output is batched. */
-const BATCH_SIZE = 4_096;
 
 /**
- * Sends output on to the page: each write at once for ordinary programs, then
- * in batches for one that prints a lot, and nothing past OUTPUT_LIMIT, so a
- * printing loop can't flood the page.
+ * Sends each write on to the page as it happens, so nothing is held back if
+ * the program then never ends, and nothing past OUTPUT_LIMIT. The page
+ * batches what it receives (see workerRunner.ts).
  */
 const createOutputSender = (post: (message: RunnerMessage) => void) => {
-  let pending = '';
   let sent = 0;
-  let writes = 0;
   let full = false;
 
-  const flush = () => {
-    if (!pending) return;
-    post({ type: 'output', text: pending });
-    pending = '';
-  };
-
-  const write = (text: string) => {
+  return (text: string) => {
     if (full) return;
     const kept = text.slice(0, OUTPUT_LIMIT - sent);
     sent += kept.length;
-    pending += kept;
-    writes += 1;
     if (kept.length < text.length) {
       full = true;
-      pending += `\n[The program's output was stopped after ${OUTPUT_LIMIT.toLocaleString('en')} characters.]\n`;
-      flush();
-    } else if (writes <= UNBATCHED_WRITES || pending.length >= BATCH_SIZE) {
-      flush();
+      post({
+        type: 'output',
+        text: `${kept}\n[The program's output was stopped after ${OUTPUT_LIMIT.toLocaleString('en')} characters.]\n`,
+      });
+    } else if (kept) {
+      post({ type: 'output', text: kept });
     }
   };
-
-  return { write, flush };
 };
 
 /**
@@ -60,13 +46,11 @@ export const answerRunRequest = async (
   { wasm }: RunRequest,
   post: (message: RunnerMessage) => void
 ): Promise<void> => {
-  const output = createOutputSender(post);
+  const onOutput = createOutputSender(post);
   try {
-    const { exitCode } = await runWasi(wasm, { onOutput: output.write });
-    output.flush();
+    const { exitCode } = await runWasi(wasm, { onOutput });
     post({ type: 'finished', exitCode });
   } catch (error) {
-    output.flush();
     post({ type: 'error', message: error instanceof Error ? error.message : String(error) });
   }
 };

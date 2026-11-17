@@ -23,6 +23,13 @@ export interface RunnerWorker {
   terminate(): void;
 }
 
+/**
+ * How long output collects before it goes to the console in one update. A
+ * printing loop sends thousands of small writes, and the console redraws on
+ * each update.
+ */
+const OUTPUT_BATCH_MS = 50;
+
 const startRunnerWorker = (): RunnerWorker =>
   new Worker(new URL('./runner.worker.ts', import.meta.url), { type: 'module' });
 
@@ -40,6 +47,17 @@ export const runInWorker = (
     let worker: RunnerWorker | undefined;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let ended = false;
+    let batch = '';
+    let batchTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const flushOutput = () => {
+      clearTimeout(batchTimer);
+      batchTimer = undefined;
+      if (!batch) return;
+      const text = batch;
+      batch = '';
+      onOutput(text);
+    };
 
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
     const stop = () => end({ stopped: true });
@@ -47,6 +65,8 @@ export const runInWorker = (
       if (ended) return;
       ended = true;
       clearTimeout(timer);
+      if ('stopped' in result) clearTimeout(batchTimer);
+      else flushOutput();
       signal?.removeEventListener('abort', stop);
       worker?.terminate();
       resolve(result);
@@ -63,8 +83,10 @@ export const runInWorker = (
       worker = createWorker();
       worker.onmessage = ({ data }) => {
         if (ended) return;
-        if (data.type === 'output') onOutput(data.text);
-        else if (data.type === 'finished') end({ exitCode: data.exitCode });
+        if (data.type === 'output') {
+          batch += data.text;
+          batchTimer ??= setTimeout(flushOutput, OUTPUT_BATCH_MS);
+        } else if (data.type === 'finished') end({ exitCode: data.exitCode });
         else end({ error: data.message });
       };
       worker.onerror = (event) => {
