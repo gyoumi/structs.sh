@@ -3,6 +3,8 @@ import { CompileResult } from './compiler';
 
 const OUTPUT = 'program.wasm';
 
+const inputPath = (fileName: string) => (fileName.startsWith('-') ? `./${fileName}` : fileName);
+
 /**
  * Compiles one C file with clang, itself running as wasm, to a WASI program
  * with debug info. Runs anywhere: in a Web Worker in the browser, or in Node
@@ -14,8 +16,9 @@ export const compileC = async (fileName: string, source: string): Promise<Compil
 
   try {
     const files = await commands.clang(
-      // -x c compiles the file as C whatever its name ends in.
-      ['-g', '-O0', '-fno-color-diagnostics', '-x', 'c', fileName, '-o', OUTPUT],
+      // -x c compiles the file as C whatever its name ends in. clang reads a
+      // name like "-main.c" as an option even after --, so it gets a ./ path.
+      ['-g', '-O0', '-fno-color-diagnostics', '-o', OUTPUT, '-x', 'c', inputPath(fileName)],
       { [fileName]: source },
       {
         stderr: (bytes) => {

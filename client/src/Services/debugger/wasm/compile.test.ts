@@ -50,6 +50,16 @@ describe('compileC', () => {
   );
 
   it(
+    'compiles a file whose name starts with a dash',
+    async () => {
+      const result = await compileC('-counter.c', program('counter.c'));
+
+      expect(result.ok).toBe(true);
+    },
+    CLANG_TIMEOUT
+  );
+
+  it(
     'compiles a file whose name does not end in .c',
     async () => {
       const result = await compileC('notes', 'int main(void) { return 0; }\n');

@@ -1,30 +1,34 @@
 import { CompileResult, Compiler } from './compiler';
 import type { CompileRequest, CompileResponse } from './compileRequest';
 
+const startCompilerWorker = () =>
+  new Worker(new URL('./compiler.worker.ts', import.meta.url), { type: 'module' });
+
 /**
  * Compiles in a Web Worker, so loading and running clang doesn't freeze the
  * page. The worker starts on the first compile.
  */
-export const createWorkerCompiler = (): Compiler => {
+export const createWorkerCompiler = (createWorker = startCompilerWorker): Compiler => {
   const pending = new Map<number, (result: CompileResult) => void>();
   let worker: Worker | null = null;
   let nextId = 0;
 
+  const settleAll = (result: CompileResult) => {
+    pending.forEach((resolve) => resolve(result));
+    pending.clear();
+  };
+
   const startWorker = () => {
-    const created = new Worker(new URL('./compiler.worker.ts', import.meta.url), {
-      type: 'module',
-    });
+    const created = createWorker();
     created.onmessage = ({ data }: MessageEvent<CompileResponse>) => {
       pending.get(data.id)?.(data.result);
       pending.delete(data.id);
     };
     created.onerror = (event) => {
-      const failed: CompileResult = {
+      settleAll({
         ok: false,
         errors: `The compiler failed to load: ${event.message || 'unknown error'}`,
-      };
-      pending.forEach((resolve) => resolve(failed));
-      pending.clear();
+      });
       worker = null;
     };
     return created;
@@ -39,6 +43,11 @@ export const createWorkerCompiler = (): Compiler => {
         pending.set(id, resolve);
         worker!.postMessage(request);
       });
+    },
+    dispose() {
+      worker?.terminate();
+      worker = null;
+      settleAll({ ok: false, errors: 'The compiler was stopped.' });
     },
   };
 };

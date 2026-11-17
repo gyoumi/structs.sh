@@ -11,6 +11,9 @@ export class WasmDebugger implements Debugger {
 
   private events: DebuggerEvents | null = null;
 
+  /** Counts starts, so only the latest compile's result is reported. */
+  private latestStart = 0;
+
   constructor(private readonly compiler: Compiler = createWorkerCompiler()) {}
 
   setEvents(events: DebuggerEvents) {
@@ -18,7 +21,10 @@ export class WasmDebugger implements Debugger {
   }
 
   start({ name, code }: SourceFile) {
+    this.latestStart += 1;
+    const thisStart = this.latestStart;
     this.compiler.compile(name, code).then((result) => {
+      if (thisStart !== this.latestStart) return;
       if (result.ok) this.events?.sessionStarted();
       else this.events?.compileError([result.errors]);
     });
@@ -42,6 +48,8 @@ export class WasmDebugger implements Debugger {
   }
 
   close() {
-    // Nothing to close.
+    this.events = null;
+    this.latestStart += 1;
+    this.compiler.dispose();
   }
 }

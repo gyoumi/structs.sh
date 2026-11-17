@@ -14,7 +14,28 @@ const createEvents = (): DebuggerEvents => ({
 
 const compilerReturning = (result: CompileResult): Compiler => ({
   compile: vi.fn(async () => result),
+  dispose: vi.fn(),
 });
+
+/** A compiler whose compiles finish only when the test says so. */
+const controlledCompiler = () => {
+  const finishers: ((result: CompileResult) => void)[] = [];
+  const compiler: Compiler = {
+    compile: vi.fn(
+      () =>
+        new Promise<CompileResult>((resolve) => {
+          finishers.push(resolve);
+        })
+    ),
+    dispose: vi.fn(),
+  };
+  return { compiler, finish: (index: number, result: CompileResult) => finishers[index](result) };
+};
+
+const flush = () =>
+  new Promise<void>((resolve) => {
+    setTimeout(resolve, 0);
+  });
 
 describe('WasmDebugger', () => {
   let events: DebuggerEvents;
@@ -53,6 +74,35 @@ describe('WasmDebugger', () => {
     wasm.start({ name: 'main.c', code: '' });
 
     await vi.waitFor(() => expect(events.compileError).toHaveBeenCalledWith([errors]));
+    expect(events.sessionStarted).not.toHaveBeenCalled();
+  });
+
+  it('ignores an earlier compile that finishes after a newer one has started', async () => {
+    const { compiler, finish } = controlledCompiler();
+    const wasm = new WasmDebugger(compiler);
+    wasm.setEvents(events);
+
+    wasm.start({ name: 'main.c', code: 'int main(void) { return 0; }' });
+    wasm.start({ name: 'main.c', code: 'int main(void) { return x; }' });
+    finish(1, { ok: false, errors: 'main.c:1: error' });
+    finish(0, { ok: true, wasm: new Uint8Array() });
+    await flush();
+
+    expect(events.compileError).toHaveBeenCalledExactlyOnceWith(['main.c:1: error']);
+    expect(events.sessionStarted).not.toHaveBeenCalled();
+  });
+
+  it('stops the compiler and reports nothing once closed', async () => {
+    const { compiler, finish } = controlledCompiler();
+    const wasm = new WasmDebugger(compiler);
+    wasm.setEvents(events);
+
+    wasm.start({ name: 'main.c', code: '' });
+    wasm.close();
+    finish(0, { ok: true, wasm: new Uint8Array() });
+    await flush();
+
+    expect(compiler.dispose).toHaveBeenCalledOnce();
     expect(events.sessionStarted).not.toHaveBeenCalled();
   });
 
