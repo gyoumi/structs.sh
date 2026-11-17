@@ -31,12 +31,9 @@ export class LandingPage {
     return [...new Set(hrefs)];
   }
 
-  /** Follows the feedback link and returns the address of the feedback form. */
+  /** The address of the feedback form that the footer's Feedback link opens. */
   async feedbackFormUrl(): Promise<string> {
-    await this.page.getByRole('link', { name: /feedback/i }).click();
-    const form = this.page.getByTitle('Structs.sh feedback form');
-    await expect(form).toBeAttached();
-    return (await form.getAttribute('src')) ?? '';
+    return (await this.page.getByRole('link', { name: 'Feedback' }).getAttribute('href')) ?? '';
   }
 
   /** Opens /feedback and returns the address of the feedback form it loads, without contacting Google. */
