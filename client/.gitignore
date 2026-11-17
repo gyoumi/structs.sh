@@ -4,3 +4,6 @@ storybook-static
 build
 .jest-test-results.json
 .env
+
+# Built from instrumenter/ by `pnpm run instrumenter`
+src/Services/debugger/wasm/generated/
