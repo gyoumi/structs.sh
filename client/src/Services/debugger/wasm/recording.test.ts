@@ -384,12 +384,12 @@ describe('recordRun', () => {
       async () => {
         const source = [
           'typedef struct node Node;', // 1
-          'struct node { int value; Node *next; };', // 2
+          'typedef Node Alias; struct node { int value; Alias *next; };', // 2
           'enum status { FAILED = -1, OK = 1 };', // 3
           'struct flags { unsigned a : 1; unsigned b : 1; int c : 3; };', // 4
           'int main(void) {', // 5
-          '    struct node first = {1, 0};', // 6
-          '    Node nodes[2] = {{2, 0}, {3, 0}};', // 7
+          '    Node first = {1, 0};', // 6
+          '    Alias nodes[2] = {{2, 0}, {3, 0}};', // 7
           '    enum status status = FAILED;', // 8
           '    struct flags flags = {1, 1, -2};', // 9
           '    return 0;', // 10
@@ -424,8 +424,14 @@ describe('recordRun', () => {
           '    char *words[2] = {0};', // 9
           '    int grid[2][3] = {{0}};', // 10
           '    int (**pp)[3] = &p;', // 11
-          '    return 0;', // 12
-          '}', // 13
+          '    int (* const callback)(int) = twice;', // 12
+          '    char * const fixed = 0;', // 13
+          '    const char *text = 0;', // 14
+          '    int (* const pa)[3] = &a;', // 15
+          '    char * const volatile both = 0;', // 16
+          '    const char * const *cp = 0;', // 17
+          '    return 0;', // 18
+          '}', // 19
         ].join('\n');
 
         const recording = await record('names.c', source);
@@ -442,6 +448,12 @@ describe('recordRun', () => {
           words: 'char *[2]',
           grid: 'int [2][3]',
           pp: 'int (**)[3]',
+          callback: 'int (* const)(int)',
+          fixed: 'char * const',
+          text: 'const char *',
+          pa: 'int (* const)[3]',
+          both: 'char * const volatile',
+          cp: 'const char * const *',
         });
       },
       CLANG_TIMEOUT

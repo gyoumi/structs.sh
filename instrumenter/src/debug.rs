@@ -70,18 +70,17 @@ pub(crate) enum Type {
         size: u64,
         fields: Vec<Field>,
     },
+    /// Its size is worked out once every type is read: see `size_of`.
     Array {
         name: String,
-        size: u64,
         of: usize,
         count: u64,
     },
-    /// A typedef, or a type with `const` or `volatile`.
+    /// A typedef (no qualifier), or a type with `const` or `volatile`.
     Alias {
         name: String,
-        size: u64,
         to: Option<usize>,
-        typedef: bool,
+        qualifier: Option<&'static str>,
     },
     /// A function, which the debugger doesn't read, but whose name pointers
     /// to it need.
@@ -119,18 +118,6 @@ impl Type {
             | Type::Alias { name, .. }
             | Type::Function { name, .. }
             | Type::Other { name } => name,
-        }
-    }
-
-    fn size(&self) -> u64 {
-        match self {
-            Type::Int { size, .. }
-            | Type::Float { size, .. }
-            | Type::Struct { size, .. }
-            | Type::Array { size, .. }
-            | Type::Alias { size, .. } => *size,
-            Type::Pointer { .. } => POINTER_SIZE,
-            Type::Function { .. } | Type::Other { .. } => 0,
         }
     }
 }
@@ -536,12 +523,10 @@ impl<'a> UnitReader<'a, '_> {
                 let name = name.unwrap_or_default();
                 let index = self.placeholder(offset, name.clone());
                 let to = self.type_attribute(&entry)?;
-                let size = to.map_or(0, |to| self.types[to].size());
                 self.types[index] = Type::Alias {
                     name,
-                    size,
                     to,
-                    typedef: true,
+                    qualifier: None,
                 };
                 return Ok(index);
             }
@@ -552,18 +537,18 @@ impl<'a> UnitReader<'a, '_> {
                     "volatile"
                 };
                 let to = self.type_attribute(&entry)?;
-                let target = self.name_of(to);
-                let name = if target.ends_with('*') {
-                    format!("{target} {qualifier}")
-                } else {
-                    format!("{qualifier} {target}")
-                };
-                Type::Alias {
-                    name,
-                    size: to.map_or(0, |to| self.types[to].size()),
+                self.types.push(Type::Alias {
+                    name: String::new(),
                     to,
-                    typedef: false,
+                    qualifier: Some(qualifier),
+                });
+                let index = self.types.len() - 1;
+                let name = self.declare(Some(index), "");
+                if let Type::Alias { name: slot, .. } = &mut self.types[index] {
+                    *slot = name;
                 }
+                self.seen.insert(offset, index);
+                return Ok(index);
             }
             gimli::DW_TAG_subroutine_type => {
                 let returns = self.type_attribute(&entry)?;
@@ -616,6 +601,38 @@ impl<'a> UnitReader<'a, '_> {
                 parameters,
                 ..
             }) => self.declare(*returns, &format!("{inner}({parameters})")),
+            Some(Type::Alias {
+                qualifier: Some(_), ..
+            }) => {
+                // The qualifiers down to the type they qualify, in GDB's order.
+                let mut qualifiers = Vec::new();
+                let mut target = ty;
+                while let Some(Type::Alias {
+                    qualifier: Some(qualifier),
+                    to,
+                    ..
+                }) = target.map(|ty| &self.types[ty])
+                {
+                    qualifiers.push(*qualifier);
+                    target = *to;
+                }
+                qualifiers.sort_by_key(|qualifier| *qualifier != "const");
+                let qualifiers = qualifiers.join(" ");
+                match target.map(|ty| &self.types[ty]) {
+                    // A qualified pointer: `char * const`, `int (* const)(int)`.
+                    Some(Type::Pointer { to, .. }) => {
+                        self.declare_qualified_pointer(*to, &qualifiers, inner)
+                    }
+                    _ => {
+                        let base = format!("{qualifiers} {}", self.declare(target, ""));
+                        if inner.is_empty() {
+                            base
+                        } else {
+                            format!("{base} {inner}")
+                        }
+                    }
+                }
+            }
             other => {
                 let base = other.map_or("void", Type::name);
                 if inner.is_empty() {
@@ -630,25 +647,35 @@ impl<'a> UnitReader<'a, '_> {
     /// A pointer to `to` inside `inner`: `struct node *`, `char **`, and
     /// `int (*)(int)` where the pointer needs brackets.
     fn declare_pointer(&self, to: Option<usize>, inner: &str) -> String {
+        self.declare_qualified_pointer(to, "", inner)
+    }
+
+    /// A pointer with `qualifiers` (`const`, `volatile`, or none).
+    fn declare_qualified_pointer(
+        &self,
+        to: Option<usize>,
+        qualifiers: &str,
+        inner: &str,
+    ) -> String {
+        let star = if qualifiers.is_empty() {
+            format!("*{inner}")
+        } else if inner.is_empty() {
+            format!("* {qualifiers}")
+        } else {
+            format!("* {qualifiers} {inner}")
+        };
         let target = to.map(|to| &self.types[to]);
         if matches!(target, Some(Type::Array { .. } | Type::Function { .. })) {
-            self.declare(to, &format!("(*{inner})"))
+            self.declare(to, &format!("({star})"))
         } else {
-            self.declare(to, &format!("*{inner}"))
+            self.declare(to, &star)
         }
     }
 
     /// Adds an array of `count` of type `of`.
     fn add_array(&mut self, of: usize, count: u64) -> usize {
         let name = self.declare(Some(of), &format!("[{count}]"));
-        let element = &self.types[of];
-        let size = element.size() * count;
-        self.types.push(Type::Array {
-            name,
-            size,
-            of,
-            count,
-        });
+        self.types.push(Type::Array { name, of, count });
         self.types.len() - 1
     }
 }
@@ -684,11 +711,11 @@ pub(crate) fn section_json(function_names: &[String], info: &DebugInfo) -> Strin
         out.push_str("]}");
     }
     out.push_str("],\"types\":[");
-    for (index, ty) in info.types.iter().enumerate() {
+    for index in 0..info.types.len() {
         if index > 0 {
             out.push(',');
         }
-        out.push_str(&type_json(ty));
+        out.push_str(&type_json(&info.types, index));
     }
     out.push_str("]}");
     out
@@ -698,7 +725,20 @@ fn optional(index: Option<usize>) -> String {
     index.map_or_else(|| "null".to_string(), |index| index.to_string())
 }
 
-fn type_json(ty: &Type) -> String {
+/// A type's size in bytes, from the finished table: an alias or array's
+/// size can't be known while a struct it refers to is still being read.
+fn size_of(types: &[Type], index: usize) -> u64 {
+    match &types[index] {
+        Type::Int { size, .. } | Type::Float { size, .. } | Type::Struct { size, .. } => *size,
+        Type::Pointer { .. } => POINTER_SIZE,
+        Type::Array { of, count, .. } => size_of(types, *of) * count,
+        Type::Alias { to, .. } => to.map_or(0, |to| size_of(types, to)),
+        Type::Function { .. } | Type::Other { .. } => 0,
+    }
+}
+
+fn type_json(types: &[Type], index: usize) -> String {
+    let ty = &types[index];
     let name = json_string(ty.name());
     match ty {
         Type::Int { size, signed, .. } => {
@@ -731,15 +771,19 @@ fn type_json(ty: &Type) -> String {
                 fields.join(",")
             )
         }
-        Type::Array {
-            size, of, count, ..
-        } => format!(
-            "{{\"kind\":\"array\",\"name\":{name},\"size\":{size},\"of\":{of},\"count\":{count}}}"
-        ),
-        Type::Alias {
-            size, to, typedef, ..
-        } => {
-            let kind = if *typedef { "typedef" } else { "qualified" };
+        Type::Array { of, count, .. } => {
+            let size = size_of(types, index);
+            format!(
+                "{{\"kind\":\"array\",\"name\":{name},\"size\":{size},\"of\":{of},\"count\":{count}}}"
+            )
+        }
+        Type::Alias { to, qualifier, .. } => {
+            let kind = if qualifier.is_some() {
+                "qualified"
+            } else {
+                "typedef"
+            };
+            let size = size_of(types, index);
             format!(
                 "{{\"kind\":\"{kind}\",\"name\":{name},\"size\":{size},\"to\":{}}}",
                 optional(*to)
