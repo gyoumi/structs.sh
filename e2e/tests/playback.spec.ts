@@ -55,8 +55,7 @@ test.describe('playback', () => {
   test('clicking the timeline jumps to that point', async ({ visualiser }) => {
     await visualiser.runToEnd('append', 40);
     await visualiser.seekTo(0.5);
-    await expect.poll(() => visualiser.progress()).toBeGreaterThan(25);
-    expect(await visualiser.progress()).toBeLessThan(75);
+    await expect.poll(async () => Math.abs((await visualiser.progress()) - 50)).toBeLessThan(25);
   });
 
   test('offers speeds from 0.25x to 2x', async ({ visualiser }) => {
