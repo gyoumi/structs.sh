@@ -1,7 +1,7 @@
 import Box from '@mui/material/Box';
 import { ThemeProvider } from '@mui/material/styles';
 import { AnimatePresence } from 'framer-motion';
-import { Route, Routes } from 'react-router-dom';
+import { Route, Routes, useLocation, useNavigationType } from 'react-router-dom';
 import FeedbackRedirect from '@/landing/FeedbackRedirect';
 import Landing from '@/landing/Landing';
 import NotFound from '@/landing/NotFound';
@@ -11,11 +11,22 @@ import './App.scss';
 import '@/visualiser-src/linked-list-visualiser/styles/visualiser.css';
 import DevelopmentMode from '@/visualiser-debugger/DevelopmentMode';
 import { useGlobalStore } from '@/visualiser-debugger/Store/globalStateStore';
-import { useEffect } from 'react';
+import { useEffect, useLayoutEffect } from 'react';
 import { useFrontendStateStore } from '@/visualiser-debugger/Store/frontendStateStore';
 import Toast from '@/visualiser-debugger/Component/Toast/Toast';
 
+/** Opens each new page at the top. Back and forward keep the browser's restored position, and anchors scroll themselves. */
+const useScrollToTopOnNavigate = () => {
+  const { pathname, hash } = useLocation();
+  const navigationType = useNavigationType();
+  useLayoutEffect(() => {
+    if (navigationType !== 'POP' && !hash) window.scrollTo(0, 0);
+  }, [pathname, hash, navigationType]);
+};
+
 const App = () => {
+  useScrollToTopOnNavigate();
+
   useEffect(() => {
     // @ts-ignore
     window.globalStore = useGlobalStore;

@@ -44,7 +44,7 @@ const Keypad = ({ command, runLabel, classes, indexMax }: KeypadProps) => {
   const press = (key: string) => {
     const current = values[target] ?? '';
     if (key === ',' && (!current || current.endsWith(','))) return;
-    if (!takesList && current.length >= 2) return;
+    if (args[target] === 'value' && current.length >= 2) return;
     setValue(target, current + key);
   };
 

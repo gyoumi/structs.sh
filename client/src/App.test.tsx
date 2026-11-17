@@ -109,6 +109,16 @@ describe('visualiser', () => {
     expect(await screen.findByText('Link copied')).toBeTruthy();
   });
 
+  test('a copied link keeps an empty structure empty', async () => {
+    await renderVisualiser('/visualiser/linked-lists/empty');
+    const user = userEvent.setup();
+    const writeText = vi.spyOn(navigator.clipboard, 'writeText');
+    await user.click(screen.getByRole('button', { name: 'Copy link' }));
+    expect(writeText).toHaveBeenCalledWith(
+      `${window.location.origin}/visualiser/linked-lists/empty`
+    );
+  });
+
   test('an unknown structure goes back to the landing page', async () => {
     await renderVisualiser('/visualiser/graphs');
     expect(screen.getByText('Landing')).toBeTruthy();
