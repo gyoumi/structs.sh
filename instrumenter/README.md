@@ -5,8 +5,13 @@ browser, so the wasm debugger can record it as it runs. Using the DWARF line
 table, it adds calls at the start of each statement in the student's
 functions, and when each function starts and returns. The C library has no
 debug info, so it's left alone and stepping goes over it.
-`client/src/Services/debugger/wasm/recording.ts` turns those calls into the
-steps a student sees. `src/lib.rs` has the details.
+
+It also writes a `structs.debug` section describing each statement's line,
+the variables in scope there and where they live, and their types, named the
+way GDB names them (`src/debug.rs`).
+`client/src/Services/debugger/wasm/recording.ts` turns the calls into the
+steps a student sees, and `variables.ts` next to it reads each step's
+variables from memory. `src/lib.rs` has the details.
 
 It's Rust, using [walrus](https://crates.io/crates/walrus) to rewrite wasm.
 The browser loads it as a plain `wasm32-unknown-unknown` module: only bytes

@@ -1,0 +1,755 @@
+{
+  "typeDeclarations": [
+    {
+      "typeName": "int [3]",
+      "fields": [
+        {
+          "name": 0,
+          "typeName": "int"
+        },
+        {
+          "name": 1,
+          "typeName": "int"
+        },
+        {
+          "name": 2,
+          "typeName": "int"
+        }
+      ]
+    },
+    {
+      "typeName": "struct node",
+      "fields": [
+        {
+          "name": "value",
+          "typeName": "int"
+        },
+        {
+          "name": "next",
+          "typeName": "struct node *"
+        }
+      ]
+    },
+    {
+      "typeName": "Node",
+      "fields": [
+        {
+          "name": "value",
+          "typeName": "int"
+        },
+        {
+          "name": "next",
+          "typeName": "struct node *"
+        }
+      ]
+    }
+  ],
+  "states": [
+    {
+      "frame_info": {
+        "file": "variables.c",
+        "function": "main",
+        "line_num": 17
+      },
+      "stack_data": {
+        "nums": {
+          "addr": "0xfffff9c060f8",
+          "typeName": "int [3]",
+          "value": [
+            1,
+            2,
+            3
+          ]
+        },
+        "c": {
+          "addr": "0xfffff9c0612f",
+          "typeName": "char",
+          "value": 0
+        },
+        "d": {
+          "addr": "0xfffff9c06120",
+          "typeName": "double",
+          "value": "1.3906706436264034e-309"
+        },
+        "f": {
+          "addr": "0xfffff9c0611c",
+          "typeName": "float",
+          "value": "1.14763668e-38"
+        },
+        "s": {
+          "addr": "0xfffff9c06110",
+          "typeName": "char *",
+          "value": "0xfffff9c06230"
+        },
+        "n": {
+          "addr": "0xfffff9c060e8",
+          "typeName": "struct node",
+          "value": {
+            "value": 0,
+            "next": "0x0"
+          }
+        },
+        "p": {
+          "addr": "0xfffff9c06108",
+          "typeName": "Node *",
+          "value": "0xf7712ea127a0"
+        },
+        "t": {
+          "addr": "0xfffff9c06104",
+          "typeName": "int",
+          "value": 63345
+        }
+      },
+      "heap_data": {
+        "0xf7712ea12770": {
+          "addr": "0xf7712ea12770",
+          "typeName": "struct node",
+          "value": {
+            "value": {
+              "kind": "int",
+              "value": 1651076143,
+              "addr": null
+            },
+            "next": {
+              "kind": "struct node *",
+              "value": "0x6e696c2d34366863",
+              "addr": null
+            }
+          }
+        }
+      }
+    },
+    {
+      "frame_info": {
+        "file": "variables.c",
+        "function": "main",
+        "line_num": 18
+      },
+      "stack_data": {
+        "nums": {
+          "addr": "0xfffff9c060f8",
+          "typeName": "int [3]",
+          "value": [
+            1,
+            2,
+            3
+          ]
+        },
+        "c": {
+          "addr": "0xfffff9c0612f",
+          "typeName": "char",
+          "value": 120
+        },
+        "d": {
+          "addr": "0xfffff9c06120",
+          "typeName": "double",
+          "value": "1.3906706436264034e-309"
+        },
+        "f": {
+          "addr": "0xfffff9c0611c",
+          "typeName": "float",
+          "value": "1.14763668e-38"
+        },
+        "s": {
+          "addr": "0xfffff9c06110",
+          "typeName": "char *",
+          "value": "0xfffff9c06230"
+        },
+        "n": {
+          "addr": "0xfffff9c060e8",
+          "typeName": "struct node",
+          "value": {
+            "value": 0,
+            "next": "0x0"
+          }
+        },
+        "p": {
+          "addr": "0xfffff9c06108",
+          "typeName": "Node *",
+          "value": "0xf7712ea127a0"
+        },
+        "t": {
+          "addr": "0xfffff9c06104",
+          "typeName": "int",
+          "value": 63345
+        }
+      },
+      "heap_data": {
+        "0xf7712ea12770": {
+          "addr": "0xf7712ea12770",
+          "typeName": "struct node",
+          "value": {
+            "value": {
+              "kind": "int",
+              "value": 1651076143,
+              "addr": null
+            },
+            "next": {
+              "kind": "struct node *",
+              "value": "0x6e696c2d34366863",
+              "addr": null
+            }
+          }
+        }
+      }
+    },
+    {
+      "frame_info": {
+        "file": "variables.c",
+        "function": "main",
+        "line_num": 19
+      },
+      "stack_data": {
+        "nums": {
+          "addr": "0xfffff9c060f8",
+          "typeName": "int [3]",
+          "value": [
+            1,
+            2,
+            3
+          ]
+        },
+        "c": {
+          "addr": "0xfffff9c0612f",
+          "typeName": "char",
+          "value": 120
+        },
+        "d": {
+          "addr": "0xfffff9c06120",
+          "typeName": "double",
+          "value": 2.5
+        },
+        "f": {
+          "addr": "0xfffff9c0611c",
+          "typeName": "float",
+          "value": "1.14763668e-38"
+        },
+        "s": {
+          "addr": "0xfffff9c06110",
+          "typeName": "char *",
+          "value": "0xfffff9c06230"
+        },
+        "n": {
+          "addr": "0xfffff9c060e8",
+          "typeName": "struct node",
+          "value": {
+            "value": 0,
+            "next": "0x0"
+          }
+        },
+        "p": {
+          "addr": "0xfffff9c06108",
+          "typeName": "Node *",
+          "value": "0xf7712ea127a0"
+        },
+        "t": {
+          "addr": "0xfffff9c06104",
+          "typeName": "int",
+          "value": 63345
+        }
+      },
+      "heap_data": {
+        "0xf7712ea12770": {
+          "addr": "0xf7712ea12770",
+          "typeName": "struct node",
+          "value": {
+            "value": {
+              "kind": "int",
+              "value": 1651076143,
+              "addr": null
+            },
+            "next": {
+              "kind": "struct node *",
+              "value": "0x6e696c2d34366863",
+              "addr": null
+            }
+          }
+        }
+      }
+    },
+    {
+      "frame_info": {
+        "file": "variables.c",
+        "function": "main",
+        "line_num": 20
+      },
+      "stack_data": {
+        "nums": {
+          "addr": "0xfffff9c060f8",
+          "typeName": "int [3]",
+          "value": [
+            1,
+            2,
+            3
+          ]
+        },
+        "c": {
+          "addr": "0xfffff9c0612f",
+          "typeName": "char",
+          "value": 120
+        },
+        "d": {
+          "addr": "0xfffff9c06120",
+          "typeName": "double",
+          "value": 2.5
+        },
+        "f": {
+          "addr": "0xfffff9c0611c",
+          "typeName": "float",
+          "value": 0.5
+        },
+        "s": {
+          "addr": "0xfffff9c06110",
+          "typeName": "char *",
+          "value": "0xfffff9c06230"
+        },
+        "n": {
+          "addr": "0xfffff9c060e8",
+          "typeName": "struct node",
+          "value": {
+            "value": 0,
+            "next": "0x0"
+          }
+        },
+        "p": {
+          "addr": "0xfffff9c06108",
+          "typeName": "Node *",
+          "value": "0xf7712ea127a0"
+        },
+        "t": {
+          "addr": "0xfffff9c06104",
+          "typeName": "int",
+          "value": 63345
+        }
+      },
+      "heap_data": {
+        "0xf7712ea12770": {
+          "addr": "0xf7712ea12770",
+          "typeName": "struct node",
+          "value": {
+            "value": {
+              "kind": "int",
+              "value": 1651076143,
+              "addr": null
+            },
+            "next": {
+              "kind": "struct node *",
+              "value": "0x6e696c2d34366863",
+              "addr": null
+            }
+          }
+        }
+      }
+    },
+    {
+      "frame_info": {
+        "file": "variables.c",
+        "function": "main",
+        "line_num": 21
+      },
+      "stack_data": {
+        "nums": {
+          "addr": "0xfffff9c060f8",
+          "typeName": "int [3]",
+          "value": [
+            1,
+            2,
+            3
+          ]
+        },
+        "c": {
+          "addr": "0xfffff9c0612f",
+          "typeName": "char",
+          "value": 120
+        },
+        "d": {
+          "addr": "0xfffff9c06120",
+          "typeName": "double",
+          "value": 2.5
+        },
+        "f": {
+          "addr": "0xfffff9c0611c",
+          "typeName": "float",
+          "value": 0.5
+        },
+        "s": {
+          "addr": "0xfffff9c06110",
+          "typeName": "char *",
+          "value": "0xc8d1eff108a0"
+        },
+        "n": {
+          "addr": "0xfffff9c060e8",
+          "typeName": "struct node",
+          "value": {
+            "value": 0,
+            "next": "0x0"
+          }
+        },
+        "p": {
+          "addr": "0xfffff9c06108",
+          "typeName": "Node *",
+          "value": "0xf7712ea127a0"
+        },
+        "t": {
+          "addr": "0xfffff9c06104",
+          "typeName": "int",
+          "value": 63345
+        }
+      },
+      "heap_data": {
+        "0xf7712ea12770": {
+          "addr": "0xf7712ea12770",
+          "typeName": "struct node",
+          "value": {
+            "value": {
+              "kind": "int",
+              "value": 1651076143,
+              "addr": null
+            },
+            "next": {
+              "kind": "struct node *",
+              "value": "0x6e696c2d34366863",
+              "addr": null
+            }
+          }
+        }
+      }
+    },
+    {
+      "frame_info": {
+        "file": "variables.c",
+        "function": "main",
+        "line_num": 22
+      },
+      "stack_data": {
+        "nums": {
+          "addr": "0xfffff9c060f8",
+          "typeName": "int [3]",
+          "value": [
+            1,
+            2,
+            3
+          ]
+        },
+        "c": {
+          "addr": "0xfffff9c0612f",
+          "typeName": "char",
+          "value": 120
+        },
+        "d": {
+          "addr": "0xfffff9c06120",
+          "typeName": "double",
+          "value": 2.5
+        },
+        "f": {
+          "addr": "0xfffff9c0611c",
+          "typeName": "float",
+          "value": 0.5
+        },
+        "s": {
+          "addr": "0xfffff9c06110",
+          "typeName": "char *",
+          "value": "0xc8d1eff108a0"
+        },
+        "n": {
+          "addr": "0xfffff9c060e8",
+          "typeName": "struct node",
+          "value": {
+            "value": 7,
+            "next": "0x0"
+          }
+        },
+        "p": {
+          "addr": "0xfffff9c06108",
+          "typeName": "Node *",
+          "value": "0xf7712ea127a0"
+        },
+        "t": {
+          "addr": "0xfffff9c06104",
+          "typeName": "int",
+          "value": 63345
+        }
+      },
+      "heap_data": {
+        "0xf7712ea12770": {
+          "addr": "0xf7712ea12770",
+          "typeName": "struct node",
+          "value": {
+            "value": {
+              "kind": "int",
+              "value": 1651076143,
+              "addr": null
+            },
+            "next": {
+              "kind": "struct node *",
+              "value": "0x6e696c2d34366863",
+              "addr": null
+            }
+          }
+        }
+      }
+    },
+    {
+      "frame_info": {
+        "file": "variables.c",
+        "function": "main",
+        "line_num": 23
+      },
+      "stack_data": {
+        "nums": {
+          "addr": "0xfffff9c060f8",
+          "typeName": "int [3]",
+          "value": [
+            1,
+            2,
+            3
+          ]
+        },
+        "c": {
+          "addr": "0xfffff9c0612f",
+          "typeName": "char",
+          "value": 120
+        },
+        "d": {
+          "addr": "0xfffff9c06120",
+          "typeName": "double",
+          "value": 2.5
+        },
+        "f": {
+          "addr": "0xfffff9c0611c",
+          "typeName": "float",
+          "value": 0.5
+        },
+        "s": {
+          "addr": "0xfffff9c06110",
+          "typeName": "char *",
+          "value": "0xc8d1eff108a0"
+        },
+        "n": {
+          "addr": "0xfffff9c060e8",
+          "typeName": "struct node",
+          "value": {
+            "value": 7,
+            "next": "0x0"
+          }
+        },
+        "p": {
+          "addr": "0xfffff9c06108",
+          "typeName": "Node *",
+          "value": "0xfffff9c060e8"
+        },
+        "t": {
+          "addr": "0xfffff9c06104",
+          "typeName": "int",
+          "value": 63345
+        }
+      },
+      "heap_data": {}
+    },
+    {
+      "frame_info": {
+        "file": "variables.c",
+        "function": "sum",
+        "line_num": 9
+      },
+      "stack_data": {
+        "xs": {
+          "addr": "0xfffff9c060b8",
+          "typeName": "int *",
+          "value": "0xfffff9c060f8"
+        },
+        "n": {
+          "addr": "0xfffff9c060b4",
+          "typeName": "int",
+          "value": 3
+        },
+        "total": {
+          "addr": "0xfffff9c060cc",
+          "typeName": "int",
+          "value": 0
+        }
+      },
+      "heap_data": {}
+    },
+    {
+      "frame_info": {
+        "file": "variables.c",
+        "function": "sum",
+        "line_num": 10
+      },
+      "stack_data": {
+        "i": {
+          "addr": "0xfffff9c060c8",
+          "typeName": "int",
+          "value": 0
+        },
+        "xs": {
+          "addr": "0xfffff9c060b8",
+          "typeName": "int *",
+          "value": "0xfffff9c060f8"
+        },
+        "n": {
+          "addr": "0xfffff9c060b4",
+          "typeName": "int",
+          "value": 3
+        },
+        "total": {
+          "addr": "0xfffff9c060cc",
+          "typeName": "int",
+          "value": 0
+        }
+      },
+      "heap_data": {}
+    },
+    {
+      "frame_info": {
+        "file": "variables.c",
+        "function": "sum",
+        "line_num": 11
+      },
+      "stack_data": {
+        "i": {
+          "addr": "0xfffff9c060c8",
+          "typeName": "int",
+          "value": 0
+        },
+        "xs": {
+          "addr": "0xfffff9c060b8",
+          "typeName": "int *",
+          "value": "0xfffff9c060f8"
+        },
+        "n": {
+          "addr": "0xfffff9c060b4",
+          "typeName": "int",
+          "value": 3
+        },
+        "total": {
+          "addr": "0xfffff9c060cc",
+          "typeName": "int",
+          "value": 0
+        }
+      },
+      "heap_data": {}
+    },
+    {
+      "frame_info": {
+        "file": "variables.c",
+        "function": "sum",
+        "line_num": 10
+      },
+      "stack_data": {
+        "i": {
+          "addr": "0xfffff9c060c8",
+          "typeName": "int",
+          "value": 0
+        },
+        "xs": {
+          "addr": "0xfffff9c060b8",
+          "typeName": "int *",
+          "value": "0xfffff9c060f8"
+        },
+        "n": {
+          "addr": "0xfffff9c060b4",
+          "typeName": "int",
+          "value": 3
+        },
+        "total": {
+          "addr": "0xfffff9c060cc",
+          "typeName": "int",
+          "value": 1
+        }
+      },
+      "heap_data": {}
+    },
+    {
+      "frame_info": {
+        "file": "variables.c",
+        "function": "sum",
+        "line_num": 11
+      },
+      "stack_data": {
+        "i": {
+          "addr": "0xfffff9c060c8",
+          "typeName": "int",
+          "value": 1
+        },
+        "xs": {
+          "addr": "0xfffff9c060b8",
+          "typeName": "int *",
+          "value": "0xfffff9c060f8"
+        },
+        "n": {
+          "addr": "0xfffff9c060b4",
+          "typeName": "int",
+          "value": 3
+        },
+        "total": {
+          "addr": "0xfffff9c060cc",
+          "typeName": "int",
+          "value": 1
+        }
+      },
+      "heap_data": {}
+    },
+    {
+      "frame_info": {
+        "file": "variables.c",
+        "function": "sum",
+        "line_num": 10
+      },
+      "stack_data": {
+        "i": {
+          "addr": "0xfffff9c060c8",
+          "typeName": "int",
+          "value": 1
+        },
+        "xs": {
+          "addr": "0xfffff9c060b8",
+          "typeName": "int *",
+          "value": "0xfffff9c060f8"
+        },
+        "n": {
+          "addr": "0xfffff9c060b4",
+          "typeName": "int",
+          "value": 3
+        },
+        "total": {
+          "addr": "0xfffff9c060cc",
+          "typeName": "int",
+          "value": 3
+        }
+      },
+      "heap_data": {}
+    },
+    {
+      "frame_info": {
+        "file": "variables.c",
+        "function": "sum",
+        "line_num": 11
+      },
+      "stack_data": {
+        "i": {
+          "addr": "0xfffff9c060c8",
+          "typeName": "int",
+          "value": 2
+        },
+        "xs": {
+          "addr": "0xfffff9c060b8",
+          "typeName": "int *",
+          "value": "0xfffff9c060f8"
+        },
+        "n": {
+          "addr": "0xfffff9c060b4",
+          "typeName": "int",
+          "value": 3
+        },
+        "total": {
+          "addr": "0xfffff9c060cc",
+          "typeName": "int",
+          "value": 3
+        }
+      },
+      "heap_data": {}
+    }
+  ]
+}

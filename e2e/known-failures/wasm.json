@@ -1,7 +1,4 @@
 {
-  "types and variables › struct types in the program are listed": "The wasm debugger doesn't read types yet (checkpoint 3).",
-  "types and variables › struct fields are listed with their types": "The wasm debugger doesn't read types yet (checkpoint 3).",
-  "types and variables › local variables of the current function are listed": "The wasm debugger doesn't read variables yet (checkpoint 3).",
   "linked list visualisation › a node appears once it is linked into the list": "The wasm debugger doesn't read the heap yet (checkpoint 3).",
   "linked list visualisation › every node of a built list is drawn": "The wasm debugger doesn't read the heap yet (checkpoint 3)."
 }

@@ -1,8 +1,8 @@
 //! The instrumenter adds calls to `structs.line`, `structs.enter` and
-//! `structs.exit` to the student's functions, and lists their names in a
-//! `structs.functions` section. Whether the calls happen in the right places is
-//! tested by running programs: see client/src/Services/debugger/wasm/
-//! recording.test.ts.
+//! `structs.exit` to the student's functions, and describes their statements,
+//! variables and types in a `structs.debug` section. Whether the calls happen
+//! in the right places, and the variables read right, is tested by running
+//! programs: see client/src/Services/debugger/wasm/recording.test.ts.
 
 use structs_instrumenter::instrument;
 use wasmparser::{Parser, Payload, Validator};
@@ -17,7 +17,7 @@ const FIXTURES: [(&str, &[u8]); 3] = [
 
 const TRACE_IMPORTS: [&str; 3] = ["structs.enter", "structs.exit", "structs.line"];
 
-/// The module's imports ("module.name"), exports and `structs.functions`.
+/// The module's imports ("module.name"), exports and `structs.debug`.
 fn read(wasm: &[u8]) -> (Vec<String>, Vec<String>, Option<String>) {
     let mut imports = Vec::new();
     let mut exports = Vec::new();
@@ -35,7 +35,7 @@ fn read(wasm: &[u8]) -> (Vec<String>, Vec<String>, Option<String>) {
                     exports.push(export.expect("a readable export").name.to_string());
                 }
             }
-            Payload::CustomSection(section) if section.name() == "structs.functions" => {
+            Payload::CustomSection(section) if section.name() == "structs.debug" => {
                 functions = Some(String::from_utf8(section.data().to_vec()).unwrap());
             }
             _ => {}
@@ -70,13 +70,49 @@ fn every_program_gains_the_trace_imports_and_keeps_its_exports() {
     }
 }
 
+/// The `structs.debug` section of an instrumented fixture.
+fn debug_section(wasm: &[u8]) -> String {
+    read(&instrument(wasm).unwrap())
+        .2
+        .expect("a structs.debug section")
+}
+
 #[test]
 fn the_students_functions_are_listed_by_their_c_names() {
-    let (_, _, functions) = read(&instrument(FIXTURES[1].1).unwrap());
-
     // clang compiles `int main(void)` as `__original_main`; the debug info
     // still calls it `main`.
-    assert_eq!(functions.as_deref(), Some(r#"["square","main"]"#));
+    assert!(debug_section(FIXTURES[1].1).starts_with(r#"{"functions":["square","main"],"#));
+}
+
+#[test]
+fn each_statement_lists_the_variables_in_scope_with_where_they_live() {
+    let debug = debug_section(FIXTURES[1].1);
+
+    // square's parameter, then its local, each at an offset from the frame.
+    assert!(
+        debug.contains(r#"{"line":3,"variables":[{"name":"x","type":0,"offset":12},{"name":"result","type":0,"offset":8}]}"#),
+        "{debug}"
+    );
+    assert!(
+        debug.contains(r#"{"kind":"int","name":"int","size":4,"signed":true}"#),
+        "{debug}"
+    );
+}
+
+#[test]
+fn types_are_named_as_gdb_names_them() {
+    let debug = debug_section(FIXTURES[2].1);
+
+    assert!(
+        debug.contains(r#""kind":"pointer","name":"struct node *","size":4,"to":"#),
+        "{debug}"
+    );
+    assert!(
+        debug.contains(
+            r#""kind":"struct","name":"struct node","size":8,"fields":[{"name":"value","type":"#
+        ),
+        "{debug}"
+    );
 }
 
 #[test]

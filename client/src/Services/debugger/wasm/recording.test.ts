@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { compileAndInstrument } from './instrumenter';
-import { recordRun, Recording } from './recording';
+import { recordRun, Recording, Variable } from './recording';
+import gdb from './fixtures/gdb-variables.json';
 
 // Needs the instrumenter built first: `pnpm run instrumenter` from the repo root.
 
@@ -9,6 +10,13 @@ const CLANG_TIMEOUT = 60_000;
 
 const program = (name: string) =>
   readFileSync(new URL(`../../../../../e2e/programs/${name}`, import.meta.url), 'utf8');
+
+const fixture = (name: string) =>
+  readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8');
+
+/** The variables' names and types, in the order the page lists them. */
+const declarations = (variables: Record<string, Pick<Variable, 'typeName'> | undefined>) =>
+  Object.entries(variables).map(([name, variable]) => `${variable?.typeName} ${name}`);
 
 const record = async (
   name: string,
@@ -251,4 +259,75 @@ describe('recordRun', () => {
     },
     CLANG_TIMEOUT
   );
+
+  describe('variables', () => {
+    it(
+      'lists the variables in scope at each step, named and typed as GDB names them',
+      async () => {
+        const recording = await record('variables.c', fixture('variables.c'));
+
+        // GDB skips main's first line, so its first state is the second step.
+        const steps = recording.steps.slice(1, 1 + gdb.states.length);
+        expect(steps.map((step) => `${step.function}:${step.line}`)).toEqual(
+          gdb.states.map(({ frame_info: frame }) => `${frame.function}:${frame.line_num}`)
+        );
+        steps.forEach((step, index) => {
+          expect(declarations(step.variables), `${step.function}:${step.line}`).toEqual(
+            declarations(gdb.states[index].stack_data)
+          );
+        });
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'reads each variable’s value from memory as GDB shows it',
+      async () => {
+        const recording = await record('variables.c', fixture('variables.c'));
+        const atLine23 = recording.steps.find((step) => step.line === 23)!.variables;
+        const fromGdb = gdb.states.find((state) => state.frame_info.line_num === 23)!.stack_data;
+
+        // Pointers and addresses differ between machines, so check those apart.
+        (['nums', 'c', 'd', 'f'] as const).forEach((name) => {
+          expect(atLine23[name].value, name).toEqual(fromGdb[name]!.value);
+        });
+        expect(atLine23.n.value).toEqual({ value: 7, next: '0x0' });
+        expect(atLine23.p.value).toBe(atLine23.n.addr);
+        expect(atLine23.s.value).toMatch(/^0x[0-9a-f]+$/);
+        expect(atLine23.s.value).not.toBe('0x0');
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'shows a variable’s new value on the step after it is assigned',
+      async () => {
+        const recording = await record('functions.c', program('functions.c'));
+        const valuesOf = (name: string) =>
+          recording.steps
+            .filter((step) => name in step.variables)
+            .map((step) => `${step.function}:${step.line} ${name}=${step.variables[name].value}`);
+
+        // int a = 4; then int b = square(a);
+        expect(valuesOf('a')).toEqual(['main:7 a=0', 'main:8 a=4', 'main:8 a=4', 'main:9 a=4']);
+        expect(valuesOf('b')).toEqual(['main:7 b=0', 'main:8 b=0', 'main:8 b=0', 'main:9 b=16']);
+        expect(valuesOf('result')).toEqual(['square:2 result=0', 'square:3 result=16']);
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'lists the struct types the variables use, with their fields',
+      async () => {
+        const recording = await record('variables.c', fixture('variables.c'));
+
+        expect(recording.types).toEqual(
+          expect.arrayContaining(
+            gdb.typeDeclarations.filter(({ typeName }) => !typeName.endsWith(']'))
+          )
+        );
+      },
+      CLANG_TIMEOUT
+    );
+  });
 });

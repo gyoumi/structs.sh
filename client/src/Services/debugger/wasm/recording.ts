@@ -1,5 +1,14 @@
 import { createOutputLimit } from './outputLimit';
 import { runWasi } from './run';
+import {
+  readDebugSection,
+  readVariables,
+  structDeclarations,
+  TypeDeclaration,
+  Variable,
+} from './variables';
+
+export type { TypeDeclaration, Variable } from './variables';
 
 /**
  * How many statements a program may run before it is stopped. Repeats that
@@ -20,6 +29,8 @@ export type Step = {
   depth: number;
   /** What the program printed while running this statement. */
   output: string;
+  /** The variables in scope as the statement starts, innermost first. */
+  variables: Record<string, Variable>;
 };
 
 export type RunEnd =
@@ -33,6 +44,8 @@ export type Recording = {
   /** Anything printed before the first statement, which is rare. */
   outputBeforeFirstStep: string;
   end: RunEnd;
+  /** The struct types the program's variables use. */
+  types: TypeDeclaration[];
 };
 
 /** Thrown from the trace callback to stop a program at a limit. */
@@ -41,12 +54,6 @@ class LimitReached extends Error {
     super();
   }
 }
-
-/** The names in an instrumented program's `structs.functions` section. */
-const functionNames = (module: WebAssembly.Module): string[] => {
-  const [section] = WebAssembly.Module.customSections(module, 'structs.functions');
-  return section ? JSON.parse(new TextDecoder().decode(section)) : [];
-};
 
 /**
  * Runs an instrumented program to the end and records its steps. A step is
@@ -62,23 +69,33 @@ export const recordRun = async (
     timeLimitMs = TIME_LIMIT_MS,
   }: { stepLimit?: number; timeLimitMs?: number } = {}
 ): Promise<Recording> => {
-  const names = functionNames(await WebAssembly.compile(wasm));
+  const debug = readDebugSection(await WebAssembly.compile(wasm));
   const steps: (Step & { frame: number })[] = [];
-  const calls: { function: string; frame: number; line: number | null }[] = [];
+  type Call = {
+    function: string;
+    frame: number;
+    /** The statement it's on, once it has started one. */
+    statement: number | null;
+    line: number | null;
+    frameBase: number;
+  };
+  const calls: Call[] = [];
   let outputBeforeFirstStep = '';
   let frames = 0;
   let statementsRun = 0;
   const limitOutput = createOutputLimit();
   const deadline = performance.now() + timeLimitMs;
 
-  const addStep = (call: (typeof calls)[number]) => {
+  const addStep = (call: Call, memory: () => DataView) => {
     const last = steps.at(-1);
-    if (call.line === null || (last?.frame === call.frame && last.line === call.line)) return;
+    if (call.statement === null || call.line === null) return;
+    if (last?.frame === call.frame && last.line === call.line) return;
     steps.push({
       function: call.function,
       line: call.line,
       depth: calls.indexOf(call),
       output: '',
+      variables: readVariables(debug, call.statement, call.frameBase, memory()),
       frame: call.frame,
     });
   };
@@ -92,23 +109,25 @@ export const recordRun = async (
         if (last) last.output += kept;
         else outputBeforeFirstStep += kept;
       },
-      onTrace: (event) => {
+      onTrace: (event, memory) => {
         if (event.type === 'enter') {
           frames += 1;
-          const name = names[event.function] ?? `function ${event.function}`;
-          calls.push({ function: name, frame: frames, line: null });
+          const name = debug.functions[event.function] ?? `function ${event.function}`;
+          calls.push({ function: name, frame: frames, statement: null, line: null, frameBase: 0 });
         } else if (event.type === 'line') {
           statementsRun += 1;
           if (statementsRun > stepLimit) throw new LimitReached({ stepLimit });
           if (performance.now() > deadline) throw new LimitReached({ timeLimit: timeLimitMs });
           const call = calls.at(-1);
           if (!call) return;
-          call.line = event.line;
-          addStep(call);
+          call.statement = event.statement;
+          call.line = debug.statements[event.statement]?.line ?? null;
+          call.frameBase = event.frameBase;
+          addStep(call, memory);
         } else {
           calls.pop();
           const caller = calls.at(-1);
-          if (caller) addStep(caller);
+          if (caller) addStep(caller, memory);
         }
       },
     });
@@ -122,5 +141,6 @@ export const recordRun = async (
     steps: steps.map(({ frame: _frame, ...step }) => step),
     outputBeforeFirstStep,
     end,
+    types: structDeclarations(debug),
   };
 };
