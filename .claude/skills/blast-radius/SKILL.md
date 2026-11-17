@@ -29,6 +29,7 @@ Run the narrowest check that fails if you are wrong:
 |---|---|
 | Visual debugger behaviour | The matching e2e test, `pnpm run e2e -g "<behaviour>"` with the debugger running |
 | Debugger backend | The matching pytest in `debugger/src/debugger/test/` |
+| Client logic (parsers, stores, the rewrite's compiler, runner, recorder) | The matching Vitest file, `cd client && pnpm test <file>` |
 | Visualiser animation or layout | A screenshot of the risky case (see `ui-visual-test`) |
 | Types or exports | `cd client && pnpm run tsc` |
 
