@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "lint": "eslint \"./src/**/*.{tsx,ts}\"",
     "lint-fix": "eslint './src/**/*.{tsx,ts,jsx,js}' --fix",
-    "tsc": "tsc"
+    "tsc": "tsc",
+    "test": "vitest run"
   },
   "dependencies": {
     "@codemirror/lang-cpp": "^6.0.3",
@@ -70,6 +71,9 @@
     "@eslint/eslintrc": "^3.3.5",
     "@eslint/js": "^9.39.4",
     "@pigment-css/vite-plugin": "^0.0.30",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.12",
     "@types/d3": "^7.4.3",
     "@types/lodash": "^4.17.24",
     "@types/node": "^22.0.0",
@@ -89,10 +93,12 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.1",
     "globals": "^17.5.0",
+    "jsdom": "^31.0.1",
     "prettier": "^3.8.3",
     "typescript": "^6.0.2",
     "vite": "^8.0.0",
-    "vite-plugin-checker": "^0.10.0"
+    "vite-plugin-checker": "^0.10.0",
+    "vitest": "^5.1.0"
   },
   "browserslist": {
     "production": [

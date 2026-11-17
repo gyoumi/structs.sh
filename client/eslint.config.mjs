@@ -121,7 +121,13 @@ const overrideConfig = defineConfig([
         endOfLine: "auto",
       }],
     },
-  }
+  },
+  {
+    files: ["**/*.test.{ts,tsx}", "src/test/**", "vitest.config.ts"],
+    rules: {
+      "import/no-extraneous-dependencies": ["error", { devDependencies: true }],
+    },
+  },
 ])
 
 
