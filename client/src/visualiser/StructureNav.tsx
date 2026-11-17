@@ -42,24 +42,31 @@ const StructureNav = ({
     if (!root || !measure) return undefined;
 
     const update = () => {
-      const widths = [...measure.querySelectorAll<HTMLElement>('[data-measure="item"]')].map(
-        (item) => item.getBoundingClientRect().width
+      const widths = new Map(
+        [...measure.querySelectorAll<HTMLElement>('[data-measure="item"]')].map((item) => [
+          item.dataset.slug,
+          item.getBoundingClientRect().width,
+        ])
       );
       const more = measure.querySelector<HTMLElement>('[data-measure="more"]');
       const moreWidth = more?.getBoundingClientRect().width ?? 0;
       const gap = parseFloat(getComputedStyle(measure).columnGap) || 0;
       const available = root.clientWidth;
-      const fits = (n: number, withMore: boolean) =>
-        widths.slice(0, n).reduce((sum, width) => sum + width, 0) +
-          gap * Math.max(0, n - 1) +
-          (withMore ? gap + moreWidth : 0) <=
-        available;
+      const fits = (n: number, withMore: boolean) => {
+        const shown = visibleTopics(n, current);
+        return (
+          shown.reduce((sum, topic) => sum + (widths.get(topic.slug) ?? 0), 0) +
+            gap * Math.max(0, shown.length - 1) +
+            (withMore ? gap + moreWidth : 0) <=
+          available
+        );
+      };
 
-      if (fits(widths.length, false)) {
-        setCount(widths.length);
+      if (fits(topics.length, false)) {
+        setCount(topics.length);
         return;
       }
-      let n = widths.length - 1;
+      let n = topics.length - 1;
       while (n > 1 && !fits(n, true)) n -= 1;
       setCount(n);
     };
@@ -68,7 +75,7 @@ const StructureNav = ({
     const observer = new ResizeObserver(update);
     observer.observe(root);
     return () => observer.disconnect();
-  }, []);
+  }, [current]);
 
   const shown = visibleTopics(count, current);
   const hidden = topics.filter((topic) => !shown.includes(topic));
@@ -124,7 +131,12 @@ const StructureNav = ({
       >
         <div ref={measureRef} className={classes.list} style={{ width: 'max-content' }}>
           {topics.map((topic) => (
-            <span key={topic.slug} className={classes.link} data-measure="item">
+            <span
+              key={topic.slug}
+              className={classes.link}
+              data-measure="item"
+              data-slug={topic.slug}
+            >
               {renderLink(topic)}
             </span>
           ))}
