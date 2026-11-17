@@ -1,21 +1,37 @@
-import { Debugger } from './types';
+import { Debugger, DebuggerEvents, SourceFile } from './types';
+import { Compiler } from './wasm/compiler';
+import { createWorkerCompiler } from './wasm/workerCompiler';
 
 /**
- * The debugger that will run entirely in the browser. It does nothing yet:
- * compiling arrives in checkpoint 1b (see docs/debugger-rewrite.md).
+ * The debugger that runs entirely in the browser. It compiles programs, but
+ * doesn't run or step them yet (see docs/debugger-rewrite.md).
  */
 export class WasmDebugger implements Debugger {
   readonly kind = 'wasm';
 
-  setEvents() {
-    // Nothing is reported yet.
+  private events: DebuggerEvents | null = null;
+
+  /** Counts starts, so only the latest compile's result is reported. */
+  private latestStart = 0;
+
+  constructor(private readonly compiler: Compiler = createWorkerCompiler()) {}
+
+  setEvents(events: DebuggerEvents) {
+    this.events = events;
   }
 
-  start() {
-    // Compiling arrives in checkpoint 1b.
+  start({ name, code }: SourceFile) {
+    this.latestStart += 1;
+    const thisStart = this.latestStart;
+    this.compiler.compile(name, code).then((result) => {
+      if (thisStart !== this.latestStart) return;
+      if (result.ok) this.events?.sessionStarted();
+      else this.events?.compileError([result.errors]);
+    });
   }
 
   step() {
+    // Running and stepping arrive in checkpoints 1c and 2.
     return Promise.resolve(false);
   }
 
@@ -32,6 +48,8 @@ export class WasmDebugger implements Debugger {
   }
 
   close() {
-    // Nothing to close.
+    this.events = null;
+    this.latestStart += 1;
+    this.compiler.dispose();
   }
 }

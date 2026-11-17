@@ -89,7 +89,7 @@ export const useDebugger = () => {
       return;
     }
 
-    debuggerClient.start(file.data);
+    debuggerClient.start({ name: file.name, code: file.data });
   }, [debuggerClient, resetDebugSession, setToastMessage]);
 
   // step the debugger once, waiting for any earlier steps to finish

@@ -35,7 +35,7 @@ describe('GdbDebugger', () => {
   });
 
   it('sends the code to the server to start a session', () => {
-    gdb.start('int main(void) { return 0; }');
+    gdb.start({ name: 'main.c', code: 'int main(void) { return 0; }' });
 
     expect(socket.sent).toEqual([{ event: 'mainDebug', args: ['int main(void) { return 0; }'] }]);
   });
