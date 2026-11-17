@@ -20,8 +20,9 @@ test.describe('sharing', () => {
     await visualiser.open('linked-lists', [10, 20, 30]);
     await visualiser.runToEnd('append', 40);
     const link = await visualiser.copyLink();
+    expect(new URL(link).origin).toBe(new URL(page.url()).origin);
 
-    await page.goto(new URL(link).pathname);
+    await page.goto(link);
     await expect.poll(() => visualiser.values()).toEqual([10, 20, 30, 40]);
   });
 });
