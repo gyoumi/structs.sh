@@ -7,7 +7,15 @@ import { ArrowIcon, ChevronDownIcon } from '@/ui/icons';
 import { ThemeToggle, useTheme } from '@/ui/theme';
 import { debuggerDestination, topics } from '@/visualiser/topics';
 import StructureArt, { artHost } from '@/ui/StructureArt';
-import { contacts, DESCRIPTION, features, GITHUB, OPEN_SOURCE, tiers } from './content';
+import {
+  contacts,
+  DESCRIPTION,
+  FEEDBACK_FORM,
+  features,
+  GITHUB,
+  OPEN_SOURCE,
+  tiers,
+} from './content';
 import Hero from './Hero';
 import styles from './Landing.module.css';
 
@@ -181,7 +189,9 @@ const Landing = () => {
             <a href={GITHUB} target="_blank" rel="noreferrer">
               GitHub
             </a>
-            <Link to="/feedback">Feedback</Link>
+            <a href={FEEDBACK_FORM} target="_blank" rel="noreferrer">
+              Feedback
+            </a>
             {contacts.map((contact) => (
               <a
                 key={contact.href}
