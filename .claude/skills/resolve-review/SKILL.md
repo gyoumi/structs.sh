@@ -60,7 +60,7 @@ List skipped items separately with their reasons. Group related items into phase
 For each approved item:
 
 - **Commit suggestion**: show the suggestion, ask the user to click "Commit suggestion" on the linked comment, and wait. After they confirm, `git pull` and run the item's verification.
-- **Apply**: make the edit, run the item's verification (see `review-branch` for the per-area checks), and present the result.
+- **Apply**: make the edit, run the item's verification (`pnpm check:changed`), and present the result.
 
 Stop after each item unless the user opted into batch mode. In batch mode, a whole phase may become one commit.
 

@@ -37,12 +37,9 @@ Exceptions: commit messages that must describe a change, diagnosis reports expla
 
 ## Cut AI tells
 
-- **Content**: no puffery (pivotal, testament, evolving landscape), vague attributions (experts believe), promotional adjectives (groundbreaking, stunning), or "despite challenges, it thrives".
-- **Words**: cut additionally, crucial, delve, enhance, fostering, landscape (abstract), pivotal, showcase, tapestry, underscore, vibrant. No "serves as", "stands as", "boasts" where "is" works. No "not just X, but Y", forced groups of three, synonym cycling, or false ranges ("from X to Y").
-- **Metaphor nouns**: substrate, wedge, vector, locus, nexus, primitive, harness, bedrock, scaffolding, paradigm, north star, flywheel. Use the concrete word.
-- **Style**: no em dashes (use a period or comma). No colon as a mid-sentence crutch. No bold on every noun. No bold-label lists that repeat the line. Sentence-case headings. No decorative emoji. Straight quotes.
-- **Chat**: cut "I hope this helps", "Let me know if", "Of course!", "Certainly!", "Great question!", "You're absolutely right".
-- **Filler**: "in order to" becomes "to"; "due to the fact that" becomes "because"; delete "it is important to note that"; cut stacked hedges.
+- **Banned words, metaphors, filler, chat phrases, em dashes and curly quotes**: the list is in `.vale/styles/Unslop/`. CI checks docs and READMEs against it; run `vale <file>` locally. Apply the same list to PR bodies and chat, which Vale doesn't see.
+- **Content**: no vague attributions (experts believe) or "despite challenges, it thrives".
+- **Style**: no colon as a mid-sentence crutch, forced groups of three, synonym cycling, or false ranges ("from X to Y"). No bold on every noun. No bold-label lists that repeat the line. Sentence-case headings. No decorative emoji. Cut stacked hedges.
 
 ## When rewriting
 

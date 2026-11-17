@@ -47,7 +47,7 @@ The phase reviewer is a different model from the implementer on purpose, so the 
 
 1. **Orchestrator.** This session coordinates. It reads, plans, spawns, judges findings, and reports. It does not edit product files itself once workers are in play.
 2. **Workers.** Each worker prompt lists the files it owns. Parallel workers own disjoint files. Spawn all independent workers in one message. Serialize only on a real file-ownership conflict.
-3. **Git writes.** Commit, push, and rebase happen only when the user asked, and only from the orchestrator, never from parallel workers. Follow `git-clean-commit`.
+3. **Git writes.** Commit, push, and rebase happen only when the user asked, and only from the orchestrator, never from parallel workers. Stage paths explicitly (`git add <paths>`, never `git add .`) and use a conventional commit message.
 4. **Review loops.** The orchestrator buckets every finding as Act on, Consider, Noted, or Dismissed. Fixers apply Act-on items only. Cap about 3 rounds. Show Dismissed items to the user so they can override.
 5. **Wait for every named reviewer** before applying any findings.
 6. **Waiting.** Rely on the subagent completion notification. Do not poll with sleep loops or `--watch`.

@@ -48,11 +48,11 @@ Actions are pinned to full commit SHAs with a version comment. A bump must keep 
 
 ## 4. Verify locally
 
-Run the checks for what the bump touches (see `review-branch` for the full list):
+Run `pnpm check:changed` from the repo root, plus the checks for what the bump touches:
 
 | Bump | Check |
 |---|---|
-| Vite or a Vite plugin | `pnpm install && cd client && pnpm run tsc && pnpm run lint && pnpm run build`, then load `http://localhost:3000` |
+| Vite or a Vite plugin | `pnpm install && cd client && pnpm run build`, then load `http://localhost:3000` |
 | GitHub Action or Dockerfile base image | Read the action's release notes for breaking input changes; `docker compose build debugger` for Dockerfile bumps |
 | Anything the e2e suite depends on | `docker compose up -d debugger && pnpm run e2e` |
 

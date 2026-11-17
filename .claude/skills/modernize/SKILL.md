@@ -69,7 +69,7 @@ MODERNIZE only:
 1. `git worktree add -b modernize/<pr> ../structs-modernize-<pr> <head sha>`, then `git rebase origin/<base>` inside it. Done when the rebase finished or stopped on conflicts.
 2. For each conflict, have a `sonnet` worker (see `orchestrate-defaults`) edit only the conflicted files it is given. Find the intent of both sides from the commit messages, the PR, and the issue. Keep both intents where possible. If they are incompatible, keep `dev`'s behaviour unless the PR's goal requires otherwise, and note the trade-off. If a conflict shows a product or design disagreement, stop, leave the rebase in progress, and go back to step 3 with the new evidence. Never run `git rebase --abort` without the user's OK.
 3. Compare before and after: `git range-diff <merge-base>..<head sha> origin/<base>..HEAD`, then read the final diff. Confirm intended behaviour did not disappear and behaviour already on `dev` did not return. Done when both are confirmed or a gap is listed.
-4. Run the checks for the touched areas (see `review-branch`). Separate real failures from failures that already exist on `origin/<base>`.
+4. Run `pnpm check:changed` from the repo root. Separate real failures from failures that already exist on `origin/<base>`.
 5. Run a second `sol-loop` round, step `modernize`, with the range-diff, the final diff command, and the check results. A blocker or should stops the push.
 6. Push: `git push --force-with-lease=<headRefName>:<head sha> origin HEAD:<headRefName>`. If the lease fails, someone else pushed; fetch and go back to step 1. Never overwrite new work. After a successful push, remove the worktree with `git worktree remove ../structs-modernize-<pr>`. Done when `gh pr view <n>` shows the new head SHA.
 
