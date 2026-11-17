@@ -70,10 +70,6 @@ jobs:
         with:
           runtime: node@22
           cache: true
-      - name: PR rules
-        env:
-          PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
-        run: node scripts/check-pr.mjs --base HEAD^1 --head HEAD
       - name: Tests for the repo scripts
         run: pnpm run test:scripts
       # Squash merges use the PR title as the commit message, and the local
@@ -92,3 +88,8 @@ jobs:
       # The unslop skill's word and punctuation rules (.vale/styles/Unslop).
       - name: Prose in docs and READMEs
         run: vale docs/docs README.md client/README.md e2e/README.md
+      # Last, so a missing waiver label doesn't hide failures in the steps above.
+      - name: PR rules
+        env:
+          PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: node scripts/check-pr.mjs --base HEAD^1 --head HEAD
