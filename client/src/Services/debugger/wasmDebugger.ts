@@ -97,6 +97,8 @@ export class WasmDebugger implements Debugger {
   }
 
   interrupt() {
+    // Also cancels a compile in progress, so its program doesn't start.
+    this.latestStart += 1;
     this.stopRun();
   }
 

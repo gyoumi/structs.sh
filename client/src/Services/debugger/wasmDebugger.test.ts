@@ -197,6 +197,21 @@ describe('WasmDebugger', () => {
     expect(signals[2].aborted).toBe(true);
   });
 
+  it('does not run a program whose compile was interrupted', async () => {
+    const { compiler, finish } = controlledCompiler();
+    const runner = vi.fn(runnerReturning({ exitCode: 0 }));
+    const wasm = new WasmDebugger(compiler, runner);
+    wasm.setEvents(events);
+
+    wasm.start({ name: 'main.c', code: '' });
+    wasm.interrupt();
+    finish(0, COMPILED);
+    await flush();
+
+    expect(runner).not.toHaveBeenCalled();
+    expect(events.sessionStarted).not.toHaveBeenCalled();
+  });
+
   it('cannot step yet', async () => {
     const wasm = new WasmDebugger(compilerReturning({ ok: true, wasm: new Uint8Array() }));
 
