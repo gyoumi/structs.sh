@@ -1,14 +1,21 @@
 {
   "name": "structs.sh",
   "version": "1.0.0",
-  "description": "Precommit setup for internal use only",
+  "private": true,
+  "type": "module",
+  "description": "Workspace root: commit hooks and the e2e suite",
+  "packageManager": "pnpm@12.21.0",
   "main": "index.js",
   "directories": {
     "doc": "docs"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "prepare": "husky"
+    "prepare": "husky",
+    "e2e": "playwright test -c e2e",
+    "e2e:strict": "E2E_STRICT=1 playwright test -c e2e",
+    "e2e:typecheck": "tsc -p e2e",
+    "e2e:report": "playwright show-report e2e/playwright-report"
   },
   "keywords": [],
   "author": "",
@@ -16,6 +23,9 @@
   "devDependencies": {
     "@commitlint/cli": "^20.5.3",
     "@commitlint/config-conventional": "^20.5.3",
-    "husky": "^9.1.7"
+    "@playwright/test": "^1.65.0",
+    "@types/node": "^26.6.6",
+    "husky": "^9.1.7",
+    "typescript": "^7.0.2"
   }
 }

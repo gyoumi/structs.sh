@@ -1,8 +1,8 @@
 ### Running the front-end without Docker
 
-1. `cd` into the `client` directory
-2. Run `npm install` to install node modules
-3. Run `npm start` to start the server. The frontend should be accessible at `localhost:3000`
+1. Run `pnpm install` in the repo root to install node modules
+2. `cd` into the `client` directory
+3. Run `pnpm start` to start the server. The frontend should be accessible at `localhost:3000`
 
 # Running Docker image
 

@@ -7,13 +7,13 @@ backend and to the Rust + wasm debugger that will replace it.
 
 ## Running
 
+From the repo root:
+
 ```sh
-docker compose up -d debugger   # the current backend
-(cd client && npm ci)           # the frontend that npm test starts
-cd e2e
-npm ci
-npx playwright install chromium
-npm test                        # starts the frontend if it isn't running
+docker compose up -d debugger            # the current backend
+pnpm install                             # the frontend and the e2e suite
+pnpm exec playwright install chromium
+pnpm run e2e                             # starts the frontend if it isn't running
 ```
 
 After each run, a per-feature summary is printed:
@@ -30,7 +30,7 @@ Feature progress
   11/15 behaviours working
 ```
 
-`npm run report` opens the HTML report with traces and screenshots of failures.
+`pnpm run e2e:report` opens the HTML report with traces and screenshots of failures.
 
 ## Known failures
 
@@ -40,7 +40,7 @@ starts passing, Playwright reports it as a failure so it gets removed from the
 list: a fixed feature can't stay marked as broken, and a broken one can't be
 added silently.
 
-`npm run test:strict` ignores the list and shows raw results.
+`pnpm run e2e:strict` ignores the list and shows raw results.
 
 ## Using this during the rewrite
 
@@ -50,7 +50,7 @@ added silently.
 3. **As features are rebuilt:** the summary climbs back. When a bug on the
    known-failures list is fixed by the rewrite, remove its entry.
 
-Expect to update `support/debugger-page.ts` and the "Start debugger" step in
+Expect to update `support/debugger-page.ts` and the "Start debugger" and "Wait for debugger" steps in
 `.github/workflows/e2e.yml` along the way. The test files themselves shouldn't
 need to change.
 

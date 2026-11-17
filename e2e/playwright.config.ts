@@ -10,7 +10,7 @@ export default defineConfig({
   fullyParallel: true,
   workers: process.env.CI ? 2 : 3,
   forbidOnly: !!process.env.CI,
-  reporter: [['list'], ['./support/progress-reporter.ts'], ['html', { open: 'never' }]],
+  reporter: [['list'], ['./support/progress-reporter.ts'], ['html', { open: 'never', outputFolder: 'playwright-report' }]],
   use: {
     baseURL,
     trace: 'retain-on-failure',
@@ -22,7 +22,7 @@ export default defineConfig({
   webServer: process.env.E2E_BASE_URL
     ? undefined
     : {
-        command: 'npm --prefix ../client start',
+        command: 'pnpm --dir ../client start',
         url: baseURL,
         reuseExistingServer: true,
         timeout: 120_000,
