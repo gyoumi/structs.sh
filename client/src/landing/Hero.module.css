@@ -1,0 +1,122 @@
+.wrap {
+  display: grid;
+  place-items: center;
+}
+
+/* The editor window the hero runs in, coloured by the landing page's tokens. */
+
+.editor {
+  width: min(100%, 32rem);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--window-shadow);
+  font-family: var(--mono);
+  font-variant-ligatures: none;
+}
+
+.editorBar {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.625rem 0.875rem;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.editorBar i {
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 50%;
+  background: var(--line);
+}
+
+.editorTitle {
+  margin-left: 0.5rem;
+}
+
+.editorStatus {
+  margin-left: auto;
+  font-size: 0.75rem;
+}
+
+.stage {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-bottom: 1px solid var(--line);
+}
+
+.node {
+  fill: var(--node);
+  stroke: var(--ink);
+  stroke-width: 2;
+}
+
+.node[data-lit] {
+  stroke: var(--highlight);
+}
+
+.arrow line {
+  stroke: var(--ink);
+  stroke-width: 2;
+}
+
+.arrow polygon {
+  fill: var(--ink);
+}
+
+.label {
+  fill: var(--highlight);
+  font-family: var(--mono);
+  font-size: 11px;
+  text-anchor: middle;
+}
+
+.listing {
+  position: relative;
+  margin: 0;
+  padding: 0.5rem 0;
+  list-style: none;
+  counter-reset: line;
+  font-size: clamp(0.6875rem, 1.05vw, 0.8125rem);
+  line-height: 1.75;
+  white-space: pre;
+  overflow: hidden;
+  color: var(--ink);
+}
+
+.listing li {
+  counter-increment: line;
+  margin-left: 2.375rem;
+  padding-right: 0.625rem;
+}
+
+.listing li::before {
+  content: counter(line);
+  position: absolute;
+  left: 0;
+  width: 1.625rem;
+  text-align: right;
+  color: var(--gutter-ink);
+}
+
+.listing li[data-active] {
+  background: var(--accent);
+  box-shadow: -2.375rem 0 0 var(--accent);
+  color: var(--on-accent);
+}
+
+.listing li[data-active]::before {
+  color: var(--on-accent);
+}
+
+.keyword {
+  color: var(--keyword);
+}
+
+.listing li[data-active] .keyword {
+  color: inherit;
+}
