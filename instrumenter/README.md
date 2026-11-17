@@ -1,8 +1,12 @@
 # Instrumenter
 
 Rewrites a student's program, after clang has compiled it to wasm in the
-browser, so the wasm debugger can record it as it runs. For now (checkpoint
-2a in `docs/debugger-rewrite.md`) it passes programs through unchanged.
+browser, so the wasm debugger can record it as it runs. Using the DWARF line
+table, it adds calls at the start of each statement in the student's
+functions, and when each function starts and returns. The C library has no
+debug info, so it's left alone and stepping goes over it.
+`client/src/Services/debugger/wasm/recording.ts` turns those calls into the
+steps a student sees. `src/lib.rs` has the details.
 
 It's Rust, using [walrus](https://crates.io/crates/walrus) to rewrite wasm.
 The browser loads it as a plain `wasm32-unknown-unknown` module: only bytes
@@ -32,6 +36,8 @@ CI and `client/Dockerfile.prod` build it the same way.
 ```sh
 cd instrumenter
 cargo test                                   # tests/ uses programs compiled by clang
+# Where the calls land is tested by running programs:
+# client/src/Services/debugger/wasm/recording.test.ts
 cargo fmt --check
 cargo clippy --all-targets -- -D warnings
 ```

@@ -10,10 +10,11 @@ description = "Rewrites student programs compiled to wasm so the browser debugge
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+# The versions walrus 0.28 itself uses, so there's one copy of each.
+gimli = "0.32"
 walrus = "0.28"
+wasmparser = "0.245"
 
-[dev-dependencies]
-wasmparser = "0.240"
 
 [profile.release]
 opt-level = "s"

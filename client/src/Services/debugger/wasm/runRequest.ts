@@ -1,3 +1,4 @@
+import { createOutputLimit } from './outputLimit';
 import { runWasi } from './run';
 
 /** What the page sends the runner worker: one program to run. */
@@ -9,31 +10,16 @@ export type RunnerMessage =
   | { type: 'finished'; exitCode: number }
   | { type: 'error'; message: string };
 
-/** The most output one run sends the page. More only slows the console down. */
-const OUTPUT_LIMIT = 20_000;
-
 /**
  * Sends each write on to the page as it happens, so nothing is held back if
  * the program then never ends, and nothing past OUTPUT_LIMIT. The page
  * batches what it receives (see workerRunner.ts).
  */
 const createOutputSender = (post: (message: RunnerMessage) => void) => {
-  let sent = 0;
-  let full = false;
-
+  const limit = createOutputLimit();
   return (text: string) => {
-    if (full) return;
-    const kept = text.slice(0, OUTPUT_LIMIT - sent);
-    sent += kept.length;
-    if (kept.length < text.length) {
-      full = true;
-      post({
-        type: 'output',
-        text: `${kept}\n[The program's output was stopped after ${OUTPUT_LIMIT.toLocaleString('en')} characters.]\n`,
-      });
-    } else if (kept) {
-      post({ type: 'output', text: kept });
-    }
+    const kept = limit(text);
+    if (kept) post({ type: 'output', text: kept });
   };
 };
 
