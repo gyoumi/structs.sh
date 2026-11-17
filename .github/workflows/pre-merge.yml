@@ -2,7 +2,8 @@ name: Pre-Merge Checks
 
 on:
   pull_request:
-    types: [opened, reopened, synchronize, edited]
+    # labeled/unlabeled re-run pr-rules when a person adds a waiver label.
+    types: [opened, reopened, synchronize, edited, labeled, unlabeled]
 
 jobs:
   sanity-client:
@@ -25,6 +26,7 @@ jobs:
 
   sanity-debugger:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install uv
@@ -34,9 +36,66 @@ jobs:
       - name: Install debugger dependencies
         working-directory: debugger
         run: uv sync --locked --all-extras --dev
-      # - run: uv format --check
-      #   working-directory: debugger
-      # - run: uv run mypy src/
-      #   working-directory: debugger
+      # Security rules only for now; see [tool.ruff.lint] in pyproject.toml.
+      - name: Ruff
+        working-directory: debugger
+        run: uv run ruff check src
+      - name: Mypy
+        working-directory: debugger
+        run: uv run mypy src/
+      # The tests compile real C programs with gcc and step them under gdb.
+      - name: Install gdb
+        run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends gdb
+      - name: Pytest
+        working-directory: debugger
+        run: uv run pytest src
 
+  sanity-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
+        with:
+          runtime: node@22
+          cache: true
+      - name: Type-check e2e
+        run: pnpm run e2e:typecheck
+      - name: Lint e2e
+        run: pnpm run e2e:lint --max-warnings 0
+      - name: Known failures list
+        run: pnpm run check:known-failures
 
+  pr-rules:
+    runs-on: ubuntu-latest
+    steps:
+      # The PR's merge commit plus its first parent (the base branch), so
+      # HEAD^1..HEAD is exactly what the PR changes.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+      - uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
+        with:
+          runtime: node@22
+          cache: true
+      - name: PR rules
+        env:
+          PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: node scripts/check-pr.mjs --base HEAD^1 --head HEAD
+      - name: Tests for the repo scripts
+        run: pnpm run test:scripts
+      # Squash merges use the PR title as the commit message, and the local
+      # commit-msg hook can be skipped, so the title is checked here.
+      - name: PR title is a conventional commit
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: printf '%s\n' "$TITLE" | pnpm exec commitlint
+      - name: Dead files and missing dependencies
+        run: pnpm run knip
+      - name: Install Vale
+        run: |
+          curl -sSfL https://github.com/errata-ai/vale/releases/download/v3.26.0/vale_3.26.0_Linux_64-bit.tar.gz \
+            | tar xz -C "$RUNNER_TEMP" vale
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+      # The unslop skill's word and punctuation rules (.vale/styles/Unslop).
+      - name: Prose in docs and READMEs
+        run: vale docs/docs README.md client/README.md e2e/README.md

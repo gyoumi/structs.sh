@@ -124,6 +124,49 @@ const overrideConfig = defineConfig([
   }
 ])
 
+
+// Colours come from the theme (src/structsThemes.ts), a palette.ts or a
+// constants.ts. A hex literal anywhere else is reported. It is a warning for
+// now: 79 literals in 25 files predate it, so it flags new ones without failing CI.
+const HEX_COLOUR = /#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})\b/;
+const structsPlugin = {
+  rules: {
+    'no-hardcoded-colour': {
+      meta: {
+        type: 'suggestion',
+        messages: {
+          hex: 'Hardcoded colour {{value}}. Use a value from the theme (src/structsThemes.ts) or a palette/constants file.',
+        },
+        schema: [],
+      },
+      create(context) {
+        const check = (node, text) => {
+          const match = HEX_COLOUR.exec(text);
+          if (match) context.report({ node, messageId: 'hex', data: { value: match[0] } });
+        };
+        return {
+          Literal(node) {
+            if (typeof node.value === 'string') check(node, node.value);
+          },
+          TemplateElement(node) {
+            check(node, node.value.raw);
+          },
+        };
+      },
+    },
+  },
+};
+
+const coloursConfig = defineConfig([
+  {
+    name: 'structs/colours',
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/structsThemes.ts', 'src/**/palette.ts', 'src/**/constants.ts'],
+    plugins: { structs: structsPlugin },
+    rules: { 'structs/no-hardcoded-colour': 'warn' },
+  },
+]);
+
 export default defineConfig([
   includeIgnoreFile(gitignorePath),
   ...jsConfig,
@@ -131,4 +174,5 @@ export default defineConfig([
   ...typescriptConfig,
   ...prettierConfig,
   ...overrideConfig,
+  ...coloursConfig,
 ]);

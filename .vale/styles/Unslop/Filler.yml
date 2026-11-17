@@ -1,0 +1,9 @@
+extends: substitution
+message: "Use '%s' instead of '%s'."
+level: error
+ignorecase: true
+swap:
+  in order to: to
+  due to the fact that: because
+  serves as: is
+  stands as: is

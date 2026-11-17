@@ -1,7 +1,7 @@
 # Contributing to Structs.sh
 
 !!! note "Before you begin"
-    Feel free to use your preferred LLM to help along the way — the guidelines below are intentionally concise!
+    Feel free to use your preferred LLM to help along the way. The guidelines below are kept short on purpose.
 
 ## Getting started
 
@@ -18,6 +18,32 @@
   ```bash
   docker compose up --build
   ```
+
+## Before you push
+
+Run the fast checks for what you changed:
+
+```bash
+pnpm check:changed
+```
+
+It compares your branch with `origin/dev` and runs type checks, lint, the e2e
+lint rules, knip, ruff and mypy for the areas you touched. CI runs these plus
+the client build, the e2e suite and the debugger's pytest.
+
+CI also checks every PR for a few things a reviewer would otherwise have to
+catch (`scripts/pr-rules.mjs`):
+
+| Check | Fails when | A maintainer can waive it with |
+|---|---|---|
+| Forbidden files | A non-pnpm lockfile, an `.env` file, a `.tsbuildinfo`, or a screenshot outside the image folders is committed | (not waivable) |
+| Debug tags | A temporary `[DEBUG-xxxx]` line is left in | (not waivable) |
+| Agent config alone | `.claude/` changes are mixed with other changes | (not waivable) |
+| Debugger needs a test | `debugger/src` changes without an e2e test, pytest or known-failures entry | `no-test-needed` label |
+| Large removal | A test file is deleted, or a source file is emptied or cut to under 30% of its size | `removal-ok` label |
+| Protected paths | CI, lint config, agent config, the known-failures list or the sandbox changes | `human-approved` label |
+
+The PR title must be a [Conventional Commit](https://www.conventionalcommits.org/), because squash merges use it as the commit message.
 
 ## Contribution models
 

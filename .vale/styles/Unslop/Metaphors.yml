@@ -1,0 +1,14 @@
+extends: existence
+message: "'%s' is a metaphor. Use the concrete word."
+level: warning
+ignorecase: true
+# vector, primitive and harness are left out: they are real terms in this repo.
+tokens:
+  - substrate
+  - wedge
+  - locus
+  - nexus
+  - bedrock
+  - paradigm
+  - north star
+  - flywheel

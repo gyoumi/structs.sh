@@ -15,12 +15,13 @@ test.describe('compiling', () => {
     await expect(debuggerPage.console).toContainText(/error/i);
   });
 
-  test('a compile error does not start a session', async ({ debuggerPage, page }) => {
+  test('a compile error does not start a session', async ({ debuggerPage }) => {
     await debuggerPage.openProgram('compile_error.c');
     await debuggerPage.compileButton.click();
+    // The compile error is the server's last message for this compile
+    // (serve.py returns after sending it), so the button state is final here.
     await expect(debuggerPage.console).toContainText('undeclared_variable');
 
-    await page.waitForTimeout(1_000);
     await expect(debuggerPage.stepForwardButton).toBeDisabled();
   });
 });
