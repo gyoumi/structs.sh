@@ -50,8 +50,8 @@ export type TypeDeclaration = {
   fields: { name: string; typeName: string }[];
 };
 
-/** Elements read from one array, so a huge array can't stall a step. */
-const ARRAY_LIMIT = 1000;
+/** Elements shown from one array: GDB's default `print elements`. */
+const ARRAY_LIMIT = 200;
 
 const EMPTY: DebugSection = { functions: [], statements: [], types: [] };
 
@@ -62,6 +62,36 @@ export const readDebugSection = (module: WebAssembly.Module): DebugSection => {
 };
 
 export const hex = (address: number) => `0x${address.toString(16)}`;
+
+/** The type `index` is, seen through typedefs and qualifiers. */
+const resolve = (types: DebugType[], index: number): DebugType => {
+  const type = types[index];
+  if ((type.kind === 'typedef' || type.kind === 'qualified') && type.to !== null) {
+    return resolve(types, type.to);
+  }
+  return type;
+};
+
+const isChar = (type: DebugType) =>
+  type.kind === 'int' && type.size === 1 && type.name.includes('char');
+
+const ESCAPES: Record<number, string> = { 9: '\\t', 10: '\\n', 13: '\\r', 34: '\\"', 92: '\\\\' };
+
+/**
+ * A char array as GDB shows it: a quoted C string, up to its terminating NUL
+ * (or the array's end), with special characters escaped.
+ */
+const readString = (memory: DataView, address: number, count: number) => {
+  let text = '';
+  for (let i = 0; i < Math.min(count, ARRAY_LIMIT); i += 1) {
+    const byte = memory.getUint8(address + i);
+    if (byte === 0) break;
+    if (ESCAPES[byte]) text += ESCAPES[byte];
+    else if (byte < 32 || byte > 126) text += `\\${byte.toString(8).padStart(3, '0')}`;
+    else text += String.fromCharCode(byte);
+  }
+  return `"${text}"`;
+};
 
 const readNumber = (memory: DataView, address: number, type: DebugType): number => {
   if (type.kind === 'float') {
@@ -104,6 +134,7 @@ export const readValue = (
         ])
       );
     case 'array': {
+      if (isChar(resolve(types, type.of))) return readString(memory, address, type.count);
       const { size } = types[type.of];
       return Array.from({ length: Math.min(type.count, ARRAY_LIMIT) }, (_, i) =>
         readValue(types, type.of, memory, address + i * size)
@@ -128,7 +159,8 @@ export const readVariables = (
   frameBase: number,
   memory: DataView
 ): Record<string, Variable> => {
-  const variables: Record<string, Variable> = {};
+  // No prototype, so a variable called `constructor` is still found.
+  const variables: Record<string, Variable> = Object.create(null);
   (debug.statements[statement]?.variables ?? []).forEach(({ name, type, offset }) => {
     // An inner variable hides an outer one with the same name, as in C.
     if (name in variables) return;

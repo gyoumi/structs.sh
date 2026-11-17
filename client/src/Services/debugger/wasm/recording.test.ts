@@ -181,6 +181,24 @@ describe('recordRun', () => {
         'fact:6@1',
         'main:9@0',
       ]);
+      // Each call reads its own n, from its own frame.
+      expect(
+        recording.steps
+          .filter((step) => step.function === 'fact')
+          .map((step) => `${step.line}@${step.depth} n=${step.variables.n.value}`)
+      ).toEqual([
+        '2@1 n=3',
+        '5@1 n=3',
+        '2@2 n=2',
+        '5@2 n=2',
+        '2@3 n=1',
+        '3@3 n=1',
+        '6@3 n=1',
+        '5@2 n=2',
+        '6@2 n=2',
+        '5@1 n=3',
+        '6@1 n=3',
+      ]);
     },
     CLANG_TIMEOUT
   );
@@ -312,6 +330,48 @@ describe('recordRun', () => {
         expect(valuesOf('a')).toEqual(['main:7 a=0', 'main:8 a=4', 'main:8 a=4', 'main:9 a=4']);
         expect(valuesOf('b')).toEqual(['main:7 b=0', 'main:8 b=0', 'main:8 b=0', 'main:9 b=16']);
         expect(valuesOf('result')).toEqual(['square:2 result=0', 'square:3 result=16']);
+        // A parameter has its value from the call's first step.
+        expect(valuesOf('x')).toEqual(['square:2 x=4', 'square:3 x=4']);
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'shows char arrays as strings and long arrays cut short, as GDB does',
+      async () => {
+        const source = [
+          'int main(void) {', // 1
+          '    char text[] = "hi";', // 2
+          '    char buf[8] = "ab";', // 3
+          '    int big[300];', // 4
+          '    for (int i = 0; i < 300; i++) big[i] = i;', // 5
+          '    return text[0] + buf[0] + big[299];', // 6
+          '}', // 7
+        ].join('\n');
+
+        const recording = await record('arrays.c', source);
+        const { text, buf, big } = recording.steps.find((step) => step.line === 6)!.variables;
+
+        // GDB sends "hi" with its quotes, and the first 200 elements of an
+        // array (its default `print elements`). For buf it sends the unused
+        // bytes as escapes; showing the string up to its end is clearer.
+        expect(text.value).toBe('"hi"');
+        expect(buf.value).toBe('"ab"');
+        expect(big.value).toEqual(Array.from({ length: 200 }, (_, i) => i));
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'shows a variable whatever its name',
+      async () => {
+        const source = 'int main(void) {\n    int constructor = 1;\n    return constructor;\n}\n';
+
+        const recording = await record('names.c', source);
+
+        expect(Object.entries(recording.steps[1].variables)).toEqual([
+          ['constructor', expect.objectContaining({ typeName: 'int', value: 1 })],
+        ]);
       },
       CLANG_TIMEOUT
     );
