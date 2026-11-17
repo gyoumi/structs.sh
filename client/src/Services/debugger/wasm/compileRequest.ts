@@ -30,7 +30,7 @@ export const answerLoadRequest = async (
   } catch (error) {
     settled = true;
     post({ status: { state: 'failed' } });
-    return error instanceof Error ? error.message : String(error);
+    return (error instanceof Error ? error.message : String(error)) || 'unknown error';
   }
 };
 
@@ -68,7 +68,7 @@ export const answerCompilerMessage = async (
 ) => {
   const loadError = await answerLoadRequest(post, load);
   if ('load' in data) return;
-  if (loadError) {
+  if (loadError !== null) {
     // Answer now rather than have the compile retry the download without
     // progress. The next compile tries loading again.
     post({

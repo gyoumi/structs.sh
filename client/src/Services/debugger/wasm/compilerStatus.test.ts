@@ -90,6 +90,19 @@ describe('answerCompilerMessage', () => {
     ]);
   });
 
+  it('does not compile when the load fails with no message', async () => {
+    const compile = vi.fn();
+
+    await answerCompilerMessage({ id: 1, fileName: 'main.c', source: '' }, () => {}, {
+      load: async () => {
+        throw new Error();
+      },
+      compile,
+    });
+
+    expect(compile).not.toHaveBeenCalled();
+  });
+
   it('only loads for a load request', async () => {
     const posted: unknown[] = [];
     const compile = vi.fn();
