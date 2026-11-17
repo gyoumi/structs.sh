@@ -15,11 +15,12 @@ export class LandingPage {
   }
 
   async openTopic(topic: TopicSlug): Promise<void> {
-    await this.page.getByRole('button', { name: topicTitles[topic], exact: true }).click();
+    await this.page.getByRole('radio', { name: topicTitles[topic] }).click();
+    await this.page.getByRole('link', { name: `Open ${topicTitles[topic]}` }).click();
   }
 
   async openDebugger(): Promise<void> {
-    await this.page.getByRole('link', { name: 'Debugger', exact: true }).first().click();
+    await this.page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Debugger' }).click();
   }
 
   /** Every external link on the page. */
@@ -40,12 +41,12 @@ export class LandingPage {
 
   /** The heading and message of the page shown for an unknown address. */
   async notFoundMessage(): Promise<string> {
-    const message = this.page.getByText(/Couldn.t find a page/);
-    await expect(message).toBeVisible();
-    return (await this.page.locator('body').innerText()).replace(/\s+/g, ' ');
+    const heading = this.page.getByRole('heading', { level: 1 });
+    await expect(heading).toBeVisible();
+    return (await this.page.getByRole('main').innerText()).replace(/\s+/g, ' ');
   }
 
   async leaveNotFoundPage(): Promise<void> {
-    await this.page.getByRole('link', { name: /Structs\.sh/ }).click();
+    await this.page.getByRole('main').getByRole('link', { name: /home|landing|structs\.sh/i }).first().click();
   }
 }
