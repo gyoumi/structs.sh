@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useCompilerStatusStore } from './compilerStatusStore';
 import { createDebugger, debuggerKindFromSearch } from './createDebugger';
 import { Debugger } from './types';
 
@@ -19,5 +20,6 @@ export const useDebuggerStore = create<DebuggerStore>((set, get) => ({
   close: () => {
     get().debuggerClient?.close();
     set({ debuggerClient: null });
+    useCompilerStatusStore.getState().clear();
   },
 }));
