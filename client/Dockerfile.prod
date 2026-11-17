@@ -17,6 +17,12 @@ COPY client client
 # This outputs production-ready files to `client/build`
 RUN pnpm --dir client run build
 
+# Save gzipped copies of the larger files for nginx's gzip_static, so the
+# compiler is compressed once here instead of on every request.
+RUN find client/build/assets -type f -size +10k \
+      \( -name '*.wasm' -o -name '*.tar' -o -name '*.js' -o -name '*.css' \) \
+      -exec sh -c 'gzip -9 -c "$1" > "$1.gz"' _ {} \;
+
 # ===== Stage 2: Setting up NGINX =====
 
 FROM nginx:1.25.2-alpine

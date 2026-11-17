@@ -7,6 +7,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { Fade } from '@mui/material';
 import { handleCompileClicked } from '@/visualiser-debugger/Store/onboardingStore';
 import { useDebugger } from '@/Services/useDebugger';
+import { useCompilerStatusStore } from '@/Services/debugger/compilerStatusStore';
 import { useFrontendStateStore } from '@/visualiser-debugger/Store/frontendStateStore';
 import { Button } from '@/components/Button';
 import Slider from '@/components/Timeline/Slider';
@@ -31,6 +32,7 @@ const Controls = () => {
   // Avoid race condition
   const bufferingRef = useRef<boolean>(false);
   const { setToastMessage: setMessage } = useToastStateStore();
+  const compilerStatus = useCompilerStatusStore((state) => state.status);
 
   const playToggle = () => {
     setBufferMode((mode) => !mode);
@@ -126,6 +128,11 @@ const Controls = () => {
       >
         Compile
       </Button>
+      {compilerStatus?.state === 'loading' && (
+        <span role="status" className={styles.compilerStatus}>
+          Loading compiler {Math.floor((100 * compilerStatus.done) / compilerStatus.total)}%
+        </span>
+      )}
       <Button disabled={!isActive} onClick={playToggle} className="Onboarding-playButton">
         {loading ? (
           <Fade in={loading} timeout={500}>

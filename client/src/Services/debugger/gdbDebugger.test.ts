@@ -16,6 +16,7 @@ const createEvents = (): DebuggerEvents => ({
   state: vi.fn(),
   typeDeclaration: vi.fn(),
   sessionEnded: vi.fn(),
+  compilerStatus: vi.fn(),
 });
 
 describe('GdbDebugger', () => {

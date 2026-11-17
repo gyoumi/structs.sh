@@ -1,8 +1,27 @@
-import { compileC } from './compile';
-import { CompileResult } from './compiler';
+import { compileC, loadClang } from './compile';
+import { CompileResult, CompilerStatus } from './compiler';
 
 export type CompileRequest = { id: number; fileName: string; source: string };
 export type CompileResponse = { id: number; result: CompileResult };
+
+/** Asks the worker to start downloading the compiler. */
+export type LoadRequest = { load: true };
+/** Tells the page how the compiler's download is going. */
+export type StatusMessage = { status: CompilerStatus };
+
+/** Loads the compiler, posting its progress and then whether it is ready. */
+export const answerLoadRequest = async (
+  post: (message: StatusMessage) => void,
+  load: (onProgress: (done: number, total: number) => void) => Promise<void> = loadClang
+) => {
+  try {
+    await load((done, total) => post({ status: { state: 'loading', done, total } }));
+    post({ status: { state: 'ready' } });
+  } catch {
+    // The reason reaches the student when they compile.
+    post({ status: { state: 'failed' } });
+  }
+};
 
 /**
  * Answers one compile request from the page. It never rejects: if clang

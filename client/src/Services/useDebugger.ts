@@ -2,6 +2,7 @@ import { useCallback, useEffect } from 'react';
 import { INITIAL_BACKEND_STATE } from '../visualiser-debugger/Types/backendType';
 import { useDebuggerStore } from './debugger/debuggerStore';
 import { buildDebuggerEvents } from './debugger/buildDebuggerEvents';
+import { useCompilerStatusStore } from './debugger/compilerStatusStore';
 import { useGlobalStore } from '../visualiser-debugger/Store/globalStateStore';
 import { useUserFsStateStore } from '../visualiser-debugger/Store/userFsStateStore';
 import { useFrontendStateStore } from '../visualiser-debugger/Store/frontendStateStore';
@@ -26,6 +27,7 @@ export const useDebugger = () => {
   const { setActive, clearFrontendState } = useFrontendStateStore();
   const debuggerClient = useDebuggerStore((state) => state.debuggerClient);
   const { setToastMessage } = useToastStateStore();
+  const setCompilerStatus = useCompilerStatusStore((state) => state.setStatus);
   const queue = useQueue();
 
   // Connect the debugger's events to the page
@@ -41,6 +43,7 @@ export const useDebugger = () => {
       appendConsoleChunks,
       updateCurrFocusedTab,
       setMessage: setToastMessage,
+      setCompilerStatus,
     });
 
     debuggerClient.setEvents(events);
@@ -52,6 +55,7 @@ export const useDebugger = () => {
     appendConsoleChunks,
     updateCurrFocusedTab,
     setToastMessage,
+    setCompilerStatus,
   ]);
 
   // reset entire debuggin session

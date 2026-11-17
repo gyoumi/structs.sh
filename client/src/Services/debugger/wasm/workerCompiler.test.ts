@@ -66,6 +66,33 @@ describe('createWorkerCompiler', () => {
     });
   });
 
+  it('starts loading the compiler early and reports its progress', () => {
+    const worker = createFakeWorker();
+    const compiler = createWorkerCompiler(() => worker as unknown as Worker);
+    const onStatus = vi.fn();
+
+    compiler.preload(onStatus);
+    worker.answer({ status: { state: 'loading', done: 1, total: 2 } });
+    worker.answer({ status: { state: 'ready' } });
+
+    expect(worker.posted).toEqual([{ load: true }]);
+    expect(onStatus.mock.calls).toEqual([
+      [{ state: 'loading', done: 1, total: 2 }],
+      [{ state: 'ready' }],
+    ]);
+  });
+
+  it('reports a failed load when the worker cannot be started for preloading', () => {
+    const compiler = createWorkerCompiler(() => {
+      throw new Error('Module workers are not supported');
+    });
+    const onStatus = vi.fn();
+
+    compiler.preload(onStatus);
+
+    expect(onStatus).toHaveBeenCalledWith({ state: 'failed' });
+  });
+
   it('stops the worker and settles waiting compiles when disposed', async () => {
     const worker = createFakeWorker();
     const compiler = createWorkerCompiler(() => worker as unknown as Worker);

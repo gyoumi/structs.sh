@@ -10,6 +10,7 @@ describe('buildDebuggerEvents', () => {
     updateTypeDeclaration: vi.fn(),
     appendConsoleChunks: vi.fn(),
     updateCurrFocusedTab: vi.fn(),
+    setCompilerStatus: vi.fn(),
   };
   const events = buildDebuggerEvents(page);
 
@@ -60,6 +61,12 @@ describe('buildDebuggerEvents', () => {
 
     expect(page.appendConsoleChunks).toHaveBeenCalledWith(['main.c:3: error: oops']);
     expect(page.updateCurrFocusedTab).toHaveBeenCalledWith('2');
+  });
+
+  it('records the compiler’s loading status', () => {
+    events.compilerStatus({ state: 'loading', done: 1, total: 2 });
+
+    expect(page.setCompilerStatus).toHaveBeenCalledWith({ state: 'loading', done: 1, total: 2 });
   });
 
   it('shows program output in the console', () => {
