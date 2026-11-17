@@ -410,14 +410,60 @@ describe('recordRun', () => {
     );
 
     it(
-      'names a pointer to an array as GDB does',
+      'names pointers, arrays and functions in any combination as GDB does',
       async () => {
-        const source =
-          'int main(void) {\n    int a[3] = {0};\n    int (*p)[3] = &a;\n    return 0;\n}\n';
+        const source = [
+          'int twice(int x) { return 2 * x; }', // 1
+          'int sum(int n, ...) { return n; }', // 2
+          'int main(void) {', // 3
+          '    int a[3] = {0};', // 4
+          '    int (*p)[3] = &a;', // 5
+          '    int (*rows[2])[3] = {&a, &a};', // 6
+          '    int (*callbacks[2])(int) = {twice, twice};', // 7
+          '    int (*variadic)(int, ...) = sum;', // 8
+          '    char *words[2] = {0};', // 9
+          '    int grid[2][3] = {{0}};', // 10
+          '    int (**pp)[3] = &p;', // 11
+          '    return 0;', // 12
+          '}', // 13
+        ].join('\n');
 
-        const recording = await record('pointer.c', source);
+        const recording = await record('names.c', source);
+        const typeNames = Object.fromEntries(
+          Object.entries(recording.steps.at(-1)!.variables).map(([name, v]) => [name, v.typeName])
+        );
 
-        expect(recording.steps.at(-1)!.variables.p.typeName).toBe('int (*)[3]');
+        expect(typeNames).toEqual({
+          a: 'int [3]',
+          p: 'int (*)[3]',
+          rows: 'int (*[2])[3]',
+          callbacks: 'int (*[2])(int)',
+          variadic: 'int (*)(int, ...)',
+          words: 'char *[2]',
+          grid: 'int [2][3]',
+          pp: 'int (**)[3]',
+        });
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'shows the fields of an anonymous union, and nothing for a number it can’t read',
+      async () => {
+        const source = [
+          'struct shape { int kind; union { int side; float radius; }; };', // 1
+          'int main(void) {', // 2
+          '    struct shape square = {1, {4}};', // 3
+          '    long double big = 1.0L;', // 4
+          '    return 0;', // 5
+          '}', // 6
+        ].join('\n');
+
+        const recording = await record('shape.c', source);
+        const { square, big } = recording.steps.at(-1)!.variables;
+
+        expect(square.value).toEqual({ kind: 1, side: 4, radius: expect.any(Number) });
+        expect(big.value).toBeNull();
       },
       CLANG_TIMEOUT
     );

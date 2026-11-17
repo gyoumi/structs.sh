@@ -83,7 +83,15 @@ pub(crate) enum Type {
         to: Option<usize>,
         typedef: bool,
     },
-    /// Anything the debugger doesn't read, such as a function.
+    /// A function, which the debugger doesn't read, but whose name pointers
+    /// to it need.
+    Function {
+        name: String,
+        returns: Option<usize>,
+        /// `int, char *`, `void`, or with `...` for a variadic function.
+        parameters: String,
+    },
+    /// Anything else the debugger doesn't read.
     Other {
         name: String,
     },
@@ -109,6 +117,7 @@ impl Type {
             | Type::Struct { name, .. }
             | Type::Array { name, .. }
             | Type::Alias { name, .. }
+            | Type::Function { name, .. }
             | Type::Other { name } => name,
         }
     }
@@ -121,7 +130,7 @@ impl Type {
             | Type::Array { size, .. }
             | Type::Alias { size, .. } => *size,
             Type::Pointer { .. } => POINTER_SIZE,
-            Type::Other { .. } => 0,
+            Type::Function { .. } | Type::Other { .. } => 0,
         }
     }
 }
@@ -426,7 +435,7 @@ impl<'a> UnitReader<'a, '_> {
             gimli::DW_TAG_pointer_type => {
                 let to = self.type_attribute(&entry)?;
                 Type::Pointer {
-                    name: self.pointer_name(to),
+                    name: self.declare_pointer(to, ""),
                     to,
                 }
             }
@@ -454,14 +463,30 @@ impl<'a> UnitReader<'a, '_> {
                     if member.tag() != gimli::DW_TAG_member {
                         continue;
                     }
-                    let (Some(field), Some(ty)) = (
-                        self.string(member, gimli::DW_AT_name)?,
-                        self.type_attribute(member)?,
-                    ) else {
+                    let Some(ty) = self.type_attribute(member)? else {
                         continue;
                     };
                     let offset =
                         Self::number(member, gimli::DW_AT_data_member_location)?.unwrap_or(0);
+                    let Some(field) = self.string(member, gimli::DW_AT_name)? else {
+                        // An anonymous struct or union: its fields are the
+                        // outer struct's, as C11 lets them be used.
+                        if let Type::Struct { fields: inner, .. } = &self.types[ty] {
+                            let lifted: Vec<Field> = inner
+                                .iter()
+                                .map(|field| Field {
+                                    name: field.name.clone(),
+                                    ty: field.ty,
+                                    offset: offset + field.offset,
+                                    bits: field
+                                        .bits
+                                        .map(|(first, width)| (first + offset * 8, width)),
+                                })
+                                .collect();
+                            fields.extend(lifted);
+                        }
+                        continue;
+                    };
                     let bits = match (
                         Self::number(member, gimli::DW_AT_data_bit_offset)?,
                         Self::number(member, gimli::DW_AT_bit_size)?,
@@ -547,9 +572,13 @@ impl<'a> UnitReader<'a, '_> {
                 let root = tree.root()?;
                 let mut children = root.children();
                 while let Some(child) = children.next()? {
-                    if child.entry().tag() == gimli::DW_TAG_formal_parameter {
-                        let ty = self.type_attribute(child.entry())?;
-                        parameters.push(self.name_of(ty));
+                    match child.entry().tag() {
+                        gimli::DW_TAG_formal_parameter => {
+                            let ty = self.type_attribute(child.entry())?;
+                            parameters.push(self.name_of(ty));
+                        }
+                        gimli::DW_TAG_unspecified_parameters => parameters.push("...".to_string()),
+                        _ => {}
                     }
                 }
                 let parameters = if parameters.is_empty() {
@@ -557,8 +586,10 @@ impl<'a> UnitReader<'a, '_> {
                 } else {
                     parameters.join(", ")
                 };
-                Type::Other {
-                    name: format!("{} ({parameters})", self.name_of(returns)),
+                Type::Function {
+                    name: self.declare(returns, &format!("({parameters})")),
+                    returns,
+                    parameters,
                 }
             }
             _ => Type::Other {
@@ -571,46 +602,46 @@ impl<'a> UnitReader<'a, '_> {
         Ok(index)
     }
 
-    /// GDB's name for a pointer: `struct node *`, `char **`, `int (*)(int)`.
-    fn pointer_name(&self, to: Option<usize>) -> String {
-        let target = self.name_of(to);
-        // A pointer to a pointer to a function or an array: `int (**)[3]`.
-        if target.contains("(*") {
-            return target.replacen("(*", "(**", 1);
-        }
-        match to.map(|to| &self.types[to]) {
-            // A function: `int (int)` becomes `int (*)(int)`.
-            Some(Type::Other { name }) if name.contains(" (") => {
-                return name.replacen(" (", " (*)(", 1);
+    /// GDB's name for a type, built the way C declarators nest: `inner` is
+    /// what's already been wrapped around it, so a pointer to an array of 3
+    /// ints is `int (*)[3]` and an array of 2 of those is `int (*[2])[3]`.
+    fn declare(&self, ty: Option<usize>, inner: &str) -> String {
+        match ty.map(|ty| &self.types[ty]) {
+            Some(Type::Pointer { to, .. }) => self.declare_pointer(*to, inner),
+            Some(Type::Array { of, count, .. }) => {
+                self.declare(Some(*of), &format!("{inner}[{count}]"))
             }
-            // An array: `int [3]` becomes `int (*)[3]`, `char *[3]` `char *(*)[3]`.
-            Some(Type::Array { name, .. }) => {
-                let at = name.find('[').unwrap_or(name.len());
-                let element = name[..at].trim_end();
-                let space = if element.ends_with('*') { "" } else { " " };
-                return format!("{element}{space}(*){}", &name[at..]);
+            Some(Type::Function {
+                returns,
+                parameters,
+                ..
+            }) => self.declare(*returns, &format!("{inner}({parameters})")),
+            other => {
+                let base = other.map_or("void", Type::name);
+                if inner.is_empty() {
+                    base.to_string()
+                } else {
+                    format!("{base} {inner}")
+                }
             }
-            _ => {}
-        }
-        if target.ends_with('*') {
-            format!("{target}*")
-        } else {
-            format!("{target} *")
         }
     }
 
-    /// GDB's name for an array: `int [3]`, `char *[3]`, `int [2][3]`.
-    fn add_array(&mut self, of: usize, count: u64) -> usize {
-        let element = &self.types[of];
-        let element_name = element.name();
-        let name = if matches!(element, Type::Array { .. }) {
-            let at = element_name.find('[').unwrap_or(element_name.len());
-            format!("{}[{count}]{}", &element_name[..at], &element_name[at..])
-        } else if element_name.ends_with('*') {
-            format!("{element_name}[{count}]")
+    /// A pointer to `to` inside `inner`: `struct node *`, `char **`, and
+    /// `int (*)(int)` where the pointer needs brackets.
+    fn declare_pointer(&self, to: Option<usize>, inner: &str) -> String {
+        let target = to.map(|to| &self.types[to]);
+        if matches!(target, Some(Type::Array { .. } | Type::Function { .. })) {
+            self.declare(to, &format!("(*{inner})"))
         } else {
-            format!("{element_name} [{count}]")
-        };
+            self.declare(to, &format!("*{inner}"))
+        }
+    }
+
+    /// Adds an array of `count` of type `of`.
+    fn add_array(&mut self, of: usize, count: u64) -> usize {
+        let name = self.declare(Some(of), &format!("[{count}]"));
+        let element = &self.types[of];
         let size = element.size() * count;
         self.types.push(Type::Array {
             name,
@@ -714,7 +745,9 @@ fn type_json(ty: &Type) -> String {
                 optional(*to)
             )
         }
-        Type::Other { .. } => format!("{{\"kind\":\"other\",\"name\":{name},\"size\":0}}"),
+        Type::Function { .. } | Type::Other { .. } => {
+            format!("{{\"kind\":\"other\",\"name\":{name},\"size\":0}}")
+        }
     }
 }
 

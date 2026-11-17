@@ -110,9 +110,15 @@ const readString = (memory: DataView, address: number, count: number) => {
   return `"${text}"`;
 };
 
-const readNumber = (memory: DataView, address: number, type: DebugType): number => {
+/**
+ * A number of `type` at `address`, or null for a size there's no reader for,
+ * such as a 16-byte `long double`, rather than a wrong value.
+ */
+const readNumber = (memory: DataView, address: number, type: DebugType): number | null => {
   if (type.kind === 'float') {
-    return type.size === 4 ? memory.getFloat32(address, true) : memory.getFloat64(address, true);
+    if (type.size === 4) return memory.getFloat32(address, true);
+    if (type.size === 8) return memory.getFloat64(address, true);
+    return null;
   }
   const signed = type.kind === 'int' && type.signed;
   switch (type.size) {
@@ -120,12 +126,14 @@ const readNumber = (memory: DataView, address: number, type: DebugType): number 
       return signed ? memory.getInt8(address) : memory.getUint8(address);
     case 2:
       return signed ? memory.getInt16(address, true) : memory.getUint16(address, true);
+    case 4:
+      return signed ? memory.getInt32(address, true) : memory.getUint32(address, true);
     case 8:
       return Number(
         signed ? memory.getBigInt64(address, true) : memory.getBigUint64(address, true)
       );
     default:
-      return signed ? memory.getInt32(address, true) : memory.getUint32(address, true);
+      return null;
   }
 };
 
