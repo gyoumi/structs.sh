@@ -276,8 +276,8 @@ passes 11/16, including a new test for stepping back after the end.
 ### Decisions
 
 - **Each step keeps a snapshot** of what the page shows: the current
-  function's variables and the heap blocks it can reach, in the
-  `BackendState` format. Snapshots share heap objects that didn't change
+  function's variables and the heap structs reachable from every frame's
+  variables, in the `BackendState` format. Snapshots share heap objects that didn't change
   since the step before. A size budget sits alongside the step and time
   limits: a recording that outgrows it ends with a message, and everything
   before it can still be stepped through. Pausing the real program instead
@@ -297,12 +297,15 @@ passes 11/16, including a new test for stepping back after the end.
   on from the same step. Ctrl+D sends end-of-file. GDB's server never
   implemented typed input, so this is new.
 - **The built-in examples** each get an e2e smoke test: it compiles and steps
-  to the end without an error. Two or three also check what the visualiser
-  draws. Comparing every step with GDB was ruled out, because GDB has its own
+  through without a debugger error. One that never ends (the CTF exercise
+  loops forever on purpose) stops at the step limit with its message. An
+  example that clang rejects, such as `list_length_recursive.c`, which calls
+  functions before declaring them, gets the missing declarations. Two or
+  three also check what the visualiser draws. Comparing every step with GDB was ruled out, because GDB has its own
   bugs and it would double CI time.
 - **Where wasm differs from real C**, we accept it for now: pointers are 4
-  bytes, and memory starts zeroed, so an uninitialised `int` shows 0 rather
-  than garbage. See the follow-ups.
+  bytes, and fresh memory starts zeroed, so an uninitialised `int` often
+  shows 0 rather than garbage. See the follow-ups.
 
 ### 3a. Variables and types
 
@@ -327,10 +330,11 @@ unit tests cover a NULL dereference and the size budget.
 ### 3c. Input and the examples
 
 Typed input re-records the program, and Ctrl+D sends end-of-file. Each
-built-in example compiles and steps to the end.
+built-in example compiles and steps through without a debugger error.
 
 **You'll know it's done when** an e2e test types input into a program that
-reads it, and the new smoke tests pass on wasm for all 8 examples.
+reads until end-of-file, sends Ctrl+D, and sees the program finish; and the
+new smoke tests pass on wasm for all 8 examples.
 
 ## Follow-ups
 
@@ -355,7 +359,8 @@ Found while building checkpoint 1, and not needed for it:
 - **A compile still running** when the session is reset or its file is
   deleted can still start a session. Checkpoint 2 reworks the session
   lifecycle.
-- **Uninitialised variables** show 0 on wasm, because memory starts zeroed.
+- **Uninitialised variables** often show 0 on wasm, because fresh memory
+  starts zeroed.
   Filling each new stack frame with a pattern such as `0xAAAAAAAA` would make
   them look uninitialised, as they do on real hardware.
 - **Pointers are 4 bytes** on wasm and 8 on the machines students use, so
