@@ -8,7 +8,7 @@ export const Tabs = React.forwardRef<HTMLDivElement, Internal.TabsProps>(
       <Internal.List className={styles.TabsList} aria-label="Tabs">
         {React.Children.map(children, (child, index) => (
           <Internal.Trigger className={styles.TabsTrigger} value={String(index)} key={index}>
-            {React.isValidElement(child) && child.props.label}
+            {React.isValidElement<{ label?: ReactNode }>(child) && child.props.label}
           </Internal.Trigger>
         ))}
       </Internal.List>
