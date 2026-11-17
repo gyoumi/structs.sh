@@ -43,6 +43,14 @@ jobs:
       - name: Install browser
         run: pnpm exec playwright install --only-shell chromium
 
+      # The wasm debugger loads the instrumenter's .wasm, built from
+      # instrumenter/ with the Rust in rust-toolchain.toml.
+      - name: Build instrumenter
+        if: matrix.debugger == 'wasm'
+        run: |
+          rustup toolchain install
+          pnpm run instrumenter
+
       - name: Type-check e2e
         run: pnpm run e2e:typecheck
 

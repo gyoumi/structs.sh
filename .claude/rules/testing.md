@@ -11,6 +11,7 @@ it. Pick the cheapest level that would catch the change breaking:
 |---|---|---|
 | Logic that runs without a page: parsers, stores, helpers, and the debugger rewrite's compiler, runner, recorder and adapter | Vitest | `client/src/**/*.test.ts`, next to the code |
 | What a student sees in the visual debugger | Playwright e2e | `e2e/tests/` (see `e2e/README.md`) |
+| The wasm debugger's Rust instrumenter | `cargo test` | `instrumenter/tests/`, with programs compiled by clang in `tests/fixtures/` |
 | The GDB backend, until it is deleted | pytest | `debugger/src/debugger/test/` |
 | Visualiser animation or layout | Screenshots, read and shown to the user | See the `ui-visual-test` skill. There is no baseline suite |
 
@@ -73,7 +74,8 @@ describe it as passing.
 
 | Check | Command |
 |---|---|
-| Unit tests | `cd client && pnpm test` (`pnpm test:watch` while working) |
+| Unit tests | `pnpm run instrumenter`, then `cd client && pnpm test` (`pnpm test:watch` while working) |
+| Instrumenter | `cd instrumenter && cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test` |
 | Client types, lint, build | `cd client && pnpm run tsc && pnpm run lint && pnpm run build` |
 | e2e | `docker compose up -d debugger`, then `pnpm run e2e:typecheck && pnpm run e2e` from the repo root |
 | One e2e behaviour | `pnpm run e2e -g "<behaviour>"` |

@@ -19,9 +19,11 @@ pnpm exec playwright install chromium
 pnpm run e2e                             # starts the frontend if it isn't running
 ```
 
-To run against the wasm debugger, which needs no server:
+To run against the wasm debugger, which needs no server but does need its
+instrumenter built (see `instrumenter/README.md`):
 
 ```sh
+pnpm run instrumenter                    # needs Rust
 pnpm run e2e:wasm                        # the same as E2E_DEBUGGER=wasm pnpm run e2e
 ```
 

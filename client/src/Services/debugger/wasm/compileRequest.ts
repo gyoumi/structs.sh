@@ -1,5 +1,11 @@
-import { compileC, loadClang } from './compile';
+import { loadClang } from './compile';
 import { CompileResult, CompilerStatus } from './compiler';
+import { compileAndInstrument, loadInstrumenter } from './instrumenter';
+
+/** Loads clang, reporting its progress, and the much smaller instrumenter. */
+const loadCompiler = async (onProgress: (done: number, total: number) => void) => {
+  await Promise.all([loadClang(onProgress), loadInstrumenter()]);
+};
 
 export type CompileRequest = { id: number; fileName: string; source: string };
 export type CompileResponse = { id: number; result: CompileResult };
@@ -15,7 +21,7 @@ export type StatusMessage = { status: CompilerStatus };
  */
 export const answerLoadRequest = async (
   post: (message: StatusMessage) => void,
-  load: (onProgress: (done: number, total: number) => void) => Promise<void> = loadClang
+  load: (onProgress: (done: number, total: number) => void) => Promise<void> = loadCompiler
 ) => {
   // clang downloads several files at once, and one can still report progress
   // after another has failed.
@@ -41,7 +47,7 @@ export const answerLoadRequest = async (
  */
 export const answerCompileRequest = async (
   { id, fileName, source }: CompileRequest,
-  compile: (fileName: string, source: string) => Promise<CompileResult> = compileC
+  compile: (fileName: string, source: string) => Promise<CompileResult> = compileAndInstrument
 ): Promise<CompileResponse> => {
   try {
     return { id, result: await compile(fileName, source) };
@@ -59,8 +65,8 @@ export const answerCompilerMessage = async (
   data: CompileRequest | LoadRequest,
   post: (message: StatusMessage | CompileResponse) => void,
   {
-    load = loadClang,
-    compile = compileC,
+    load = loadCompiler,
+    compile = compileAndInstrument,
   }: {
     load?: (onProgress: (done: number, total: number) => void) => Promise<void>;
     compile?: (fileName: string, source: string) => Promise<CompileResult>;

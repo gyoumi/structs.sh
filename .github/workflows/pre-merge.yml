@@ -13,6 +13,12 @@ jobs:
         with:
           runtime: node@22
           cache: true
+      # The client's tests and build load the instrumenter's .wasm. rustup is
+      # on the runner and installs the version in rust-toolchain.toml.
+      - name: Build instrumenter
+        run: |
+          rustup toolchain install
+          pnpm run instrumenter
       - name: TypeScript
         working-directory: ./client
         run: pnpm run tsc
@@ -25,6 +31,24 @@ jobs:
       - name: Build
         working-directory: ./client
         run: pnpm run build
+
+  sanity-instrumenter:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: instrumenter
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install Rust
+        run: rustup toolchain install
+      - name: Format
+        run: cargo fmt --check
+      - name: Clippy
+        run: |
+          cargo clippy --all-targets -- -D warnings
+          cargo clippy --release --target wasm32-unknown-unknown -- -D warnings
+      - name: Tests
+        run: cargo test
 
   sanity-debugger:
     runs-on: ubuntu-latest
