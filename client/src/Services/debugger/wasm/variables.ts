@@ -289,67 +289,99 @@ export type HeapEntry = { addr: string; typeName: string; value: Record<string, 
 /** One call's place in the program, from which its variables can be read. */
 export type Frame = { statement: number; frameBase: number };
 
+/** A live heap allocation. */
+export type Allocation = { start: number; size: number };
+
 /**
- * The structs on the heap that the variables of every frame reach by
- * following pointers, through struct fields and arrays too, as GDB shows the
- * heap. A pointer is only followed into memory `isAllocated` says is live, so
- * freed memory and the stack aren't shown.
+ * The structs on the heap that the variables of every frame reach, as GDB
+ * shows the heap. Pointers are followed through struct fields, arrays and
+ * tables of pointers, and a struct inside a heap struct is shown too. A
+ * pointer is only followed into memory `allocationOf` says is live, so freed
+ * memory and the stack aren't shown.
  */
 export const readHeap = (
   debug: DebugSection,
   frames: Frame[],
   memory: DataView,
-  isAllocated: (address: number, size: number) => boolean
+  allocationOf: (address: number) => Allocation | null
 ): Record<string, HeapEntry> => {
   const { types } = debug;
   const heap: Record<string, HeapEntry> = Object.create(null);
+  const inAllocation = (address: number, size: number) => {
+    const allocation = allocationOf(address);
+    return allocation !== null && address + size <= allocation.start + allocation.size;
+  };
+  /** Whether following a value of this type could reach a heap struct. */
+  const leadsSomewhere = (index: number) => {
+    const { kind } = types[resolveIndex(types, index)];
+    return kind === 'pointer' || kind === 'struct' || kind === 'array';
+  };
 
-  // Places still to look in, as [type, address]. A list rather than
-  // recursion, so a long linked list can't overflow the call stack.
+  // Places still to look in, as [type, address], and places already seen. A
+  // list rather than recursion, so a long linked list can't overflow the
+  // call stack.
   const pending: [number, number][] = [];
-  const follow = (index: number, address: number) => {
+  const visited = new Set<string>();
+  const visit = (index: number, address: number) => {
+    const key = `${index}@${address}`;
+    if (visited.has(key)) return;
+    visited.add(key);
+    pending.push([index, address]);
+  };
+
+  const look = (index: number, address: number) => {
     const type = types[resolveIndex(types, index)];
     if (type.kind === 'pointer' && type.to !== null) {
       const target = memory.getUint32(address, true);
-      const structIndex = resolveIndex(types, type.to);
-      const struct = types[structIndex];
-      const key = hex(target);
-      if (struct.kind !== 'struct' || key in heap || !isAllocated(target, struct.size)) return;
-      heap[key] = {
-        addr: key,
-        // An anonymous struct goes by the typedef it was reached through.
-        typeName: struct.name.includes('{') ? types[type.to].name : struct.name,
-        value: Object.fromEntries(
-          struct.fields.map((field) => [
-            field.name,
-            {
-              kind: types[field.type].name,
-              value: readValue(types, field.type, memory, target + field.offset),
-              addr: null,
-            },
-          ])
-        ),
-      };
-      pending.push([structIndex, target]);
-    } else if (type.kind === 'struct') {
-      type.fields.forEach((field) => pending.push([field.type, address + field.offset]));
-    } else if (type.kind === 'array') {
-      const { size } = types[type.of];
-      for (let i = 0; i < Math.min(type.count, ARRAY_LIMIT); i += 1) {
-        pending.push([type.of, address + i * size]);
+      const pointee = types[resolveIndex(types, type.to)];
+      if (pointee.kind === 'struct' || pointee.kind === 'array') {
+        if (inAllocation(target, pointee.size)) visit(type.to, target);
+      } else if (pointee.kind === 'pointer') {
+        // A table of pointers, such as a hash table's buckets: every one in
+        // its allocation.
+        const allocation = allocationOf(target);
+        if (allocation === null) return;
+        for (let at = target; at + pointee.size <= allocation.start + allocation.size; at += 4) {
+          visit(type.to, at);
+        }
       }
+    } else if (type.kind === 'struct') {
+      const heapKey = hex(address);
+      if (!(heapKey in heap) && inAllocation(address, type.size)) {
+        const whole = readValue(types, resolveIndex(types, index), memory, address) as Record<
+          string,
+          Value
+        >;
+        heap[heapKey] = {
+          addr: heapKey,
+          // An anonymous struct goes by the typedef it was reached through.
+          typeName: type.name.includes('{') ? types[index].name : type.name,
+          value: Object.fromEntries(
+            type.fields.map((field) => [
+              field.name,
+              { kind: types[field.type].name, value: whole[field.name], addr: null },
+            ])
+          ),
+        };
+      }
+      type.fields
+        .filter((field) => field.bitSize === undefined && leadsSomewhere(field.type))
+        .forEach((field) => visit(field.type, address + field.offset));
+    } else if (type.kind === 'array' && leadsSomewhere(type.of)) {
+      const { size } = types[type.of];
+      for (let i = 0; i < type.count; i += 1) visit(type.of, address + i * size);
     }
   };
 
   frames.forEach(({ statement, frameBase }) =>
-    (debug.statements[statement]?.variables ?? []).forEach(({ type, offset }) =>
-      pending.push([type, frameBase + offset])
-    )
+    (debug.statements[statement]?.variables ?? [])
+      .filter(({ type }) => leadsSomewhere(type))
+      .forEach(({ type, offset }) => visit(type, frameBase + offset))
   );
   while (pending.length > 0) {
     const [type, address] = pending.pop()!;
     try {
-      follow(type, address);
+      look(type, address);
     } catch {
       // An address past the end of memory: nothing to follow.
     }

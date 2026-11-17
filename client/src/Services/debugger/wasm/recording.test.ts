@@ -657,6 +657,111 @@ describe('recordRun', () => {
       CLANG_TIMEOUT
     );
 
+    /** The heap's entries at the step on `line`, by typeName, with their values. */
+    const heapAt = (recording: Recording, line: number) =>
+      Object.values(recording.steps.find((s) => s.line === line)!.heap).map(
+        (entry) =>
+          `${entry.typeName} ${JSON.stringify(
+            Object.fromEntries(Object.entries(entry.value).map(([name, f]) => [name, f.value]))
+          )}`
+      );
+
+    it(
+      'follows tables of pointers, as a hash table uses',
+      async () => {
+        const source = nodeProgram(
+          [
+            '    struct node **table = calloc(4, sizeof(struct node *));', // 5
+            '    table[2] = malloc(sizeof(struct node));', // 6
+            '    table[2]->value = 5;', // 7
+            '    table[2]->next = NULL;', // 8
+            '    int done = 1;', // 9
+          ].join('\n')
+        );
+
+        expect(heapAt(await record('table.c', source), 9)).toEqual([
+          'struct node {"value":5,"next":"0x0"}',
+        ]);
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'shows structs inside heap structs, and nodes past 200 array elements',
+      async () => {
+        const source = [
+          '#include <stdlib.h>',
+          'struct node { int value; struct node *next; };',
+          'struct box { int tag; struct node child; };',
+          'int main(void) {',
+          '    struct box *box = calloc(1, sizeof(struct box));', // 5
+          '    box->child.value = 9;', // 6
+          '    struct node *roots[201] = {0};', // 7
+          '    roots[200] = calloc(1, sizeof(struct node));', // 8
+          '    int done = 1;', // 9
+          '    return 0;',
+          '}',
+        ].join('\n');
+
+        expect((await heapAt(await record('box.c', source), 9)).sort()).toEqual([
+          'struct box {"tag":0,"child":{"value":9,"next":"0x0"}}',
+          'struct node {"value":0,"next":"0x0"}',
+          'struct node {"value":9,"next":"0x0"}',
+        ]);
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'reads bit-fields and changes between special numbers on the heap',
+      async () => {
+        const source = [
+          '#include <stdlib.h>',
+          'struct flags { unsigned a : 1; int c : 3; double x; };',
+          'int main(void) {',
+          '    struct flags *f = calloc(1, sizeof(struct flags));', // 4
+          '    f->a = 1;', // 5
+          '    f->c = -2;', // 6
+          '    f->x = 1.0 / 0.0;', // 7
+          '    f->x = 0.0 / 0.0;', // 8
+          '    return 0;', // 9
+          '}',
+        ].join('\n');
+
+        const recording = await record('flags.c', source);
+
+        expect(heapAt(recording, 7)).toEqual(['struct flags {"a":1,"c":-2,"x":0}']);
+        const x = (line: number) =>
+          Object.values(recording.steps.find((s) => s.line === line)!.heap)[0].value.x.value;
+        expect([x(8), x(9)]).toEqual([Infinity, NaN]);
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'counts a big heap towards the size budget on every step, even unchanged',
+      async () => {
+        const source = nodeProgram(
+          [
+            '    struct node *list = NULL;', // 5
+            '    for (int i = 0; i < 300; i++) {', // 6
+            '        struct node *n = malloc(sizeof(struct node));', // 7
+            '        n->value = i;', // 8
+            '        n->next = list;', // 9
+            '        list = n;', // 10
+            '    }', // 11
+            '    int total = 0;', // 12
+            '    for (int i = 0; i < 3000; i++) total += i;', // 13
+          ].join('\n')
+        );
+
+        const recording = await record('steady.c', source, { sizeLimit: 2_000_000 });
+
+        expect(recording.end).toEqual({ sizeLimit: 2_000_000 });
+      },
+      CLANG_TIMEOUT
+    );
+
     it(
       'shares a heap entry between steps while it stays the same',
       async () => {

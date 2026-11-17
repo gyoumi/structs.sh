@@ -1,6 +1,7 @@
 import { createOutputLimit } from './outputLimit';
 import { runWasi } from './run';
 import {
+  Allocation,
   HeapEntry,
   readDebugSection,
   readHeap,
@@ -63,6 +64,13 @@ export type Recording = {
   types: TypeDeclaration[];
 };
 
+/** Roughly what a step's reference to a shared heap entry costs, in bytes. */
+const REFERENCE_SIZE = 16;
+
+/** JSON writes NaN and Infinity as null: keep them apart when comparing. */
+const keepSpecialNumbers = (_key: string, value: unknown) =>
+  typeof value === 'number' && !Number.isFinite(value) ? String(value) : value;
+
 /** wasm passes pointers and sizes as signed 32-bit numbers. */
 const unsigned = (value: number) => (value < 0 ? value + 2 ** 32 : value);
 
@@ -107,12 +115,15 @@ export const recordRun = async (
 
   /** The heap blocks in use: their start, and size. */
   const allocations = new Map<number, number>();
-  const isAllocated = (address: number, size: number) => {
+  const allocationOf = (address: number): Allocation | null => {
+    if (address < 1024) return null;
     const exact = allocations.get(address);
-    if (exact !== undefined) return size <= exact;
-    return [...allocations].some(
-      ([start, length]) => address >= start && address + size <= start + length
-    );
+    if (exact !== undefined) return { start: address, size: exact };
+    let found: Allocation | null = null;
+    allocations.forEach((size, start) => {
+      if (address >= start && address < start + size) found = { start, size };
+    });
+    return found;
   };
 
   /** The last step's heap entries, as JSON, to share the ones that don't change. */
@@ -132,8 +143,10 @@ export const recordRun = async (
     let size = JSON.stringify(variables).length;
     const heap: Record<string, HeapEntry> = Object.create(null);
     const seen = new Map<string, { entry: HeapEntry; json: string }>();
-    Object.entries(readHeap(debug, callFrames, view, isAllocated)).forEach(([address, entry]) => {
-      const json = JSON.stringify(entry);
+    Object.entries(readHeap(debug, callFrames, view, allocationOf)).forEach(([address, entry]) => {
+      const json = JSON.stringify(entry, keepSpecialNumbers);
+      // Every step holds a reference to each entry, shared or not.
+      size += address.length + REFERENCE_SIZE;
       const before = previousHeap.get(address);
       if (before?.json === json) {
         heap[address] = before.entry;
