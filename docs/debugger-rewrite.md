@@ -94,15 +94,15 @@ around the happy path:
 - output in the existing `BackendState` format, so the linked-list
   visualiser draws from it unchanged
 - stdin, by re-running the program with the input added, and end-of-file
-- NULL dereference checks and a step limit
+- NULL dereference checks
 - the built-in examples
 
 **Done when:** the types-and-variables and linked-list tests pass on wasm
-(15/15), along with any debugger tests added by then.
+(16/16), along with any debugger tests added by then.
 
 Most of the instrumenter's work is reading memory through the debug info, so
-this checkpoint is the largest. It is one area of work, though, so it splits
-into tickets without needing another checkpoint.
+this checkpoint is the largest. It splits into three steps (see "Checkpoint
+3, step by step").
 
 ### Goal: server deleted
 
@@ -267,6 +267,71 @@ join the page's list the moment they arrive, and the button moves to them
 once the step finishes. This fixed GDB too, which now passes 12/16. wasm
 passes 11/16, including a new test for stepping back after the end.
 
+## Checkpoint 3, step by step
+
+```
+3a. Variables and types ──► 3b. The heap ──► 3c. Input and the examples
+```
+
+### Decisions
+
+- **Each step keeps a snapshot** of what the page shows: the current
+  function's variables and the heap blocks it can reach, in the
+  `BackendState` format. Snapshots share heap objects that didn't change
+  since the step before. A size budget sits alongside the step and time
+  limits: a recording that outgrows it ends with a message, and everything
+  before it can still be stepped through. Pausing the real program instead
+  (with `SharedArrayBuffer`) was ruled out. It needs extra security headers,
+  and it gives up record and replay, which makes input simple.
+- **The heap shows what GDB shows:** structs reachable by following pointers
+  from the variables of every frame. `malloc` and `free` are tracked
+  underneath, so a pointer is only followed into memory that is really
+  allocated. That also leaves room to flag leaks and use-after-free later.
+- **NULL dereferences crash** with a message on the student's line. In wasm,
+  address 0 is ordinary memory, so the instrumenter checks every load and
+  store, including those in the C library (so `strlen(NULL)` is caught). The
+  program's data starts at address 1024, so any lower address is an error.
+- **Typed input re-records the program.** The recording stops where the
+  program waits for input. When the student types a line in the console, the
+  program is recorded again with all the input so far, and stepping carries
+  on from the same step. Ctrl+D sends end-of-file. GDB's server never
+  implemented typed input, so this is new.
+- **The built-in examples** each get an e2e smoke test: it compiles and steps
+  to the end without an error. Two or three also check what the visualiser
+  draws. Comparing every step with GDB was ruled out, because GDB has its own
+  bugs and it would double CI time.
+- **Where wasm differs from real C**, we accept it for now: pointers are 4
+  bytes, and memory starts zeroed, so an uninitialised `int` shows 0 rather
+  than garbage. See the follow-ups.
+
+### 3a. Variables and types
+
+The instrumenter reads where each variable lives from the debug info, and
+tells the recorder where each call's frame is. At every step the recorder
+reads the current function's variables (ints, chars, floats, doubles,
+pointers, structs and arrays) and sends them to the page with the struct
+types the program uses.
+
+**You'll know it's done when** the three types-and-variables tests pass on
+wasm (14/16).
+
+### 3b. The heap
+
+The recorder follows pointers from every frame's variables, so the linked-list
+visualiser draws from wasm states unchanged. `malloc` and `free` are tracked,
+NULL dereferences crash with a message, and recordings have a size budget.
+
+**You'll know it's done when** the linked-list tests pass on wasm (16/16), and
+unit tests cover a NULL dereference and the size budget.
+
+### 3c. Input and the examples
+
+Typed input re-records the program, and Ctrl+D sends end-of-file. Each
+built-in example compiles and steps to the end.
+
+**You'll know it's done when** an e2e test types input into a program that
+reads it, and the new smoke tests pass on wasm for all 8 examples.
+
 ## Follow-ups
 
 Found while building checkpoint 1, and not needed for it:
@@ -290,3 +355,8 @@ Found while building checkpoint 1, and not needed for it:
 - **A compile still running** when the session is reset or its file is
   deleted can still start a session. Checkpoint 2 reworks the session
   lifecycle.
+- **Uninitialised variables** show 0 on wasm, because memory starts zeroed.
+  Filling each new stack frame with a pattern such as `0xAAAAAAAA` would make
+  them look uninitialised, as they do on real hardware.
+- **Pointers are 4 bytes** on wasm and 8 on the machines students use, so
+  `sizeof(int *)` and addresses look different.
