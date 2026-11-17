@@ -109,6 +109,8 @@ export class VisualiserPage {
     if (!(await row.getByRole('button', { name: 'Run' }).isVisible())) {
       await row.getByRole('button', { name: command, exact: true }).click();
     }
+    // The row slides open, moving Run; a click before it settles can miss on a slow machine.
+    await expect(row.locator('.MuiCollapse-entered')).toBeAttached();
     for (const [index, value] of args.entries()) {
       await inputs.nth(index).fill(String(value));
     }
