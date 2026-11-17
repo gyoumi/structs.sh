@@ -5,16 +5,21 @@ import { Radio, RadioGroup } from '@ui-sdk/react/radio';
 import { Button } from '@ui-sdk/react/button';
 import { Toolbar, ToolbarButton } from '@ui-sdk/react/toolbar';
 import {
-  SegmentedControl,
-  SegmentedControlIndicator,
-  SegmentedControlItem,
-} from '@ui-sdk/react/segmented-control';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@ui-sdk/react/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@ui-sdk/react/tooltip';
 import logo from '@/assets/img/structs.png';
 import {
+  CheckIcon,
+  ChevronDownIcon,
   ClearIcon,
   FitIcon,
   KeyboardIcon,
+  LinkIcon,
   MinusIcon,
   PauseIcon,
   PlayIcon,
@@ -38,11 +43,14 @@ import ShortcutsDialog from './ShortcutsDialog';
 import { TopicRoute, VisualiserProvider } from './VisualiserProvider';
 import { useSession, useSnapshot } from './useVisualiser';
 import { useNarration } from './useNarration';
-import { operationLabel, TopicInfo } from './topics';
+import { operationLabel, shareLink, TopicInfo } from './topics';
 import { canvasThemes } from './canvasThemes';
 import styles from './Visualiser.module.css';
 
-const SPEEDS = ['0.5', '1', '1.5', '2'];
+const SPEEDS = ['0.25', '0.5', '0.75', '1', '1.25', '1.5', '1.75', '2'].map((value) => ({
+  value,
+  label: `${value}×`,
+}));
 
 /** An insert can land just past the last node, while a delete needs a node at the index. */
 const indexMaxFor = (args: string[], size: number) => {
@@ -103,6 +111,41 @@ const Operations = ({ topic }: { topic: TopicInfo }) => {
   );
 };
 
+type CopyState = 'idle' | 'copied' | 'failed';
+
+const CopyLink = ({ topic }: { topic: TopicInfo }) => {
+  const session = useSession();
+  const [state, setState] = useState<CopyState>('idle');
+
+  useEffect(() => {
+    if (state === 'idle') return undefined;
+    const timer = setTimeout(() => setState('idle'), 2000);
+    return () => clearTimeout(timer);
+  }, [state]);
+
+  const copy = () => {
+    navigator.clipboard
+      .writeText(shareLink(topic.slug, session.data, window.location.origin))
+      .then(() => setState('copied'))
+      .catch(() => setState('failed'));
+  };
+
+  return (
+    <Button className={styles.utility} onClick={copy}>
+      {state === 'copied' ? <CheckIcon size={16} /> : <LinkIcon size={16} />}
+      <span aria-live="polite">
+        {state === 'idle' && (
+          <>
+            Copy <span className={styles.utilityNoun}>link</span>
+          </>
+        )}
+        {state === 'copied' && 'Link copied'}
+        {state === 'failed' && 'Couldn’t copy'}
+      </span>
+    </Button>
+  );
+};
+
 const DataActions = ({ topic }: { topic: TopicInfo }) => {
   const session = useSession();
   return (
@@ -115,6 +158,7 @@ const DataActions = ({ topic }: { topic: TopicInfo }) => {
         <ClearIcon size={16} />
         Clear
       </Button>
+      <CopyLink topic={topic} />
     </div>
   );
 };
@@ -227,19 +271,23 @@ const Transport = () => {
         {idle ? 'No steps yet' : `Step ${Math.min(step, stepCount)} of ${stepCount}`}
       </p>
 
-      <SegmentedControl
-        className={styles.speed}
-        aria-label="Speed"
+      <Select
+        items={SPEEDS}
         value={String(speed)}
         onValueChange={(next: string | null) => next && session.setSpeed(Number(next))}
       >
-        <SegmentedControlIndicator className={styles.speedIndicator} />
-        {SPEEDS.map((value) => (
-          <SegmentedControlItem key={value} value={value} className={styles.speedItem}>
-            {value}×
-          </SegmentedControlItem>
-        ))}
-      </SegmentedControl>
+        <SelectTrigger className={styles.speed} aria-label="Speed">
+          <SelectValue />
+          <ChevronDownIcon size={16} />
+        </SelectTrigger>
+        <SelectContent className={styles.speedMenu} side="top" sideOffset={8}>
+          {SPEEDS.map((item) => (
+            <SelectItem key={item.value} value={item.value} className={styles.speedItem}>
+              {item.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 };

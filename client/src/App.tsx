@@ -4,7 +4,7 @@ import { AnimatePresence } from 'framer-motion';
 import { Route, Routes } from 'react-router-dom';
 import Feedback from '@/Feedback';
 import Landing from '@/landing/Landing';
-import Page404 from '@/Page404';
+import NotFound from '@/landing/NotFound';
 import { structsTheme } from '@/structsThemes';
 import Visualiser from '@/visualiser/Visualiser';
 import './App.scss';
@@ -41,7 +41,7 @@ const App = () => {
             <Route path="/debugger" element={<DevelopmentMode />} />
 
             {/* 404 page */}
-            <Route path="*" element={<Page404 />} />
+            <Route path="*" element={<NotFound />} />
           </Routes>
           {/** For Providing warning/info/context of the app at anytime */}
           <Toast />

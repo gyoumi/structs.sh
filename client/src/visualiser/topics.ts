@@ -106,3 +106,9 @@ export const argLabel = (arg: string): string => {
 };
 
 export const randomValue = (): number => Math.floor(Math.random() * 100);
+
+/** A link that reopens the structure with the same values: two digits each, as the route parses them. */
+export const shareLink = (slug: TopicSlug, data: number[], origin: string): string => {
+  const encoded = data.map((value) => String(value).padStart(2, '0')).join('');
+  return `${origin}/visualiser/${slug}${encoded ? `/${encoded}` : ''}`;
+};
