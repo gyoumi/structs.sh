@@ -6,16 +6,26 @@ on:
 
 jobs:
   e2e:
+    name: e2e (${{ matrix.debugger }})
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # The same suite runs against the GDB debugger on the server and the wasm
+    # debugger in the browser. Each has its own list in e2e/known-failures/.
+    strategy:
+      fail-fast: false
+      matrix:
+        debugger: [gdb, wasm]
+    env:
+      E2E_DEBUGGER: ${{ matrix.debugger }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # The debugger is started here rather than by Playwright, because it is
-      # the part being replaced. Update this step and "Wait for debugger" when
-      # the backend changes. The image builds in the background while the
-      # next steps install the frontend and browser.
+      # The GDB debugger is started here rather than by Playwright, because it
+      # is the part being replaced. The image builds in the background while
+      # the next steps install the frontend and browser. The wasm debugger
+      # needs no server.
       - name: Start debugger
+        if: matrix.debugger == 'gdb'
         run: |
           (
             status=0
@@ -37,6 +47,7 @@ jobs:
         run: pnpm run e2e:typecheck
 
       - name: Wait for debugger
+        if: matrix.debugger == 'gdb'
         run: |
           timeout 300 bash -c 'until [ -f "$RUNNER_TEMP/debugger-up.exit" ]; do sleep 1; done' || true
           cat "$RUNNER_TEMP/debugger-up.log"
@@ -48,12 +59,12 @@ jobs:
         run: pnpm run e2e
 
       - name: Debugger logs
-        if: failure()
+        if: failure() && matrix.debugger == 'gdb'
         run: docker compose logs debugger
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.debugger }}
           path: e2e/playwright-report
           retention-days: 7

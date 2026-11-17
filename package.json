@@ -13,6 +13,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "prepare": "husky",
     "e2e": "playwright test -c e2e",
+    "e2e:wasm": "E2E_DEBUGGER=wasm playwright test -c e2e",
     "e2e:strict": "E2E_STRICT=1 playwright test -c e2e",
     "e2e:typecheck": "tsc -p e2e",
     "e2e:report": "playwright show-report e2e/playwright-report"

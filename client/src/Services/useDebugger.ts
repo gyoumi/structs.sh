@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react';
-import { BackendState, INITIAL_BACKEND_STATE } from '../visualiser-debugger/Types/backendType';
-import useSocketClientStore from './socketClient';
+import { INITIAL_BACKEND_STATE } from '../visualiser-debugger/Types/backendType';
+import { useDebuggerStore } from './debugger/debuggerStore';
+import { buildDebuggerEvents } from './debugger/buildDebuggerEvents';
 import { useGlobalStore } from '../visualiser-debugger/Store/globalStateStore';
 import { useUserFsStateStore } from '../visualiser-debugger/Store/userFsStateStore';
 import { useFrontendStateStore } from '../visualiser-debugger/Store/frontendStateStore';
@@ -9,9 +10,9 @@ import {
   useToastStateStore,
 } from '../visualiser-debugger/Store/toastStateStore';
 import { useQueue } from './useQueue';
-import { buildSocketEventHandler } from './buildSocketEventHandler';
 
-export const useSocketCommunication = () => {
+/** Lets the page drive whichever debugger the URL picked (see debugger/createDebugger.ts). */
+export const useDebugger = () => {
   const {
     updateCurrFocusedTab,
     updateNextFrame,
@@ -23,19 +24,17 @@ export const useSocketCommunication = () => {
   } = useGlobalStore();
 
   const { setActive, clearFrontendState } = useFrontendStateStore();
-  const { socketClient } = useSocketClientStore();
+  const debuggerClient = useDebuggerStore((state) => state.debuggerClient);
   const { setToastMessage } = useToastStateStore();
   const queue = useQueue();
 
-  // Setup socket event handlers on mount
+  // Connect the debugger's events to the page
   useEffect(() => {
-    console.log('usesocketcom is mounted');
-
-    if (!socketClient) {
+    if (!debuggerClient) {
       return;
     }
 
-    const handlers = buildSocketEventHandler({
+    const events = buildDebuggerEvents({
       setActive,
       updateNextFrame,
       updateTypeDeclaration,
@@ -44,9 +43,9 @@ export const useSocketCommunication = () => {
       setMessage: setToastMessage,
     });
 
-    socketClient.setupEventHandlers(handlers);
+    debuggerClient.setEvents(events);
   }, [
-    socketClient,
+    debuggerClient,
     setActive,
     updateNextFrame,
     updateTypeDeclaration,
@@ -72,9 +71,9 @@ export const useSocketCommunication = () => {
     resetConsoleChunks,
   ]);
 
-  // send code to backend to start debugging session
+  // send code to the debugger to start a debugging session
   const sendCode = useCallback(() => {
-    if (!socketClient) return;
+    if (!debuggerClient) return;
 
     resetDebugSession();
 
@@ -90,53 +89,15 @@ export const useSocketCommunication = () => {
       return;
     }
 
-    socketClient.serverAction.initializeDebugSession(file.data);
-  }, [socketClient, resetDebugSession, setToastMessage]);
+    debuggerClient.start(file.data);
+  }, [debuggerClient, resetDebugSession, setToastMessage]);
 
-  // add event listener with timeout
-  const addEventListenerWithTimeout = useCallback(
-    (listener: (state: BackendState | null) => void, timeout: number) => {
-      if (!socketClient) return;
-
-      let resolved = false;
-
-      const wrappedListener = (state: BackendState) => {
-        if (!resolved) {
-          resolved = true;
-          listener(state);
-          socketClient.socket.off('sendBackendStateToUser', wrappedListener);
-        }
-      };
-
-      socketClient.socket.on('sendBackendStateToUser', wrappedListener);
-
-      setTimeout(() => {
-        if (!resolved) {
-          resolved = true;
-          listener(null);
-          socketClient.socket.off('sendBackendStateToUser', wrappedListener);
-        }
-      }, timeout);
-    },
-    [socketClient]
-  );
-
-  // step debugger and wait for backend to respond
+  // step the debugger once, waiting for any earlier steps to finish
   const executeNextWithRetry = useCallback(() => {
-    if (!socketClient) return Promise.resolve(false);
+    if (!debuggerClient) return Promise.resolve(false);
 
-    return queue(
-      () =>
-        new Promise<boolean>((resolve) => {
-          const handleBackendState = (state: BackendState | null) => {
-            resolve(!!state);
-          };
-
-          addEventListenerWithTimeout(handleBackendState, 5000);
-          socketClient.serverAction.executeNext();
-        })
-    );
-  }, [socketClient, queue, addEventListenerWithTimeout]);
+    return queue(() => debuggerClient.step());
+  }, [debuggerClient, queue]);
 
   // to call multiple next states in bulk
   const bulkSendNextStates = useCallback(

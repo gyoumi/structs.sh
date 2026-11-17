@@ -40,7 +40,7 @@ In this lane:
 2. **Split** independent file slices. Spawn all workers in one message, each with the files it owns. Serialize only on a real file-ownership conflict. See `agent-mistakes-orchestration`, "One live worker per file".
 3. **Review loop.** After edits, spawn the `opus` phase reviewer (read-only) with the phase goal, the plan section, and the diff. The orchestrator buckets findings; a `sonnet` worker applies Act-on items; the reviewer re-checks only the delta. Repeat until APPROVE. Cap about 3 rounds. Wait for every named reviewer before applying anything.
 4. **Checks.** A `sonnet` checks worker runs the `review-branch` checks for the touched areas: client `tsc`, `lint`, `test`, `build`; debugger pytest; the e2e suite with the debugger running. Green before verify.
-5. **Verify.** For UI or animation changes, run `ui-visual-test` on the affected screens. For debugger behaviour, the matching e2e behaviour must pass or be on `e2e/known-failures.json` with a reason. Always verify, even for small phases.
+5. **Verify.** For UI or animation changes, run `ui-visual-test` on the affected screens. For debugger behaviour, the matching e2e behaviour must pass or be on that debugger's list in `e2e/known-failures/` with a reason. Always verify, even for small phases.
 6. **Report** done with evidence: checks run and results, screenshots or e2e summary, reviewer verdict, and follow-ups. Tick the phase's checkboxes in the plan file.
 
 ## Also reach for
