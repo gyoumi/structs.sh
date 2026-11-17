@@ -303,7 +303,9 @@ export const readHeap = (
   debug: DebugSection,
   frames: Frame[],
   memory: DataView,
-  allocationOf: (address: number) => Allocation | null
+  allocationOf: (address: number) => Allocation | null,
+  /** Called now and then during a long walk; it may throw to stop it. */
+  checkTime: () => void = () => {}
 ): Record<string, HeapEntry> => {
   const { types } = debug;
   const heap: Record<string, HeapEntry> = Object.create(null);
@@ -322,6 +324,8 @@ export const readHeap = (
   // call stack.
   const pending: [number, number][] = [];
   const visited = new Set<string>();
+  /** Tables of pointers already walked, so each is walked once. */
+  const tables = new Set<string>();
   const visit = (index: number, address: number) => {
     const key = `${index}@${address}`;
     if (visited.has(key)) return;
@@ -338,11 +342,13 @@ export const readHeap = (
         if (inAllocation(target, pointee.size)) visit(type.to, target);
       } else if (pointee.kind === 'pointer') {
         // A table of pointers, such as a hash table's buckets: every one in
-        // its allocation.
+        // its allocation that points somewhere.
         const allocation = allocationOf(target);
-        if (allocation === null) return;
+        const table = `${type.to}@${target}`;
+        if (allocation === null || tables.has(table)) return;
+        tables.add(table);
         for (let at = target; at + pointee.size <= allocation.start + allocation.size; at += 4) {
-          visit(type.to, at);
+          if (memory.getUint32(at, true) >= 1024) visit(type.to, at);
         }
       }
     } else if (type.kind === 'struct') {
@@ -378,7 +384,10 @@ export const readHeap = (
       .filter(({ type }) => leadsSomewhere(type))
       .forEach(({ type, offset }) => visit(type, frameBase + offset))
   );
+  let looked = 0;
   while (pending.length > 0) {
+    looked += 1;
+    if (looked % 10_000 === 0) checkTime();
     const [type, address] = pending.pop()!;
     try {
       look(type, address);

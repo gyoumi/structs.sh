@@ -113,6 +113,10 @@ export const recordRun = async (
   const limitOutput = createOutputLimit();
   const deadline = performance.now() + timeLimitMs;
 
+  const checkTime = () => {
+    if (performance.now() > deadline) throw new LimitReached({ timeLimit: timeLimitMs });
+  };
+
   /** The heap blocks in use: their start, and size. */
   const allocations = new Map<number, number>();
   const allocationOf = (address: number): Allocation | null => {
@@ -143,20 +147,22 @@ export const recordRun = async (
     let size = JSON.stringify(variables).length;
     const heap: Record<string, HeapEntry> = Object.create(null);
     const seen = new Map<string, { entry: HeapEntry; json: string }>();
-    Object.entries(readHeap(debug, callFrames, view, allocationOf)).forEach(([address, entry]) => {
-      const json = JSON.stringify(entry, keepSpecialNumbers);
-      // Every step holds a reference to each entry, shared or not.
-      size += address.length + REFERENCE_SIZE;
-      const before = previousHeap.get(address);
-      if (before?.json === json) {
-        heap[address] = before.entry;
-        seen.set(address, before);
-      } else {
-        heap[address] = entry;
-        seen.set(address, { entry, json });
-        size += json.length;
+    Object.entries(readHeap(debug, callFrames, view, allocationOf, checkTime)).forEach(
+      ([address, entry]) => {
+        const json = JSON.stringify(entry, keepSpecialNumbers);
+        // Every step holds a reference to each entry, shared or not.
+        size += address.length + REFERENCE_SIZE;
+        const before = previousHeap.get(address);
+        if (before?.json === json) {
+          heap[address] = before.entry;
+          seen.set(address, before);
+        } else {
+          heap[address] = entry;
+          seen.set(address, { entry, json });
+          size += json.length;
+        }
       }
-    });
+    );
     if (recordedSize + size > sizeLimit) throw new LimitReached({ sizeLimit });
     recordedSize += size;
     previousHeap = seen;
@@ -189,7 +195,7 @@ export const recordRun = async (
         } else if (event.type === 'line') {
           statementsRun += 1;
           if (statementsRun > stepLimit) throw new LimitReached({ stepLimit });
-          if (performance.now() > deadline) throw new LimitReached({ timeLimit: timeLimitMs });
+          checkTime();
           const call = calls.at(-1);
           if (!call) return;
           call.statement = event.statement;
