@@ -16,6 +16,8 @@ const STDIO_RIGHTS = 0x42n;
 // fall back to the monotonic clock.
 const CLOCK_REALTIME = 0;
 
+const NEWLINE = 0x0a;
+
 // crypto.getRandomValues fills at most this many bytes per call.
 const MAX_RANDOM_BYTES = 65_536;
 
@@ -122,11 +124,15 @@ export const runWasi = async (
     fd_read(fd: number, iovs: number, iovsLength: number, readPointer: number) {
       if (fd !== STDIN) return BADF;
       if (stdinRead === stdin.length && !input.eof) throw WAITING_FOR_INPUT;
+      // Like a terminal, one read gets one line at most, so a run re-recorded
+      // with more input reads the same lines at the same reads as before.
+      const newline = stdin.indexOf(NEWLINE, stdinRead);
+      const lineEnd = newline === -1 ? stdin.length : newline + 1;
       let read = 0;
-      for (let i = 0; i < iovsLength && stdinRead < stdin.length; i++) {
+      for (let i = 0; i < iovsLength && stdinRead < lineEnd; i++) {
         const pointer = view().getUint32(iovs + i * 8, true);
         const length = view().getUint32(iovs + i * 8 + 4, true);
-        const chunk = stdin.subarray(stdinRead, stdinRead + length);
+        const chunk = stdin.subarray(stdinRead, Math.min(stdinRead + length, lineEnd));
         bytes(pointer, chunk.length).set(chunk);
         stdinRead += chunk.length;
         read += chunk.length;

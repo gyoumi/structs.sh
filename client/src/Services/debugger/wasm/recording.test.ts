@@ -862,6 +862,34 @@ describe('recordRun', () => {
     );
 
     it(
+      'gives each read one line at most, as a terminal does',
+      async () => {
+        // Typing "a" then "b" re-records with both lines. The first read must
+        // still get only "a", or the run differs from the one already shown.
+        const source = [
+          '#include <stdio.h>',
+          '#include <unistd.h>',
+          'int main(void) {',
+          '    char first[16] = {0};',
+          '    char second[16] = {0};',
+          '    read(0, first, 15);',
+          '    read(0, second, 15);',
+          '    printf("[%s][%s]", first, second);',
+          '    return 0;',
+          '}',
+        ].join('\n');
+
+        const recording = await record('reads.c', source, {
+          input: { text: 'a\nb\n', eof: false },
+        });
+
+        expect(recording.end).toEqual({ exitCode: 0 });
+        expect(recording.steps.map((step) => step.output).join('')).toBe('[a\n][b\n]');
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
       'reads to the end of the input once end-of-file is sent',
       async () => {
         const recording = await record('sum_input.c', program('sum_input.c'), {
