@@ -90,9 +90,10 @@ pub(crate) enum Type {
         /// `int, char *`, `void`, or with `...` for a variadic function.
         parameters: String,
     },
-    /// Anything else the debugger doesn't read.
+    /// Anything else the debugger doesn't read, such as a complex number.
     Other {
         name: String,
+        size: u64,
     },
 }
 
@@ -117,7 +118,7 @@ impl Type {
             | Type::Array { name, .. }
             | Type::Alias { name, .. }
             | Type::Function { name, .. }
-            | Type::Other { name } => name,
+            | Type::Other { name, .. } => name,
         }
     }
 }
@@ -369,7 +370,7 @@ impl<'a> UnitReader<'a, '_> {
     /// Adds a type now, before its parts, so a type that refers back to
     /// itself (`struct node *next`) finds it. `fill` then replaces it.
     fn placeholder(&mut self, offset: UnitOffset, name: String) -> usize {
-        self.types.push(Type::Other { name });
+        self.types.push(Type::Other { name, size: 0 });
         let index = self.types.len() - 1;
         self.seen.insert(offset, index);
         index
@@ -395,6 +396,10 @@ impl<'a> UnitReader<'a, '_> {
                     Some(AttributeValue::Encoding(gimli::DW_ATE_float)) => {
                         Type::Float { name, size }
                     }
+                    // `double _Complex` and the like: not read, but sized.
+                    Some(AttributeValue::Encoding(
+                        gimli::DW_ATE_complex_float | gimli::DW_ATE_imaginary_float,
+                    )) => Type::Other { name, size },
                     Some(AttributeValue::Encoding(
                         gimli::DW_ATE_signed | gimli::DW_ATE_signed_char,
                     )) => Type::Int {
@@ -530,11 +535,13 @@ impl<'a> UnitReader<'a, '_> {
                 };
                 return Ok(index);
             }
-            gimli::DW_TAG_const_type | gimli::DW_TAG_volatile_type => {
-                let qualifier = if entry.tag() == gimli::DW_TAG_const_type {
-                    "const"
-                } else {
-                    "volatile"
+            gimli::DW_TAG_const_type
+            | gimli::DW_TAG_volatile_type
+            | gimli::DW_TAG_restrict_type => {
+                let qualifier = match entry.tag() {
+                    gimli::DW_TAG_const_type => "const",
+                    gimli::DW_TAG_volatile_type => "volatile",
+                    _ => "restrict",
                 };
                 let to = self.type_attribute(&entry)?;
                 self.types.push(Type::Alias {
@@ -579,6 +586,7 @@ impl<'a> UnitReader<'a, '_> {
             }
             _ => Type::Other {
                 name: name.unwrap_or_else(|| "?".to_string()),
+                size,
             },
         };
         self.types.push(ty);
@@ -733,7 +741,8 @@ fn size_of(types: &[Type], index: usize) -> u64 {
         Type::Pointer { .. } => POINTER_SIZE,
         Type::Array { of, count, .. } => size_of(types, *of) * count,
         Type::Alias { to, .. } => to.map_or(0, |to| size_of(types, to)),
-        Type::Function { .. } | Type::Other { .. } => 0,
+        Type::Function { .. } => 0,
+        Type::Other { size, .. } => *size,
     }
 }
 
@@ -790,7 +799,8 @@ fn type_json(types: &[Type], index: usize) -> String {
             )
         }
         Type::Function { .. } | Type::Other { .. } => {
-            format!("{{\"kind\":\"other\",\"name\":{name},\"size\":0}}")
+            let size = size_of(types, index);
+            format!("{{\"kind\":\"other\",\"name\":{name},\"size\":{size}}}")
         }
     }
 }

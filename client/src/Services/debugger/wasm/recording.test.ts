@@ -430,8 +430,9 @@ describe('recordRun', () => {
           '    int (* const pa)[3] = &a;', // 15
           '    char * const volatile both = 0;', // 16
           '    const char * const *cp = 0;', // 17
-          '    return 0;', // 18
-          '}', // 19
+          '    int * restrict r = 0;', // 18
+          '    return 0;', // 19
+          '}', // 20
         ].join('\n');
 
         const recording = await record('names.c', source);
@@ -454,6 +455,7 @@ describe('recordRun', () => {
           pa: 'int (* const)[3]',
           both: 'char * const volatile',
           cp: 'const char * const *',
+          r: 'int * restrict',
         });
       },
       CLANG_TIMEOUT
@@ -467,15 +469,22 @@ describe('recordRun', () => {
           'int main(void) {', // 2
           '    struct shape square = {1, {4}};', // 3
           '    long double big = 1.0L;', // 4
-          '    return 0;', // 5
-          '}', // 6
+          '    enum __attribute__((packed)) charset { A = 65, B } letters[2] = {A, B};', // 5
+          '    double _Complex z = 1.0;', // 6
+          '    double after = 2.5;', // 7
+          '    return 0;', // 8
+          '}', // 9
         ].join('\n');
 
         const recording = await record('shape.c', source);
-        const { square, big } = recording.steps.at(-1)!.variables;
+        const { square, big, letters, z, after } = recording.steps.at(-1)!.variables;
 
         expect(square.value).toEqual({ kind: 1, side: 4, radius: expect.any(Number) });
         expect(big.value).toBeNull();
+        // An enum isn't a char, whatever it's called.
+        expect(letters.value).toEqual([65, 66]);
+        expect(z.value).toBeNull();
+        expect(after.value).toBe(2.5);
       },
       CLANG_TIMEOUT
     );

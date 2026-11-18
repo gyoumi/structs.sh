@@ -79,8 +79,10 @@ const resolve = (types: DebugType[], index: number): DebugType => {
   return type;
 };
 
-const isChar = (type: DebugType) =>
-  type.kind === 'int' && type.size === 1 && type.name.includes('char');
+const CHAR_TYPES = ['char', 'signed char', 'unsigned char'];
+
+/** A C character type, not, say, an enum that happens to be one byte. */
+const isChar = (type: DebugType) => type.kind === 'int' && CHAR_TYPES.includes(type.name);
 
 const ESCAPES: Record<number, string> = {
   7: '\\a',
