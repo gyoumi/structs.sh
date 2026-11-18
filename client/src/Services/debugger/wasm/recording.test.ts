@@ -763,6 +763,38 @@ describe('recordRun', () => {
     );
 
     it(
+      'finds the struct inside each of 20,000 heap blocks quickly',
+      async () => {
+        // Each box's child starts inside the box, so the recorder has to find
+        // which block it belongs to. The loop runs on one line, so one step.
+        const source = [
+          '#include <stdlib.h>',
+          'struct node { int value; struct node *next; };',
+          'struct box { int tag; struct node child; struct box *next; };',
+          'int main(void) {',
+          '    struct box *list = NULL;', // 5
+          '    for (int i = 0; i < 20000; i++) { struct box *b = calloc(1, sizeof(struct box)); b->next = list; list = b; }', // 6
+          '    int a = 1;', // 7
+          '    int b = 2;', // 8
+          '    int c = 3;', // 9
+          '    int d = 4;', // 10
+          '    int e = 5;', // 11
+          '    return a + b + c + d + e;', // 12
+          '}',
+        ].join('\n');
+
+        const recording = await record('boxes.c', source, {
+          stepLimit: Infinity,
+          timeLimitMs: 4000,
+        });
+
+        expect(recording.end).toEqual({ exitCode: 15 });
+        expect(Object.keys(recording.steps.at(-1)?.heap ?? {})).toHaveLength(40000);
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
       'shares a heap entry between steps while it stays the same',
       async () => {
         const recording = await record('linked_list.c', program('linked_list.c'));

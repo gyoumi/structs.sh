@@ -119,15 +119,25 @@ export const recordRun = async (
 
   /** The heap blocks in use: their start, and size. */
   const allocations = new Map<number, number>();
+  /** The blocks' starts in order, rebuilt after the blocks change. */
+  let starts: number[] | null = null;
   const allocationOf = (address: number): Allocation | null => {
     if (address < 1024) return null;
     const exact = allocations.get(address);
     if (exact !== undefined) return { start: address, size: exact };
-    let found: Allocation | null = null;
-    allocations.forEach((size, start) => {
-      if (address >= start && address < start + size) found = { start, size };
-    });
-    return found;
+    starts ??= [...allocations.keys()].sort((a, b) => a - b);
+    // The last block starting at or before the address.
+    let low = 0;
+    let high = starts.length;
+    while (low < high) {
+      const middle = Math.floor((low + high) / 2);
+      if (starts[middle] <= address) low = middle + 1;
+      else high = middle;
+    }
+    if (low === 0) return null;
+    const start = starts[low - 1];
+    const size = allocations.get(start)!;
+    return address < start + size ? { start, size } : null;
   };
 
   /** The last step's heap entries, as JSON, to share the ones that don't change. */
@@ -208,11 +218,14 @@ export const recordRun = async (
           if (caller) addStep(caller, memory);
         } else if (event.type === 'allocated') {
           if (event.pointer !== 0) allocations.set(unsigned(event.pointer), unsigned(event.size));
+          starts = null;
         } else if (event.type === 'freed') {
           allocations.delete(unsigned(event.pointer));
+          starts = null;
         } else if (event.pointer !== 0) {
           allocations.delete(unsigned(event.old));
           allocations.set(unsigned(event.pointer), unsigned(event.size));
+          starts = null;
         }
       },
     });
