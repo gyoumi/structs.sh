@@ -60,10 +60,13 @@ CI already fails a PR for these, so don't spend review time on them: unused impo
 Only after the static review has no blockers. From the repo root:
 
 ```bash
+pnpm install   # a fresh worktree has no node_modules
 pnpm check:changed
 ```
 
 It runs the fast checks for the areas the branch touched. When the branch changes `client/`, `debugger/` or `e2e/`, also run the e2e suite, since `check:changed` only type-checks and lints e2e: `docker compose up -d debugger`, then `pnpm run e2e`. CI also runs the client build.
+
+A `skipped` line in the output means that check did not run. Report it as unverified, not as passed.
 
 UI changes also need screenshots of the affected screens; see `ui-visual-test`.
 
