@@ -426,7 +426,9 @@ Delete:
   and `grafana/`
 - the debugger image in the Deploy workflow, and the `sanity-debugger` job
 - the GDB-only parts of the PR rules, `check:changed`'s ruff and mypy
-  steps, `.coderabbit.yaml`, the docs, the testing rule and the skills
+  steps, `.coderabbit.yaml` and the docs
+- the GDB parts of the testing rule and the skills, in a PR of their own,
+  since the PR rules keep `.claude/` changes apart from other changes
 
 pr-rules judges a PR by the base branch's rules, so this PR still needs the
 `removal-ok` label (it deletes the pytest files) and `human-approved` (it
