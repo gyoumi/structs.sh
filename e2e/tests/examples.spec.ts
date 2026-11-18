@@ -26,14 +26,9 @@ test.describe('examples', () => {
       // Some examples wait for input, and one loops forever on purpose, so
       // take up to 25 steps rather than running to the end, and stop early
       // once three steps in a row don't move on.
-      let stalled = 0;
-      for (let i = 0; i < 25 && stalled < 3; i++) {
-        const before = await debuggerPage.currentLine();
-        if (!(await debuggerPage.stepForward())) break;
-        stalled = (await debuggerPage.currentLine()) === before ? stalled + 1 : 0;
-      }
+      const visited = await debuggerPage.stepAWhile(25, 3);
 
-      expect(debuggerPage.visitedLines.length).toBeGreaterThan(1);
+      expect(visited.length).toBeGreaterThan(1);
       await expect(debuggerPage.console).not.toContainText(DEBUGGER_ERRORS);
       await expect(debuggerPage.console).not.toContainText('NULL pointer dereference');
     });

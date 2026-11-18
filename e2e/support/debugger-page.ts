@@ -150,6 +150,22 @@ export class DebuggerPage {
     throw new Error(`session still running after ${maxClicks} steps`);
   }
 
+  /**
+   * Steps forward up to `maxSteps` times, for a program that may wait for
+   * input or loop forever. Stops early when the session ends, or once
+   * `stallLimit` steps in a row stay on the same line. Returns the lines
+   * visited.
+   */
+  async stepAWhile(maxSteps = 25, stallLimit = 3): Promise<number[]> {
+    let stalled = 0;
+    for (let i = 0; i < maxSteps && stalled < stallLimit; i++) {
+      const before = await this.currentLine();
+      if (!(await this.stepForward())) break;
+      stalled = (await this.currentLine()) === before ? stalled + 1 : 0;
+    }
+    return this.visitedLines;
+  }
+
   // ----------------------------------------------------------------- reading
 
   /** The line the editor currently highlights, or null if none. */
