@@ -1,7 +1,13 @@
 import { recordRun, Recording } from './recording';
 
-/** What the page sends the runner worker: one instrumented program to record. */
-export type RunRequest = { wasm: Uint8Array<ArrayBuffer> };
+/**
+ * What the page sends the runner worker: one instrumented program to record,
+ * and the input typed for it so far.
+ */
+export type RunRequest = {
+  wasm: Uint8Array<ArrayBuffer>;
+  input?: { text: string; eof: boolean };
+};
 
 /** What the runner worker sends back: one message, once the program ends. */
 export type RunnerMessage =
@@ -15,11 +21,11 @@ export type RunnerMessage =
  * page always gets a message.
  */
 export const answerRunRequest = async (
-  { wasm }: RunRequest,
+  { wasm, input }: RunRequest,
   post: (message: RunnerMessage) => void
 ): Promise<void> => {
   try {
-    post({ type: 'recorded', recording: await recordRun(wasm) });
+    post({ type: 'recorded', recording: await recordRun(wasm, { input }) });
   } catch (error) {
     post({ type: 'error', message: error instanceof Error ? error.message : String(error) });
   }

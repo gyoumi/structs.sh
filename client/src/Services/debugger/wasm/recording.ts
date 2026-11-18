@@ -1,5 +1,5 @@
 import { createOutputLimit } from './outputLimit';
-import { runWasi } from './run';
+import { runWasi, WAITING_FOR_INPUT } from './run';
 import {
   Allocation,
   HeapEntry,
@@ -53,7 +53,9 @@ export type RunEnd =
   | { crashed: string }
   | { stepLimit: number }
   | { timeLimit: number }
-  | { sizeLimit: number };
+  | { sizeLimit: number }
+  /** It read past the input typed so far; typing more records it again. */
+  | { waitingForInput: true };
 
 export type Recording = {
   steps: Step[];
@@ -97,7 +99,14 @@ export const recordRun = async (
     stepLimit = STEP_LIMIT,
     timeLimitMs = TIME_LIMIT_MS,
     sizeLimit = SIZE_LIMIT,
-  }: { stepLimit?: number; timeLimitMs?: number; sizeLimit?: number } = {}
+    input = { text: '', eof: false },
+  }: {
+    stepLimit?: number;
+    timeLimitMs?: number;
+    sizeLimit?: number;
+    /** stdin: the text typed so far, and whether end-of-file was sent. */
+    input?: { text: string; eof: boolean };
+  } = {}
 ): Promise<Recording> => {
   const debug = readDebugSection(await WebAssembly.compile(wasm));
   const steps: (Step & { frame: number })[] = [];
@@ -194,6 +203,7 @@ export const recordRun = async (
   let end: RunEnd;
   try {
     const { exitCode } = await runWasi(wasm, {
+      input,
       onOutput: (text) => {
         const kept = limitOutput(text);
         const last = steps.at(-1);
@@ -235,6 +245,7 @@ export const recordRun = async (
     end = { exitCode };
   } catch (error) {
     if (error instanceof LimitReached) end = error.end;
+    else if (error === WAITING_FOR_INPUT) end = { waitingForInput: true };
     else end = { crashed: error instanceof Error ? error.message : String(error) };
   }
 

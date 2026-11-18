@@ -74,6 +74,33 @@ export class DebuggerPage {
     await this.page.getByText(name, { exact: true }).click();
   }
 
+  /**
+   * Opens one of the examples the debugger comes with, as a new visitor
+   * sees them: `folder/name` under root.
+   */
+  async openExample(folder: string, name: string): Promise<void> {
+    await this.page.addInitScript(() => {
+      localStorage.setItem('Onboarding', 'done'); // skip the guided tour
+    });
+    await this.page.goto(debuggerKind === 'wasm' ? '/debugger?debugger=wasm' : '/debugger');
+    await this.page.getByText('root', { exact: true }).click();
+    await this.page.getByText(folder, { exact: true }).click();
+    await this.page.getByText(name, { exact: true }).click();
+  }
+
+  /** Types a line into the console as the program's input, and presses Enter. */
+  async typeLine(text: string): Promise<void> {
+    await this.console.click();
+    await this.page.keyboard.type(text);
+    await this.page.keyboard.press('Enter');
+  }
+
+  /** Presses Ctrl+D in the console, ending the program's input. */
+  async sendEndOfFile(): Promise<void> {
+    await this.console.click();
+    await this.page.keyboard.press('Control+d');
+  }
+
   /** Compiles the open program and waits until stepping is possible. */
   async startSession(): Promise<void> {
     await this.compileButton.click();

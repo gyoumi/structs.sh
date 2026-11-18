@@ -12,9 +12,13 @@ import { RecordResult, recordInWorker } from './wasm/workerRunner';
 const WORKER_GRACE_MS = 2_000;
 
 /** Records a compiled, instrumented program. */
+/** What the program reads from stdin: the text typed so far, and whether end-of-file was sent. */
+export type Input = { text: string; eof: boolean };
+
+/** Records a compiled, instrumented program. */
 export type Recorder = (
   wasm: Uint8Array<ArrayBuffer>,
-  options: { signal: AbortSignal }
+  options: { signal: AbortSignal; input: Input }
 ) => Promise<RecordResult>;
 
 const recordWithTimeLimit: Recorder = (wasm, options) =>
@@ -63,10 +67,15 @@ const stateAt = (file: SourceFile, step: Step): BackendState => ({
 /** A compiled program being recorded, then stepped through. */
 type Session = {
   file: SourceFile;
+  wasm: Uint8Array<ArrayBuffer>;
+  /** Typing more records the program again from the start, with it all. */
+  input: Input;
   recording: Promise<RecordResult>;
   stopRecording: AbortController;
   /** The step the next step() shows. */
   next: number;
+  /** Output is shown for the steps before this one, so none is shown twice. */
+  outputShownBefore: number;
   ended: boolean;
 };
 
@@ -120,37 +129,74 @@ export class WasmDebugger implements Debugger {
   }
 
   private record(file: SourceFile, wasm: Uint8Array<ArrayBuffer>) {
-    const stopRecording = new AbortController();
     const session: Session = {
       file,
-      recording: this.recorder(wasm, { signal: stopRecording.signal }),
-      stopRecording,
+      wasm,
+      input: { text: '', eof: false },
+      recording: Promise.resolve({ stopped: true }),
+      stopRecording: new AbortController(),
       next: 0,
+      outputShownBefore: 0,
       ended: false,
     };
     this.session = session;
+    this.rerecord(session);
+  }
+
+  /**
+   * Records the session's program with all its input so far, replacing any
+   * recording still running. The program runs the same way up to where the
+   * last recording stopped, so stepping carries on from the same step.
+   */
+  private rerecord(session: Session) {
+    session.stopRecording.abort();
+    const stopRecording = new AbortController();
+    const recording = this.recorder(session.wasm, {
+      signal: stopRecording.signal,
+      input: { ...session.input },
+    });
+    Object.assign(session, { recording, stopRecording });
     // Without a recording there is nothing to step through, so say why now.
-    session.recording.then((result) => {
-      if (session === this.session && !('recording' in result)) {
+    recording.then((result) => {
+      const current = session === this.session && session.recording === recording;
+      if (current && !session.ended && !('recording' in result)) {
         this.finish(session, describeFailure(result));
       }
     });
   }
 
+  /** The session's latest recording, waiting again if input replaces it meanwhile. */
+  private static async latestRecording(session: Session) {
+    let recording: Promise<RecordResult>;
+    let result: RecordResult;
+    do {
+      recording = session.recording;
+      // eslint-disable-next-line no-await-in-loop
+      result = await recording;
+    } while (recording !== session.recording);
+    return result;
+  }
+
   async step() {
     const { session } = this;
     if (!session || session.ended) return false;
-    const result = await session.recording;
+    const result = await WasmDebugger.latestRecording(session);
     if (session !== this.session || session.ended || !('recording' in result)) return false;
 
     const { steps, outputBeforeFirstStep, end } = result.recording;
     const index = session.next;
+
+    // What the statement just stepped over printed, once.
+    if (index >= session.outputShownBefore) {
+      const output = index === 0 ? outputBeforeFirstStep : steps[index - 1]?.output;
+      if (output) this.events?.output(output);
+      session.outputShownBefore = index + 1;
+    }
+
+    // The program is waiting for input: typing it records the program again.
+    if (index >= steps.length && 'waitingForInput' in end) return false;
+
     session.next += 1;
-
-    // What the statement just stepped over printed.
-    const output = index === 0 ? outputBeforeFirstStep : steps[index - 1].output;
-    if (output) this.events?.output(output);
-
     if (index < steps.length) {
       if (index === 0) {
         result.recording.types.forEach((type) =>
@@ -183,12 +229,19 @@ export class WasmDebugger implements Debugger {
     session?.stopRecording.abort();
   }
 
-  sendStdin() {
-    // Input arrives in checkpoint 3.
+  /** A line typed in the console, without its newline. */
+  sendStdin(line: string) {
+    const { session } = this;
+    if (!session || session.ended || session.input.eof) return;
+    session.input.text += `${line}\n`;
+    this.rerecord(session);
   }
 
   sendEOF() {
-    // Input arrives in checkpoint 3.
+    const { session } = this;
+    if (!session || session.ended || session.input.eof) return;
+    session.input.eof = true;
+    this.rerecord(session);
   }
 
   interrupt() {

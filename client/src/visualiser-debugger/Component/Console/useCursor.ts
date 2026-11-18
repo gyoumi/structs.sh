@@ -84,9 +84,10 @@ function useCursor(
     }
     if (!debuggerClient) return;
 
+    // The program carries on after end-of-file, so the session stays open
+    // to step through the rest of it.
     if (isCtrlPressed && key === 'd') {
       debuggerClient.sendEOF();
-      setActive(false);
     }
 
     if (isCtrlPressed && key === 'c') {

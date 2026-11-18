@@ -832,4 +832,46 @@ describe('recordRun', () => {
       CLANG_TIMEOUT
     );
   });
+
+  describe('input', () => {
+    it(
+      'stops where the program waits for input it has not been given',
+      async () => {
+        const recording = await record('sum_input.c', program('sum_input.c'));
+
+        expect(recording.end).toEqual({ waitingForInput: true });
+        expect(stepsOf(recording).at(-1)).toBe('main:6');
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'reads the input typed so far, then waits for more',
+      async () => {
+        const recording = await record('sum_input.c', program('sum_input.c'), {
+          input: { text: '2\n3\n', eof: false },
+        });
+        const totals = recording.steps
+          .filter((step) => step.line === 6)
+          .map((step) => step.variables.total.value);
+
+        expect(recording.end).toEqual({ waitingForInput: true });
+        expect(totals).toEqual([0, 2, 5]);
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'reads to the end of the input once end-of-file is sent',
+      async () => {
+        const recording = await record('sum_input.c', program('sum_input.c'), {
+          input: { text: '2\n3\n', eof: true },
+        });
+
+        expect(recording.end).toEqual({ exitCode: 0 });
+        expect(recording.steps.map((step) => step.output).join('')).toBe('total 5\n');
+      },
+      CLANG_TIMEOUT
+    );
+  });
 });
