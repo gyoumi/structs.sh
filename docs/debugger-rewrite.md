@@ -82,7 +82,7 @@ program exits.
 That's 10/15. Four of these tests are on GDB's known-failures list, so wasm
 does better than GDB from this point.
 
-This is the riskiest checkpoint left. See "Checkpoint 2, step by step".
+**Status:** reached (#16, #17, #18). See "Checkpoint 2, step by step".
 
 ### 3. It sees everything
 
@@ -104,12 +104,18 @@ Most of the instrumenter's work is reading memory through the debug info, so
 this checkpoint is the largest. It splits into three steps (see "Checkpoint
 3, step by step").
 
+**Status:** reached (#20, #22, #25). wasm passes all 25 e2e tests with an
+empty known-failures list; GDB still has 5 on its list.
+
 ### Goal: server deleted
 
 - Make wasm the default debugger.
+- Make uninitialised variables look uninitialised, as they do under GDB.
 - Delete `debugger/`, the Socket.IO client, the debugger's Docker image, and
   the Pyroscope and Grafana services.
 - Merge `debugger-rewrite` into `dev`.
+
+See "The goal, step by step".
 
 Error messages for students, restoring a session after a refresh, and
 shareable links come after the goal. They are new features, not things GDB
@@ -359,6 +365,81 @@ Ctrl+D, records the program again from the start, and stepping carries on
 from the same step. Ctrl+D no longer closes the session. Each built-in
 example has an e2e smoke test, and wasm's known-failures list is empty.
 
+## The goal, step by step
+
+```
+4a. wasm by default ──► 4b. Uninitialised variables ──► 4c. GDB deleted ──► 4d. Into dev
+```
+
+### Decisions
+
+- **No waiting period with both debuggers.** 4c follows 4a straight away.
+  Nothing deploys from `debugger-rewrite`, so a trial period there would test
+  nothing, and the e2e suite already shows wasm doing everything GDB does.
+- **Production keeps the client image only.** 4c stops building and
+  deploying the debugger image. The Deploy workflow only runs on
+  `devsoc-unsw/structs.sh`, so whoever deploys upstream also removes the
+  debugger service from DevSoc's deployment config, which lives outside this
+  repo. Moving to static hosting is a separate step after the goal.
+- **Uninitialised variables get a fill pattern before GDB goes.** COMP2521
+  teaches that an uninitialised variable holds garbage, and GDB shows that.
+  On wasm, fresh memory starts zeroed, so an uninitialised `int` usually
+  shows 0. 4-byte pointers stay a known difference (see the follow-ups).
+- **`dev`'s required checks change at 4d.** The "Protect dev" ruleset
+  requires `sanity-debugger`, which 4c deletes, and `e2e`, which 4c brings
+  back as the job's name. The ruleset is updated with `gh api` when the
+  merge into `dev` is approved.
+
+### 4a. wasm by default
+
+The debugger page uses wasm unless the address has `?debugger=gdb`, and the
+e2e suite runs against wasm unless `E2E_DEBUGGER=gdb` is set. GDB still
+works, so this is easy to undo.
+
+**You'll know it's done when** opening the debugger page with no parameter
+compiles in the browser with no server running, and the GDB e2e run still
+passes with `?debugger=gdb`.
+
+### 4b. Uninitialised variables
+
+Each new stack frame is filled with the byte `0xAA` when a function is
+entered, so an uninitialised `int` shows -1431655766 (`0xAAAAAAAA`) and an
+uninitialised pointer shows `0xaaaaaaaa`, rather than 0. Heap memory from
+`malloc` is left as it is (glibc often hands out zeroed memory too), and
+`calloc` still returns zeroed memory.
+
+**You'll know it's done when** a recorded program shows the pattern for a
+local that hasn't been assigned yet, and the value it's given once it has.
+
+### 4c. GDB deleted
+
+Delete:
+
+- `debugger/`, including the `nsjail` gitlink that has no `.gitmodules` entry
+- `gdbDebugger.ts`, its fake socket, `socket.io-client` and the
+  `?debugger=` switch
+- the GDB e2e run and `e2e/known-failures/gdb.json`; the job's name goes
+  back to `e2e`
+- the `debugger`, Pyroscope and Grafana services in `docker-compose.yml`,
+  and `grafana/`
+- the debugger image in the Deploy workflow, and the `sanity-debugger` job
+- the GDB-only parts of the PR rules, `.coderabbit.yaml`, the docs, the
+  testing rule and the skills
+
+**You'll know it's done when** CI passes with no Python, no Docker for the
+debugger and no GDB, the e2e suite passes against wasm, and searching the
+code for GDB and Socket.IO finds only history.
+
+### 4d. Into dev
+
+The PR rules keep agent config (`.claude/`) in PRs of its own, so the
+testing rule and the skill changes from the rewrite go into `dev` first.
+Then `dev` is merged into `debugger-rewrite` one last time, the ruleset is
+updated, and `debugger-rewrite` is merged into `dev`.
+
+**You'll know it's done when** `dev` has no server code, its required
+checks pass, and the site runs from the client image alone.
+
 ## Follow-ups
 
 Found while building checkpoint 1, and not needed for it:
@@ -382,10 +463,6 @@ Found while building checkpoint 1, and not needed for it:
 - **A compile still running** when the session is reset or its file is
   deleted can still start a session. Checkpoint 2 reworks the session
   lifecycle.
-- **Uninitialised variables** often show 0 on wasm, because fresh memory
-  starts zeroed.
-  Filling each new stack frame with a pattern such as `0xAAAAAAAA` would make
-  them look uninitialised, as they do on real hardware.
 - **Pointers are 4 bytes** on wasm and 8 on the machines students use, so
   `sizeof(int *)` and addresses look different.
 - **A NULL dereference of a far field** isn't caught: the check tests the
