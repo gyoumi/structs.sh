@@ -257,6 +257,50 @@ describe('WasmDebugger', () => {
       expect(vi.mocked(events.output).mock.calls.slice(0, 2)).toEqual([['hi\n'], ['Number: ']]);
     });
 
+    it('shows output the waiting statement prints once its input arrives', async () => {
+      // printf("%c\n", getchar()): the statement waits, then prints.
+      const waiting: Recording = { ...WAITING, steps: [HELLO.steps[0], HELLO.steps[1]] };
+      const finished: Recording = {
+        ...FINISHED,
+        steps: [HELLO.steps[0], { ...HELLO.steps[1], output: 'a\n' }, FINISHED.steps[2]],
+      };
+      const recorder: Recorder = async (_wasm, { input }) => ({
+        recording: input.text ? finished : waiting,
+      });
+      const wasm = new WasmDebugger(compilerReturning(COMPILED), recorder);
+      wasm.setEvents(events);
+      wasm.start({ name: 'echo.c', code: HELLO_SOURCE });
+      await flush();
+
+      await wasm.step();
+      await wasm.step();
+      expect(await wasm.step()).toBe(false);
+      wasm.sendStdin('a');
+      expect(await wasm.step()).toBe(true);
+
+      expect(vi.mocked(events.output).mock.calls).toEqual([['hi\n'], ['a\n']]);
+    });
+
+    it('ends the session on Ctrl+C while the program waits, and ignores input after', async () => {
+      const { recorder, inputs } = inputRecorder();
+      const wasm = new WasmDebugger(compilerReturning(COMPILED), recorder);
+      wasm.setEvents(events);
+      wasm.start({ name: 'sum.c', code: HELLO_SOURCE });
+      await flush();
+      await wasm.step();
+      await wasm.step();
+      await wasm.step();
+
+      wasm.interrupt();
+      await flush();
+      wasm.sendStdin('5');
+
+      expect(events.sessionEnded).toHaveBeenCalledOnce();
+      expect(events.output).toHaveBeenLastCalledWith(expect.stringMatching(/stopped/));
+      expect(inputs).toHaveLength(1);
+      expect(await wasm.step()).toBe(false);
+    });
+
     it('sends end-of-file, keeping the input typed before it', async () => {
       const { recorder, inputs } = inputRecorder();
       const wasm = new WasmDebugger(compilerReturning(COMPILED), recorder);

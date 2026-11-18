@@ -74,8 +74,12 @@ type Session = {
   stopRecording: AbortController;
   /** The step the next step() shows. */
   next: number;
-  /** Output is shown for the steps before this one, so none is shown twice. */
-  outputShownBefore: number;
+  /**
+   * The last step whose preceding output was shown, and how much of it: a
+   * statement waiting for input can print more once it gets it.
+   */
+  outputShownAt: number;
+  outputShownLength: number;
   ended: boolean;
 };
 
@@ -136,7 +140,8 @@ export class WasmDebugger implements Debugger {
       recording: Promise.resolve({ stopped: true }),
       stopRecording: new AbortController(),
       next: 0,
-      outputShownBefore: 0,
+      outputShownAt: -1,
+      outputShownLength: 0,
       ended: false,
     };
     this.session = session;
@@ -186,11 +191,15 @@ export class WasmDebugger implements Debugger {
     const { steps, outputBeforeFirstStep, end } = result.recording;
     const index = session.next;
 
-    // What the statement just stepped over printed, once.
-    if (index >= session.outputShownBefore) {
-      const output = index === 0 ? outputBeforeFirstStep : steps[index - 1]?.output;
-      if (output) this.events?.output(output);
-      session.outputShownBefore = index + 1;
+    // What the statement just stepped over printed, each part once.
+    const output = (index === 0 ? outputBeforeFirstStep : steps[index - 1]?.output) ?? '';
+    if (index > session.outputShownAt) {
+      session.outputShownAt = index;
+      session.outputShownLength = 0;
+    }
+    if (index === session.outputShownAt && output.length > session.outputShownLength) {
+      this.events?.output(output.slice(session.outputShownLength));
+      session.outputShownLength = output.length;
     }
 
     // The program is waiting for input: typing it records the program again.
@@ -247,8 +256,12 @@ export class WasmDebugger implements Debugger {
   interrupt() {
     // Also cancels a compile in progress, so its program doesn't start.
     this.latestStart += 1;
-    // A recording that's still running ends the session (see record()).
-    this.session?.stopRecording.abort();
+    // Ctrl+C ends the session, whether its recording is still running or
+    // the program is waiting for input, as the page does.
+    const { session } = this;
+    if (!session || session.ended) return;
+    this.finish(session, '\nThe program was stopped.\n');
+    session.stopRecording.abort();
   }
 
   close() {
