@@ -1,0 +1,38 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  // CI runs knip with --include files,unlisted,unresolved,binaries: dead files,
+  // imports of packages missing from package.json, and broken imports.
+  // Unused dependencies and exports are not enforced yet (31 and 24 exist).
+  "workspaces": {
+    ".": {
+      "entry": ["scripts/*.mjs", "e2e/playwright.config.ts", "e2e/support/progress-reporter.ts"],
+      "project": ["scripts/**/*.mjs", "e2e/**/*.ts"]
+    },
+    "client": {}
+  },
+  // Dead files that predate knip. Delete them in a cleanup PR, then remove
+  // them from this list. Don't add new entries here.
+  "ignore": [
+    "client/__mocks__/styleMock.js",
+    "client/src/assets/img/index.js",
+    "client/src/components/Dialog/index.ts",
+    "client/src/components/Login/Login.tsx",
+    "client/src/components/TabResize/index.tsx",
+    "client/src/components/Tags/index.ts",
+    "client/src/components/Tags/TagList.tsx",
+    "client/src/components/Tags/TagSelector.tsx",
+    "client/src/components/Visualiser/VisualiserHelpers.tsx",
+    "client/src/components/Visualiser/VisualiserInterface/Saving.tsx",
+    "client/src/constants/api.ts",
+    "client/src/constants/cookies.ts",
+    "client/src/constants/index.ts",
+    "client/src/constants/storage.ts",
+    "client/src/utils/markdown-util.ts",
+    "client/src/visualiser-debugger/Component/FileTree/Util/util.tsx",
+    "client/src/visualiser-debugger/Component/Visualizer/Parser/treeParser.ts",
+    "client/src/visualiser-debugger/Component/Visualizer/Parser/util/graph.ts",
+    "client/src/visualiser-debugger/Component/Visualizer/Parser/util/rootedTree.ts",
+    "client/src/visualiser-debugger/Component/Visualizer/Util/debugger.tsx",
+    "client/src/visualiser-src/linked-list-visualiser/util/typedefs.ts"
+  ]
+}

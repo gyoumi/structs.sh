@@ -3,19 +3,23 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Workspace root: commit hooks and the e2e suite",
+  "description": "Workspace root: commit hooks, repo checks and the e2e suite",
   "packageManager": "pnpm@12.21.0",
-  "main": "index.js",
   "directories": {
     "doc": "docs"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "prepare": "husky",
     "e2e": "playwright test -c e2e",
     "e2e:strict": "E2E_STRICT=1 playwright test -c e2e",
     "e2e:typecheck": "tsc -p e2e",
-    "e2e:report": "playwright show-report e2e/playwright-report"
+    "e2e:report": "playwright show-report e2e/playwright-report",
+    "check:changed": "node scripts/check-changed.mjs",
+    "check:pr": "node scripts/check-pr.mjs --local",
+    "check:known-failures": "node scripts/check-known-failures.mjs",
+    "test:scripts": "node --test scripts/*.test.mjs",
+    "e2e:lint": "eslint e2e",
+    "knip": "knip --include files,unlisted,unresolved,binaries"
   },
   "keywords": [],
   "author": "",
@@ -25,7 +29,11 @@
     "@commitlint/config-conventional": "^20.5.3",
     "@playwright/test": "^1.65.0",
     "@types/node": "^26.6.6",
+    "eslint": "^9.39.4",
+    "eslint-plugin-playwright": "^2.12.2",
     "husky": "^9.1.7",
-    "typescript": "^7.0.2"
+    "knip": "^6.44.1",
+    "typescript": "~6.0.2",
+    "typescript-eslint": "~8.59.0"
   }
 }

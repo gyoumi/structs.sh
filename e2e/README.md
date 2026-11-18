@@ -41,6 +41,8 @@ list: a fixed feature can't stay marked as broken, and a broken one can't be
 added silently.
 
 `pnpm run e2e:strict` ignores the list and shows raw results.
+`pnpm run check:known-failures` checks that every entry names a real test and
+gives a reason. CI runs it on every PR.
 
 ## Using this during the rewrite
 
@@ -65,3 +67,12 @@ need to change.
   so match the identifier or line number instead.
 - Programs go in `programs/`. Comment the line numbers a test relies on.
 - Only `support/debugger-page.ts` should touch selectors or page internals.
+
+`pnpm run e2e:lint` enforces these, and CI fails on any of them:
+
+- No `page.locator()`, `page.evaluate()` or `getByTestId()` in `tests/`. Add a
+  `DebuggerPage` method instead.
+- No `waitForTimeout()`. Wait for something the user would see.
+- No `test.skip()` or `test.only()`. A test that can't pass yet goes in
+  `known-failures.json` with a reason.
+- Every promise is awaited.

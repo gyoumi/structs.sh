@@ -152,22 +152,21 @@ export class DebuggerPage {
   /**
    * A step is finished when the step button is usable again. The session has
    * ended only if the client showed its "Debug session ended." toast; a button
-   * that stays disabled without it is a stall and throws. Returns whether the
+   * that stays disabled without it is a stall and fails. Returns whether the
    * session is still active.
+   *
+   * The click handler disables the button before it asks the server for the
+   * next step, and React applies that before click() returns, so there is no
+   * gap where the old enabled state could be read as "finished".
    */
   private async waitUntilIdle(timeoutMs = 10_000): Promise<boolean> {
-    await this.page.waitForTimeout(200);
     const sessionEnded = this.page.getByText('Debug session ended.', { exact: true });
-    const deadline = Date.now() + timeoutMs;
-    while (Date.now() < deadline) {
-      if (await sessionEnded.isVisible()) return false;
-      if (await this.stepForwardButton.isEnabled()) return true;
-      await this.page.waitForTimeout(100);
-    }
-    throw new Error(
-      `timed out after ${timeoutMs}ms waiting for the step to finish; ` +
-        `step button is disabled and no "Debug session ended." toast appeared; ` +
-        `lines visited: [${this.visitedLines.join(', ')}]`,
-    );
+    const stepReady = this.stepForwardButton.and(this.page.locator(':enabled'));
+    await expect(
+      sessionEnded.or(stepReady).first(),
+      `step did not finish within ${timeoutMs}ms: the step button stayed disabled and no ` +
+        `"Debug session ended." toast appeared; lines visited: [${this.visitedLines.join(', ')}]`,
+    ).toBeVisible({ timeout: timeoutMs });
+    return !(await sessionEnded.isVisible());
   }
 }
