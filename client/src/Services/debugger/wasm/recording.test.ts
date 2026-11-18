@@ -890,6 +890,27 @@ describe('recordRun', () => {
     );
 
     it(
+      'returns from a read of no bytes without waiting, as a terminal does',
+      async () => {
+        const source = [
+          '#include <stdio.h>',
+          '#include <unistd.h>',
+          'int main(void) {',
+          '    char c;',
+          '    printf("%d", (int)read(0, &c, 0));',
+          '    return 0;',
+          '}',
+        ].join('\n');
+
+        const recording = await record('empty_read.c', source);
+
+        expect(recording.end).toEqual({ exitCode: 0 });
+        expect(recording.steps.map((step) => step.output).join('')).toBe('0');
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
       'reads to the end of the input once end-of-file is sent',
       async () => {
         const recording = await record('sum_input.c', program('sum_input.c'), {

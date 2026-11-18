@@ -123,7 +123,10 @@ export const runWasi = async (
     },
     fd_read(fd: number, iovs: number, iovsLength: number, readPointer: number) {
       if (fd !== STDIN) return BADF;
-      if (stdinRead === stdin.length && !input.eof) throw WAITING_FOR_INPUT;
+      let wanted = 0;
+      for (let i = 0; i < iovsLength; i++) wanted += view().getUint32(iovs + i * 8 + 4, true);
+      // A read of no bytes returns at once, as on a terminal, without waiting.
+      if (wanted > 0 && stdinRead === stdin.length && !input.eof) throw WAITING_FOR_INPUT;
       // Like a terminal, one read gets one line at most, so a run re-recorded
       // with more input reads the same lines at the same reads as before.
       const newline = stdin.indexOf(NEWLINE, stdinRead);
