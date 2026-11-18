@@ -68,7 +68,7 @@ export class DebuggerPage {
       localStorage.setItem('fileSystem', JSON.stringify(fs));
     }, fileSystem);
 
-    await this.page.goto(debuggerKind === 'wasm' ? '/debugger?debugger=wasm' : '/debugger');
+    await this.page.goto(debuggerKind === 'gdb' ? '/debugger?debugger=gdb' : '/debugger');
     await this.page.getByText('root', { exact: true }).click();
     await this.page.getByText('e2e', { exact: true }).click();
     await this.page.getByText(name, { exact: true }).click();
@@ -82,7 +82,7 @@ export class DebuggerPage {
     await this.page.addInitScript(() => {
       localStorage.setItem('Onboarding', 'done'); // skip the guided tour
     });
-    await this.page.goto(debuggerKind === 'wasm' ? '/debugger?debugger=wasm' : '/debugger');
+    await this.page.goto(debuggerKind === 'gdb' ? '/debugger?debugger=gdb' : '/debugger');
     await this.page.getByText('root', { exact: true }).click();
     await this.page.getByText(folder, { exact: true }).click();
     await this.page.getByText(name, { exact: true }).click();

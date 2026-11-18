@@ -8,17 +8,17 @@ vi.mock('socket.io-client', async () => {
 });
 
 describe('debuggerKindFromSearch', () => {
-  it('uses GDB by default', () => {
-    expect(debuggerKindFromSearch('')).toBe('gdb');
+  it('uses the wasm debugger by default', () => {
+    expect(debuggerKindFromSearch('')).toBe('wasm');
   });
 
-  it('uses the wasm debugger with ?debugger=wasm', () => {
-    expect(debuggerKindFromSearch('?debugger=wasm')).toBe('wasm');
-  });
-
-  it('uses GDB for any other value', () => {
+  it('uses GDB with ?debugger=gdb', () => {
     expect(debuggerKindFromSearch('?debugger=gdb')).toBe('gdb');
-    expect(debuggerKindFromSearch('?debugger=lldb')).toBe('gdb');
+  });
+
+  it('uses the wasm debugger for any other value', () => {
+    expect(debuggerKindFromSearch('?debugger=wasm')).toBe('wasm');
+    expect(debuggerKindFromSearch('?debugger=lldb')).toBe('wasm');
   });
 });
 
