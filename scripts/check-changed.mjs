@@ -13,7 +13,7 @@ import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { openPrBase, targetBranch } from './target-branch.mjs';
+import { findTargetBranch } from './target-branch.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const bin = (dir, name) => join(root, dir, 'node_modules', '.bin', name);
@@ -21,7 +21,7 @@ const git = (...a) => execFileSync('git', a, { cwd: root, encoding: 'utf8' });
 const onPath = (cmd) => spawnSync('sh', ['-c', `command -v ${cmd}`]).status === 0;
 
 const { values: args } = parseArgs({ options: { base: { type: 'string' } } });
-const target = targetBranch({ base: args.base, prBase: args.base ? undefined : openPrBase() });
+const target = findTargetBranch(args.base);
 const base = git('merge-base', 'HEAD', target).trim();
 // Deleted files still decide which areas to check (a deletion can break
 // imports elsewhere), but only files that still exist are passed to linters.

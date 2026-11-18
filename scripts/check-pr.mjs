@@ -15,7 +15,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { checkPr } from './pr-rules.mjs';
-import { openPrBase, targetBranch } from './target-branch.mjs';
+import { findTargetBranch } from './target-branch.mjs';
 
 const WAIVABLE = new Set(['protected-paths', 'debugger-needs-test', 'large-removal']);
 
@@ -32,7 +32,7 @@ const git = (...a) => execFileSync('git', a, { encoding: 'utf8', maxBuffer: 64 *
 const lines = (text) => text.split('\n').filter(Boolean);
 const countLines = (text) => (text === '' ? 0 : text.split('\n').length - (text.endsWith('\n') ? 1 : 0));
 
-const base = args.base ?? git('merge-base', 'HEAD', targetBranch({ base: args.target, prBase: openPrBase() })).trim();
+const base = args.base ?? git('merge-base', 'HEAD', findTargetBranch(args.target)).trim();
 const head = args.local ? undefined : (args.head ?? 'HEAD');
 const range = head ? [base, head] : [base];
 
