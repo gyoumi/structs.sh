@@ -16,7 +16,7 @@ One bounded cycle: check reviews and CI, fix, update the branch, report. Run it 
 3. **Classify CI failures.** Real failure, flaky (passes on rerun and unrelated to the diff), or already failing on `origin/dev`. Only fix real failures. Rerun flaky ones once with `gh run rerun <run-id> --failed`.
 4. **Fix review comments and CI.** Follow `resolve-review` for deciding apply or skip. For a short cycle the user asked to run through, send the clear `apply` items and real CI failures to workers (see "Workers") and list the rest.
 5. **Rebase if `dev` moved.** `git fetch origin dev`; if `git merge-base --is-ancestor origin/dev HEAD` fails, rebase onto `origin/dev`. See "Conflicts" below.
-6. **Verify.** Run the checks for the touched areas (see `review-branch`). Done when they pass, or the remaining failure is reported.
+6. **Verify.** Run the checks in `review-branch` step 4: `pnpm check:changed`, plus the e2e suite when `client/`, `debugger/` or `e2e/` changed. Done when they pass, or the remaining failure or skipped check is reported.
 7. **Push, if the user asked for pushes in this babysit.** Use `git push` for new commits, or `git push --force-with-lease` after a rebase. Never bare `--force`.
 8. **Report.** What changed this cycle, what passed, what is still open. If nothing changed, say so in one line.
 

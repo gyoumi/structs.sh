@@ -22,3 +22,35 @@ dev = [
   "ruff==0.16.2"
 ]
 
+
+[tool.ruff.lint]
+# Only the security rules (bandit's "S" set) for now. Ruff's default rules
+# still report 27 findings in existing code; add rule sets here as those get
+# fixed, so CI never has to ignore a failure. These S rules don't fit:
+#   S101: assert is used for invariants and in pytest tests.
+#   S105, S106: gdb/MI tokens look like hardcoded passwords to ruff.
+#   S603, S607: gcc and gdb are run on purpose, as argv lists without a shell.
+select = ["S"]
+ignore = ["S101", "S105", "S106", "S603", "S607"]
+
+[tool.ruff.lint.per-file-ignores]
+# Profiling is optional; the debugger runs without a pyroscope server.
+"src/debugger/debugger.py" = ["S110"]
+# Runs in a container; docker-compose decides which ports are exposed.
+"src/serve.py" = ["S104"]
+
+[tool.mypy]
+python_version = "3.13"
+
+# These modules had type errors when mypy was turned on in CI. Fix a module,
+# then remove it from this list so it stays fixed. New modules are checked.
+[[tool.mypy.overrides]]
+module = [
+  "serve",
+  "debugger.alt_mi",
+  "debugger.debugger",
+  "debugger.mi",
+  "debugger.mi_parser",
+  "debugger.test.tools",
+]
+ignore_errors = true
