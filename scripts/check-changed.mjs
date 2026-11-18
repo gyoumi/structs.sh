@@ -88,20 +88,30 @@ if (debuggerFiles.length) {
     add('debugger: mypy', 'uv', ['run', 'mypy', 'src/'], join(root, 'debugger'));
   } else skipped.push('debugger: ruff and mypy (uv is not installed)');
 }
+const cargo = onPath('cargo');
 if (instrumenter.length) {
-  if (onPath('cargo')) {
+  if (cargo) {
     const cwd = join(root, 'instrumenter');
     add('instrumenter: fmt', 'cargo', ['fmt', '--check'], cwd);
     add('instrumenter: clippy', 'cargo', ['clippy', '--all-targets', '--', '-D', 'warnings'], cwd);
     add('instrumenter: tests', 'cargo', ['test'], cwd);
-    // The client's unit tests load the built instrumenter, so rebuild it
-    // first with the root package.json's "instrumenter" script.
-    const { scripts: rootScripts } = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
-    add('instrumenter: build', 'sh', ['-c', rootScripts.instrumenter]);
-  } else skipped.push('instrumenter: fmt, clippy, tests and build (cargo is not installed)');
+  } else skipped.push('instrumenter: fmt, clippy and tests (cargo is not installed)');
 }
 if (checkClient || instrumenter.length) {
-  add('client: unit tests', bin('client', 'vitest'), ['run'], join(root, 'client'));
+  // The client's unit tests load the built instrumenter, which git ignores,
+  // so build it when it changed or a fresh worktree doesn't have it yet.
+  const built = existsSync(join(root, 'client/src/Services/debugger/wasm/generated/instrumenter.wasm'));
+  const needsBuild = instrumenter.length > 0 || !built;
+  if (needsBuild && cargo) {
+    const { scripts: rootScripts } = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+    add('instrumenter: build', 'sh', ['-c', rootScripts.instrumenter]);
+  }
+  if (needsBuild && !cargo && !built) {
+    skipped.push('client: unit tests (they need the instrumenter built, and cargo is not installed)');
+  } else {
+    if (needsBuild && !cargo) skipped.push('instrumenter: build (cargo is not installed; the unit tests use the old build)');
+    add('client: unit tests', bin('client', 'vitest'), ['run'], join(root, 'client'));
+  }
 }
 if (prose.length) {
   if (onPath('vale')) add('docs: vale', 'vale', prose);
