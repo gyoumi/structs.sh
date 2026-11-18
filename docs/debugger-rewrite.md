@@ -353,6 +353,12 @@ built-in example compiles and steps through without a debugger error.
 reads until end-of-file, sends Ctrl+D, and sees the program finish; and the
 new smoke tests pass on wasm for all 8 examples.
 
+**Done in #25.** stdin is the input typed so far. A read past it before
+Ctrl+D stops the recording and keeps the session open. Each new line, or
+Ctrl+D, records the program again from the start, and stepping carries on
+from the same step. Ctrl+D no longer closes the session. Each built-in
+example has an e2e smoke test, and wasm's known-failures list is empty.
+
 ## Follow-ups
 
 Found while building checkpoint 1, and not needed for it:
