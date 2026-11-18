@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-const prefersReducedMotion = () =>
-  typeof window.matchMedia === 'function' &&
-  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const reducedMotion = () =>
+  typeof window.matchMedia === 'function'
+    ? window.matchMedia('(prefers-reduced-motion: reduce)')
+    : undefined;
+
+const prefersReducedMotion = () => reducedMotion()?.matches ?? false;
 
 /**
  * Plays a `duration`-long animation once on mount and returns how far through it is, in milliseconds.
  * It replays when the returned `ref` scrolls back into view or `replay` is called, but never cuts
- * a run short. With reduced motion it jumps straight to the end.
+ * a run short. With reduced motion, including when it is turned on mid-run, it jumps straight to the end.
  */
 export const useTimeline = (duration: number) => {
   const ref = useRef<HTMLDivElement>(null);
@@ -30,6 +33,14 @@ export const useTimeline = (duration: number) => {
 
   useEffect(() => {
     replay();
+    const motion = reducedMotion();
+    const onMotionChange = () => {
+      if (!motion?.matches) return;
+      cancelAnimationFrame(frame.current);
+      running.current = false;
+      setTime(duration);
+    };
+    motion?.addEventListener('change', onMotionChange);
     const node = ref.current;
     let visible = true;
     const observer = new IntersectionObserver(
@@ -41,11 +52,12 @@ export const useTimeline = (duration: number) => {
     );
     if (node) observer.observe(node);
     return () => {
+      motion?.removeEventListener('change', onMotionChange);
       observer.disconnect();
       cancelAnimationFrame(frame.current);
       running.current = false;
     };
-  }, [replay]);
+  }, [replay, duration]);
 
   return { ref, time, replay };
 };
