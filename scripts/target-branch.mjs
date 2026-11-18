@@ -14,7 +14,8 @@ import { execFileSync } from 'node:child_process';
  */
 export function targetBranch({ base, pr, remotes }) {
   if (base) return base;
-  const remote = pr && Object.keys(remotes).find((name) => remotes[name] === pr.repo);
+  // GitHub ignores case in owner and repo names.
+  const remote = pr && Object.keys(remotes).find((name) => remotes[name].toLowerCase() === pr.repo.toLowerCase());
   return remote ? `${remote}/${pr.branch}` : 'origin/dev';
 }
 

@@ -20,6 +20,11 @@ describe('targetBranch', () => {
     assert.equal(targetBranch({ pr, remotes }), 'upstream/debugger-rewrite');
   });
 
+  it('matches the repo name without regard to case, as GitHub does', () => {
+    const pr = { repo: 'devsoc-unsw/structs.sh', branch: 'dev' };
+    assert.equal(targetBranch({ pr, remotes: { upstream: 'Devsoc-UNSW/Structs.sh' } }), 'upstream/dev');
+  });
+
   it('falls back to dev when no remote points at the PR’s repo', () => {
     const pr = { repo: 'someone/else', branch: 'main' };
     assert.equal(targetBranch({ pr, remotes }), 'origin/dev');
