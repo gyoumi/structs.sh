@@ -104,6 +104,16 @@ describe('visualiser', () => {
     expect(await screen.findByText('Insert 42 at index 3')).toBeTruthy();
   });
 
+  test('an index past the end of the list is refused before it runs', async () => {
+    await renderVisualiser('/visualiser/linked-lists?op=insert');
+    const user = userEvent.setup();
+    await user.type(screen.getByRole('textbox', { name: 'Value' }), '42');
+    await user.type(screen.getByRole('textbox', { name: 'Index' }), '20');
+    await user.click(screen.getByRole('button', { name: 'Run insert at index' }));
+    expect(await screen.findByText('Index needs to be between 0 and 3.')).toBeTruthy();
+    expect(calls).not.toContainEqual({ method: 'run', args: ['insert', ['42', '20']] });
+  });
+
   test('offers every speed from 0.25x to 2x', async () => {
     await renderVisualiser();
     const user = userEvent.setup();

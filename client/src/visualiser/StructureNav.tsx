@@ -84,6 +84,8 @@ const StructureNav = ({
 
   const shown = visibleTopics(count, current);
   const hidden = topics.filter((topic) => !shown.includes(topic));
+  const hiddenCurrent = hidden.find((topic) => topic.slug === current);
+  const moreStructures = `${hidden.length} more structures${hiddenCurrent ? `, current: ${hiddenCurrent.name}` : ''}`;
 
   return (
     <nav
@@ -109,7 +111,7 @@ const StructureNav = ({
               className={classes.more}
               aria-label={
                 hidden.length > 0
-                  ? `${hidden.length} more structures${menuExtra ? ' and settings' : ''}`
+                  ? `${moreStructures}${menuExtra ? ' and settings' : ''}`
                   : 'Settings'
               }
             >
@@ -120,7 +122,12 @@ const StructureNav = ({
                 <MenuItem
                   key={topic.slug}
                   className={classes.menuItem}
-                  render={<Link to={`/visualiser/${topic.slug}`} />}
+                  render={
+                    <Link
+                      to={`/visualiser/${topic.slug}`}
+                      aria-current={topic.slug === current ? 'page' : undefined}
+                    />
+                  }
                 >
                   {renderLink(topic)}
                 </MenuItem>
