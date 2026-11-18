@@ -31,7 +31,7 @@ export const useCreateSession = (
   makeData?: StarterData
 ): VisualiserSession => {
   const [session] = useState(() => new VisualiserSession());
-  const dataKey = data?.join(',') ?? '';
+  const dataKey = data ? `data:${data.join(',')}` : 'random';
   const drawnTheme = useRef(theme);
 
   // The engine draws into #visualiser-canvas, so attach after the stage has mounted.

@@ -215,6 +215,11 @@ const Stage = ({ label, className, style, children }: StageProps) => {
     setDragging(false);
   };
 
+  const panBy = (dx: number, dy: number) => {
+    userMoved.current = true;
+    setView((p) => ({ ...p, x: p.x + dx, y: p.y + dy }));
+  };
+
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const pan = 40;
     const moves: Record<string, () => void> = {
@@ -222,10 +227,10 @@ const Stage = ({ label, className, style, children }: StageProps) => {
       '=': () => zoomFromCentre(1.2),
       '-': () => zoomFromCentre(1 / 1.2),
       '0': () => fit(),
-      w: () => setView((p) => ({ ...p, y: p.y + pan })),
-      s: () => setView((p) => ({ ...p, y: p.y - pan })),
-      a: () => setView((p) => ({ ...p, x: p.x + pan })),
-      d: () => setView((p) => ({ ...p, x: p.x - pan })),
+      w: () => panBy(0, pan),
+      s: () => panBy(0, -pan),
+      a: () => panBy(pan, 0),
+      d: () => panBy(-pan, 0),
     };
     const move = moves[event.key];
     if (move) {
