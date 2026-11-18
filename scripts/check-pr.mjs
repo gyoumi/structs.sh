@@ -98,10 +98,21 @@ const unquote = (raw) => {
 const addedLines = [];
 let current;
 let lineNo = 0;
+// "+++ " names the file only in the header before the first hunk. Inside a
+// hunk it is an added line that starts with "++", such as "++ counter;".
+let inHeader = false;
 for (const row of git('diff', '-U0', '--no-color', '--no-ext-diff', '-M', ...range).split('\n')) {
-  if (row.startsWith('+++ ')) current = unquote(row.slice(4)).replace(/^b\//, '');
-  else if (row.startsWith('@@')) lineNo = Number(/\+(\d+)/.exec(row)[1]);
-  else if (row.startsWith('+') && current) addedLines.push({ path: current, line: lineNo++, text: row.slice(1) });
+  if (row.startsWith('diff --git ')) {
+    inHeader = true;
+    current = undefined;
+  } else if (inHeader && row.startsWith('+++ ')) {
+    current = unquote(row.slice(4)).replace(/^b\//, '');
+  } else if (row.startsWith('@@')) {
+    inHeader = false;
+    lineNo = Number(/\+(\d+)/.exec(row)[1]);
+  } else if (!inHeader && row.startsWith('+') && current) {
+    addedLines.push({ path: current, line: lineNo++, text: row.slice(1) });
+  }
 }
 for (const path of untracked) {
   if (!existsSync(path)) continue;

@@ -20,9 +20,10 @@ const onPath = (cmd) => spawnSync('sh', ['-c', `command -v ${cmd}`]).status === 
 const base = git('merge-base', 'HEAD', 'origin/dev').trim();
 // Deleted files still decide which areas to check (a deletion can break
 // imports elsewhere), but only files that still exist are passed to linters.
+// -z gives raw paths; git would otherwise quote names like client/src/é.ts.
 const changed = [
-  ...git('diff', '--name-only', base).split('\n'),
-  ...git('ls-files', '--others', '--exclude-standard').split('\n'),
+  ...git('diff', '-z', '--name-only', base).split('\0'),
+  ...git('ls-files', '-z', '--others', '--exclude-standard').split('\0'),
 ].filter(Boolean);
 const present = (files) => files.filter((p) => existsSync(join(root, p)));
 
