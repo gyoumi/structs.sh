@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { compileAndInstrument } from './instrumenter';
 import { recordRun, Recording, Variable } from './recording';
 import gdb from './fixtures/gdb-variables.json';
+// Recorded from the GDB debugger at line 20 of e2e/programs/linked_list.c.
+import gdbList from '../../../visualiser-debugger/Component/Visualizer/Parser/fixtures/gdb-linked-list-state.json';
 
 // Needs the instrumenter built first: `pnpm run instrumenter` from the repo root.
 
@@ -499,6 +501,333 @@ describe('recordRun', () => {
             gdb.typeDeclarations.filter(({ typeName }) => !typeName.endsWith(']'))
           )
         );
+      },
+      CLANG_TIMEOUT
+    );
+  });
+
+  describe('the heap', () => {
+    /** The values of the list that starts at `head`, following `next`. */
+    const listFrom = (heap: Recording['steps'][number]['heap'], head: string) => {
+      const values = [];
+      let at = head;
+      while (at !== '0x0') {
+        const node = heap[at].value as Record<string, { value: string | number }>;
+        values.push(node.value.value);
+        at = node.next.value as string;
+      }
+      return values;
+    };
+
+    it(
+      'shows the structs reachable from the variables, as GDB shows the heap',
+      async () => {
+        const recording = await record('linked_list.c', program('linked_list.c'));
+        const step = recording.steps.find((s) => s.line === 20)!;
+
+        expect(listFrom(step.heap, step.variables.list.value as string)).toEqual(
+          listFrom(gdbList.heap_data, gdbList.stack_data.list.value)
+        );
+        // The same shape as GDB's entries, apart from the addresses.
+        const [gdbEntry] = Object.values(gdbList.heap_data);
+        Object.values(step.heap).forEach((entry) => {
+          expect(entry.typeName).toBe(gdbEntry.typeName);
+          expect(Object.keys(entry.value as object)).toEqual(Object.keys(gdbEntry.value));
+          expect((entry.value as Record<string, unknown>).value).toEqual({
+            kind: 'int',
+            value: expect.any(Number),
+            addr: null,
+          });
+        });
+        expect(Object.keys(step.heap)).toHaveLength(3);
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'keeps showing what a caller can reach while a function it called runs',
+      async () => {
+        const recording = await record('linked_list.c', program('linked_list.c'));
+        // The third call to prepend: main's list already holds 2 and 3.
+        const inThirdPrepend = recording.steps.filter((s) => s.function === 'prepend')[8];
+
+        expect(inThirdPrepend.line).toBe(9);
+        expect(Object.values(inThirdPrepend.heap).map((entry) => entry.typeName)).toEqual([
+          'struct node',
+          'struct node',
+        ]);
+      },
+      CLANG_TIMEOUT
+    );
+
+    const nodeProgram = (body: string) =>
+      [
+        '#include <stdlib.h>',
+        '#include <string.h>',
+        'struct node { int value; struct node *next; };',
+        'int main(void) {',
+        body,
+        '    return 0;',
+        '}',
+      ].join('\n');
+
+    it(
+      'does not follow pointers to freed memory or into the stack',
+      async () => {
+        const source = nodeProgram(
+          [
+            '    struct node *gone = malloc(sizeof(struct node));', // 5
+            '    free(gone);', // 6
+            '    struct node local = {1, NULL};', // 7
+            '    struct node *here = &local;', // 8
+            '    int done = 1;', // 9
+          ].join('\n')
+        );
+
+        const recording = await record('freed.c', source);
+        const last = recording.steps.find((s) => s.line === 9)!;
+
+        expect(last.variables.gone.value).not.toBe('0x0');
+        expect(last.heap).toEqual({});
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'follows memory from calloc and realloc',
+      async () => {
+        const source = nodeProgram(
+          [
+            '    struct node *a = calloc(1, sizeof(struct node));', // 5
+            '    a = realloc(a, 2 * sizeof(struct node));', // 6
+            '    a->value = 7;', // 7
+            '    int done = 1;', // 8
+          ].join('\n')
+        );
+
+        const recording = await record('calloc.c', source);
+        const last = recording.steps.find((s) => s.line === 8)!;
+
+        expect(Object.values(last.heap).map((entry) => entry.value)).toEqual([
+          {
+            value: { kind: 'int', value: 7, addr: null },
+            next: { kind: 'struct node *', value: '0x0', addr: null },
+          },
+        ]);
+      },
+      CLANG_TIMEOUT
+    );
+
+    it.each([
+      ['reading through it', '    struct node *p = NULL;\n    int v = p->value;'],
+      ['writing through it', '    struct node *p = NULL;\n    p->next = p;'],
+      ['copying from it', '    struct node *p = NULL;\n    struct node copy = *p;'],
+      ['passing it to the C library', '    char *s = NULL;\n    int n = strlen(s);'],
+    ])(
+      'crashes on a NULL pointer when %s, on the line that did it',
+      async (_, body) => {
+        const recording = await record('null.c', nodeProgram(body));
+
+        expect(recording.end).toEqual({ crashed: 'NULL pointer dereference' });
+        expect(recording.steps.at(-1)?.line).toBe(6);
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'stops a recording that outgrows its size budget, keeping the steps before it',
+      async () => {
+        const source = nodeProgram(
+          [
+            '    struct node *list = NULL;', // 5
+            '    for (int i = 0; i < 1000; i++) {', // 6
+            '        struct node *n = malloc(sizeof(struct node));', // 7
+            '        n->value = i;', // 8
+            '        n->next = list;', // 9
+            '        list = n;', // 10
+            '    }', // 11
+          ].join('\n')
+        );
+
+        const recording = await record('big.c', source, { sizeLimit: 20_000 });
+
+        expect(recording.end).toEqual({ sizeLimit: 20_000 });
+        expect(recording.steps.length).toBeGreaterThan(10);
+      },
+      CLANG_TIMEOUT
+    );
+
+    /** The heap's entries at the step on `line`, by typeName, with their values. */
+    const heapAt = (recording: Recording, line: number) =>
+      Object.values(recording.steps.find((s) => s.line === line)!.heap).map(
+        (entry) =>
+          `${entry.typeName} ${JSON.stringify(
+            Object.fromEntries(Object.entries(entry.value).map(([name, f]) => [name, f.value]))
+          )}`
+      );
+
+    it(
+      'names a nameless struct by its typedef, even through a const pointer',
+      async () => {
+        const source = [
+          '#include <stdlib.h>',
+          'typedef struct { int value; } Node;',
+          'int main(void) {',
+          '    Node *n = malloc(sizeof(Node));', // 4
+          '    n->value = 7;', // 5
+          '    const Node *view = n;', // 6
+          '    n = NULL;', // 7
+          '    int done = 1;', // 8
+          '    return done;',
+          '}',
+        ].join('\n');
+
+        // The visualiser matches heap nodes by this name, so it's "Node",
+        // the way the type is declared, not "const Node".
+        expect(heapAt(await record('named.c', source), 8)).toEqual(['Node {"value":7}']);
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'follows tables of pointers, as a hash table uses',
+      async () => {
+        const source = nodeProgram(
+          [
+            '    struct node **table = calloc(4, sizeof(struct node *));', // 5
+            '    table[2] = malloc(sizeof(struct node));', // 6
+            '    table[2]->value = 5;', // 7
+            '    table[2]->next = NULL;', // 8
+            '    int done = 1;', // 9
+          ].join('\n')
+        );
+
+        expect(heapAt(await record('table.c', source), 9)).toEqual([
+          'struct node {"value":5,"next":"0x0"}',
+        ]);
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'shows structs inside heap structs, and nodes past 200 array elements',
+      async () => {
+        const source = [
+          '#include <stdlib.h>',
+          'struct node { int value; struct node *next; };',
+          'struct box { int tag; struct node child; };',
+          'int main(void) {',
+          '    struct box *box = calloc(1, sizeof(struct box));', // 5
+          '    box->child.value = 9;', // 6
+          '    struct node *roots[201] = {0};', // 7
+          '    roots[200] = calloc(1, sizeof(struct node));', // 8
+          '    int done = 1;', // 9
+          '    return 0;',
+          '}',
+        ].join('\n');
+
+        expect((await heapAt(await record('box.c', source), 9)).sort()).toEqual([
+          'struct box {"tag":0,"child":{"value":9,"next":"0x0"}}',
+          'struct node {"value":0,"next":"0x0"}',
+          'struct node {"value":9,"next":"0x0"}',
+        ]);
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'reads bit-fields and changes between special numbers, and to -0, on the heap',
+      async () => {
+        const source = [
+          '#include <stdlib.h>',
+          'struct flags { unsigned a : 1; int c : 3; double x; };',
+          'int main(void) {',
+          '    struct flags *f = calloc(1, sizeof(struct flags));', // 4
+          '    f->a = 1;', // 5
+          '    f->c = -2;', // 6
+          '    f->x = 1.0 / 0.0;', // 7
+          '    f->x = 0.0 / 0.0;', // 8
+          '    f->x = 0.0;', // 9
+          '    f->x = -0.0;', // 10
+          '    return 0;', // 11
+          '}',
+        ].join('\n');
+
+        const recording = await record('flags.c', source);
+
+        expect(heapAt(recording, 7)).toEqual(['struct flags {"a":1,"c":-2,"x":0}']);
+        const x = (line: number) =>
+          Object.values(recording.steps.find((s) => s.line === line)!.heap)[0].value.x.value;
+        expect([x(8), x(9), x(10), x(11)]).toEqual([Infinity, NaN, 0, -0]);
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'counts a big heap towards the size budget on every step, even unchanged',
+      async () => {
+        const source = nodeProgram(
+          [
+            '    struct node *list = NULL;', // 5
+            '    for (int i = 0; i < 300; i++) {', // 6
+            '        struct node *n = malloc(sizeof(struct node));', // 7
+            '        n->value = i;', // 8
+            '        n->next = list;', // 9
+            '        list = n;', // 10
+            '    }', // 11
+            '    int total = 0;', // 12
+            '    for (int i = 0; i < 3000; i++) total += i;', // 13
+          ].join('\n')
+        );
+
+        const recording = await record('steady.c', source, { sizeLimit: 2_000_000 });
+
+        expect(recording.end).toEqual({ sizeLimit: 2_000_000 });
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'finds the struct inside each of 20,000 heap blocks quickly',
+      async () => {
+        // Each box's child starts inside the box, so the recorder has to find
+        // which block it belongs to. The loop runs on one line, so one step.
+        const source = [
+          '#include <stdlib.h>',
+          'struct node { int value; struct node *next; };',
+          'struct box { int tag; struct node child; struct box *next; };',
+          'int main(void) {',
+          '    struct box *list = NULL;', // 5
+          '    for (int i = 0; i < 20000; i++) { struct box *b = calloc(1, sizeof(struct box)); b->next = list; list = b; }', // 6
+          '    int a = 1;', // 7
+          '    int b = 2;', // 8
+          '    int c = 3;', // 9
+          '    int d = 4;', // 10
+          '    int e = 5;', // 11
+          '    return a + b + c + d + e;', // 12
+          '}',
+        ].join('\n');
+
+        const recording = await record('boxes.c', source, {
+          stepLimit: Infinity,
+          timeLimitMs: 4000,
+        });
+
+        expect(recording.end).toEqual({ exitCode: 15 });
+        expect(Object.keys(recording.steps.at(-1)?.heap ?? {})).toHaveLength(40000);
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'shares a heap entry between steps while it stays the same',
+      async () => {
+        const recording = await record('linked_list.c', program('linked_list.c'));
+        const [before, after] = recording.steps.filter((s) => s.line === 19 || s.line === 20);
+        const shared = Object.keys(before.heap).filter((addr) => addr in after.heap);
+
+        expect(shared.length).toBeGreaterThan(0);
+        shared.forEach((addr) => expect(after.heap[addr]).toBe(before.heap[addr]));
       },
       CLANG_TIMEOUT
     );

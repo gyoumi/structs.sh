@@ -31,8 +31,8 @@ describe('answerRunRequest', () => {
           type: 'recorded',
           recording: {
             steps: [
-              { function: 'main', line: 3, depth: 0, output: 'one\n', variables: {} },
-              { function: 'main', line: 4, depth: 0, output: '', variables: {} },
+              { function: 'main', line: 3, depth: 0, output: 'one\n', variables: {}, heap: {} },
+              { function: 'main', line: 4, depth: 0, output: '', variables: {}, heap: {} },
             ],
             outputBeforeFirstStep: '',
             end: { exitCode: 4 },

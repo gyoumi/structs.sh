@@ -45,8 +45,8 @@ const HELLO_SOURCE = 'int main(void) {\n    puts("hi");\n    return 0;\n}\n';
 /** What recording HELLO_SOURCE gives. */
 const HELLO: Recording = {
   steps: [
-    { function: 'main', line: 2, depth: 0, output: 'hi\n', variables: {} },
-    { function: 'main', line: 3, depth: 0, output: '', variables: {} },
+    { function: 'main', line: 2, depth: 0, output: 'hi\n', variables: {}, heap: {} },
+    { function: 'main', line: 3, depth: 0, output: '', variables: {}, heap: {} },
   ],
   outputBeforeFirstStep: '',
   end: { exitCode: 0 },
@@ -177,10 +177,20 @@ describe('WasmDebugger', () => {
         { name: 'next', typeName: 'struct node *' },
       ],
     };
-    const list = { addr: '0x10ff8', typeName: 'struct node *', value: '0x0' };
+    const list = { addr: '0x10ff8', typeName: 'struct node *', value: '0x11010' };
+    const heap = {
+      '0x11010': {
+        addr: '0x11010',
+        typeName: 'struct node',
+        value: {
+          value: { kind: 'int', value: 1, addr: null },
+          next: { kind: 'struct node *', value: '0x0', addr: null },
+        },
+      },
+    };
     const recording: Recording = {
       ...HELLO,
-      steps: [{ ...HELLO.steps[0], variables: { list } }],
+      steps: [{ ...HELLO.steps[0], variables: { list }, heap }],
       types: [node],
     };
     const wasm = new WasmDebugger(compilerReturning(COMPILED), recorderReturning(recording));
@@ -192,6 +202,7 @@ describe('WasmDebugger', () => {
 
     expect(events.typeDeclaration).toHaveBeenCalledExactlyOnceWith(expect.objectContaining(node));
     expect(vi.mocked(events.state).mock.lastCall?.[0].stack_data).toEqual({ list });
+    expect(vi.mocked(events.state).mock.lastCall?.[0].heap_data).toEqual(heap);
     expect(vi.mocked(events.typeDeclaration).mock.invocationCallOrder[0]).toBeLessThan(
       vi.mocked(events.state).mock.invocationCallOrder[0]
     );
@@ -233,6 +244,7 @@ describe('WasmDebugger', () => {
     [{ crashed: 'unreachable' }, /crashed.*unreachable/],
     [{ stepLimit: 100_000 }, /stopped after .*100,000/],
     [{ timeLimit: 10_000 }, /stopped .*too long/],
+    [{ sizeLimit: 50_000_000 }, /stopped .*too much/],
   ] satisfies [RunEnd, RegExp][])(
     'says how a program that ended with %o ended',
     async (end, message) => {

@@ -148,6 +148,12 @@ const resolveIndex = (types: DebugType[], index: number): number => {
   return index;
 };
 
+/** The type without its const, volatile or restrict. */
+const unqualified = (types: DebugType[], index: number): DebugType => {
+  const type = types[index];
+  return type.kind === 'qualified' && type.to !== null ? unqualified(types, type.to) : type;
+};
+
 /** A bit-field: `bitSize` bits starting `bitOffset` bits into the struct. */
 const readBits = (
   type: DebugType,
@@ -278,4 +284,144 @@ export const structDeclarations = (debug: DebugSection): TypeDeclaration[] => {
     statement.variables.forEach((variable) => visit(variable.type))
   );
   return declarations;
+};
+
+/** A struct field in a heap entry, as the GDB debugger sends it. */
+export type HeapField = { kind: string; value: Value; addr: null };
+
+/** A struct on the heap, as the GDB debugger sends it in `heap_data`. */
+export type HeapEntry = { addr: string; typeName: string; value: Record<string, HeapField> };
+
+/** One call's place in the program, from which its variables can be read. */
+export type Frame = { statement: number; frameBase: number };
+
+/** A live heap allocation. */
+export type Allocation = { start: number; size: number };
+
+/**
+ * The structs on the heap that the variables of every frame reach, as GDB
+ * shows the heap. Pointers are followed through struct fields, arrays and
+ * tables of pointers, and a struct inside a heap struct is shown too. A
+ * pointer is only followed into memory `allocationOf` says is live, so freed
+ * memory and the stack aren't shown.
+ */
+export const readHeap = (
+  debug: DebugSection,
+  frames: Frame[],
+  memory: DataView,
+  allocationOf: (address: number) => Allocation | null,
+  /** Called now and then during a long walk; it may throw to stop it. */
+  checkTime: () => void = () => {}
+): Record<string, HeapEntry> => {
+  const { types } = debug;
+  const heap: Record<string, HeapEntry> = Object.create(null);
+  const inAllocation = (address: number, size: number) => {
+    const allocation = allocationOf(address);
+    return allocation !== null && address + size <= allocation.start + allocation.size;
+  };
+  /** Whether following a value of this type could reach a heap struct. */
+  const leadsSomewhere = (index: number) => {
+    const { kind } = types[resolveIndex(types, index)];
+    return kind === 'pointer' || kind === 'struct' || kind === 'array';
+  };
+
+  /** Counts work done, to check the time now and then. */
+  let work = 0;
+  const tick = () => {
+    work += 1;
+    if (work % 10_000 === 0) checkTime();
+  };
+
+  // Places still to look in, as [type, address], and places already seen. A
+  // list rather than recursion, so a long linked list can't overflow the
+  // call stack.
+  const pending: [number, number][] = [];
+  const visited = new Set<string>();
+  /**
+   * How far down each table of pointers has been walked: the lowest slot
+   * scanned, by table, pointer type and alignment. Every slot from there to
+   * the table's end has been seen, so pointers into the same table only
+   * scan what's new.
+   */
+  const tables = new Map<string, number>();
+  const visit = (index: number, address: number) => {
+    const key = `${index}@${address}`;
+    if (visited.has(key)) return;
+    visited.add(key);
+    pending.push([index, address]);
+  };
+
+  const look = (index: number, address: number) => {
+    const type = types[resolveIndex(types, index)];
+    if (type.kind === 'pointer' && type.to !== null) {
+      const target = memory.getUint32(address, true);
+      const pointee = types[resolveIndex(types, type.to)];
+      if (pointee.kind === 'struct' || pointee.kind === 'array') {
+        if (inAllocation(target, pointee.size)) visit(type.to, target);
+      } else if (pointee.kind === 'pointer') {
+        // A table of pointers, such as a hash table's buckets: every one in
+        // its allocation that points somewhere.
+        const allocation = allocationOf(target);
+        if (allocation === null) return;
+        const table = `${type.to}@${allocation.start}@${target % 4}`;
+        const scannedFrom = tables.get(table) ?? allocation.start + allocation.size;
+        if (target >= scannedFrom) return;
+        tables.set(table, target);
+        for (let at = target; at + pointee.size <= scannedFrom; at += 4) {
+          tick();
+          if (memory.getUint32(at, true) >= 1024) visit(type.to, at);
+        }
+      }
+    } else if (type.kind === 'struct') {
+      const heapKey = hex(address);
+      if (!(heapKey in heap) && inAllocation(address, type.size)) {
+        const whole = readValue(types, resolveIndex(types, index), memory, address) as Record<
+          string,
+          Value
+        >;
+        heap[heapKey] = {
+          addr: heapKey,
+          // An anonymous struct goes by the typedef it was reached through,
+          // without qualifiers, as the visualiser knows it.
+          typeName: type.name.includes('{') ? unqualified(types, index).name : type.name,
+          value: Object.fromEntries(
+            type.fields.map((field) => [
+              field.name,
+              { kind: types[field.type].name, value: whole[field.name], addr: null },
+            ])
+          ),
+        };
+      }
+      type.fields
+        .filter((field) => field.bitSize === undefined && leadsSomewhere(field.type))
+        .forEach((field) => visit(field.type, address + field.offset));
+    } else if (type.kind === 'array' && leadsSomewhere(type.of)) {
+      const { size } = types[type.of];
+      const pointers = types[resolveIndex(types, type.of)].kind === 'pointer';
+      for (let i = 0; i < type.count; i += 1) {
+        tick();
+        const at = address + i * size;
+        // A NULL pointer leads nowhere, so isn't queued.
+        if (!pointers || memory.getUint32(at, true) >= 1024) visit(type.of, at);
+      }
+    }
+  };
+
+  frames.forEach(({ statement, frameBase }) =>
+    (debug.statements[statement]?.variables ?? [])
+      .filter(({ type }) => leadsSomewhere(type))
+      .forEach(({ type, offset }) => visit(type, frameBase + offset))
+  );
+  while (pending.length > 0) {
+    tick();
+    const [type, address] = pending.pop()!;
+    try {
+      look(type, address);
+    } catch (error) {
+      // An address past the end of memory has nothing to follow. Anything
+      // else, such as checkTime stopping the walk, goes on up.
+      if (!(error instanceof RangeError)) throw error;
+    }
+  }
+  return heap;
 };

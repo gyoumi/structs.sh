@@ -28,7 +28,14 @@ const MAX_RANDOM_BYTES = 65_536;
 export type TraceEvent =
   | { type: 'enter'; function: number }
   | { type: 'line'; statement: number; frameBase: number }
-  | { type: 'exit' };
+  | { type: 'exit' }
+  /** The C library's malloc, calloc, realloc and free. */
+  | { type: 'allocated'; pointer: number; size: number }
+  | { type: 'freed'; pointer: number }
+  | { type: 'reallocated'; old: number; pointer: number; size: number };
+
+/** What a program that dereferences NULL stops with. */
+export const NULL_DEREFERENCE = 'NULL pointer dereference';
 
 export type RunOptions = {
   /** Called with stdout and stderr text as the program writes it. */
@@ -159,6 +166,15 @@ export const runWasi = async (
     line: (statement: number, frameBase: number) =>
       onTrace?.({ type: 'line', statement, frameBase }, view),
     exit: () => onTrace?.({ type: 'exit' }, view),
+    allocated: (pointer: number, size: number) =>
+      onTrace?.({ type: 'allocated', pointer, size }, view),
+    freed: (pointer: number) => onTrace?.({ type: 'freed', pointer }, view),
+    reallocated: (old: number, pointer: number, size: number) =>
+      onTrace?.({ type: 'reallocated', old, pointer, size }, view),
+    // The instrumenter calls this before a load or store below address 1024.
+    null: () => {
+      throw new Error(NULL_DEREFERENCE);
+    },
   };
 
   const instance = await WebAssembly.instantiate(module, {

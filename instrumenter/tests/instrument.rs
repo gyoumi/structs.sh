@@ -15,7 +15,16 @@ const FIXTURES: [(&str, &[u8]); 3] = [
     ("linked_list", include_bytes!("fixtures/linked_list.wasm")),
 ];
 
-const TRACE_IMPORTS: [&str; 3] = ["structs.enter", "structs.exit", "structs.line"];
+/// Calls the instrumenter adds, which every instrumented program imports.
+const TRACE_IMPORTS: [&str; 7] = [
+    "structs.allocated",
+    "structs.enter",
+    "structs.exit",
+    "structs.freed",
+    "structs.line",
+    "structs.null",
+    "structs.reallocated",
+];
 
 /// The module's imports ("module.name"), exports and `structs.debug`.
 fn read(wasm: &[u8]) -> (Vec<String>, Vec<String>, Option<String>) {

@@ -29,6 +29,9 @@ const describeEnd = (end: RunEnd) => {
   if ('stepLimit' in end) {
     return `\nThe program was stopped after ${end.stepLimit.toLocaleString('en')} steps, the most the debugger records.\n`;
   }
+  if ('sizeLimit' in end) {
+    return '\nThe program was stopped because its memory changed too much for the debugger to record every step.\n';
+  }
   return `\n${TOO_LONG}\n`;
 };
 
@@ -40,11 +43,11 @@ const describeFailure = (result: Exclude<RecordResult, { recording: Recording }>
 };
 
 /**
- * The page's view of one step. The heap comes in 3b.
+ * The page's view of one step.
  *
- * stack_data is in the format the GDB debugger actually sends, `{ addr,
- * typeName, value }`, which is what the page reads, though BackendState's
- * types describe an older one.
+ * stack_data and heap_data are in the format the GDB debugger actually
+ * sends (`{ addr, typeName, value }`), which is what the page reads, though
+ * BackendState's types describe an older one.
  */
 const stateAt = (file: SourceFile, step: Step): BackendState => ({
   frame_info: {
@@ -54,7 +57,7 @@ const stateAt = (file: SourceFile, step: Step): BackendState => ({
     function: step.function,
   },
   stack_data: step.variables as unknown as BackendState['stack_data'],
-  heap_data: {},
+  heap_data: step.heap as unknown as BackendState['heap_data'],
 });
 
 /** A compiled program being recorded, then stepped through. */
