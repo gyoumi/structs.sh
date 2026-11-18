@@ -183,4 +183,37 @@ describe('protected-paths', () => {
     const files = [{ status: 'R', path: 'ci/e2e.yml', oldPath: '.github/workflows/e2e.yml' }];
     assert.deepEqual(rulesHit(checkPr(pr({ files }))), ['protected-paths']);
   });
+
+  it('protects the rule files themselves, so a PR cannot drop its own check', () => {
+    const files = [
+      { status: 'M', path: 'scripts/pr-rules.mjs' },
+      { status: 'M', path: 'scripts/check-pr.mjs' },
+    ];
+    assert.equal(checkPr(pr({ files })).filter((f) => f.rule === 'protected-paths').length, 2);
+  });
+
+  it('rejects edits to the package.json scripts that CI runs', () => {
+    const files = [
+      { status: 'M', path: 'package.json', scriptsChanged: true },
+      { status: 'M', path: 'client/package.json', scriptsChanged: true },
+    ];
+    assert.deepEqual(
+      checkPr(pr({ files })).map((f) => f.path),
+      ['package.json', 'client/package.json'],
+    );
+  });
+
+  it('allows dependency bumps that leave the scripts alone', () => {
+    const files = [
+      { status: 'M', path: 'package.json', scriptsChanged: false },
+      { status: 'M', path: 'client/package.json' },
+      { status: 'M', path: 'pnpm-lock.yaml' },
+    ];
+    assert.deepEqual(checkPr(pr({ files })), []);
+  });
+
+  it('protects a manifest that is added, deleted or renamed', () => {
+    const files = [{ status: 'D', path: 'client/package.json' }];
+    assert.deepEqual(rulesHit(checkPr(pr({ files }))), ['protected-paths']);
+  });
 });

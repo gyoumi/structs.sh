@@ -31,6 +31,9 @@ const PROTECTED = [
   /^debugger\/Dockerfile\.prod$/,
   /^debugger\/src\/debugger\/(base_debugger|c_compile)\.py$/,
 ];
+// CI runs the commands in these manifests' "scripts", so editing those (to
+// `true`, say) would switch a check off. Dependency bumps stay unprotected.
+const MANIFEST = /^(client\/)?package\.json$/;
 
 const OTHER_LOCKFILES = new Set(['package-lock.json', 'npm-shrinkwrap.json', 'yarn.lock', 'bun.lock', 'bun.lockb']);
 const IMAGE_FOLDERS = [/^client\/public\//, /^client\/src\//, /^docs\/docs\/images\//];
@@ -47,7 +50,7 @@ const basename = (path) => path.slice(path.lastIndexOf('/') + 1);
 
 /**
  * @param {{
- *   files: { status: 'A' | 'M' | 'D' | 'R', path: string, oldPath?: string, oldLines?: number, newLines?: number }[],
+ *   files: { status: 'A' | 'M' | 'D' | 'R', path: string, oldPath?: string, oldLines?: number, newLines?: number, scriptsChanged?: boolean }[],
  *   tracked: string[],
  *   addedLines: { path: string, line: number, text: string }[],
  *   labels: Set<string>,
@@ -114,9 +117,12 @@ export function checkPr({ files, tracked, addedLines, labels }) {
 
   // protected-paths
   if (!labels.has(LABELS.humanApproved)) {
+    const manifestScripts = files
+      .filter((f) => MANIFEST.test(f.path) && (f.status !== 'M' || f.scriptsChanged))
+      .flatMap((f) => (f.oldPath ? [f.path, f.oldPath] : [f.path]));
     for (const path of new Set(paths)) {
-      if (PROTECTED.some((re) => re.test(path))) {
-        add('protected-paths', path, `Changes to CI, lint config, agent config, known failures or the sandbox need a person to add the "${LABELS.humanApproved}" label.`);
+      if (PROTECTED.some((re) => re.test(path)) || manifestScripts.includes(path)) {
+        add('protected-paths', path, `Changes to CI, lint config, the package.json scripts CI runs, agent config, known failures or the sandbox need a person to add the "${LABELS.humanApproved}" label.`);
       }
     }
   }

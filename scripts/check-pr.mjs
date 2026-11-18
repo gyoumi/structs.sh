@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 // Runs the PR rules in scripts/pr-rules.mjs against a git diff.
 //
-//   node scripts/check-pr.mjs --base HEAD^1 --head HEAD   # CI: the PR's merge commit
+//   node scripts/check-pr.mjs --base <sha> --head <sha>   # CI (.github/workflows/pr-rules.yml)
 //   node scripts/check-pr.mjs --local                      # your branch plus uncommitted work, vs origin/dev
+//
+// It only reads the two commits with git and never runs code from them, so CI
+// can run the base branch's copy of this script against an untrusted PR.
 //
 // Labels come from the PR_LABELS env var (a JSON array of names). With --local
 // there are no labels, so rules a label can waive print as notes, not failures.
@@ -38,13 +41,27 @@ const readAt = (rev, path) => {
   }
 };
 
+const scriptsOf = (text) => {
+  try {
+    return JSON.stringify(JSON.parse(text).scripts ?? {});
+  } catch {
+    return undefined; // unparseable counts as changed
+  }
+};
+
 const files = lines(git('diff', '--name-status', '-M', ...range)).map((row) => {
   const [code, first, second] = row.split('\t');
   const status = code[0];
   const file = status === 'R' ? { status, path: second, oldPath: first } : { status, path: first };
   if (status === 'M') {
-    file.oldLines = countLines(readAt(base, file.path));
-    file.newLines = countLines(readAt(head, file.path));
+    const before = readAt(base, file.path);
+    const after = readAt(head, file.path);
+    file.oldLines = countLines(before);
+    file.newLines = countLines(after);
+    if (file.path.endsWith('package.json')) {
+      const old = scriptsOf(before);
+      file.scriptsChanged = old === undefined || old !== scriptsOf(after);
+    }
   }
   return file;
 });
@@ -67,7 +84,8 @@ for (const path of untracked) {
     .forEach((text, i) => addedLines.push({ path, line: i + 1, text }));
 }
 
-const tracked = [...lines(git('ls-files')), ...untracked];
+// The head commit's files, not the checkout's: in CI the checkout is the base branch.
+const tracked = head ? lines(git('ls-tree', '-r', '--name-only', head)) : [...lines(git('ls-files')), ...untracked];
 const labels = new Set(JSON.parse(process.env.PR_LABELS || '[]'));
 
 const findings = checkPr({ files, tracked, addedLines, labels });

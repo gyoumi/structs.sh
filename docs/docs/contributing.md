@@ -32,7 +32,8 @@ lint rules, knip, ruff and mypy for the areas you touched. CI runs these plus
 the client build and the e2e suite.
 
 CI also checks every PR for a few things a reviewer would otherwise have to
-catch (`scripts/pr-rules.mjs`):
+catch (`scripts/pr-rules.mjs`). These rules run from the base branch, so a
+PR that edits them is judged by the rules it started from:
 
 | Check | Fails when | A maintainer can waive it with |
 |---|---|---|
@@ -41,7 +42,7 @@ catch (`scripts/pr-rules.mjs`):
 | Agent config alone | `.claude/` changes are mixed with other changes | (not waivable) |
 | Debugger needs a test | `debugger/src` changes without an e2e test, pytest or known-failures entry | `no-test-needed` label |
 | Large removal | A test file is deleted, or a source file is emptied or cut to under 30% of its size | `removal-ok` label |
-| Protected paths | CI, lint config, agent config, the known-failures list or the sandbox changes | `human-approved` label |
+| Protected paths | CI, lint config, the `scripts` in a `package.json`, agent config, the known-failures list or the sandbox changes | `human-approved` label |
 
 The PR title must be a [Conventional Commit](https://www.conventionalcommits.org/), because squash merges use it as the commit message.
 

@@ -32,7 +32,19 @@ const e2e = under('e2e/');
 const debuggerFiles = under('debugger/');
 const scripts = under('scripts/');
 const lintable = (files, prefix) => present(files).filter((p) => /\.(ts|tsx)$/.test(p)).map((p) => p.slice(prefix.length));
-const prose = present(changed).filter((p) => p.endsWith('.md') && (p.startsWith('docs/') || p.endsWith('README.md')));
+
+// Root files that sit outside the folders above but change how they are checked.
+// A dependency change can break any workspace, and a config change can make
+// unchanged files fail, so these widen the checks to whole areas.
+const dependencies = changed.some((p) => ['package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml'].includes(p));
+const e2eLintConfig = changed.includes('eslint.config.mjs');
+const knipConfig = changed.includes('knip.jsonc');
+const valeConfig = changed.some((p) => p === '.vale.ini' || p.startsWith('.vale/'));
+
+const checkClient = client.length > 0 || dependencies;
+const checkE2e = e2e.length > 0 || dependencies || e2eLintConfig;
+const ALL_PROSE = ['docs/docs', 'README.md', 'client/README.md', 'e2e/README.md'];
+const prose = valeConfig ? ALL_PROSE : present(changed).filter((p) => p.endsWith('.md') && (p.startsWith('docs/') || p.endsWith('README.md')));
 
 const checks = [];
 const add = (name, cmd, args, cwd = root) => checks.push({ name, cmd, args, cwd });
@@ -44,20 +56,21 @@ if (scripts.length) {
   add('script tests', process.execPath, ['--test', ...tests.map((f) => join(root, 'scripts', f))]);
 }
 
-if (client.length) {
+if (checkClient) {
   add('client: tsc', bin('client', 'tsc'), [], join(root, 'client'));
   // A config or dependency change can affect every file, so lint them all.
-  const onlySource = client.every((p) => p.startsWith('client/src/') && existsSync(join(root, p)));
+  const onlySource = !dependencies && client.every((p) => p.startsWith('client/src/') && existsSync(join(root, p)));
   const files = onlySource ? lintable(client, 'client/') : ['./src/**/*.{tsx,ts}'];
   if (files.length) add('client: eslint', bin('client', 'eslint'), files, join(root, 'client'));
 }
-if (e2e.length || client.length) add('e2e: tsc', bin('.', 'tsc'), ['-p', 'e2e']);
-if (e2e.length) {
-  const files = present(e2e).filter((p) => p.endsWith('.ts'));
+if (checkE2e || checkClient) add('e2e: tsc', bin('.', 'tsc'), ['-p', 'e2e']);
+if (checkE2e) {
+  const onlyTests = !dependencies && !e2eLintConfig && e2e.every((p) => p.endsWith('.ts') && existsSync(join(root, p)));
+  const files = onlyTests ? present(e2e) : ['e2e'];
   if (files.length) add('e2e: eslint', bin('.', 'eslint'), files);
   add('e2e: known failures', process.execPath, [join(root, 'scripts/check-known-failures.mjs')]);
 }
-if (client.length || e2e.length || scripts.length) {
+if (checkClient || checkE2e || scripts.length || knipConfig) {
   add('knip', bin('.', 'knip'), ['--no-progress', '--include', 'files,unlisted,unresolved,binaries']);
 }
 if (debuggerFiles.length) {
