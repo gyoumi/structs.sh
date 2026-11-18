@@ -1,1 +1,4 @@
-{}
+{
+  "playback › rewind moves the timeline to the start": "VisualiserController only updates the slider when the time is truthy, so seeking to 0 leaves it at the end.",
+  "sharing › a copied link reopens the same data": "Create Link is behind the inDev flag in globalStore, which is always false, so the button never shows."
+}
