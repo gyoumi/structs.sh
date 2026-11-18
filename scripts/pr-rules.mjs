@@ -36,10 +36,13 @@ const PROTECTED = [
 // CI runs the commands in these manifests' "scripts", so editing those (to
 // `true`, say) would switch a check off. Dependency bumps stay unprotected.
 const MANIFEST = /^(client\/)?package\.json$/;
-// Cargo.toml settings that stop cargo running the instrumenter's tests.
-// Other lines, such as dependency bumps, stay unprotected.
+// Cargo.toml settings that change which instrumenter tests cargo runs,
+// matched anywhere in an added line, since TOML can also write them as
+// dotted keys (lib.test), inline tables or quoted keys. `path` can point a
+// test at another file. Other lines, such as dependency bumps, stay
+// unprotected.
 const CARGO_MANIFEST = /^instrumenter\/Cargo\.toml$/;
-const CARGO_TEST_SETTING = /^\s*(autotests|autobenches|test|harness|doctest|required-features)\s*=/;
+const CARGO_TEST_SETTING = /\b(autotests|autobenches|test|harness|doctest|required-features|path)\b/;
 
 const OTHER_LOCKFILES = new Set(['package-lock.json', 'npm-shrinkwrap.json', 'yarn.lock', 'bun.lock', 'bun.lockb']);
 const IMAGE_FOLDERS = [/^client\/public\//, /^client\/src\//, /^docs\/docs\/images\//];

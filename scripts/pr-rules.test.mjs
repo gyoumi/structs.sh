@@ -254,6 +254,15 @@ describe('protected-paths', () => {
     assert.equal(checkPr(pr({ files, addedLines: gated })).filter((f) => f.rule === 'protected-paths').length, 2);
   });
 
+  it('protects test settings written any way TOML allows, or a test pointed at another file', () => {
+    const files = [{ status: 'M', path: 'instrumenter/Cargo.toml' }];
+    const lines = ['lib.test = false', 'lib = { test = false }', '"autotests" = false', 'path = "tests/empty.rs"'];
+    for (const text of lines) {
+      const addedLines = [{ path: 'instrumenter/Cargo.toml', line: 3, text }];
+      assert.deepEqual(rulesHit(checkPr(pr({ files, addedLines }))), ['protected-paths'], text);
+    }
+  });
+
   it('accepts them once a person adds the human-approved label', () => {
     const files = [{ status: 'M', path: '.github/workflows/e2e.yml' }];
     assert.deepEqual(checkPr(pr({ files, labels: new Set(['human-approved']) })), []);
