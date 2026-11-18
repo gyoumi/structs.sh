@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Fast checks for what this branch changed, before you push.
 //
-//   pnpm check:changed [--base <branch>]
+//   pnpm check:changed [--base <branch>]   (a `--` before it is fine too)
 //
 // Compares your branch and uncommitted work with the branch it will merge
 // into (--base, else its open PR's base branch, else origin/dev) and runs
@@ -20,7 +20,11 @@ const bin = (dir, name) => join(root, dir, 'node_modules', '.bin', name);
 const git = (...a) => execFileSync('git', a, { cwd: root, encoding: 'utf8' });
 const onPath = (cmd) => spawnSync('sh', ['-c', `command -v ${cmd}`]).status === 0;
 
-const { values: args } = parseArgs({ options: { base: { type: 'string' } } });
+// pnpm passes a `--` through to the script, so drop it.
+const { values: args } = parseArgs({
+  args: process.argv.slice(2).filter((arg) => arg !== '--'),
+  options: { base: { type: 'string' } },
+});
 const target = findTargetBranch(args.base);
 const base = git('merge-base', 'HEAD', target).trim();
 // Deleted files still decide which areas to check (a deletion can break

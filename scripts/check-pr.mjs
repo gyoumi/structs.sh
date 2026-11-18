@@ -19,7 +19,9 @@ import { findTargetBranch } from './target-branch.mjs';
 
 const WAIVABLE = new Set(['protected-paths', 'debugger-needs-test', 'large-removal']);
 
+// pnpm passes a `--` through to the script, so drop it.
 const { values: args } = parseArgs({
+  args: process.argv.slice(2).filter((arg) => arg !== '--'),
   options: {
     base: { type: 'string' },
     head: { type: 'string' },

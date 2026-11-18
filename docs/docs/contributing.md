@@ -28,7 +28,7 @@ pnpm check:changed
 ```
 
 It compares your branch with the branch it will merge into (its open PR's
-base, or `origin/dev` before there's a PR; pass `-- --base <branch>` to
+base, or `origin/dev` before there's a PR; pass `--base <branch>` to
 choose) and runs type checks, lint, the client's unit tests, the e2e
 lint rules, knip, ruff and mypy, and the instrumenter's cargo checks, for
 the areas you touched. CI runs these plus
