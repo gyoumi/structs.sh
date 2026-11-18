@@ -99,6 +99,7 @@ const Stage = ({ label, className, style, children }: StageProps) => {
 
   const layoutVersion = useSnapshot((s) => s.layoutVersion);
   const complete = useSnapshot((s) => s.complete);
+  const step = useSnapshot((s) => s.step);
 
   const zoomAround = useCallback((factor: number, cx: number, cy: number, animate: boolean) => {
     userMoved.current = true;
@@ -161,9 +162,10 @@ const Stage = ({ label, className, style, children }: StageProps) => {
     return () => cancelAnimationFrame(id);
   }, [layoutVersion, fit]);
 
+  // Some runs move values outside the start's bounds, like merge sort's working row, so check each step.
   useEffect(() => {
-    if (complete && !userMoved.current) fit(true);
-  }, [complete, fit]);
+    if (!userMoved.current) fit(true);
+  }, [step, complete, fit]);
 
   useEffect(() => {
     const container = containerRef.current;
