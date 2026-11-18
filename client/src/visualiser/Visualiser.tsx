@@ -37,6 +37,7 @@ import { Theme, ThemeMenuItem, ThemeToggle, useTheme } from '@/ui/theme';
 import Stage from './Stage';
 import CodeListing from './CodeListing';
 import Keypad from './Keypad';
+import { indexMaxFor } from './useOperation';
 import StepScrubber from './StepScrubber';
 import StructureNav from './StructureNav';
 import ShortcutsDialog from './ShortcutsDialog';
@@ -51,12 +52,6 @@ const SPEEDS = ['0.25', '0.5', '0.75', '1', '1.25', '1.5', '1.75', '2'].map((val
   value,
   label: `${value}×`,
 }));
-
-/** An insert can land just past the last node, while a delete needs a node at the index. */
-const indexMaxFor = (args: string[], size: number) => {
-  if (!args.includes('index')) return undefined;
-  return args.includes('value') ? size : size - 1;
-};
 
 const Operations = ({ topic }: { topic: TopicInfo }) => {
   const documentation = useSnapshot((s) => s.documentation);
@@ -124,8 +119,11 @@ const CopyLink = ({ topic }: { topic: TopicInfo }) => {
   }, [state]);
 
   const copy = () => {
-    navigator.clipboard
-      .writeText(shareLink(topic.slug, session.data, window.location.origin))
+    // Outside a secure context there is no clipboard, and touching it throws before any promise exists.
+    Promise.resolve()
+      .then(() =>
+        navigator.clipboard.writeText(shareLink(topic.slug, session.data, window.location.origin))
+      )
       .then(() => setState('copied'))
       .catch(() => setState('failed'));
   };

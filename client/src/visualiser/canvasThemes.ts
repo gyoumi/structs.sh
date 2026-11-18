@@ -15,14 +15,14 @@ export const canvasThemes: Record<Theme, Partial<CanvasTheme>> = {
     /* Drawings are thin-lined, so a mid blue reads as faint beside the navy ink. */
     accent: '#2B65A6',
     onAccent: '#FFFFFF',
-    danger: '#D64545',
+    danger: '#C53A3A',
     compare: '#946629',
     pointer: '#127A9C',
     currFill: '#3E7CB1',
     currStroke: '#3E7CB1',
     pointerLabel: '#23225E',
-    prevFill: '#D64545',
-    prevStroke: '#D64545',
+    prevFill: '#C53A3A',
+    prevStroke: '#C53A3A',
   },
   dark: {
     ...shared,
