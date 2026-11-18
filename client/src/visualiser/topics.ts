@@ -93,8 +93,9 @@ export const debuggerDestination: Destination & { path: string } = {
   path: '/debugger',
 };
 
+/** Old links can have capitals in the topic, so it is matched case-insensitively. */
 export const findTopic = (slug: string | undefined): TopicInfo | undefined =>
-  topics.find((topic) => topic.slug === slug);
+  topics.find((topic) => topic.slug === slug?.toLowerCase());
 
 export const operationLabel = (topic: TopicInfo, command: string): string =>
   topic.operations[command] ?? command;
