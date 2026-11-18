@@ -27,6 +27,7 @@ const PROTECTED = [
   /^e2e\/known-failures\/[^/]+\.json$/,
   /^e2e\/playwright\.config\.ts$/,
   /^client\/vitest\.config\.ts$/,
+  /(^|\/)\.cargo\//, // cargo config can change or skip what `cargo test` runs
   /^debugger\/pyproject\.toml$/, // ruff and mypy settings
   /^debugger\/nsjail_gdb\.cfg$/,
   /^debugger\/Dockerfile\.prod$/,
@@ -38,7 +39,7 @@ const MANIFEST = /^(client\/)?package\.json$/;
 // Cargo.toml settings that stop cargo running the instrumenter's tests.
 // Other lines, such as dependency bumps, stay unprotected.
 const CARGO_MANIFEST = /^instrumenter\/Cargo\.toml$/;
-const CARGO_TEST_SETTING = /^\s*(autotests|autobenches|test|harness|doctest)\s*=/;
+const CARGO_TEST_SETTING = /^\s*(autotests|autobenches|test|harness|doctest|required-features)\s*=/;
 
 const OTHER_LOCKFILES = new Set(['package-lock.json', 'npm-shrinkwrap.json', 'yarn.lock', 'bun.lock', 'bun.lockb']);
 const IMAGE_FOLDERS = [/^client\/public\//, /^client\/src\//, /^docs\/docs\/images\//];

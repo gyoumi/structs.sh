@@ -245,6 +245,15 @@ describe('protected-paths', () => {
     assert.deepEqual(checkPr(pr({ files, addedLines: bumped })), []);
   });
 
+  it('protects other ways cargo can skip the instrumenter tests', () => {
+    const files = [
+      { status: 'M', path: 'instrumenter/Cargo.toml' },
+      { status: 'A', path: 'instrumenter/.cargo/config.toml' },
+    ];
+    const gated = [{ path: 'instrumenter/Cargo.toml', line: 7, text: 'required-features = ["slow"]' }];
+    assert.equal(checkPr(pr({ files, addedLines: gated })).filter((f) => f.rule === 'protected-paths').length, 2);
+  });
+
   it('accepts them once a person adds the human-approved label', () => {
     const files = [{ status: 'M', path: '.github/workflows/e2e.yml' }];
     assert.deepEqual(checkPr(pr({ files, labels: new Set(['human-approved']) })), []);
