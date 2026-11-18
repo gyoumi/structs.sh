@@ -911,6 +911,33 @@ describe('recordRun', () => {
     );
 
     it(
+      'keeps half a character back while waiting for input',
+      async () => {
+        // "é" is two bytes in UTF-8, written either side of the read.
+        const source = [
+          '#include <unistd.h>',
+          'int main(void) {',
+          '    char c;',
+          '    write(1, "\\xc3", 1);',
+          '    read(0, &c, 1);',
+          '    write(1, "\\xa9", 1);',
+          '    return 0;',
+          '}',
+        ].join('\n');
+        const output = (recording: Recording) =>
+          recording.steps.map((step) => step.output).join('');
+
+        const waiting = await record('split.c', source);
+        const done = await record('split.c', source, { input: { text: 'x', eof: true } });
+
+        expect(waiting.end).toEqual({ waitingForInput: true });
+        expect(output(waiting)).toBe('');
+        expect(output(done)).toBe('é');
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
       'reads to the end of the input once end-of-file is sent',
       async () => {
         const recording = await record('sum_input.c', program('sum_input.c'), {

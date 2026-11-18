@@ -216,11 +216,13 @@ export const runWasi = async (
 
   try {
     (instance.exports._start as () => void)();
+    flushDecoders();
     return { exitCode: 0 };
   } catch (error) {
+    // A program waiting for input isn't finished: half a character written
+    // before the wait is kept back, as the rest may come after it.
+    if (error !== WAITING_FOR_INPUT) flushDecoders();
     if (error instanceof ProcExit) return { exitCode: error.code };
     throw error;
-  } finally {
-    flushDecoders();
   }
 };
