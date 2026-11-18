@@ -44,7 +44,6 @@ Multi-reviewer loops pile up blockers, edge states, and speculative phases. When
 ## Branch and scope hygiene
 
 - New branches come from `dev` (or the user-stated base), not from another feature branch.
-- Keep agent-config and skill changes out of product PRs. Put them in their own PR.
 - Do not touch out-of-scope files.
 
 ## Model-role priors
