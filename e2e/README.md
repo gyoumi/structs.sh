@@ -1,12 +1,19 @@
 # End-to-end feature tests
 
-These tests use the visual debugger the way a student would: open a C program,
-compile it, step through it, and check what the page shows. They don't know
-how the debugger works inside, so the same tests run against both debuggers:
+These tests use structs.sh the way a student would and check what the page
+shows. They don't know how the app works inside, so the same tests apply when
+part of it is rewritten.
 
-- **gdb**, the current one, which runs on the server. This is the default.
-- **wasm**, the replacement being built, which runs in the browser. The page
-  uses it when opened with `?debugger=wasm`. See `docs/debugger-rewrite.md`.
+There are two groups:
+
+- **The debugger:** open a C program, compile it, step through it. The same
+  tests run against both debuggers:
+  - **gdb**, the current one, which runs on the server. This is the default.
+  - **wasm**, the replacement being built, which runs in the browser. The page
+    uses it when opened with `?debugger=wasm`. See `docs/debugger-rewrite.md`.
+- **The landing page and the visualisers:** open a structure, run operations,
+  control playback, share a link. These apply to the current frontend and to
+  any redesign of it, so a redesign can show it does everything the old one did.
 
 ## Running
 
@@ -26,6 +33,16 @@ instrumenter built (see `instrumenter/README.md`):
 pnpm run instrumenter                    # needs Rust
 pnpm run e2e:wasm                        # the same as E2E_DEBUGGER=wasm pnpm run e2e
 ```
+
+The visualiser tests don't need the debugger backend. To run only them:
+
+```sh
+pnpm run e2e landing not-found visualiser-navigation linked-list-operations \
+  tree-operations sorting editing-data playback sharing
+```
+
+Set `E2E_BASE_URL` to test a frontend that is already running, e.g.
+`E2E_BASE_URL=http://localhost:3110 pnpm run e2e`.
 
 After each run, a per-feature summary is printed:
 
@@ -72,6 +89,18 @@ CI runs the suite against both debuggers.
 If the wasm debugger works differently inside, update `support/debugger-page.ts`.
 The test files themselves shouldn't need to change.
 
+## Using this for a frontend redesign
+
+The visualiser tests pass on the current frontend, apart from 2 bugs on both
+known-failures lists: rewinding leaves the timeline at the end, and Create Link
+is never shown. The suite runs once per debugger, so a visualiser entry goes in
+both lists.
+
+A redesign replaces `support/landing-page.ts` and `support/visualiser-page.ts`
+and leaves the tests alone. If every test still passes, the redesign does
+everything the current frontend does. A feature it drops on purpose goes on the
+known-failures lists with the reason, so the gap is written down and reviewed.
+
 ## Writing tests
 
 - Each feature is a top-level `test.describe()`. Its name is what the summary
@@ -82,12 +111,16 @@ The test files themselves shouldn't need to change.
 - Don't assert on compiler wording. gcc and clang phrase errors differently,
   so match the identifier or line number instead.
 - Programs go in `programs/`. Comment the line numbers a test relies on.
-- Only `support/debugger-page.ts` should touch selectors or page internals.
+- Name visualiser operations by the engine's command (`append`,
+  `inorderTraversal`), not by a button label. The page object maps them.
+- Read the drawing with `values()` and `root()`, which work from the engine's
+  SVG, so they don't depend on the UI around it.
+- Only the files in `support/` should touch selectors or page internals.
 
 `pnpm run e2e:lint` enforces these, and CI fails on any of them:
 
 - No `page.locator()`, `page.evaluate()` or `getByTestId()` in `tests/`. Add a
-  `DebuggerPage` method instead.
+  page object method instead.
 - No `waitForTimeout()`. Wait for something the user would see.
 - No `test.skip()` or `test.only()`. A test that can't pass yet goes in
   that debugger's `known-failures/*.json` list with a reason.
