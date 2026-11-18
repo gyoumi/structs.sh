@@ -33,6 +33,7 @@ const under = (prefix) => changed.filter((p) => p.startsWith(prefix));
 const client = under('client/');
 const e2e = under('e2e/');
 const debuggerFiles = under('debugger/');
+const instrumenter = under('instrumenter/');
 const scripts = under('scripts/');
 const lintable = (files, prefix) => present(files).filter((p) => /\.(ts|tsx)$/.test(p)).map((p) => p.slice(prefix.length));
 
@@ -81,6 +82,16 @@ if (debuggerFiles.length) {
     add('debugger: ruff', 'uv', ['run', 'ruff', 'check', 'src'], join(root, 'debugger'));
     add('debugger: mypy', 'uv', ['run', 'mypy', 'src/'], join(root, 'debugger'));
   } else skipped.push('debugger: ruff and mypy (uv is not installed)');
+}
+if (instrumenter.length) {
+  // The client's tests load the instrumenter's .wasm, so rebuild it with
+  // `pnpm run instrumenter` before running them after a change here.
+  if (onPath('cargo')) {
+    const cwd = join(root, 'instrumenter');
+    add('instrumenter: fmt', 'cargo', ['fmt', '--check'], cwd);
+    add('instrumenter: clippy', 'cargo', ['clippy', '--all-targets', '--', '-D', 'warnings'], cwd);
+    add('instrumenter: tests', 'cargo', ['test'], cwd);
+  } else skipped.push('instrumenter: fmt, clippy and tests (cargo is not installed)');
 }
 if (prose.length) {
   if (onPath('vale')) add('docs: vale', 'vale', prose);

@@ -41,10 +41,12 @@ const PRODUCT_CODE = /^(client|debugger|e2e)\//;
 const AGENT_CONFIG = /^(\.claude\/|skills-lock\.json$)/;
 const DEBUGGER_SOURCE = /^debugger\/src\//;
 const DEBUGGER_TESTS = /^debugger\/src\/debugger\/test\//;
-const TEST_FILE = /^(e2e\/tests\/|debugger\/src\/debugger\/test\/)/;
+// The e2e suite, pytest, Vitest files next to the client code, and the
+// instrumenter's cargo tests.
+const TEST_FILE = /^(e2e\/tests\/|debugger\/src\/debugger\/test\/|instrumenter\/tests\/)|^client\/src\/.*\.test\.tsx?$/;
 // Changes that count as test coverage for a debugger change.
 const TEST_CHANGE = /^(e2e\/tests\/|e2e\/programs\/|e2e\/known-failures\/[^/]+\.json$|debugger\/src\/debugger\/test\/)/;
-const SHRINK_CHECKED = /^(client\/src|debugger\/src|e2e)\//;
+const SHRINK_CHECKED = /^(client\/src|debugger\/src|e2e|instrumenter\/src|instrumenter\/tests)\//;
 
 const basename = (path) => path.slice(path.lastIndexOf('/') + 1);
 

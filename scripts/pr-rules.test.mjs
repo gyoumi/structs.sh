@@ -166,6 +166,30 @@ describe('large-removal', () => {
     assert.deepEqual(checkPr(pr({ files })), []);
   });
 
+  it('rejects deleted Vitest and instrumenter tests', () => {
+    const files = [
+      { status: 'D', path: 'client/src/Services/debugger/wasm/recording.test.ts' },
+      { status: 'D', path: 'instrumenter/tests/instrument.rs' },
+    ];
+    assert.equal(checkPr(pr({ files })).filter((f) => f.rule === 'large-removal').length, 2);
+  });
+
+  it('rejects a Vitest test renamed so it no longer runs', () => {
+    const files = [
+      {
+        status: 'R',
+        path: 'client/src/Services/debugger/wasm/recording.ts.bak',
+        oldPath: 'client/src/Services/debugger/wasm/recording.test.ts',
+      },
+    ];
+    assert.deepEqual(rulesHit(checkPr(pr({ files }))), ['large-removal']);
+  });
+
+  it('rejects an instrumenter test file cut to a fraction of its size', () => {
+    const files = [{ status: 'M', path: 'instrumenter/tests/instrument.rs', oldLines: 400, newLines: 40 }];
+    assert.deepEqual(rulesHit(checkPr(pr({ files }))), ['large-removal']);
+  });
+
   it('is waived by the removal-ok label', () => {
     const files = [{ status: 'D', path: 'e2e/tests/stepping.spec.ts' }];
     assert.deepEqual(checkPr(pr({ files, labels: new Set(['removal-ok']) })), []);
