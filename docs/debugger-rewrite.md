@@ -336,7 +336,7 @@ NULL dereferences crash with a message, and recordings have a size budget.
 **You'll know it's done when** the linked-list tests pass on wasm (16/16), and
 unit tests cover a NULL dereference and the size budget.
 
-**Done in #21.** The instrumenter wraps the C library's `malloc`, `calloc`,
+**Done in #22.** The instrumenter wraps the C library's `malloc`, `calloc`,
 `realloc` and `free`, found by name, and checks the address of every load,
 store, `memory.copy` and `memory.fill` against 1024, including the address's
 constant offset (clang reads globals as 0 plus an offset). The recorder walks
