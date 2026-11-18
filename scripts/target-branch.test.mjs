@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { targetBranch } from './target-branch.mjs';
+import { githubRepo, targetBranch } from './target-branch.mjs';
 
 const remotes = { origin: 'gyoumi/structs.sh', upstream: 'devsoc-unsw/structs.sh' };
 
@@ -32,5 +32,23 @@ describe('targetBranch', () => {
 
   it('falls back to dev when there is no PR yet', () => {
     assert.equal(targetBranch({ remotes }), 'origin/dev');
+  });
+});
+
+describe('githubRepo', () => {
+  it('reads owner/name from the URL forms git remotes use', () => {
+    const urls = [
+      'https://github.com/gyoumi/structs.sh.git',
+      'https://github.com/gyoumi/structs.sh',
+      'git@github.com:gyoumi/structs.sh.git',
+      'ssh://git@github.com/gyoumi/structs.sh.git',
+      'ssh://git@ssh.github.com:443/gyoumi/structs.sh.git',
+      'ssh://git@github.com:22/gyoumi/structs.sh',
+    ];
+    for (const url of urls) assert.equal(githubRepo(url), 'gyoumi/structs.sh', url);
+  });
+
+  it('ignores remotes that are not on GitHub', () => {
+    assert.equal(githubRepo('https://gitlab.com/gyoumi/structs.sh.git'), undefined);
   });
 });

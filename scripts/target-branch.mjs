@@ -22,12 +22,22 @@ export function targetBranch({ base, pr, remotes }) {
 const run = (cmd, args) =>
   execFileSync(cmd, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
 
+/**
+ * The GitHub repo ("owner/name") a remote URL points at: https, scp-style
+ * (git@github.com:owner/name) or ssh://, with or without a port, as with
+ * ssh.github.com:443.
+ */
+export function githubRepo(url) {
+  return url.match(/github\.com(?::\d+(?=\/))?[:/]([^/\s:]+\/[^/\s]+?)(?:\.git)?\/?$/)?.[1];
+}
+
 /** Each git remote's GitHub repo ("owner/name"), by remote name. */
 export function githubRemotes() {
   const remotes = {};
   for (const line of run('git', ['remote', '-v']).split('\n')) {
-    const match = line.match(/^(\S+)\s+\S*github\.com[:/]([^/\s]+\/[^/\s]+?)(\.git)?\s+\(fetch\)$/);
-    if (match) remotes[match[1]] = match[2];
+    const [name, url, kind] = line.split(/\s+/);
+    const repo = kind === '(fetch)' ? githubRepo(url ?? '') : undefined;
+    if (repo) remotes[name] = repo;
   }
   return remotes;
 }
