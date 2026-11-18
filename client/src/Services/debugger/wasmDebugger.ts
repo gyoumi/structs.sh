@@ -1,4 +1,4 @@
-import { BackendState } from '@/visualiser-debugger/Types/backendType';
+import { BackendState, BackendTypeDeclaration } from '@/visualiser-debugger/Types/backendType';
 import { Debugger, DebuggerEvents, SourceFile } from './types';
 import { Compiler, CompilerStatus } from './wasm/compiler';
 import { createWorkerCompiler } from './wasm/workerCompiler';
@@ -39,7 +39,13 @@ const describeFailure = (result: Exclude<RecordResult, { recording: Recording }>
   return `\nThe program could not be run: ${result.error}\n`;
 };
 
-/** The page's view of one step. Variables and the heap come in checkpoint 3. */
+/**
+ * The page's view of one step. The heap comes in 3b.
+ *
+ * stack_data is in the format the GDB debugger actually sends, `{ addr,
+ * typeName, value }`, which is what the page reads, though BackendState's
+ * types describe an older one.
+ */
 const stateAt = (file: SourceFile, step: Step): BackendState => ({
   frame_info: {
     file: file.name,
@@ -47,7 +53,7 @@ const stateAt = (file: SourceFile, step: Step): BackendState => ({
     line_num: step.line,
     function: step.function,
   },
-  stack_data: {},
+  stack_data: step.variables as unknown as BackendState['stack_data'],
   heap_data: {},
 });
 
@@ -143,6 +149,16 @@ export class WasmDebugger implements Debugger {
     if (output) this.events?.output(output);
 
     if (index < steps.length) {
+      if (index === 0) {
+        result.recording.types.forEach((type) =>
+          this.events?.typeDeclaration({
+            ...type,
+            file: session.file.name,
+            line_num: '',
+            original_line: '',
+          } as BackendTypeDeclaration)
+        );
+      }
       this.events?.state(stateAt(session.file, steps[index]));
       return true;
     }

@@ -21,22 +21,24 @@ const MAX_RANDOM_BYTES = 65_536;
 
 /**
  * What an instrumented program reports as it runs (see instrumenter/src/lib.rs):
- * entering one of the student's functions (an index into its
- * `structs.functions` section), starting a statement, and returning.
+ * entering one of the student's functions, starting a statement, and
+ * returning. `function` and `statement` index the program's `structs.debug`
+ * section, and `frameBase` is where the current call's variables are found.
  */
 export type TraceEvent =
   | { type: 'enter'; function: number }
-  | { type: 'line'; line: number }
+  | { type: 'line'; statement: number; frameBase: number }
   | { type: 'exit' };
 
 export type RunOptions = {
   /** Called with stdout and stderr text as the program writes it. */
   onOutput: (text: string) => void;
   /**
-   * Called as an instrumented program runs. It may throw to stop the program;
-   * runWasi then rejects with that error.
+   * Called as an instrumented program runs, with the program's memory to read
+   * its variables from. It may throw to stop the program; runWasi then
+   * rejects with that error.
    */
-  onTrace?: (event: TraceEvent) => void;
+  onTrace?: (event: TraceEvent, memory: () => DataView) => void;
 };
 
 /** Thrown by proc_exit to unwind out of the program. */
@@ -153,9 +155,10 @@ export const runWasi = async (
     });
 
   const structs = {
-    enter: (index: number) => onTrace?.({ type: 'enter', function: index }),
-    line: (line: number) => onTrace?.({ type: 'line', line }),
-    exit: () => onTrace?.({ type: 'exit' }),
+    enter: (index: number) => onTrace?.({ type: 'enter', function: index }, view),
+    line: (statement: number, frameBase: number) =>
+      onTrace?.({ type: 'line', statement, frameBase }, view),
+    exit: () => onTrace?.({ type: 'exit' }, view),
   };
 
   const instance = await WebAssembly.instantiate(module, {

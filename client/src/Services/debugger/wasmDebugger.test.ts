@@ -45,11 +45,12 @@ const HELLO_SOURCE = 'int main(void) {\n    puts("hi");\n    return 0;\n}\n';
 /** What recording HELLO_SOURCE gives. */
 const HELLO: Recording = {
   steps: [
-    { function: 'main', line: 2, depth: 0, output: 'hi\n' },
-    { function: 'main', line: 3, depth: 0, output: '' },
+    { function: 'main', line: 2, depth: 0, output: 'hi\n', variables: {} },
+    { function: 'main', line: 3, depth: 0, output: '', variables: {} },
   ],
   outputBeforeFirstStep: '',
   end: { exitCode: 0 },
+  types: [],
 };
 
 const recorderReturning =
@@ -166,6 +167,34 @@ describe('WasmDebugger', () => {
     expect(vi.mocked(events.output).mock.calls).toEqual([['hi\n']]);
     expect(vi.mocked(events.state).mock.lastCall?.[0].frame_info).toMatchObject({ line_num: 3 });
     expect(events.sessionEnded).not.toHaveBeenCalled();
+  });
+
+  it('sends each step’s variables, and the struct types before the first step', async () => {
+    const node = {
+      typeName: 'struct node',
+      fields: [
+        { name: 'value', typeName: 'int' },
+        { name: 'next', typeName: 'struct node *' },
+      ],
+    };
+    const list = { addr: '0x10ff8', typeName: 'struct node *', value: '0x0' };
+    const recording: Recording = {
+      ...HELLO,
+      steps: [{ ...HELLO.steps[0], variables: { list } }],
+      types: [node],
+    };
+    const wasm = new WasmDebugger(compilerReturning(COMPILED), recorderReturning(recording));
+    wasm.setEvents(events);
+    wasm.start({ name: 'list.c', code: HELLO_SOURCE });
+    await flush();
+
+    await wasm.step();
+
+    expect(events.typeDeclaration).toHaveBeenCalledExactlyOnceWith(expect.objectContaining(node));
+    expect(vi.mocked(events.state).mock.lastCall?.[0].stack_data).toEqual({ list });
+    expect(vi.mocked(events.typeDeclaration).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(events.state).mock.invocationCallOrder[0]
+    );
   });
 
   it('ends the session after the last step, saying how the program ended', async () => {

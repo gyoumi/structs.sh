@@ -31,11 +31,12 @@ describe('answerRunRequest', () => {
           type: 'recorded',
           recording: {
             steps: [
-              { function: 'main', line: 3, depth: 0, output: 'one\n' },
-              { function: 'main', line: 4, depth: 0, output: '' },
+              { function: 'main', line: 3, depth: 0, output: 'one\n', variables: {} },
+              { function: 'main', line: 4, depth: 0, output: '', variables: {} },
             ],
             outputBeforeFirstStep: '',
             end: { exitCode: 4 },
+            types: [],
           },
         },
       ]);

@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { compileAndInstrument } from './instrumenter';
-import { recordRun, Recording } from './recording';
+import { recordRun, Recording, Variable } from './recording';
+import gdb from './fixtures/gdb-variables.json';
 
 // Needs the instrumenter built first: `pnpm run instrumenter` from the repo root.
 
@@ -9,6 +10,13 @@ const CLANG_TIMEOUT = 60_000;
 
 const program = (name: string) =>
   readFileSync(new URL(`../../../../../e2e/programs/${name}`, import.meta.url), 'utf8');
+
+const fixture = (name: string) =>
+  readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8');
+
+/** The variables' names and types, in the order the page lists them. */
+const declarations = (variables: Record<string, Pick<Variable, 'typeName'> | undefined>) =>
+  Object.entries(variables).map(([name, variable]) => `${variable?.typeName} ${name}`);
 
 const record = async (
   name: string,
@@ -173,6 +181,24 @@ describe('recordRun', () => {
         'fact:6@1',
         'main:9@0',
       ]);
+      // Each call reads its own n, from its own frame.
+      expect(
+        recording.steps
+          .filter((step) => step.function === 'fact')
+          .map((step) => `${step.line}@${step.depth} n=${step.variables.n.value}`)
+      ).toEqual([
+        '2@1 n=3',
+        '5@1 n=3',
+        '2@2 n=2',
+        '5@2 n=2',
+        '2@3 n=1',
+        '3@3 n=1',
+        '6@3 n=1',
+        '5@2 n=2',
+        '6@2 n=2',
+        '5@1 n=3',
+        '6@1 n=3',
+      ]);
     },
     CLANG_TIMEOUT
   );
@@ -251,4 +277,230 @@ describe('recordRun', () => {
     },
     CLANG_TIMEOUT
   );
+
+  describe('variables', () => {
+    it(
+      'lists the variables in scope at each step, named and typed as GDB names them',
+      async () => {
+        const recording = await record('variables.c', fixture('variables.c'));
+
+        // GDB skips main's first line, so its first state is the second step.
+        const steps = recording.steps.slice(1, 1 + gdb.states.length);
+        expect(steps.map((step) => `${step.function}:${step.line}`)).toEqual(
+          gdb.states.map(({ frame_info: frame }) => `${frame.function}:${frame.line_num}`)
+        );
+        steps.forEach((step, index) => {
+          expect(declarations(step.variables), `${step.function}:${step.line}`).toEqual(
+            declarations(gdb.states[index].stack_data)
+          );
+        });
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'reads each variable’s value from memory as GDB shows it',
+      async () => {
+        const recording = await record('variables.c', fixture('variables.c'));
+        const atLine23 = recording.steps.find((step) => step.line === 23)!.variables;
+        const fromGdb = gdb.states.find((state) => state.frame_info.line_num === 23)!.stack_data;
+
+        // Pointers and addresses differ between machines, so check those apart.
+        (['nums', 'c', 'd', 'f'] as const).forEach((name) => {
+          expect(atLine23[name].value, name).toEqual(fromGdb[name]!.value);
+        });
+        expect(atLine23.n.value).toEqual({ value: 7, next: '0x0' });
+        expect(atLine23.p.value).toBe(atLine23.n.addr);
+        expect(atLine23.s.value).toMatch(/^0x[0-9a-f]+$/);
+        expect(atLine23.s.value).not.toBe('0x0');
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'shows a variable’s new value on the step after it is assigned',
+      async () => {
+        const recording = await record('functions.c', program('functions.c'));
+        const valuesOf = (name: string) =>
+          recording.steps
+            .filter((step) => name in step.variables)
+            .map((step) => `${step.function}:${step.line} ${name}=${step.variables[name].value}`);
+
+        // int a = 4; then int b = square(a);
+        expect(valuesOf('a')).toEqual(['main:7 a=0', 'main:8 a=4', 'main:8 a=4', 'main:9 a=4']);
+        expect(valuesOf('b')).toEqual(['main:7 b=0', 'main:8 b=0', 'main:8 b=0', 'main:9 b=16']);
+        expect(valuesOf('result')).toEqual(['square:2 result=0', 'square:3 result=16']);
+        // A parameter has its value from the call's first step.
+        expect(valuesOf('x')).toEqual(['square:2 x=4', 'square:3 x=4']);
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'shows char arrays as strings and long arrays cut short, as GDB does',
+      async () => {
+        const source = [
+          'int main(void) {', // 1
+          '    char text[] = "hi";', // 2
+          '    char buf[8] = "ab";', // 3
+          '    int big[300];', // 4
+          '    for (int i = 0; i < 300; i++) big[i] = i;', // 5
+          '    char odd[] = "\\a\\b\\t\\"\\001";', // 6
+          '    return text[0] + buf[0] + big[299] + odd[0];', // 7
+          '}', // 8
+        ].join('\n');
+
+        const recording = await record('arrays.c', source);
+        const { text, buf, big, odd } = recording.steps.find((step) => step.line === 7)!.variables;
+
+        // GDB sends "hi" with its quotes, and the first 200 elements of an
+        // array (its default `print elements`). For buf it sends the unused
+        // bytes as escapes; showing the string up to its end is clearer.
+        expect(text.value).toBe('"hi"');
+        expect(buf.value).toBe('"ab"');
+        expect(big.value).toEqual(Array.from({ length: 200 }, (_, i) => i));
+        // Escaped as GDB escapes them.
+        expect(odd.value).toBe('"\\a\\b\\t\\"\\001"');
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'shows a variable whatever its name',
+      async () => {
+        const source = 'int main(void) {\n    int constructor = 1;\n    return constructor;\n}\n';
+
+        const recording = await record('names.c', source);
+
+        expect(Object.entries(recording.steps[1].variables)).toEqual([
+          ['constructor', expect.objectContaining({ typeName: 'int', value: 1 })],
+        ]);
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'reads negative enums, bit-fields and arrays of a typedef’d struct',
+      async () => {
+        const source = [
+          'typedef struct node Node;', // 1
+          'typedef Node Alias; struct node { int value; Alias *next; };', // 2
+          'enum status { FAILED = -1, OK = 1 };', // 3
+          'struct flags { unsigned a : 1; unsigned b : 1; int c : 3; };', // 4
+          'int main(void) {', // 5
+          '    Node first = {1, 0};', // 6
+          '    Alias nodes[2] = {{2, 0}, {3, 0}};', // 7
+          '    enum status status = FAILED;', // 8
+          '    struct flags flags = {1, 1, -2};', // 9
+          '    return 0;', // 10
+          '}', // 11
+        ].join('\n');
+
+        const recording = await record('types.c', source);
+        const { nodes, status, flags } = recording.steps.find((s) => s.line === 10)!.variables;
+
+        expect(nodes.value).toEqual([
+          { value: 2, next: '0x0' },
+          { value: 3, next: '0x0' },
+        ]);
+        expect(status.value).toBe(-1);
+        expect(flags.value).toEqual({ a: 1, b: 1, c: -2 });
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'names pointers, arrays and functions in any combination as GDB does',
+      async () => {
+        const source = [
+          'int twice(int x) { return 2 * x; }', // 1
+          'int sum(int n, ...) { return n; }', // 2
+          'int main(void) {', // 3
+          '    int a[3] = {0};', // 4
+          '    int (*p)[3] = &a;', // 5
+          '    int (*rows[2])[3] = {&a, &a};', // 6
+          '    int (*callbacks[2])(int) = {twice, twice};', // 7
+          '    int (*variadic)(int, ...) = sum;', // 8
+          '    char *words[2] = {0};', // 9
+          '    int grid[2][3] = {{0}};', // 10
+          '    int (**pp)[3] = &p;', // 11
+          '    int (* const callback)(int) = twice;', // 12
+          '    char * const fixed = 0;', // 13
+          '    const char *text = 0;', // 14
+          '    int (* const pa)[3] = &a;', // 15
+          '    char * const volatile both = 0;', // 16
+          '    const char * const *cp = 0;', // 17
+          '    int * restrict r = 0;', // 18
+          '    return 0;', // 19
+          '}', // 20
+        ].join('\n');
+
+        const recording = await record('names.c', source);
+        const typeNames = Object.fromEntries(
+          Object.entries(recording.steps.at(-1)!.variables).map(([name, v]) => [name, v.typeName])
+        );
+
+        expect(typeNames).toEqual({
+          a: 'int [3]',
+          p: 'int (*)[3]',
+          rows: 'int (*[2])[3]',
+          callbacks: 'int (*[2])(int)',
+          variadic: 'int (*)(int, ...)',
+          words: 'char *[2]',
+          grid: 'int [2][3]',
+          pp: 'int (**)[3]',
+          callback: 'int (* const)(int)',
+          fixed: 'char * const',
+          text: 'const char *',
+          pa: 'int (* const)[3]',
+          both: 'char * const volatile',
+          cp: 'const char * const *',
+          r: 'int * restrict',
+        });
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'shows the fields of an anonymous union, and nothing for a number it can’t read',
+      async () => {
+        const source = [
+          'struct shape { int kind; union { int side; float radius; }; };', // 1
+          'int main(void) {', // 2
+          '    struct shape square = {1, {4}};', // 3
+          '    long double big = 1.0L;', // 4
+          '    enum __attribute__((packed)) charset { A = 65, B } letters[2] = {A, B};', // 5
+          '    double _Complex z = 1.0;', // 6
+          '    double after = 2.5;', // 7
+          '    return 0;', // 8
+          '}', // 9
+        ].join('\n');
+
+        const recording = await record('shape.c', source);
+        const { square, big, letters, z, after } = recording.steps.at(-1)!.variables;
+
+        expect(square.value).toEqual({ kind: 1, side: 4, radius: expect.any(Number) });
+        expect(big.value).toBeNull();
+        // An enum isn't a char, whatever it's called.
+        expect(letters.value).toEqual([65, 66]);
+        expect(z.value).toBeNull();
+        expect(after.value).toBe(2.5);
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'lists the struct types the variables use, with their fields',
+      async () => {
+        const recording = await record('variables.c', fixture('variables.c'));
+
+        expect(recording.types).toEqual(
+          expect.arrayContaining(
+            gdb.typeDeclarations.filter(({ typeName }) => !typeName.endsWith(']'))
+          )
+        );
+      },
+      CLANG_TIMEOUT
+    );
+  });
 });
