@@ -29,13 +29,14 @@ test.describe('playback', () => {
     await expect.poll(() => visualiser.values()).toEqual([10, 20, 30, 40]);
   });
 
-  test('pause stops the animation and play resumes it', async ({ visualiser, page }) => {
+  test('pause stops the animation and play resumes it', async ({ visualiser }) => {
     await visualiser.run('append', 40);
     await visualiser.pause();
     const paused = await visualiser.progress();
-    await page.waitForTimeout(1_000);
-    expect(await visualiser.progress()).toBe(paused);
     expect(paused).toBeLessThan(100);
+    await expect(
+      expect.poll(() => visualiser.progress(), { timeout: 1_000 }).not.toBe(paused)
+    ).rejects.toThrow();
 
     await visualiser.play();
     await expect.poll(() => visualiser.progress(), { timeout: 30_000 }).toBe(100);
@@ -90,27 +91,29 @@ test.describe('playback', () => {
     expect(await visualiser.speeds()).toEqual([0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2]);
   });
 
-  test('a speed can be chosen', async ({ visualiser, page }) => {
-    const progressInASecond = async (): Promise<number> => {
+  test('a speed can be chosen', async ({ visualiser }) => {
+    const msToAdvance = async (percent: number): Promise<number> => {
       // The timeline can show the last run's end until the new run's first frame.
       await expect.poll(() => visualiser.progress()).toBeLessThan(100);
-      const start = await visualiser.progress();
-      await page.waitForTimeout(1_000);
-      return (await visualiser.progress()) - start;
+      const from = await visualiser.progress();
+      const start = Date.now();
+      await expect
+        .poll(() => visualiser.progress(), { intervals: [100], timeout: 60_000 })
+        .toBeGreaterThanOrEqual(from + percent);
+      return Date.now() - start;
     };
 
     await visualiser.setSpeed(2);
     expect(await visualiser.speed()).toBe(2);
     await visualiser.run('append', 40);
-    const fast = await progressInASecond();
+    const fast = await msToAdvance(20);
     await visualiser.skipToEnd();
 
     await visualiser.setSpeed(0.25);
     expect(await visualiser.speed()).toBe(0.25);
     await visualiser.run('append', 50);
-    const slow = await progressInASecond();
+    const slow = await msToAdvance(20);
 
-    expect(slow).toBeGreaterThan(0);
-    expect(fast).toBeGreaterThan(slow * 3);
+    expect(slow).toBeGreaterThan(fast * 3);
   });
 });
