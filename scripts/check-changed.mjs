@@ -38,7 +38,8 @@ const under = (prefix) => changed.filter((p) => p.startsWith(prefix));
 const client = under('client/');
 const e2e = under('e2e/');
 const debuggerFiles = under('debugger/');
-const instrumenter = under('instrumenter/');
+// The pinned Rust toolchain builds and checks the instrumenter too.
+const instrumenter = changed.filter((p) => p.startsWith('instrumenter/') || p === 'rust-toolchain.toml');
 const scripts = under('scripts/');
 const lintable = (files, prefix) => present(files).filter((p) => /\.(ts|tsx)$/.test(p)).map((p) => p.slice(prefix.length));
 

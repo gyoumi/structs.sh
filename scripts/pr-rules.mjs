@@ -54,7 +54,7 @@ const TEST_FILE =
   /^(e2e\/tests\/.*\.(spec|test)\.[cm]?[jt]sx?|debugger\/src\/debugger\/test\/(.*\/)?(test_[^/]*|[^/]*_test)\.py|instrumenter\/tests\/[^/]+\.rs|client\/src\/.*\.test\.tsx?|scripts\/[^/]+\.test\.mjs)$/;
 // Changes that count as test coverage for a debugger change.
 const TEST_CHANGE = /^(e2e\/tests\/|e2e\/programs\/|e2e\/known-failures\/[^/]+\.json$|debugger\/src\/debugger\/test\/)/;
-const SHRINK_CHECKED = /^(client\/src|debugger\/src|e2e|instrumenter\/src|instrumenter\/tests)\//;
+const SHRINK_CHECKED = /^((client\/src|debugger\/src|e2e|instrumenter\/src|instrumenter\/tests)\/|scripts\/[^/]+\.test\.mjs$)/;
 
 const basename = (path) => path.slice(path.lastIndexOf('/') + 1);
 

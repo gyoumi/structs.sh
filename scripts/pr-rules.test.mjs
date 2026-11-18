@@ -199,6 +199,11 @@ describe('large-removal', () => {
     assert.deepEqual(rulesHit(checkPr(pr({ files }))), ['large-removal']);
   });
 
+  it('rejects a test of these rules cut to a fraction of its size', () => {
+    const files = [{ status: 'M', path: 'scripts/pr-rules.test.mjs', oldLines: 300, newLines: 20 }];
+    assert.deepEqual(rulesHit(checkPr(pr({ files }))), ['large-removal']);
+  });
+
   it('does not count a deleted test fixture as a test', () => {
     const files = [{ status: 'D', path: 'debugger/src/debugger/test/test_circular.c' }];
     assert.deepEqual(checkPr(pr({ files })), []);
