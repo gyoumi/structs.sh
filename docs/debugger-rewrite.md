@@ -382,3 +382,11 @@ Found while building checkpoint 1, and not needed for it:
   them look uninitialised, as they do on real hardware.
 - **Pointers are 4 bytes** on wasm and 8 on the machines students use, so
   `sizeof(int *)` and addresses look different.
+- **A NULL dereference of a far field** isn't caught: the check tests the
+  address plus the field's offset against 1024, so `p->value` with
+  `p == NULL` gets through when `value` is 1024 or more bytes into its
+  struct. clang reads globals as address 0 plus an offset, so the base alone
+  can't be checked.
+- **Replays with `time()` or `rand()`** seeded from the clock can run
+  differently each time typed input re-records the program, so stepping
+  may not carry on from quite the same place.
