@@ -26,6 +26,7 @@ const PROTECTED = [
   /^\.coderabbit\.yaml$/,
   /^e2e\/known-failures\/[^/]+\.json$/,
   /^e2e\/playwright\.config\.ts$/,
+  /^client\/vitest\.config\.ts$/,
   /^debugger\/pyproject\.toml$/, // ruff and mypy settings
   /^debugger\/nsjail_gdb\.cfg$/,
   /^debugger\/Dockerfile\.prod$/,
@@ -34,6 +35,10 @@ const PROTECTED = [
 // CI runs the commands in these manifests' "scripts", so editing those (to
 // `true`, say) would switch a check off. Dependency bumps stay unprotected.
 const MANIFEST = /^(client\/)?package\.json$/;
+// Cargo.toml settings that stop cargo running the instrumenter's tests.
+// Other lines, such as dependency bumps, stay unprotected.
+const CARGO_MANIFEST = /^instrumenter\/Cargo\.toml$/;
+const CARGO_TEST_SETTING = /^\s*(autotests|autobenches|test|harness|doctest)\s*=/;
 
 const OTHER_LOCKFILES = new Set(['package-lock.json', 'npm-shrinkwrap.json', 'yarn.lock', 'bun.lock', 'bun.lockb']);
 const IMAGE_FOLDERS = [/^client\/public\//, /^client\/src\//, /^docs\/docs\/images\//];
@@ -127,8 +132,9 @@ export function checkPr({ files, tracked, addedLines, labels }) {
     const manifestScripts = files
       .filter((f) => (MANIFEST.test(f.path) || MANIFEST.test(f.oldPath ?? '')) && (f.status !== 'M' || f.scriptsChanged))
       .flatMap((f) => (f.oldPath ? [f.path, f.oldPath] : [f.path]));
+    const cargoTestSettings = addedLines.filter((l) => CARGO_MANIFEST.test(l.path) && CARGO_TEST_SETTING.test(l.text)).map((l) => l.path);
     for (const path of new Set(paths)) {
-      if (PROTECTED.some((re) => re.test(path)) || manifestScripts.includes(path)) {
+      if (PROTECTED.some((re) => re.test(path)) || manifestScripts.includes(path) || cargoTestSettings.includes(path)) {
         add('protected-paths', path, `Changes to CI, lint config, the package.json scripts CI runs, agent config, known failures or the sandbox need a person to add the "${LABELS.humanApproved}" label.`);
       }
     }

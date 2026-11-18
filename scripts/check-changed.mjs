@@ -9,7 +9,7 @@
 // client build and the e2e suite. This is the quick local pass.
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
@@ -89,14 +89,19 @@ if (debuggerFiles.length) {
   } else skipped.push('debugger: ruff and mypy (uv is not installed)');
 }
 if (instrumenter.length) {
-  // The client's tests load the instrumenter's .wasm, so rebuild it with
-  // `pnpm run instrumenter` before running them after a change here.
   if (onPath('cargo')) {
     const cwd = join(root, 'instrumenter');
     add('instrumenter: fmt', 'cargo', ['fmt', '--check'], cwd);
     add('instrumenter: clippy', 'cargo', ['clippy', '--all-targets', '--', '-D', 'warnings'], cwd);
     add('instrumenter: tests', 'cargo', ['test'], cwd);
-  } else skipped.push('instrumenter: fmt, clippy and tests (cargo is not installed)');
+    // The client's unit tests load the built instrumenter, so rebuild it
+    // first with the root package.json's "instrumenter" script.
+    const { scripts: rootScripts } = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+    add('instrumenter: build', 'sh', ['-c', rootScripts.instrumenter]);
+  } else skipped.push('instrumenter: fmt, clippy, tests and build (cargo is not installed)');
+}
+if (checkClient || instrumenter.length) {
+  add('client: unit tests', bin('client', 'vitest'), ['run'], join(root, 'client'));
 }
 if (prose.length) {
   if (onPath('vale')) add('docs: vale', 'vale', prose);

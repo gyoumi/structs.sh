@@ -222,6 +222,19 @@ describe('protected-paths', () => {
     assert.equal(result.filter((f) => f.rule === 'protected-paths').length, 4);
   });
 
+  it('protects the Vitest config, which picks the unit tests that run', () => {
+    const files = [{ status: 'M', path: 'client/vitest.config.ts' }];
+    assert.deepEqual(rulesHit(checkPr(pr({ files }))), ['protected-paths']);
+  });
+
+  it('protects Cargo.toml settings that turn the instrumenter tests off, not dependency bumps', () => {
+    const files = [{ status: 'M', path: 'instrumenter/Cargo.toml' }];
+    const turnedOff = [{ path: 'instrumenter/Cargo.toml', line: 5, text: 'autotests = false' }];
+    const bumped = [{ path: 'instrumenter/Cargo.toml', line: 9, text: 'walrus = "0.24"' }];
+    assert.deepEqual(rulesHit(checkPr(pr({ files, addedLines: turnedOff }))), ['protected-paths']);
+    assert.deepEqual(checkPr(pr({ files, addedLines: bumped })), []);
+  });
+
   it('accepts them once a person adds the human-approved label', () => {
     const files = [{ status: 'M', path: '.github/workflows/e2e.yml' }];
     assert.deepEqual(checkPr(pr({ files, labels: new Set(['human-approved']) })), []);

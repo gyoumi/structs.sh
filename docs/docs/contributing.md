@@ -29,8 +29,9 @@ pnpm check:changed
 
 It compares your branch with the branch it will merge into (its open PR's
 base, or `origin/dev` before there's a PR; pass `-- --base <branch>` to
-choose) and runs type checks, lint, the e2e
-lint rules, knip, ruff and mypy for the areas you touched. CI runs these plus
+choose) and runs type checks, lint, the client's unit tests, the e2e
+lint rules, knip, ruff and mypy, and the instrumenter's cargo checks, for
+the areas you touched. CI runs these plus
 the client build and the e2e suite.
 
 CI also checks every PR for a few things a reviewer would otherwise have to
