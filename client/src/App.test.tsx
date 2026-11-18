@@ -164,6 +164,12 @@ describe('visualiser', () => {
     );
   });
 
+  test('a topic with capitals in an old link still opens', async () => {
+    await renderVisualiser('/visualiser/Linked-Lists/102030');
+    expect(screen.queryByText('Landing')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Copy link' })).toBeTruthy();
+  });
+
   test('an unknown structure goes back to the landing page', async () => {
     await renderVisualiser('/visualiser/graphs');
     expect(screen.getByText('Landing')).toBeTruthy();

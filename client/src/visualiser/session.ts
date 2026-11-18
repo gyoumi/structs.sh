@@ -24,7 +24,7 @@ export interface VisualiserSnapshot {
   lastRun: LastRun | null;
   speed: number;
   layoutVersion: number;
-  /** How many values the drawing holds. During a run it stays at the count from before the run. */
+  /** How many values the structure holds, including a run that is still playing. */
   size: number;
 }
 
@@ -130,7 +130,7 @@ export class VisualiserSession {
       duration: this.controller.duration,
       code: this.controller.code ? this.controller.code.split('\n') : [],
       layoutVersion: noTimeline ? this.snapshot.layoutVersion + 1 : this.snapshot.layoutVersion,
-      size: this.controller.duration > 0 ? this.snapshot.size : this.controller.data.length,
+      size: this.controller.data.length,
     });
     this.wake();
     return '';
@@ -251,8 +251,7 @@ export class VisualiserSession {
     const progress = duration > 0 ? Math.min(100, (time / duration) * 100) : 0;
     const step = snapshot.stepTimes.filter((t) => t <= time + 1).length;
     const line = duration > 0 ? controller.currentLine : null;
-    // The engine changes the data as soon as a run starts, but the drawing only catches up at the end.
-    const size = complete ? controller.data.length : snapshot.size;
+    const size = controller.data.length;
 
     const changed =
       playing !== snapshot.playing ||
