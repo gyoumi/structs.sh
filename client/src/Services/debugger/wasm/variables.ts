@@ -331,8 +331,13 @@ export const readHeap = (
   // call stack.
   const pending: [number, number][] = [];
   const visited = new Set<string>();
-  /** Tables of pointers already walked, so each is walked once. */
-  const tables = new Set<string>();
+  /**
+   * How far down each table of pointers has been walked: the lowest slot
+   * scanned, by table, pointer type and alignment. Every slot from there to
+   * the table's end has been seen, so pointers into the same table only
+   * scan what's new.
+   */
+  const tables = new Map<string, number>();
   const visit = (index: number, address: number) => {
     const key = `${index}@${address}`;
     if (visited.has(key)) return;
@@ -351,10 +356,12 @@ export const readHeap = (
         // A table of pointers, such as a hash table's buckets: every one in
         // its allocation that points somewhere.
         const allocation = allocationOf(target);
-        const table = `${type.to}@${target}`;
-        if (allocation === null || tables.has(table)) return;
-        tables.add(table);
-        for (let at = target; at + pointee.size <= allocation.start + allocation.size; at += 4) {
+        if (allocation === null) return;
+        const table = `${type.to}@${allocation.start}@${target % 4}`;
+        const scannedFrom = tables.get(table) ?? allocation.start + allocation.size;
+        if (target >= scannedFrom) return;
+        tables.set(table, target);
+        for (let at = target; at + pointee.size <= scannedFrom; at += 4) {
           tick();
           if (memory.getUint32(at, true) >= 1024) visit(type.to, at);
         }
@@ -383,7 +390,13 @@ export const readHeap = (
         .forEach((field) => visit(field.type, address + field.offset));
     } else if (type.kind === 'array' && leadsSomewhere(type.of)) {
       const { size } = types[type.of];
-      for (let i = 0; i < type.count; i += 1) visit(type.of, address + i * size);
+      const pointers = types[resolveIndex(types, type.of)].kind === 'pointer';
+      for (let i = 0; i < type.count; i += 1) {
+        tick();
+        const at = address + i * size;
+        // A NULL pointer leads nowhere, so isn't queued.
+        if (!pointers || memory.getUint32(at, true) >= 1024) visit(type.of, at);
+      }
     }
   };
 
