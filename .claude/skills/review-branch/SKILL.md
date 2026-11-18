@@ -45,15 +45,15 @@ For a wide diff, you may hand separate areas (for example `client/` and `debugge
 | 3 | Redundancy | No duplicated logic, and no dead code or parameters the tools miss. |
 | 4 | Structure | Logic sits in the right place: React components in `client/src/components` or the visualiser folders, animation logic in `visualiser-src/*/animation-producer`. |
 | 5 | Consistency | Naming, imports, and error handling match the surrounding code and the rest of the branch. Flag two files that solve the same concern in different ways. |
-| 6 | Tests | The new or changed test would fail without the change, and checks what a student sees. |
-| 7 | Hardcoded values | No magic numbers that belong in a `constants.ts`, no secrets. |
+| 6 | Tests | The new or changed test would fail without the change, and checks what a student sees. User-visible debugger behaviour changes have an e2e test, or an entry in `e2e/known-failures.json` with a reason. CI accepts a pytest alone, so this part is on the reviewer. |
+| 7 | Hardcoded values | No new hardcoded colours outside the theme or palette (the lint rule only warns for now), no magic numbers that belong in a `constants.ts`, no secrets. |
 | 8 | Security | Nothing user-controlled reaches a shell, gdb MI command, or nsjail config without escaping. See the path notes in `.coderabbit.yaml`. |
 | 9 | Docs | READMEs, `docs/`, and `e2e/README.md` still describe the code. Outdated docs are a finding. |
 | 10 | Scope | Every change relates to the branch's purpose. Flag drive-by edits. |
 
 Correctness, removal safety, and security findings are blockers. Style nits are warnings.
 
-CI already fails a PR for these, so don't spend review time on them: unused imports and variables (ESLint), dead files (knip), page internals or sleeps in e2e tests (e2e lint), debugger changes with no test change, deleted or gutted test files, `[DEBUG-` lines, forbidden files, and hex colours outside the theme files (lint warning). See `scripts/pr-rules.mjs`.
+CI already fails a PR for these, so don't spend review time on them: unused imports and variables (ESLint), dead files (knip), page internals or sleeps in e2e tests (e2e lint), debugger changes with no test change, deleted or gutted test files, `[DEBUG-` lines, and forbidden files. See `scripts/pr-rules.mjs`.
 
 ## 4. Run the checks
 
@@ -63,7 +63,7 @@ Only after the static review has no blockers. From the repo root:
 pnpm check:changed
 ```
 
-It runs the fast checks for the areas the branch touched. When client or debugger behaviour changed, also run the e2e suite: `docker compose up -d debugger`, then `pnpm run e2e`. CI also runs the client build.
+It runs the fast checks for the areas the branch touched. When the branch changes `client/`, `debugger/` or `e2e/`, also run the e2e suite, since `check:changed` only type-checks and lints e2e: `docker compose up -d debugger`, then `pnpm run e2e`. CI also runs the client build.
 
 UI changes also need screenshots of the affected screens; see `ui-visual-test`.
 

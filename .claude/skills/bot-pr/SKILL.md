@@ -48,11 +48,11 @@ Actions are pinned to full commit SHAs with a version comment. A bump must keep 
 
 ## 4. Verify locally
 
-Run `pnpm check:changed` from the repo root, plus the checks for what the bump touches:
+Run `pnpm install` at the repo root first, so the checks use the bumped dependencies. Then run `pnpm check:changed`, plus the checks for what the bump touches:
 
 | Bump | Check |
 |---|---|
-| Vite or a Vite plugin | `pnpm install && cd client && pnpm run build`, then load `http://localhost:3000` |
+| Vite or a Vite plugin | `cd client && pnpm run build`, then load `http://localhost:3000` |
 | GitHub Action or Dockerfile base image | Read the action's release notes for breaking input changes; `docker compose build debugger` for Dockerfile bumps |
 | Anything the e2e suite depends on | `docker compose up -d debugger && pnpm run e2e` |
 
