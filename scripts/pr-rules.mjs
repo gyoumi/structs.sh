@@ -16,7 +16,7 @@ const PROTECTED = [
   /^\.github\//,
   /^\.claude\//,
   /^skills-lock\.json$/,
-  /^scripts\/(pr-rules|check-pr|check-known-failures|check-changed)\.mjs$/,
+  /^scripts\/(pr-rules|check-pr|check-known-failures|check-changed|target-branch)\.mjs$/,
   /^(client\/)?eslint\.config\.mjs$/,
   /^commitlint\.config\.js$/,
   /^knip\.jsonc$/,

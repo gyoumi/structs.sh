@@ -1,23 +1,28 @@
 #!/usr/bin/env node
 // Fast checks for what this branch changed, before you push.
 //
-//   pnpm check:changed
+//   pnpm check:changed [--base <branch>]
 //
-// Compares your branch and uncommitted work with origin/dev and runs only the
-// checks for the areas you touched. CI still runs everything, including the
+// Compares your branch and uncommitted work with the branch it will merge
+// into (--base, else its open PR's base branch, else origin/dev) and runs
+// only the checks for the areas you touched. CI still runs everything, including the
 // client build and the e2e suite. This is the quick local pass.
 
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parseArgs } from 'node:util';
+import { openPrBase, targetBranch } from './target-branch.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const bin = (dir, name) => join(root, dir, 'node_modules', '.bin', name);
 const git = (...a) => execFileSync('git', a, { cwd: root, encoding: 'utf8' });
 const onPath = (cmd) => spawnSync('sh', ['-c', `command -v ${cmd}`]).status === 0;
 
-const base = git('merge-base', 'HEAD', 'origin/dev').trim();
+const { values: args } = parseArgs({ options: { base: { type: 'string' } } });
+const target = targetBranch({ base: args.base, prBase: args.base ? undefined : openPrBase() });
+const base = git('merge-base', 'HEAD', target).trim();
 // Deleted files still decide which areas to check (a deletion can break
 // imports elsewhere), but only files that still exist are passed to linters.
 // -z gives raw paths; git would otherwise quote names like client/src/é.ts.
@@ -54,7 +59,7 @@ const checks = [];
 const add = (name, cmd, args, cwd = root) => checks.push({ name, cmd, args, cwd });
 const skipped = [];
 
-add('PR rules', process.execPath, [join(root, 'scripts/check-pr.mjs'), '--local']);
+add('PR rules', process.execPath, [join(root, 'scripts/check-pr.mjs'), '--local', '--base', base]);
 if (scripts.length) {
   const tests = readdirSync(join(root, 'scripts')).filter((f) => f.endsWith('.test.mjs'));
   add('script tests', process.execPath, ['--test', ...tests.map((f) => join(root, 'scripts', f))]);
@@ -98,7 +103,7 @@ if (prose.length) {
   else skipped.push('docs: vale (vale is not installed; brew install vale)');
 }
 
-console.log(`${changed.length} changed files since ${base.slice(0, 8)} (origin/dev)\n`);
+console.log(`${changed.length} changed files since ${base.slice(0, 8)} (${target})\n`);
 const failed = [];
 for (const { name, cmd, args, cwd } of checks) {
   if (cmd.includes('node_modules') && !existsSync(cmd)) {

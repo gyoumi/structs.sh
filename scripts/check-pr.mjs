@@ -2,7 +2,8 @@
 // Runs the PR rules in scripts/pr-rules.mjs against a git diff.
 //
 //   node scripts/check-pr.mjs --base <sha> --head <sha>   # CI (.github/workflows/pr-rules.yml)
-//   node scripts/check-pr.mjs --local                      # your branch plus uncommitted work, vs origin/dev
+//   node scripts/check-pr.mjs --local [--target <branch>]  # your branch plus uncommitted work, vs its PR's base
+//                                                          # branch (or --target, or origin/dev)
 //
 // It only reads the two commits with git and never runs code from them, so CI
 // can run the base branch's copy of this script against an untrusted PR.
@@ -14,6 +15,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { checkPr } from './pr-rules.mjs';
+import { openPrBase, targetBranch } from './target-branch.mjs';
 
 const WAIVABLE = new Set(['protected-paths', 'debugger-needs-test', 'large-removal']);
 
@@ -22,6 +24,7 @@ const { values: args } = parseArgs({
     base: { type: 'string' },
     head: { type: 'string' },
     local: { type: 'boolean', default: false },
+    target: { type: 'string' },
   },
 });
 
@@ -29,7 +32,7 @@ const git = (...a) => execFileSync('git', a, { encoding: 'utf8', maxBuffer: 64 *
 const lines = (text) => text.split('\n').filter(Boolean);
 const countLines = (text) => (text === '' ? 0 : text.split('\n').length - (text.endsWith('\n') ? 1 : 0));
 
-const base = args.base ?? git('merge-base', 'HEAD', 'origin/dev').trim();
+const base = args.base ?? git('merge-base', 'HEAD', targetBranch({ base: args.target, prBase: openPrBase() })).trim();
 const head = args.local ? undefined : (args.head ?? 'HEAD');
 const range = head ? [base, head] : [base];
 
