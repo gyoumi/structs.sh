@@ -208,6 +208,119 @@ describe('WasmDebugger', () => {
     );
   });
 
+  describe('input', () => {
+    const PROMPT_STEP = { ...HELLO.steps[1], output: 'Number: ' };
+    /** Waits after printing a prompt, until input arrives. */
+    const WAITING: Recording = {
+      ...HELLO,
+      steps: [HELLO.steps[0], PROMPT_STEP],
+      end: { waitingForInput: true },
+    };
+    const FINISHED: Recording = {
+      ...HELLO,
+      steps: [HELLO.steps[0], PROMPT_STEP, { ...HELLO.steps[1], line: 4 }],
+    };
+
+    /** A recorder that finishes once it's given input, and notes what it was given. */
+    const inputRecorder = () => {
+      const inputs: { text: string; eof: boolean }[] = [];
+      const recorder: Recorder = async (_wasm, { input }) => {
+        inputs.push(input);
+        return { recording: input.text || input.eof ? FINISHED : WAITING };
+      };
+      return { recorder, inputs };
+    };
+
+    it('stays in the session while the program waits, and carries on once input is typed', async () => {
+      const { recorder, inputs } = inputRecorder();
+      const wasm = new WasmDebugger(compilerReturning(COMPILED), recorder);
+      wasm.setEvents(events);
+      wasm.start({ name: 'sum.c', code: HELLO_SOURCE });
+      await flush();
+
+      expect(await wasm.step()).toBe(true);
+      expect(await wasm.step()).toBe(true);
+      // Waiting: nothing more to show, but the session goes on, and the
+      // prompt is shown once however often step is clicked.
+      expect(await wasm.step()).toBe(false);
+      expect(await wasm.step()).toBe(false);
+      expect(events.sessionEnded).not.toHaveBeenCalled();
+      expect(vi.mocked(events.output).mock.calls).toEqual([['hi\n'], ['Number: ']]);
+
+      wasm.sendStdin('5');
+      expect(inputs.at(-1)).toEqual({ text: '5\n', eof: false });
+
+      expect(await wasm.step()).toBe(true);
+      expect(vi.mocked(events.state).mock.lastCall?.[0].frame_info.line_num).toBe(4);
+      expect(await wasm.step()).toBe(false);
+      expect(events.sessionEnded).toHaveBeenCalledOnce();
+      expect(vi.mocked(events.output).mock.calls.slice(0, 2)).toEqual([['hi\n'], ['Number: ']]);
+    });
+
+    it('shows output the waiting statement prints once its input arrives', async () => {
+      // printf("%c\n", getchar()): the statement waits, then prints.
+      const waiting: Recording = { ...WAITING, steps: [HELLO.steps[0], HELLO.steps[1]] };
+      const finished: Recording = {
+        ...FINISHED,
+        steps: [HELLO.steps[0], { ...HELLO.steps[1], output: 'a\n' }, FINISHED.steps[2]],
+      };
+      const recorder: Recorder = async (_wasm, { input }) => ({
+        recording: input.text ? finished : waiting,
+      });
+      const wasm = new WasmDebugger(compilerReturning(COMPILED), recorder);
+      wasm.setEvents(events);
+      wasm.start({ name: 'echo.c', code: HELLO_SOURCE });
+      await flush();
+
+      await wasm.step();
+      await wasm.step();
+      expect(await wasm.step()).toBe(false);
+      wasm.sendStdin('a');
+      expect(await wasm.step()).toBe(true);
+
+      expect(vi.mocked(events.output).mock.calls).toEqual([['hi\n'], ['a\n']]);
+    });
+
+    it('ends the session on Ctrl+C while the program waits, and ignores input after', async () => {
+      const { recorder, inputs } = inputRecorder();
+      const wasm = new WasmDebugger(compilerReturning(COMPILED), recorder);
+      wasm.setEvents(events);
+      wasm.start({ name: 'sum.c', code: HELLO_SOURCE });
+      await flush();
+      await wasm.step();
+      await wasm.step();
+      await wasm.step();
+
+      wasm.interrupt();
+      await flush();
+      wasm.sendStdin('5');
+
+      expect(events.sessionEnded).toHaveBeenCalledOnce();
+      expect(events.output).toHaveBeenLastCalledWith(expect.stringMatching(/stopped/));
+      expect(inputs).toHaveLength(1);
+      expect(await wasm.step()).toBe(false);
+    });
+
+    it('sends end-of-file, keeping the input typed before it', async () => {
+      const { recorder, inputs } = inputRecorder();
+      const wasm = new WasmDebugger(compilerReturning(COMPILED), recorder);
+      wasm.setEvents(events);
+      wasm.start({ name: 'sum.c', code: HELLO_SOURCE });
+      await flush();
+
+      wasm.sendStdin('1');
+      wasm.sendStdin('2');
+      wasm.sendEOF();
+
+      expect(inputs).toEqual([
+        { text: '', eof: false },
+        { text: '1\n', eof: false },
+        { text: '1\n2\n', eof: false },
+        { text: '1\n2\n', eof: true },
+      ]);
+    });
+  });
+
   it('ends the session after the last step, saying how the program ended', async () => {
     const wasm = new WasmDebugger(compilerReturning(COMPILED), recorderReturning(HELLO));
     wasm.setEvents(events);

@@ -17,6 +17,8 @@ export type RecordInWorkerOptions = {
   timeLimitMs: number;
   /** Stops the program early, for example when the student compiles again. */
   signal?: AbortSignal;
+  /** The input typed so far, and whether end-of-file was sent. */
+  input?: { text: string; eof: boolean };
 };
 
 /** The part of a Web Worker a run uses, so tests can pass a fake one. */
@@ -38,7 +40,7 @@ const startRunnerWorker = (): RunnerWorker =>
  */
 export const recordInWorker = (
   wasm: Uint8Array<ArrayBuffer>,
-  { timeLimitMs, signal }: RecordInWorkerOptions,
+  { timeLimitMs, signal, input }: RecordInWorkerOptions,
   createWorker: () => RunnerWorker = startRunnerWorker
 ): Promise<RecordResult> =>
   new Promise((resolve) => {
@@ -74,7 +76,7 @@ export const recordInWorker = (
         end({ error: `The program runner failed: ${event.message || 'unknown error'}` });
       };
       // Copied, not transferred, so the caller can run the same program again.
-      worker.postMessage({ wasm });
+      worker.postMessage(input ? { wasm, input } : { wasm });
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       end({ error: `The program runner failed to start: ${reason}` });

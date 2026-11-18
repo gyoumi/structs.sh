@@ -832,4 +832,122 @@ describe('recordRun', () => {
       CLANG_TIMEOUT
     );
   });
+
+  describe('input', () => {
+    it(
+      'stops where the program waits for input it has not been given',
+      async () => {
+        const recording = await record('sum_input.c', program('sum_input.c'));
+
+        expect(recording.end).toEqual({ waitingForInput: true });
+        expect(stepsOf(recording).at(-1)).toBe('main:6');
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'reads the input typed so far, then waits for more',
+      async () => {
+        const recording = await record('sum_input.c', program('sum_input.c'), {
+          input: { text: '2\n3\n', eof: false },
+        });
+        const totals = recording.steps
+          .filter((step) => step.line === 6)
+          .map((step) => step.variables.total.value);
+
+        expect(recording.end).toEqual({ waitingForInput: true });
+        expect(totals).toEqual([0, 2, 5]);
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'gives each read one line at most, as a terminal does',
+      async () => {
+        // Typing "a" then "b" re-records with both lines. The first read must
+        // still get only "a", or the run differs from the one already shown.
+        const source = [
+          '#include <stdio.h>',
+          '#include <unistd.h>',
+          'int main(void) {',
+          '    char first[16] = {0};',
+          '    char second[16] = {0};',
+          '    read(0, first, 15);',
+          '    read(0, second, 15);',
+          '    printf("[%s][%s]", first, second);',
+          '    return 0;',
+          '}',
+        ].join('\n');
+
+        const recording = await record('reads.c', source, {
+          input: { text: 'a\nb\n', eof: false },
+        });
+
+        expect(recording.end).toEqual({ exitCode: 0 });
+        expect(recording.steps.map((step) => step.output).join('')).toBe('[a\n][b\n]');
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'returns from a read of no bytes without waiting, as a terminal does',
+      async () => {
+        const source = [
+          '#include <stdio.h>',
+          '#include <unistd.h>',
+          'int main(void) {',
+          '    char c;',
+          '    printf("%d", (int)read(0, &c, 0));',
+          '    return 0;',
+          '}',
+        ].join('\n');
+
+        const recording = await record('empty_read.c', source);
+
+        expect(recording.end).toEqual({ exitCode: 0 });
+        expect(recording.steps.map((step) => step.output).join('')).toBe('0');
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'keeps half a character back while waiting for input',
+      async () => {
+        // "é" is two bytes in UTF-8, written either side of the read.
+        const source = [
+          '#include <unistd.h>',
+          'int main(void) {',
+          '    char c;',
+          '    write(1, "\\xc3", 1);',
+          '    read(0, &c, 1);',
+          '    write(1, "\\xa9", 1);',
+          '    return 0;',
+          '}',
+        ].join('\n');
+        const output = (recording: Recording) =>
+          recording.steps.map((step) => step.output).join('');
+
+        const waiting = await record('split.c', source);
+        const done = await record('split.c', source, { input: { text: 'x', eof: true } });
+
+        expect(waiting.end).toEqual({ waitingForInput: true });
+        expect(output(waiting)).toBe('');
+        expect(output(done)).toBe('é');
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'reads to the end of the input once end-of-file is sent',
+      async () => {
+        const recording = await record('sum_input.c', program('sum_input.c'), {
+          input: { text: '2\n3\n', eof: true },
+        });
+
+        expect(recording.end).toEqual({ exitCode: 0 });
+        expect(recording.steps.map((step) => step.output).join('')).toBe('total 5\n');
+      },
+      CLANG_TIMEOUT
+    );
+  });
 });

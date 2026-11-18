@@ -353,6 +353,12 @@ built-in example compiles and steps through without a debugger error.
 reads until end-of-file, sends Ctrl+D, and sees the program finish; and the
 new smoke tests pass on wasm for all 8 examples.
 
+**Done in #25.** stdin is the input typed so far. A read past it before
+Ctrl+D stops the recording and keeps the session open. Each new line, or
+Ctrl+D, records the program again from the start, and stepping carries on
+from the same step. Ctrl+D no longer closes the session. Each built-in
+example has an e2e smoke test, and wasm's known-failures list is empty.
+
 ## Follow-ups
 
 Found while building checkpoint 1, and not needed for it:
@@ -382,3 +388,11 @@ Found while building checkpoint 1, and not needed for it:
   them look uninitialised, as they do on real hardware.
 - **Pointers are 4 bytes** on wasm and 8 on the machines students use, so
   `sizeof(int *)` and addresses look different.
+- **A NULL dereference of a far field** isn't caught: the check tests the
+  address plus the field's offset against 1024, so `p->value` with
+  `p == NULL` gets through when `value` is 1024 or more bytes into its
+  struct. clang reads globals as address 0 plus an offset, so the base alone
+  can't be checked.
+- **Replays with `time()` or `rand()`** seeded from the clock can run
+  differently each time typed input re-records the program, so stepping
+  may not carry on from quite the same place.

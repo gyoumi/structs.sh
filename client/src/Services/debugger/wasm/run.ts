@@ -16,6 +16,8 @@ const STDIO_RIGHTS = 0x42n;
 // fall back to the monotonic clock.
 const CLOCK_REALTIME = 0;
 
+const NEWLINE = 0x0a;
+
 // crypto.getRandomValues fills at most this many bytes per call.
 const MAX_RANDOM_BYTES = 65_536;
 
@@ -46,7 +48,16 @@ export type RunOptions = {
    * rejects with that error.
    */
   onTrace?: (event: TraceEvent, memory: () => DataView) => void;
+  /**
+   * What the program reads from stdin: the text typed so far, and whether
+   * end-of-file has been sent. Reading past the text before then throws
+   * WAITING_FOR_INPUT. Without it, stdin is empty and at its end.
+   */
+  input?: { text: string; eof: boolean };
 };
+
+/** Thrown when a program reads input that hasn't been typed yet. */
+export const WAITING_FOR_INPUT = new Error('The program is waiting for input.');
 
 /** Thrown by proc_exit to unwind out of the program. */
 class ProcExit {
@@ -63,7 +74,7 @@ const isStdio = (fd: number) => fd === STDIN || fd === STDOUT || fd === STDERR;
  */
 export const runWasi = async (
   wasm: Uint8Array<ArrayBuffer>,
-  { onOutput, onTrace }: RunOptions
+  { onOutput, onTrace, input = { text: '', eof: true } }: RunOptions
 ): Promise<{ exitCode: number }> => {
   const module = await WebAssembly.compile(wasm);
   let memory: WebAssembly.Memory | undefined;
@@ -72,6 +83,9 @@ export const runWasi = async (
   const view = () => new DataView(memory!.buffer);
   const bytes = (pointer: number, length: number) =>
     new Uint8Array(memory!.buffer, pointer, length);
+
+  const stdin = new TextEncoder().encode(input.text);
+  let stdinRead = 0;
 
   // One decoder per stream, so a character split across two writes still
   // decodes.
@@ -107,10 +121,27 @@ export const runWasi = async (
       view().setUint32(writtenPointer, written, true);
       return SUCCESS;
     },
-    // stdin is always at its end.
-    fd_read(fd: number, _iovs: number, _iovsLength: number, readPointer: number) {
+    fd_read(fd: number, iovs: number, iovsLength: number, readPointer: number) {
       if (fd !== STDIN) return BADF;
-      view().setUint32(readPointer, 0, true);
+      let wanted = 0;
+      for (let i = 0; i < iovsLength; i++) wanted += view().getUint32(iovs + i * 8 + 4, true);
+      // A read of no bytes returns at once, as on a terminal, without waiting.
+      if (wanted > 0 && stdinRead === stdin.length && !input.eof) throw WAITING_FOR_INPUT;
+      // Like a terminal, one read gets one line at most, so a run re-recorded
+      // with more input reads the same lines at the same reads as before.
+      const newline = stdin.indexOf(NEWLINE, stdinRead);
+      const lineEnd = newline === -1 ? stdin.length : newline + 1;
+      let read = 0;
+      for (let i = 0; i < iovsLength && stdinRead < lineEnd; i++) {
+        const pointer = view().getUint32(iovs + i * 8, true);
+        const length = view().getUint32(iovs + i * 8 + 4, true);
+        const chunk = stdin.subarray(stdinRead, Math.min(stdinRead + length, lineEnd));
+        bytes(pointer, chunk.length).set(chunk);
+        stdinRead += chunk.length;
+        read += chunk.length;
+      }
+      // Nothing read means end-of-file.
+      view().setUint32(readPointer, read, true);
       return SUCCESS;
     },
     // Describe stdin, stdout and stderr as an unseekable character device:
@@ -185,11 +216,13 @@ export const runWasi = async (
 
   try {
     (instance.exports._start as () => void)();
+    flushDecoders();
     return { exitCode: 0 };
   } catch (error) {
+    // A program waiting for input isn't finished: half a character written
+    // before the wait is kept back, as the rest may come after it.
+    if (error !== WAITING_FOR_INPUT) flushDecoders();
     if (error instanceof ProcExit) return { exitCode: error.code };
     throw error;
-  } finally {
-    flushDecoders();
   }
 };
