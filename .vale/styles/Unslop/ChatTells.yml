@@ -1,0 +1,11 @@
+extends: existence
+message: "Cut '%s'."
+level: error
+ignorecase: true
+tokens:
+  - it is important to note that
+  - I hope this helps
+  - let me know if
+  - great question
+  - you're absolutely right
+  - not just \w+, but

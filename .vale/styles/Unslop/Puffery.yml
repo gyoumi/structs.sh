@@ -1,0 +1,21 @@
+extends: existence
+message: "Cut '%s'. Say the mechanism or the number instead."
+level: error
+ignorecase: true
+tokens:
+  - additionally
+  - crucial
+  - delve
+  - delves
+  - enhance
+  - enhances
+  - fostering
+  - pivotal
+  - showcase
+  - showcases
+  - tapestry
+  - underscore[sd]?
+  - vibrant
+  - testament
+  - groundbreaking
+  - stunning

@@ -2,3 +2,26 @@
 .DS_Store
 node_modules/
 .tickets/
+
+# Build output and caches that have no ignore file of their own
+docs/.venv/
+docs/site/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.tsbuildinfo
+
+# Secrets. Commit a .env.example instead.
+.env
+.env.*
+!.env.example
+
+# Lockfiles from other package managers: this repo uses pnpm
+package-lock.json
+yarn.lock
+bun.lock
+bun.lockb
+
+# Personal Claude Code settings
+.claude/settings.local.json

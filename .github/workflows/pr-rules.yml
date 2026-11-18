@@ -1,0 +1,41 @@
+name: PR Rules
+
+# pull_request_target runs this file and the rules as they are on the base
+# branch, so a PR can't edit the rules that judge it. The PR's commits are
+# fetched as data for git diff and git show, and none of its code is run.
+# Keep it that way: no install, no build, no scripts from the PR here.
+on:
+  pull_request_target:
+    # labeled/unlabeled re-run the rules when a person adds a waiver label;
+    # edited re-runs them when the PR is retargeted to another base branch.
+    types: [opened, reopened, synchronize, edited, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-rules-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  pr-rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+          # Left at the default (true): with false, checkout runs
+          # `git submodule foreach` straight away, which fails on the
+          # debugger/src/debugger/nsjail gitlink that has no .gitmodules entry.
+          # The token is read-only and nothing from the PR runs.
+      - name: Fetch the PR's commits
+        env:
+          NUMBER: ${{ github.event.pull_request.number }}
+        run: git fetch --no-tags origin "+refs/pull/$NUMBER/head:refs/remotes/pr/head"
+      - name: PR rules
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: node scripts/check-pr.mjs --base "$(git merge-base "$BASE_SHA" "$HEAD_SHA")" --head "$HEAD_SHA"
