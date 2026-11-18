@@ -48,10 +48,10 @@ const DEBUGGER_SOURCE = /^debugger\/src\//;
 const DEBUGGER_TESTS = /^debugger\/src\/debugger\/test\//;
 // Files a test runner picks up, by its own naming rule, so renaming one out
 // of the pattern counts as removing it: Playwright's *.spec.ts and *.test.ts,
-// pytest's test_*.py and *_test.py, cargo's tests/*.rs, and Vitest's
-// client/src/**/*.test.ts(x).
+// pytest's test_*.py and *_test.py, cargo's tests/*.rs, Vitest's
+// client/src/**/*.test.ts(x), and node --test's scripts/*.test.mjs.
 const TEST_FILE =
-  /^(e2e\/tests\/.*\.(spec|test)\.[cm]?[jt]sx?|debugger\/src\/debugger\/test\/(.*\/)?(test_[^/]*|[^/]*_test)\.py|instrumenter\/tests\/[^/]+\.rs|client\/src\/.*\.test\.tsx?)$/;
+  /^(e2e\/tests\/.*\.(spec|test)\.[cm]?[jt]sx?|debugger\/src\/debugger\/test\/(.*\/)?(test_[^/]*|[^/]*_test)\.py|instrumenter\/tests\/[^/]+\.rs|client\/src\/.*\.test\.tsx?|scripts\/[^/]+\.test\.mjs)$/;
 // Changes that count as test coverage for a debugger change.
 const TEST_CHANGE = /^(e2e\/tests\/|e2e\/programs\/|e2e\/known-failures\/[^/]+\.json$|debugger\/src\/debugger\/test\/)/;
 const SHRINK_CHECKED = /^(client\/src|debugger\/src|e2e|instrumenter\/src|instrumenter\/tests)\//;

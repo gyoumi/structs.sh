@@ -194,6 +194,11 @@ describe('large-removal', () => {
     assert.equal(checkPr(pr({ files })).filter((f) => f.rule === 'large-removal').length, 3);
   });
 
+  it('rejects deleting the tests of these rules', () => {
+    const files = [{ status: 'D', path: 'scripts/pr-rules.test.mjs' }];
+    assert.deepEqual(rulesHit(checkPr(pr({ files }))), ['large-removal']);
+  });
+
   it('does not count a deleted test fixture as a test', () => {
     const files = [{ status: 'D', path: 'debugger/src/debugger/test/test_circular.c' }];
     assert.deepEqual(checkPr(pr({ files })), []);
