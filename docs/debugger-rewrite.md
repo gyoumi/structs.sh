@@ -377,10 +377,10 @@ example has an e2e smoke test, and wasm's known-failures list is empty.
   Nothing deploys from `debugger-rewrite`, so a trial period there would test
   nothing, and the e2e suite already shows wasm doing everything GDB does.
 - **Production keeps the client image only.** 4c stops building and
-  deploying the debugger image. The Deploy workflow only runs on
-  `devsoc-unsw/structs.sh`, so whoever deploys upstream also removes the
-  debugger service from DevSoc's deployment config, which lives outside this
-  repo. Moving to static hosting is a separate step after the goal.
+  deploying the debugger image. The Deploy workflow builds on forks too, but
+  only `devsoc-unsw/structs.sh` publishes and deploys, so whoever deploys
+  upstream also removes the debugger service from DevSoc's deployment
+  config, which lives outside this repo. Moving to static hosting is a separate step after the goal.
 - **Uninitialised variables get a fill pattern before GDB goes.** COMP2521
   teaches that an uninitialised variable holds garbage, and GDB shows that.
   On wasm, fresh memory starts zeroed, so an uninitialised `int` usually
@@ -416,15 +416,21 @@ local that hasn't been assigned yet, and the value it's given once it has.
 Delete:
 
 - `debugger/`, including the `nsjail` gitlink that has no `.gitmodules` entry
-- `gdbDebugger.ts`, its fake socket, `socket.io-client` and the
-  `?debugger=` switch
+- `gdbDebugger.ts` and its test, the fake socket, `socketClientType.ts`,
+  `socket.io-client`, and the `?debugger=` switch with its test cases
+- `VITE_DEBUGGER_URL` in `client/.env.example`, `client/Dockerfile.prod` and
+  the Deploy workflow's build arguments
 - the GDB e2e run and `e2e/known-failures/gdb.json`; the job's name goes
   back to `e2e`
 - the `debugger`, Pyroscope and Grafana services in `docker-compose.yml`,
   and `grafana/`
 - the debugger image in the Deploy workflow, and the `sanity-debugger` job
-- the GDB-only parts of the PR rules, `.coderabbit.yaml`, the docs, the
-  testing rule and the skills
+- the GDB-only parts of the PR rules, `check:changed`'s ruff and mypy
+  steps, `.coderabbit.yaml`, the docs, the testing rule and the skills
+
+pr-rules judges a PR by the base branch's rules, so this PR still needs the
+`removal-ok` label (it deletes the pytest files) and `human-approved` (it
+changes CI and other protected files). Only a person adds those labels.
 
 **You'll know it's done when** CI passes with no Python, no Docker for the
 debugger and no GDB, the e2e suite passes against wasm, and searching the
@@ -435,7 +441,8 @@ code for GDB and Socket.IO finds only history.
 The PR rules keep agent config (`.claude/`) in PRs of its own, so the
 testing rule and the skill changes from the rewrite go into `dev` first.
 Then `dev` is merged into `debugger-rewrite` one last time, the ruleset is
-updated, and `debugger-rewrite` is merged into `dev`.
+updated, and `debugger-rewrite` is merged into `dev`. That PR needs the same
+two labels as 4c, since `dev`'s rules still expect the GDB files.
 
 **You'll know it's done when** `dev` has no server code, its required
 checks pass, and the site runs from the client image alone.
