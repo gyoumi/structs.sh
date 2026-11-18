@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Theme, useTheme } from '@/ui/theme';
 import { DEVSOC, DevsocGlyph, devsocInk } from './devsoc';
 import { easeInOut, useTimeline } from './useTimeline';
@@ -17,29 +18,74 @@ const START = [3, 0, 4, 2, 5, 1];
 interface Frame {
   order: number[];
   comparing: number[];
-  sorted: number;
+  /** The places, from `[0]` up to but not including `[1]`, that are already in sorted order. */
+  sorted: [number, number];
 }
+
+const swap = (order: number[], a: number, b: number) => {
+  [order[a], order[b]] = [order[b], order[a]];
+};
 
 /** Every frame of a selection sort over `START`, as the order of the stacks. */
 const selectionSort = (): Frame[] => {
   const order = [...START];
-  const frames: Frame[] = [{ order: [...order], comparing: [], sorted: 0 }];
+  const frames: Frame[] = [{ order: [...order], comparing: [], sorted: [0, 0] }];
   for (let i = 0; i < order.length - 1; i += 1) {
     let smallest = i;
     for (let j = i + 1; j < order.length; j += 1) {
-      frames.push({ order: [...order], comparing: [order[smallest], order[j]], sorted: i });
+      frames.push({ order: [...order], comparing: [order[smallest], order[j]], sorted: [0, i] });
       if (order[j] < order[smallest]) smallest = j;
     }
-    [order[i], order[smallest]] = [order[smallest], order[i]];
-    frames.push({ order: [...order], comparing: [order[i]], sorted: i + 1 });
+    swap(order, i, smallest);
+    frames.push({ order: [...order], comparing: [order[i]], sorted: [0, i + 1] });
   }
-  frames.push({ order: [...order], comparing: [], sorted: order.length });
+  frames.push({ order: [...order], comparing: [], sorted: [0, order.length] });
   return frames;
 };
 
-const FRAMES = selectionSort();
+/** Every frame of a bubble sort over `START`, which settles the tallest stacks at the end first. */
+const bubbleSort = (): Frame[] => {
+  const order = [...START];
+  const n = order.length;
+  const frames: Frame[] = [{ order: [...order], comparing: [], sorted: [n, n] }];
+  for (let pass = 0; pass < n - 1; pass += 1) {
+    const settled: [number, number] = [n - pass, n];
+    for (let j = 0; j < n - 1 - pass; j += 1) {
+      frames.push({ order: [...order], comparing: [order[j], order[j + 1]], sorted: settled });
+      if (order[j] > order[j + 1]) {
+        swap(order, j, j + 1);
+        frames.push({ order: [...order], comparing: [order[j], order[j + 1]], sorted: settled });
+      }
+    }
+  }
+  frames.push({ order: [...order], comparing: [], sorted: [0, n] });
+  return frames;
+};
+
+/** Every frame of an insertion sort over `START`, which swaps each stack left into the sorted front. */
+const insertionSort = (): Frame[] => {
+  const order = [...START];
+  const frames: Frame[] = [{ order: [...order], comparing: [], sorted: [0, 1] }];
+  for (let i = 1; i < order.length; i += 1) {
+    for (let j = i; j > 0; j -= 1) {
+      frames.push({ order: [...order], comparing: [order[j - 1], order[j]], sorted: [0, i] });
+      if (order[j - 1] < order[j]) break;
+      swap(order, j - 1, j);
+      frames.push({ order: [...order], comparing: [order[j - 1]], sorted: [0, i] });
+    }
+  }
+  frames.push({ order: [...order], comparing: [], sorted: [0, order.length] });
+  return frames;
+};
+
+const SORTS = [
+  { name: 'selection sort', frames: selectionSort() },
+  { name: 'bubble sort', frames: bubbleSort() },
+  { name: 'insertion sort', frames: insertionSort() },
+];
+
 const startOf = (frame: number) => (frame === 0 ? 0 : HOLD_MS + (frame - 1) * FRAME_MS);
-const DURATION = startOf(FRAMES.length - 1) + SETTLE_MS;
+const durationOf = (frames: Frame[]) => startOf(frames.length - 1) + SETTLE_MS;
 
 interface Faces {
   front: string;
@@ -87,19 +133,23 @@ const Block = ({ bottom, faces, top }: { bottom: number; faces: Faces; top: bool
 };
 
 /** Where stack `id` is at `time`, sliding between frames. */
-const placeOf = (id: number, frame: number, time: number) => {
-  const now = FRAMES[frame].order.indexOf(id);
+const placeOf = (frames: Frame[], id: number, frame: number, time: number) => {
+  const now = frames[frame].order.indexOf(id);
   if (frame === 0) return now;
-  const before = FRAMES[frame - 1].order.indexOf(id);
+  const before = frames[frame - 1].order.indexOf(id);
   return before + (now - before) * easeInOut((time - startOf(frame)) / MOVE_MS);
 };
 
-/** Stacks of blocks that selection sort themselves until the bottom row spells DevSoc's `<dev/>`. */
+/**
+ * Stacks of blocks that sort themselves until the bottom row spells DevSoc's `<dev/>`. Each page
+ * load picks one of `SORTS`, and replays on hover keep it.
+ */
 const Hero = () => {
   const theme = useTheme();
-  const { ref, time, replay } = useTimeline(DURATION);
-  const frame = FRAMES.reduce((current, _, i) => (time >= startOf(i) ? i : current), 0);
-  const { comparing, sorted, order } = FRAMES[frame];
+  const [{ name, frames }] = useState(() => SORTS[Math.floor(Math.random() * SORTS.length)]);
+  const { ref, time, replay } = useTimeline(durationOf(frames));
+  const frame = frames.reduce((current, _, i) => (time >= startOf(i) ? i : current), 0);
+  const { comparing, sorted, order } = frames[frame];
   const colours = palette[theme];
   const paint = [...order].sort(
     (a, b) => Number(comparing.includes(a)) - Number(comparing.includes(b))
@@ -111,18 +161,18 @@ const Hero = () => {
         className={styles.sort}
         viewBox={`-4 ${-(7 * UNIT + DEPTH + 6)} ${5 * PITCH + UNIT + DEPTH + 8} ${7 * UNIT + DEPTH + 10}`}
         role="img"
-        aria-label="Blocks sorting themselves into DevSoc's <dev/> logo"
+        aria-label={`Blocks sorting themselves into DevSoc's <dev/> logo with ${name}`}
       >
         {paint.map((id) => {
           const place = order.indexOf(id);
           const state = comparing.includes(id)
             ? 'comparing'
-            : place < sorted
+            : place >= sorted[0] && place < sorted[1]
               ? 'sorted'
               : 'waiting';
           const char = DEVSOC[id];
           return (
-            <g key={char} transform={`translate(${placeOf(id, frame, time) * PITCH} 0)`}>
+            <g key={char} transform={`translate(${placeOf(frames, id, frame, time) * PITCH} 0)`}>
               {Array.from({ length: id + 2 }, (_, level) => (
                 <Block
                   key={level}

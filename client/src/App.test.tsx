@@ -20,11 +20,20 @@ afterEach(() => {
 describe('landing page', () => {
   test('the hero animation is labelled and a tile opens its visualiser', () => {
     renderLanding();
-    expect(screen.getByRole('img', { name: /sorting themselves/ })).toBeTruthy();
+    expect(screen.getByRole('img', { name: /DevSoc's <dev\/> logo/ })).toBeTruthy();
     fireEvent.click(screen.getByRole('radio', { name: 'Sorting Algorithms' }));
     expect(screen.getByRole('link', { name: 'Open Sorting Algorithms' }).getAttribute('href')).toBe(
       '/visualiser/sorting-algorithms'
     );
+  });
+
+  test('each load picks a sort for the hero, and hovering replays the same one', () => {
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    renderLanding();
+    random.mockRestore();
+    const hero = screen.getByRole('img', { name: /sorting themselves.*with bubble sort/ });
+    fireEvent.pointerEnter(hero.parentElement!);
+    expect(screen.getByRole('img', { name: /with bubble sort/ })).toBeTruthy();
   });
 
   test('the toggle switches between light and dark', () => {
