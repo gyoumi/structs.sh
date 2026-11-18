@@ -1,9 +1,16 @@
 # End-to-end feature tests
 
-These tests use the visual debugger the way a student would: open a C program,
-compile it, step through it, and check what the page shows. They don't know
-how the debugger works inside, so the same tests apply to the current gdb
-backend and to the Rust + wasm debugger that will replace it.
+These tests use structs.sh the way a student would and check what the page
+shows. They don't know how the app works inside, so the same tests apply when
+part of it is rewritten.
+
+There are two groups:
+
+- **The debugger:** open a C program, compile it, step through it. These apply
+  to the current gdb backend and to the Rust + wasm debugger that will replace it.
+- **The landing page and the visualisers:** open a structure, run operations,
+  control playback, share a link. These apply to the current frontend and to
+  any redesign of it, so a redesign can show it does everything the old one did.
 
 ## Running
 
@@ -15,6 +22,16 @@ pnpm install                             # the frontend and the e2e suite
 pnpm exec playwright install chromium
 pnpm run e2e                             # starts the frontend if it isn't running
 ```
+
+The visualiser tests don't need the debugger backend. To run only them:
+
+```sh
+pnpm run e2e landing not-found visualiser-navigation linked-list-operations \
+  tree-operations sorting editing-data playback sharing
+```
+
+Set `E2E_BASE_URL` to test a frontend that is already running, e.g.
+`E2E_BASE_URL=http://localhost:3110 pnpm run e2e`.
 
 After each run, a per-feature summary is printed:
 
@@ -56,6 +73,17 @@ Expect to update `support/debugger-page.ts` and the "Start debugger" and "Wait f
 `.github/workflows/e2e.yml` along the way. The test files themselves shouldn't
 need to change.
 
+## Using this for a frontend redesign
+
+The visualiser tests pass on the current frontend, apart from 2 bugs on the
+known-failures list: rewinding leaves the timeline at the end, and Create Link
+is never shown.
+
+A redesign replaces `support/landing-page.ts` and `support/visualiser-page.ts`
+and leaves the tests alone. If every test still passes, the redesign does
+everything the current frontend does. A feature it drops on purpose goes on the
+known-failures list with the reason, so the gap is written down and reviewed.
+
 ## Writing tests
 
 - Each feature is a top-level `test.describe()`. Its name is what the summary
@@ -66,12 +94,16 @@ need to change.
 - Don't assert on compiler wording. gcc and clang phrase errors differently,
   so match the identifier or line number instead.
 - Programs go in `programs/`. Comment the line numbers a test relies on.
-- Only `support/debugger-page.ts` should touch selectors or page internals.
+- Name visualiser operations by the engine's command (`append`,
+  `inorderTraversal`), not by a button label. The page object maps them.
+- Read the drawing with `values()` and `root()`, which work from the engine's
+  SVG, so they don't depend on the UI around it.
+- Only the files in `support/` should touch selectors or page internals.
 
 `pnpm run e2e:lint` enforces these, and CI fails on any of them:
 
 - No `page.locator()`, `page.evaluate()` or `getByTestId()` in `tests/`. Add a
-  `DebuggerPage` method instead.
+  page object method instead.
 - No `waitForTimeout()`. Wait for something the user would see.
 - No `test.skip()` or `test.only()`. A test that can't pass yet goes in
   `known-failures.json` with a reason.

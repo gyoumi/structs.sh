@@ -1,6 +1,8 @@
 import { test as base, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { DebuggerPage } from './debugger-page';
+import { LandingPage } from './landing-page';
+import { VisualiserPage } from './visualiser-page';
 
 /**
  * Tests listed in known-failures.json are expected to fail, with a reason.
@@ -15,7 +17,12 @@ const knownFailures: Record<string, string> = JSON.parse(
 
 export const testKey = (titlePath: string[]) => titlePath.slice(1).join(' › ');
 
-export const test = base.extend<{ debuggerPage: DebuggerPage; knownFailure: void }>({
+export const test = base.extend<{
+  debuggerPage: DebuggerPage;
+  landingPage: LandingPage;
+  visualiser: VisualiserPage;
+  knownFailure: void;
+}>({
   knownFailure: [
     async ({}, use, testInfo) => {
       const reason = knownFailures[testKey(testInfo.titlePath)];
@@ -26,6 +33,12 @@ export const test = base.extend<{ debuggerPage: DebuggerPage; knownFailure: void
   ],
   debuggerPage: async ({ page }, use) => {
     await use(new DebuggerPage(page));
+  },
+  landingPage: async ({ page }, use) => {
+    await use(new LandingPage(page));
+  },
+  visualiser: async ({ page }, use) => {
+    await use(new VisualiserPage(page));
   },
 });
 
