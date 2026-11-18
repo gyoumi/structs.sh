@@ -6,8 +6,9 @@ name: PR Rules
 # Keep it that way: no install, no build, no scripts from the PR here.
 on:
   pull_request_target:
-    # labeled/unlabeled re-run the rules when a person adds a waiver label.
-    types: [opened, reopened, synchronize, labeled, unlabeled]
+    # labeled/unlabeled re-run the rules when a person adds a waiver label;
+    # edited re-runs them when the PR is retargeted to another base branch.
+    types: [opened, reopened, synchronize, edited, labeled, unlabeled]
 
 permissions:
   contents: read

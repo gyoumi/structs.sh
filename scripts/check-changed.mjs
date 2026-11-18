@@ -21,8 +21,10 @@ const base = git('merge-base', 'HEAD', 'origin/dev').trim();
 // Deleted files still decide which areas to check (a deletion can break
 // imports elsewhere), but only files that still exist are passed to linters.
 // -z gives raw paths; git would otherwise quote names like client/src/é.ts.
+// --no-renames lists both sides of a move, so moving a file out of an area
+// still checks that area.
 const changed = [
-  ...git('diff', '-z', '--name-only', base).split('\0'),
+  ...git('diff', '-z', '--name-only', '--no-renames', base).split('\0'),
   ...git('ls-files', '-z', '--others', '--exclude-standard').split('\0'),
 ].filter(Boolean);
 const present = (files) => files.filter((p) => existsSync(join(root, p)));
