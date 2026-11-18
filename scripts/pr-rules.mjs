@@ -102,9 +102,11 @@ export function checkPr({ files, tracked, addedLines, labels }) {
 
   // large-removal
   if (!labels.has(LABELS.removalOk)) {
-    for (const { status, path, oldLines = 0, newLines = 0 } of files) {
+    for (const { status, path, oldPath, oldLines = 0, newLines = 0 } of files) {
       if (status === 'D' && TEST_FILE.test(path)) {
         add('large-removal', path, `Test file deleted. A person can add the "${LABELS.removalOk}" label if this is intended.`);
+      } else if (status === 'R' && TEST_FILE.test(oldPath) && !TEST_FILE.test(path)) {
+        add('large-removal', oldPath, `Test file moved out of the test folders, so it no longer runs. A person can add the "${LABELS.removalOk}" label if this is intended.`);
       } else if (status === 'M' && SHRINK_CHECKED.test(path)) {
         const emptied = oldLines > 0 && newLines === 0;
         const gutted = oldLines >= 40 && newLines < oldLines * 0.3;
@@ -118,7 +120,7 @@ export function checkPr({ files, tracked, addedLines, labels }) {
   // protected-paths
   if (!labels.has(LABELS.humanApproved)) {
     const manifestScripts = files
-      .filter((f) => MANIFEST.test(f.path) && (f.status !== 'M' || f.scriptsChanged))
+      .filter((f) => (MANIFEST.test(f.path) || MANIFEST.test(f.oldPath ?? '')) && (f.status !== 'M' || f.scriptsChanged))
       .flatMap((f) => (f.oldPath ? [f.path, f.oldPath] : [f.path]));
     for (const path of new Set(paths)) {
       if (PROTECTED.some((re) => re.test(path)) || manifestScripts.includes(path)) {

@@ -49,10 +49,17 @@ const scriptsOf = (text) => {
   }
 };
 
-const files = lines(git('diff', '--name-status', '-M', ...range)).map((row) => {
-  const [code, first, second] = row.split('\t');
-  const status = code[0];
-  const file = status === 'R' ? { status, path: second, oldPath: first } : { status, path: first };
+// -z gives raw paths. Without it git quotes names with non-ASCII or control
+// characters, and a quoted name would slip past every path rule.
+const nulList = (text) => text.split('\0').filter(Boolean);
+const statusRecords = [];
+for (const fields = nulList(git('diff', '-z', '--name-status', '-M', ...range)); fields.length; ) {
+  const status = fields.shift()[0];
+  statusRecords.push(status === 'R' || status === 'C' ? { status, oldPath: fields.shift(), path: fields.shift() } : { status, path: fields.shift() });
+}
+
+const files = statusRecords.map(({ status, path, oldPath }) => {
+  const file = status === 'R' ? { status, path, oldPath } : { status: status === 'C' ? 'A' : status, path };
   if (status === 'M') {
     const before = readAt(base, file.path);
     const after = readAt(head, file.path);
@@ -66,14 +73,33 @@ const files = lines(git('diff', '--name-status', '-M', ...range)).map((row) => {
   return file;
 });
 
-const untracked = args.local ? lines(git('ls-files', '--others', '--exclude-standard')) : [];
+const untracked = args.local ? nulList(git('ls-files', '-z', '--others', '--exclude-standard')) : [];
 for (const path of untracked) files.push({ status: 'A', path });
+
+// Patch headers can't be made NUL-safe, so decode git's C-style quoting.
+const unquote = (raw) => {
+  if (!raw.startsWith('"')) return raw;
+  const bytes = [];
+  const named = { a: 7, b: 8, t: 9, n: 10, v: 11, f: 12, r: 13, '"': 34, '\\': 92 };
+  const body = raw.slice(1, -1);
+  for (let i = 0; i < body.length; i++) {
+    if (body[i] !== '\\') {
+      bytes.push(...Buffer.from(body[i]));
+    } else if (/[0-7]/.test(body[i + 1])) {
+      bytes.push(parseInt(body.slice(i + 1, i + 4), 8));
+      i += 3;
+    } else {
+      bytes.push(named[body[++i]]);
+    }
+  }
+  return Buffer.from(bytes).toString('utf8');
+};
 
 const addedLines = [];
 let current;
 let lineNo = 0;
-for (const row of git('diff', '-U0', '--no-color', '-M', ...range).split('\n')) {
-  if (row.startsWith('+++ ')) current = row.slice(4).replace(/^b\//, '');
+for (const row of git('diff', '-U0', '--no-color', '--no-ext-diff', '-M', ...range).split('\n')) {
+  if (row.startsWith('+++ ')) current = unquote(row.slice(4)).replace(/^b\//, '');
   else if (row.startsWith('@@')) lineNo = Number(/\+(\d+)/.exec(row)[1]);
   else if (row.startsWith('+') && current) addedLines.push({ path: current, line: lineNo++, text: row.slice(1) });
 }
@@ -85,7 +111,7 @@ for (const path of untracked) {
 }
 
 // The head commit's files, not the checkout's: in CI the checkout is the base branch.
-const tracked = head ? lines(git('ls-tree', '-r', '--name-only', head)) : [...lines(git('ls-files')), ...untracked];
+const tracked = head ? nulList(git('ls-tree', '-z', '-r', '--name-only', head)) : [...nulList(git('ls-files', '-z')), ...untracked];
 const labels = new Set(JSON.parse(process.env.PR_LABELS || '[]'));
 
 const findings = checkPr({ files, tracked, addedLines, labels });

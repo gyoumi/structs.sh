@@ -156,6 +156,16 @@ describe('large-removal', () => {
     assert.deepEqual(rulesHit(checkPr(pr({ files }))), ['large-removal']);
   });
 
+  it('rejects a test moved out of the test folders', () => {
+    const files = [{ status: 'R', path: 'e2e/disabled/stepping.spec.ts', oldPath: 'e2e/tests/stepping.spec.ts' }];
+    assert.deepEqual(rulesHit(checkPr(pr({ files }))), ['large-removal']);
+  });
+
+  it('allows a test moved within the test folders', () => {
+    const files = [{ status: 'R', path: 'e2e/tests/steps/stepping.spec.ts', oldPath: 'e2e/tests/stepping.spec.ts' }];
+    assert.deepEqual(checkPr(pr({ files })), []);
+  });
+
   it('is waived by the removal-ok label', () => {
     const files = [{ status: 'D', path: 'e2e/tests/stepping.spec.ts' }];
     assert.deepEqual(checkPr(pr({ files, labels: new Set(['removal-ok']) })), []);
@@ -215,5 +225,11 @@ describe('protected-paths', () => {
   it('protects a manifest that is added, deleted or renamed', () => {
     const files = [{ status: 'D', path: 'client/package.json' }];
     assert.deepEqual(rulesHit(checkPr(pr({ files }))), ['protected-paths']);
+  });
+
+  it('protects a manifest renamed out of its place', () => {
+    const files = [{ status: 'R', path: 'client/package.backup.json', oldPath: 'client/package.json' }];
+    const result = checkPr(pr({ files }));
+    assert.ok(result.some((f) => f.rule === 'protected-paths' && f.path === 'client/package.json'));
   });
 });
