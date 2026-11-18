@@ -713,7 +713,7 @@ describe('recordRun', () => {
     );
 
     it(
-      'reads bit-fields and changes between special numbers on the heap',
+      'reads bit-fields and changes between special numbers, and to -0, on the heap',
       async () => {
         const source = [
           '#include <stdlib.h>',
@@ -724,7 +724,9 @@ describe('recordRun', () => {
           '    f->c = -2;', // 6
           '    f->x = 1.0 / 0.0;', // 7
           '    f->x = 0.0 / 0.0;', // 8
-          '    return 0;', // 9
+          '    f->x = 0.0;', // 9
+          '    f->x = -0.0;', // 10
+          '    return 0;', // 11
           '}',
         ].join('\n');
 
@@ -733,7 +735,7 @@ describe('recordRun', () => {
         expect(heapAt(recording, 7)).toEqual(['struct flags {"a":1,"c":-2,"x":0}']);
         const x = (line: number) =>
           Object.values(recording.steps.find((s) => s.line === line)!.heap)[0].value.x.value;
-        expect([x(8), x(9)]).toEqual([Infinity, NaN]);
+        expect([x(8), x(9), x(10), x(11)]).toEqual([Infinity, NaN, 0, -0]);
       },
       CLANG_TIMEOUT
     );

@@ -67,9 +67,12 @@ export type Recording = {
 /** Roughly what a step's reference to a shared heap entry costs, in bytes. */
 const REFERENCE_SIZE = 16;
 
-/** JSON writes NaN and Infinity as null: keep them apart when comparing. */
-const keepSpecialNumbers = (_key: string, value: unknown) =>
-  typeof value === 'number' && !Number.isFinite(value) ? String(value) : value;
+/** JSON writes NaN and Infinity as null, and -0 as 0: keep them apart when comparing. */
+const keepSpecialNumbers = (_key: string, value: unknown) => {
+  if (typeof value !== 'number') return value;
+  if (Object.is(value, -0)) return '-0';
+  return Number.isFinite(value) ? value : String(value);
+};
 
 /** wasm passes pointers and sizes as signed 32-bit numbers. */
 const unsigned = (value: number) => (value < 0 ? value + 2 ** 32 : value);
