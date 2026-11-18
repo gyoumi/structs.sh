@@ -11,7 +11,8 @@
     "lint": "eslint \"./src/**/*.{tsx,ts}\"",
     "lint-fix": "eslint './src/**/*.{tsx,ts,jsx,js}' --fix",
     "tsc": "tsc",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@codemirror/lang-cpp": "^6.0.3",
