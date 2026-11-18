@@ -667,6 +667,29 @@ describe('recordRun', () => {
       );
 
     it(
+      'names a nameless struct by its typedef, even through a const pointer',
+      async () => {
+        const source = [
+          '#include <stdlib.h>',
+          'typedef struct { int value; } Node;',
+          'int main(void) {',
+          '    Node *n = malloc(sizeof(Node));', // 4
+          '    n->value = 7;', // 5
+          '    const Node *view = n;', // 6
+          '    n = NULL;', // 7
+          '    int done = 1;', // 8
+          '    return done;',
+          '}',
+        ].join('\n');
+
+        // The visualiser matches heap nodes by this name, so it's "Node",
+        // the way the type is declared, not "const Node".
+        expect(heapAt(await record('named.c', source), 8)).toEqual(['Node {"value":7}']);
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
       'follows tables of pointers, as a hash table uses',
       async () => {
         const source = nodeProgram(

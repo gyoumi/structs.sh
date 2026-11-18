@@ -148,6 +148,12 @@ const resolveIndex = (types: DebugType[], index: number): number => {
   return index;
 };
 
+/** The type without its const, volatile or restrict. */
+const unqualified = (types: DebugType[], index: number): DebugType => {
+  const type = types[index];
+  return type.kind === 'qualified' && type.to !== null ? unqualified(types, type.to) : type;
+};
+
 /** A bit-field: `bitSize` bits starting `bitOffset` bits into the struct. */
 const readBits = (
   type: DebugType,
@@ -375,8 +381,9 @@ export const readHeap = (
         >;
         heap[heapKey] = {
           addr: heapKey,
-          // An anonymous struct goes by the typedef it was reached through.
-          typeName: type.name.includes('{') ? types[index].name : type.name,
+          // An anonymous struct goes by the typedef it was reached through,
+          // without qualifiers, as the visualiser knows it.
+          typeName: type.name.includes('{') ? unqualified(types, index).name : type.name,
           value: Object.fromEntries(
             type.fields.map((field) => [
               field.name,
