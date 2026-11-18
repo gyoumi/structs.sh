@@ -185,6 +185,20 @@ describe('large-removal', () => {
     assert.deepEqual(rulesHit(checkPr(pr({ files }))), ['large-removal']);
   });
 
+  it('rejects a test renamed in its folder so its runner skips it', () => {
+    const files = [
+      { status: 'R', path: 'e2e/tests/stepping.spec.ts.bak', oldPath: 'e2e/tests/stepping.spec.ts' },
+      { status: 'R', path: 'debugger/src/debugger/test/circular.py', oldPath: 'debugger/src/debugger/test/test_circular.py' },
+      { status: 'R', path: 'instrumenter/tests/instrument.rs.bak', oldPath: 'instrumenter/tests/instrument.rs' },
+    ];
+    assert.equal(checkPr(pr({ files })).filter((f) => f.rule === 'large-removal').length, 3);
+  });
+
+  it('does not count a deleted test fixture as a test', () => {
+    const files = [{ status: 'D', path: 'debugger/src/debugger/test/test_circular.c' }];
+    assert.deepEqual(checkPr(pr({ files })), []);
+  });
+
   it('rejects an instrumenter test file cut to a fraction of its size', () => {
     const files = [{ status: 'M', path: 'instrumenter/tests/instrument.rs', oldLines: 400, newLines: 40 }];
     assert.deepEqual(rulesHit(checkPr(pr({ files }))), ['large-removal']);
