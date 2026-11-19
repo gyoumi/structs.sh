@@ -392,7 +392,7 @@ example has an e2e smoke test, and wasm's known-failures list is empty.
 
 ### 4a. wasm by default
 
-The debugger page uses wasm unless the address has `?debugger=gdb`, and the
+**Done in #29.** The debugger page uses wasm unless the address has `?debugger=gdb`, and the
 e2e suite runs against wasm unless `E2E_DEBUGGER=gdb` is set. GDB still
 works, so this is easy to undo.
 
