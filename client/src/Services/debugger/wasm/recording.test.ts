@@ -37,6 +37,26 @@ const record = async (
 const stepsOf = (recording: Recording) =>
   recording.steps.map((step) => `${step.function}:${step.line}`);
 
+/**
+ * Steps that go back to the line of the call a function just returned from,
+ * as "step N function:line": where a step is shallower than the one before it
+ * and on the same line as the caller's step that made the call. GDB never
+ * shows these; after a call returns, the next step is the caller's next
+ * statement.
+ */
+const returnSteps = (recording: Recording) =>
+  recording.steps.flatMap((step, index) => {
+    const before = recording.steps[index - 1];
+    if (!before || step.depth >= before.depth) return [];
+    const caller = recording.steps
+      .slice(0, index)
+      .reverse()
+      .find((earlier) => earlier.depth === step.depth);
+    return caller && caller.function === step.function && caller.line === step.line
+      ? [`step ${index + 1} ${step.function}:${step.line}`]
+      : [];
+  });
+
 describe('recordRun', () => {
   it(
     'records each statement of a straight-line program, with its output',
@@ -72,16 +92,17 @@ describe('recordRun', () => {
   );
 
   it(
-    'steps into the student’s functions and back to the line that called them',
+    'steps into the student’s functions, and once one returns, on to the caller’s next line',
     async () => {
       const recording = await record('functions.c', program('functions.c'));
 
-      expect(stepsOf(recording)).toEqual([
+      // No step back on line 8 once square returns, as in GDB: the next step
+      // is line 9.
+      expect(stepsOf(recording), 'functions.c: steps as function:line').toEqual([
         'main:7',
         'main:8',
         'square:2',
         'square:3',
-        'main:8',
         'main:9',
       ]);
     },
@@ -94,17 +115,15 @@ describe('recordRun', () => {
       const recording = await record('linked_list.c', program('linked_list.c'));
       const prepend = ['prepend:9', 'prepend:10', 'prepend:11', 'prepend:12'];
 
-      expect(stepsOf(recording)).toEqual([
+      // After each prepend returns, the next step is main's next line.
+      expect(stepsOf(recording), 'linked_list.c: steps as function:line').toEqual([
         'main:16',
         'main:17',
         ...prepend,
-        'main:17',
         'main:18',
         ...prepend,
-        'main:18',
         'main:19',
         ...prepend,
-        'main:19',
         'main:20',
         'main:21',
       ]);
@@ -170,8 +189,13 @@ describe('recordRun', () => {
       const recording = await record('fact.c', source);
 
       // fact has two returns, which clang joins on the closing brace (line 6),
-      // so each call ends there, as it does in GDB.
-      expect(recording.steps.map((step) => `${step.function}:${step.line}@${step.depth}`)).toEqual([
+      // so each call ends there, as it does in GDB. Once a call returns, the
+      // next step is the caller's next line (its closing brace), not line 5
+      // again; main has no line after the call, so the run ends.
+      expect(
+        recording.steps.map((step) => `${step.function}:${step.line}@${step.depth}`),
+        'fact.c (fact(3)): steps as function:line@depth'
+      ).toEqual([
         'main:9@0',
         'fact:2@1',
         'fact:5@1',
@@ -180,17 +204,15 @@ describe('recordRun', () => {
         'fact:2@3',
         'fact:3@3',
         'fact:6@3',
-        'fact:5@2',
         'fact:6@2',
-        'fact:5@1',
         'fact:6@1',
-        'main:9@0',
       ]);
       // Each call reads its own n, from its own frame.
       expect(
         recording.steps
           .filter((step) => step.function === 'fact')
-          .map((step) => `${step.line}@${step.depth} n=${step.variables.n.value}`)
+          .map((step) => `${step.line}@${step.depth} n=${step.variables.n.value}`),
+        'fact.c (fact(3)): n at each step in fact, as line@depth'
       ).toEqual([
         '2@1 n=3',
         '5@1 n=3',
@@ -199,11 +221,41 @@ describe('recordRun', () => {
         '2@3 n=1',
         '3@3 n=1',
         '6@3 n=1',
-        '5@2 n=2',
         '6@2 n=2',
-        '5@1 n=3',
         '6@1 n=3',
       ]);
+    },
+    CLANG_TIMEOUT
+  );
+
+  it(
+    'never steps back onto the line of a call once it returns',
+    async () => {
+      const recursive = [
+        'int fact(int n) {',
+        '    if (n <= 1) {',
+        '        return 1;',
+        '    }',
+        '    return n * fact(n - 1);',
+        '}',
+        'int main(void) {',
+        '    return fact(3) == 6 ? 0 : 1;',
+        '}',
+      ].join('\n');
+      const programs: [string, string][] = [
+        ['functions.c', program('functions.c')],
+        ['linked_list.c', program('linked_list.c')],
+        ['fact.c', recursive],
+      ];
+
+      const recordings = await Promise.all(programs.map(([name, source]) => record(name, source)));
+      recordings.forEach((recording, index) => {
+        const [name] = programs[index];
+        expect(
+          returnSteps(recording),
+          `${name}: steps back on the line that made a call, right after it returned (GDB shows none); all steps: ${stepsOf(recording).join(', ')}`
+        ).toEqual([]);
+      });
     },
     CLANG_TIMEOUT
   );
@@ -332,25 +384,27 @@ describe('recordRun', () => {
             .map((step) => `${step.function}:${step.line} ${name}=${step.variables[name].value}`);
 
         // int a = 4; then int b = square(a); Before it's assigned, a variable
-        // holds the 0xAA bytes its frame is filled with.
-        expect(valuesOf('a')).toEqual([
+        // holds the 0xAA bytes its frame is filled with. b gets square's
+        // result on the step after the call, line 9.
+        expect(valuesOf('a'), 'functions.c: a at each step in main').toEqual([
           `main:7 a=${UNINITIALISED_INT}`,
-          'main:8 a=4',
           'main:8 a=4',
           'main:9 a=4',
         ]);
-        expect(valuesOf('b')).toEqual([
+        expect(valuesOf('b'), 'functions.c: b at each step in main').toEqual([
           `main:7 b=${UNINITIALISED_INT}`,
-          `main:8 b=${UNINITIALISED_INT}`,
           `main:8 b=${UNINITIALISED_INT}`,
           'main:9 b=16',
         ]);
-        expect(valuesOf('result')).toEqual([
+        expect(valuesOf('result'), 'functions.c: result at each step in square').toEqual([
           `square:2 result=${UNINITIALISED_INT}`,
           'square:3 result=16',
         ]);
         // A parameter has its value from the call's first step.
-        expect(valuesOf('x')).toEqual(['square:2 x=4', 'square:3 x=4']);
+        expect(valuesOf('x'), 'functions.c: x at each step in square').toEqual([
+          'square:2 x=4',
+          'square:3 x=4',
+        ]);
       },
       CLANG_TIMEOUT
     );
@@ -624,6 +678,50 @@ describe('recordRun', () => {
           'struct node',
           'struct node',
         ]);
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'never drops a node from the heap for one step and shows it again, as a call returns',
+      async () => {
+        // What the user saw: a node prepend made vanished on the step after
+        // the call returned, before `list = ...` stored it, then came back.
+        const recording = await record('linked_list.c', program('linked_list.c'));
+        const onHeap = recording.steps.map((step) => new Set(Object.keys(step.heap)));
+        const describeStep = (index: number) => {
+          const step = recording.steps[index];
+          const values = Object.values(step.heap).map(
+            (entry) => (entry.value as Record<string, { value: unknown }>).value?.value
+          );
+          return `step ${index + 1} ${step.function}:${step.line} heap values [${values.join(', ')}]`;
+        };
+
+        // A node that is on the heap at some step and again later must be
+        // there at every step in between.
+        const gaps: string[] = [];
+        onHeap.forEach((addrs, index) => {
+          addrs.forEach((addr) => {
+            const back = onHeap.findIndex((later, at) => at > index && later.has(addr));
+            const missing = onHeap.findIndex(
+              (between, at) => at > index && at < back && !between.has(addr)
+            );
+            if (
+              back !== -1 &&
+              missing !== -1 &&
+              !gaps.some((gap) => gap.startsWith(`node ${addr} `))
+            ) {
+              gaps.push(
+                `node ${addr} is on the heap at ${describeStep(index)}, missing at ${describeStep(missing)}, back at ${describeStep(back)}`
+              );
+            }
+          });
+        });
+
+        expect(
+          gaps,
+          `linked_list.c: nodes that disappear from the heap for a step and come back. Every step:\n${recording.steps.map((_, i) => describeStep(i)).join('\n')}\n`
+        ).toEqual([]);
       },
       CLANG_TIMEOUT
     );

@@ -282,6 +282,51 @@ export class DebuggerPage {
     return this.visualiser.locator('svg text').allTextContents();
   }
 
+  /**
+   * The labels a student can see once the drawing has stopped changing. The
+   * visualiser redraws a moment after a step and fades nodes in and out, and
+   * a node it hides stays in the page at opacity 0, so this counts a label
+   * only when it is at least half opaque. Settled means the same labels, at
+   * the same opacity, in reads `stableMs` apart.
+   */
+  async settledVisibleLabels(stableMs = 500, timeoutMs = 10_000): Promise<string[]> {
+    let previous: string | undefined;
+    let current = '[]';
+    await expect
+      .poll(
+        async () => {
+          previous = current;
+          current = JSON.stringify(await this.labelsWithOpacity());
+          return current === previous;
+        },
+        {
+          message: `the visualiser's drawing kept changing for ${timeoutMs}ms; last labels and opacities: ${current}`,
+          intervals: [stableMs],
+          timeout: timeoutMs,
+        },
+      )
+      .toBe(true);
+    return (JSON.parse(current) as { text: string; opacity: number }[])
+      .filter(({ opacity }) => opacity >= 0.5)
+      .map(({ text }) => text);
+  }
+
+  /**
+   * Steps forward until the session ends, reading the visible, settled drawing
+   * after every step. Returns each step's highlighted line and labels, in order.
+   */
+  async drawingAtEachStep(maxSteps = 60): Promise<{ line: number | null; labels: string[] }[]> {
+    const steps: { line: number | null; labels: string[] }[] = [];
+    for (let i = 0; i < maxSteps; i++) {
+      const active = await this.stepForward();
+      steps.push({ line: await this.currentLine(), labels: await this.settledVisibleLabels() });
+      if (!active) return steps;
+    }
+    throw new Error(
+      `session still running after ${maxSteps} steps; lines visited: [${this.visitedLines.join(', ')}]`,
+    );
+  }
+
   // ----------------------------------------------------------------- helpers
 
   /**
@@ -315,6 +360,23 @@ export class DebuggerPage {
   private async consoleForError(): Promise<string> {
     const text = await this.console.innerText({ timeout: 2_000 }).catch(() => null);
     return text === null ? '(the console could not be read)' : JSON.stringify(text.trim());
+  }
+
+  /**
+   * Each label in the visualiser with how opaque it is, counting its
+   * ancestors' opacity, rounded to 0.01. Hidden or undisplayed counts as 0.
+   */
+  private async labelsWithOpacity(): Promise<{ text: string; opacity: number }[]> {
+    return this.visualiser.locator('svg text').evaluateAll((labels) =>
+      labels.map((label) => {
+        let opacity = 1;
+        for (let el: Element | null = label; el; el = el.parentElement) {
+          const style = getComputedStyle(el);
+          opacity *= style.display === 'none' || style.visibility === 'hidden' ? 0 : Number(style.opacity);
+        }
+        return { text: label.textContent ?? '', opacity: Math.round(opacity * 100) / 100 };
+      }),
+    );
   }
 
   private recordLine(line: number | null) {

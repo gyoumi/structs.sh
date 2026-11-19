@@ -88,8 +88,11 @@ class LimitReached extends Error {
 
 /**
  * Runs an instrumented program to the end and records its steps. A step is
- * one statement: a repeat of the same line in the same call is skipped, and
- * returning from a call is a step back on the caller's line, as GDB shows it.
+ * one statement: a repeat of the same line in the same call is skipped, even
+ * after a call made from that line returns. Returning from a call isn't a
+ * step: after a function's last step comes the caller's next statement, as
+ * the call's result may not be stored yet (a new list node reachable only from
+ * it would vanish from the heap for that step).
  * A program that runs too many statements, or for too long, is stopped, and
  * its steps up to then are kept.
  */
@@ -109,18 +112,18 @@ export const recordRun = async (
   } = {}
 ): Promise<Recording> => {
   const debug = readDebugSection(await WebAssembly.compile(wasm));
-  const steps: (Step & { frame: number })[] = [];
+  const steps: Step[] = [];
   type Call = {
     function: string;
-    frame: number;
     /** The statement it's on, once it has started one. */
     statement: number | null;
     line: number | null;
     frameBase: number;
+    /** The line of its latest step, so a repeat of it isn't a new step. */
+    steppedLine: number | null;
   };
   const calls: Call[] = [];
   let outputBeforeFirstStep = '';
-  let frames = 0;
   let statementsRun = 0;
   const limitOutput = createOutputLimit();
   const deadline = performance.now() + timeLimitMs;
@@ -157,9 +160,8 @@ export const recordRun = async (
   let recordedSize = 0;
 
   const addStep = (call: Call, memory: () => DataView) => {
-    const last = steps.at(-1);
     if (call.statement === null || call.line === null) return;
-    if (last?.frame === call.frame && last.line === call.line) return;
+    if (call.steppedLine === call.line) return;
     const view = memory();
     const variables = readVariables(debug, call.statement, call.frameBase, view);
     const callFrames = calls.flatMap(({ statement, frameBase }) =>
@@ -196,8 +198,8 @@ export const recordRun = async (
       output: '',
       variables,
       heap,
-      frame: call.frame,
     });
+    call.steppedLine = call.line;
   };
 
   let end: RunEnd;
@@ -212,9 +214,14 @@ export const recordRun = async (
       },
       onTrace: (event, memory) => {
         if (event.type === 'enter') {
-          frames += 1;
           const name = debug.functions[event.function] ?? `function ${event.function}`;
-          calls.push({ function: name, frame: frames, statement: null, line: null, frameBase: 0 });
+          calls.push({
+            function: name,
+            statement: null,
+            line: null,
+            frameBase: 0,
+            steppedLine: null,
+          });
         } else if (event.type === 'line') {
           statementsRun += 1;
           if (statementsRun > stepLimit) throw new LimitReached({ stepLimit });
@@ -227,8 +234,6 @@ export const recordRun = async (
           addStep(call, memory);
         } else if (event.type === 'exit') {
           calls.pop();
-          const caller = calls.at(-1);
-          if (caller) addStep(caller, memory);
         } else if (event.type === 'allocated') {
           if (event.pointer !== 0) allocations.set(unsigned(event.pointer), unsigned(event.size));
           starts = null;
@@ -250,7 +255,7 @@ export const recordRun = async (
   }
 
   return {
-    steps: steps.map(({ frame: _frame, ...step }) => step),
+    steps,
     outputBeforeFirstStep,
     end,
     types: structDeclarations(debug),
