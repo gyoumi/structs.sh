@@ -82,6 +82,19 @@ so the tests check the spec rather than the code written to pass them.
   NULL dereferences that don't trap, memory that starts zeroed, and stdin
   under record and replay.
 
+## Matching the old debugger
+
+- A spec, commit or comment that says the wasm debugger does something "as
+  GDB does" points to a GDB recording that shows it (the recordings in
+  `e2e/fixtures/gdb-steps/`). Don't state GDB's behaviour from memory.
+- A change to what the debugger shows while stepping is checked at every
+  step, not only at chosen lines: the e2e comparison with the GDB
+  recordings, and the checks that no node disappears and comes back and that
+  nothing is logged as a console error, must still pass.
+- When a change builds on an earlier decision (for example, drawing the heap
+  from what variables reach builds on where the debugger stops), check again
+  what that earlier decision now looks like to a student.
+
 ## Never make a run green by weakening it
 
 - Don't delete, skip, or loosen a test to get CI passing. If a test is wrong,
