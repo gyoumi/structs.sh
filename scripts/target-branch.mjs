@@ -23,12 +23,13 @@ const run = (cmd, args) =>
   execFileSync(cmd, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
 
 /**
- * The GitHub repo ("owner/name") a remote URL points at: https, scp-style
+ * The GitHub repo ("owner/name") a remote URL points at: http(s), scp-style
  * (git@github.com:owner/name) or ssh://, with or without a port, as with
- * ssh.github.com:443. Hosts ignore case; owner/name comes back as written.
+ * ssh.github.com:443. The host must be github.com or ssh.github.com, in any
+ * case, so gitlab-github.com doesn't count; owner/name comes back as written.
  */
 export function githubRepo(url) {
-  return url.match(/github\.com(?::\d+(?=\/))?[:/]([^/\s:]+\/[^/\s]+?)(?:\.git)?\/?$/i)?.[1];
+  return url.match(/^(?:(?:https?|ssh):\/\/)?(?:[^@/\s]+@)?(?:ssh\.)?github\.com(?::\d+(?=\/))?[:/]([^/\s:]+\/[^/\s]+?)(?:\.git)?\/?$/i)?.[1];
 }
 
 /**

@@ -68,6 +68,7 @@ describe('githubRepo', () => {
       'ssh://git@github.com/gyoumi/structs.sh.git',
       'ssh://git@ssh.github.com:443/gyoumi/structs.sh.git',
       'ssh://git@github.com:22/gyoumi/structs.sh',
+      'http://github.com/gyoumi/structs.sh.git',
     ];
     for (const url of urls) {
       assert.equal(githubRepo(url), 'gyoumi/structs.sh', `githubRepo(${JSON.stringify(url)}) should be gyoumi/structs.sh`);
@@ -80,6 +81,8 @@ describe('githubRepo', () => {
       ['git@GITHUB.COM:owner/name.git', 'owner/name'],
       ['ssh://git@SSH.GitHub.com:443/Owner/Name.git', 'Owner/Name'],
       ['https://github.COM/Devsoc-UNSW/Structs.sh', 'Devsoc-UNSW/Structs.sh'],
+      ['http://github.com/owner/name.git', 'owner/name'],
+      ['http://GitHub.com/Owner/Name', 'Owner/Name'],
     ];
     for (const [url, repo] of cases) {
       assert.equal(githubRepo(url), repo, `githubRepo(${JSON.stringify(url)}) should be ${repo}`);
@@ -89,6 +92,43 @@ describe('githubRepo', () => {
   it('ignores remotes that are not on GitHub', () => {
     const url = 'https://gitlab.com/gyoumi/structs.sh.git';
     assert.equal(githubRepo(url), undefined, `githubRepo(${JSON.stringify(url)}) should be undefined`);
+  });
+
+  it('ignores hosts that only contain github.com, such as gitlab-github.com or github.com.example.org', () => {
+    const urls = [
+      'https://gitlab-github.com/owner/name.git',
+      'https://github.com.example.org/owner/name.git',
+      'git@notgithub.com:owner/name.git',
+      'https://example.com/github.com/owner/name.git',
+      'https://user@gitlab-github.com/owner/name.git',
+      'git@github.com.example.org:owner/name.git',
+      'ssh://git@notgithub.com/owner/name.git',
+      'ssh://git@ssh.github.com.example.org:443/owner/name.git',
+      'https://GITLAB-GITHUB.COM/owner/name.git',
+      'http://gitlab-github.com/owner/name.git',
+    ];
+    // Every URL is checked before failing, so the message lists them all.
+    const missed = urls
+      .map((url) => [url, githubRepo(url)])
+      .filter(([, repo]) => repo !== undefined)
+      .map(([url, repo]) => `  githubRepo(${JSON.stringify(url)}) gave ${JSON.stringify(repo)}`);
+    assert.deepEqual(
+      missed,
+      [],
+      'each URL below has a host that is not exactly github.com or ssh.github.com, so githubRepo should give undefined, ' +
+        `but didn't:\n${missed.join('\n')}`,
+    );
+  });
+
+  it('reads owner/name when the URL names a user before the host', () => {
+    const cases = [
+      ['https://x-access-token@github.com/gyoumi/structs.sh.git', 'gyoumi/structs.sh'],
+      ['git@GitHub.com:gyoumi/structs.sh', 'gyoumi/structs.sh'],
+      ['ssh://git@ssh.github.com:443/gyoumi/structs.sh', 'gyoumi/structs.sh'],
+    ];
+    for (const [url, repo] of cases) {
+      assert.equal(githubRepo(url), repo, `githubRepo(${JSON.stringify(url)}) should be ${repo}`);
+    }
   });
 });
 
