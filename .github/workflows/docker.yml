@@ -28,8 +28,6 @@ jobs:
           # The client builds from the repo root, where the pnpm lockfile is.
           - component: client
             context: .
-          - component: debugger
-            context: debugger
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -56,7 +54,6 @@ jobs:
           tags: |
             ghcr.io/devsoc-unsw/${{ env.IMAGE_NAME }}-${{ matrix.component }}:${{ github.sha }}
             ghcr.io/devsoc-unsw/${{ env.IMAGE_NAME }}-${{ matrix.component }}:latest
-          build-args: "VITE_DEBUGGER_URL=https://structs.sh"
 
   deploy:
     name: Deploy (CD)
@@ -74,4 +71,3 @@ jobs:
           deployment-dispatcher-app-private-key: ${{ secrets.DEPLOYMENT_DISPATCHER_APP_PRIVATE_KEY }}
           updates: |
             ghcr.io/devsoc-unsw/${{ env.IMAGE_NAME }}-client=${{ github.sha }}
-            ghcr.io/devsoc-unsw/${{ env.IMAGE_NAME }}-debugger=${{ github.sha }}

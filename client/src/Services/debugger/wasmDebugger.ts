@@ -49,8 +49,8 @@ const describeFailure = (result: Exclude<RecordResult, { recording: Recording }>
 /**
  * The page's view of one step.
  *
- * stack_data and heap_data are in the format the GDB debugger actually
- * sends (`{ addr, typeName, value }`), which is what the page reads, though
+ * stack_data and heap_data are in the format the GDB debugger used to send
+ * (`{ addr, typeName, value }`), which is what the page reads, though
  * BackendState's types describe an older one.
  */
 const stateAt = (file: SourceFile, step: Step): BackendState => ({
@@ -89,8 +89,6 @@ type Session = {
  * Stepping back is handled by the page, which keeps the states it was sent.
  */
 export class WasmDebugger implements Debugger {
-  readonly kind = 'wasm';
-
   private events: DebuggerEvents | null = null;
 
   /** Counts starts, so only the latest compile's result is reported. */

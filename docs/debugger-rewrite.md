@@ -414,7 +414,7 @@ local that hasn't been assigned yet, and the value it's given once it has.
 
 ### 4c. GDB deleted
 
-Delete:
+**Done in #31 and #32.** Delete:
 
 - `debugger/`, including the `nsjail` gitlink that has no `.gitmodules` entry
 - `gdbDebugger.ts` and its test, the fake socket, `socketClientType.ts`,

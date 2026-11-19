@@ -41,7 +41,6 @@ const present = (files) => files.filter((p) => existsSync(join(root, p)));
 const under = (prefix) => changed.filter((p) => p.startsWith(prefix));
 const client = under('client/');
 const e2e = under('e2e/');
-const debuggerFiles = under('debugger/');
 // The pinned Rust toolchain builds and checks the instrumenter too.
 const instrumenter = changed.filter((p) => p.startsWith('instrumenter/') || p === 'rust-toolchain.toml');
 const scripts = under('scripts/');
@@ -86,12 +85,6 @@ if (checkE2e) {
 }
 if (checkClient || checkE2e || scripts.length || knipConfig) {
   add('knip', bin('.', 'knip'), ['--no-progress', '--include', 'files,unlisted,unresolved,binaries']);
-}
-if (debuggerFiles.length) {
-  if (onPath('uv')) {
-    add('debugger: ruff', 'uv', ['run', 'ruff', 'check', 'src'], join(root, 'debugger'));
-    add('debugger: mypy', 'uv', ['run', 'mypy', 'src/'], join(root, 'debugger'));
-  } else skipped.push('debugger: ruff and mypy (uv is not installed)');
 }
 const cargo = onPath('cargo');
 if (instrumenter.length) {

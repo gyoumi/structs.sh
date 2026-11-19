@@ -1,9 +1,6 @@
 import { BackendState, BackendTypeDeclaration } from '@/visualiser-debugger/Types/backendType';
 import type { CompilerStatus } from './wasm/compiler';
 
-/** `gdb` runs on the server. `wasm` runs in the browser and is being built. */
-export type DebuggerKind = 'gdb' | 'wasm';
-
 /** A file from the page's file tree. */
 export type SourceFile = { name: string; code: string };
 
@@ -15,13 +12,12 @@ export type DebuggerEvents = {
   state: (state: BackendState) => void;
   typeDeclaration: (type: BackendTypeDeclaration) => void;
   sessionEnded: () => void;
-  /** Only the wasm debugger, whose compiler downloads in the browser, sends this. */
+  /** How far the compiler, which downloads in the browser, has got. */
   compilerStatus: (status: CompilerStatus) => void;
 };
 
 /** What the page can ask a debugger to do. */
 export interface Debugger {
-  readonly kind: DebuggerKind;
   /** Replaces the events set earlier. */
   setEvents(events: DebuggerEvents): void;
   /** Compiles the file and starts a session. */

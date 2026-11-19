@@ -1,5 +1,4 @@
 import type { FullResult, Reporter, Suite, TestCase } from '@playwright/test/reporter';
-import { debuggerKind } from './debugger-kind';
 
 type Tally = { working: number; knownFailing: number; broken: string[]; nowFixed: string[] };
 
@@ -40,14 +39,14 @@ export default class ProgressReporter implements Reporter {
     let working = 0;
     let total = 0;
     const width = Math.max(...[...features.keys()].map((f) => f.length)) + 2;
-    const lines = ['', `Feature progress (${debuggerKind} debugger)`, ''];
+    const lines = ['', 'Feature progress', ''];
 
     for (const [feature, t] of [...features].sort(([a], [b]) => a.localeCompare(b))) {
       const featureTotal = t.working + t.knownFailing + t.broken.length + t.nowFixed.length;
       const notes = [
         t.knownFailing && `${t.knownFailing} on the known-failures list`,
         t.broken.length && `${t.broken.length} broken`,
-        t.nowFixed.length && `${t.nowFixed.length} now passing, remove from known-failures/${debuggerKind}.json`,
+        t.nowFixed.length && `${t.nowFixed.length} now passing, remove from known-failures/wasm.json`,
       ].filter(Boolean);
 
       lines.push(

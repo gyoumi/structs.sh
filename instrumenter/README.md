@@ -30,9 +30,8 @@ pnpm run instrumenter
 
 This builds the `.wasm` and copies it to
 `client/src/Services/debugger/wasm/generated/`, where the client loads it.
-It isn't committed. Without it, the GDB debugger still works, but the wasm
-debugger reports that the instrumenter couldn't be loaded, and the client's
-unit tests that use it fail.
+It isn't committed. Without it, the debugger reports that the instrumenter
+couldn't be loaded, and the client's unit tests that use it fail.
 
 CI and `client/Dockerfile.prod` build it the same way.
 

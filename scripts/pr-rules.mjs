@@ -11,7 +11,7 @@ const LABELS = {
   removalOk: 'removal-ok',
 };
 
-// Changing any of these can weaken a check or the sandbox, so a person signs off.
+// Changing any of these can weaken a check, so a person signs off.
 const PROTECTED = [
   /^\.github\//,
   /^\.claude\//,
@@ -28,10 +28,6 @@ const PROTECTED = [
   /^e2e\/playwright\.config\.ts$/,
   /^client\/vitest\.config\.ts$/,
   /(^|\/)\.cargo\//, // cargo config can change or skip what `cargo test` runs
-  /^debugger\/pyproject\.toml$/, // ruff and mypy settings
-  /^debugger\/nsjail_gdb\.cfg$/,
-  /^debugger\/Dockerfile\.prod$/,
-  /^debugger\/src\/debugger\/(base_debugger|c_compile)\.py$/,
 ];
 // CI runs the commands in these manifests' "scripts", so editing those (to
 // `true`, say) would switch a check off. Dependency bumps stay unprotected.
@@ -46,19 +42,22 @@ const CARGO_TEST_SETTING = /\b(autotests|autobenches|test|harness|doctest|requir
 
 const OTHER_LOCKFILES = new Set(['package-lock.json', 'npm-shrinkwrap.json', 'yarn.lock', 'bun.lock', 'bun.lockb']);
 const IMAGE_FOLDERS = [/^client\/public\//, /^client\/src\//, /^docs\/docs\/images\//];
-const PRODUCT_CODE = /^(client|debugger|e2e)\//;
+const PRODUCT_CODE = /^(client|e2e|instrumenter)\//;
 const AGENT_CONFIG = /^(\.claude\/|skills-lock\.json$)/;
-const DEBUGGER_SOURCE = /^debugger\/src\//;
-const DEBUGGER_TESTS = /^debugger\/src\/debugger\/test\//;
+// The in-browser debugger's code: the Rust instrumenter and the client code
+// that compiles, runs and records the program. Its Vitest tests, fixtures and
+// non-code files don't count as debugger changes.
+const DEBUGGER_SOURCE = /^(instrumenter\/src|client\/src\/Services\/debugger)\/.*\.(tsx?|rs)$/;
+const DEBUGGER_TESTS = /(\.test\.tsx?$|\/fixtures\/)/;
 // Files a test runner picks up, by its own naming rule, so renaming one out
 // of the pattern counts as removing it: Playwright's *.spec.ts and *.test.ts,
-// pytest's test_*.py and *_test.py, cargo's tests/*.rs, Vitest's
-// client/src/**/*.test.ts(x), and node --test's scripts/*.test.mjs.
+// cargo's tests/*.rs, Vitest's client/src/**/*.test.ts(x), and node --test's
+// scripts/*.test.mjs.
 const TEST_FILE =
-  /^(e2e\/tests\/.*\.(spec|test)\.[cm]?[jt]sx?|debugger\/src\/debugger\/test\/(.*\/)?(test_[^/]*|[^/]*_test)\.py|instrumenter\/tests\/[^/]+\.rs|client\/src\/.*\.test\.tsx?|scripts\/[^/]+\.test\.mjs)$/;
+  /^(e2e\/tests\/.*\.(spec|test)\.[cm]?[jt]sx?|instrumenter\/tests\/[^/]+\.rs|client\/src\/.*\.test\.tsx?|scripts\/[^/]+\.test\.mjs)$/;
 // Changes that count as test coverage for a debugger change.
-const TEST_CHANGE = /^(e2e\/tests\/|e2e\/programs\/|e2e\/known-failures\/[^/]+\.json$|debugger\/src\/debugger\/test\/)/;
-const SHRINK_CHECKED = /^((client\/src|debugger\/src|e2e|instrumenter\/src|instrumenter\/tests)\/|scripts\/[^/]+\.test\.mjs$)/;
+const TEST_CHANGE = /^(e2e\/tests\/|e2e\/programs\/|e2e\/known-failures\/[^/]+\.json$|instrumenter\/tests\/([^/]+\.rs|fixtures\/.*(?<!\.md))$|client\/src\/.*\.test\.tsx?$)/;
+const SHRINK_CHECKED = /^((client\/src|e2e|instrumenter\/src|instrumenter\/tests)\/|scripts\/[^/]+\.test\.mjs$)/;
 
 const basename = (path) => path.slice(path.lastIndexOf('/') + 1);
 
@@ -110,7 +109,7 @@ export function checkPr({ files, tracked, addedLines, labels }) {
     add(
       'debugger-needs-test',
       debuggerChanged,
-      `Debugger changes need an e2e test, a pytest, or a known-failures entry. A person can add the "${LABELS.noTestNeeded}" label to waive this.`,
+      `Debugger changes need an e2e test, a Vitest or cargo test, or a known-failures entry. A person can add the "${LABELS.noTestNeeded}" label to waive this.`,
     );
   }
 
@@ -139,7 +138,7 @@ export function checkPr({ files, tracked, addedLines, labels }) {
     const cargoTestSettings = addedLines.filter((l) => CARGO_MANIFEST.test(l.path) && CARGO_TEST_SETTING.test(l.text)).map((l) => l.path);
     for (const path of new Set(paths)) {
       if (PROTECTED.some((re) => re.test(path)) || manifestScripts.includes(path) || cargoTestSettings.includes(path)) {
-        add('protected-paths', path, `Changes to CI, lint config, the package.json scripts CI runs, agent config, known failures or the sandbox need a person to add the "${LABELS.humanApproved}" label.`);
+        add('protected-paths', path, `Changes to CI, lint config, the package.json scripts CI runs, agent config or known failures need a person to add the "${LABELS.humanApproved}" label.`);
       }
     }
   }
