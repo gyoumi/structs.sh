@@ -28,7 +28,7 @@ A react project for converting the debugger's data (called state) maps to a visu
 
 #### State
 State: State refers any instance of user's c code, (think of a break point, user's C code's stack of frame). 
-- Backend State: the data representation of the state in the backend (Python debugger).
+- Backend State: the program state the debugger records at each step (`stack_data`, `heap_data`).
 - Frontend state:  the data representation of frontend visualization. Eg. A collection of drawable objects.
 
 

@@ -48,6 +48,7 @@ const AGENT_CONFIG = /^(\.claude\/|skills-lock\.json$)/;
 // compiles, runs and records the program. Its Vitest tests and fixtures
 // don't count as debugger changes.
 const DEBUGGER_SOURCE = /^(instrumenter\/src|client\/src\/Services\/debugger)\//;
+const VITEST_TEST = /\.test\.tsx?$/;
 const DEBUGGER_TESTS = /(\.test\.tsx?$|\/fixtures\/)/;
 // Files a test runner picks up, by its own naming rule, so renaming one out
 // of the pattern counts as removing it: Playwright's *.spec.ts and *.test.ts,
@@ -103,10 +104,10 @@ export function checkPr({ files, tracked, addedLines, labels }) {
   }
 
   // debugger-needs-test
-  // A test renamed out of the pattern is still test code; large-removal
-  // reports it.
+  // A Vitest test renamed out of the pattern is still test code;
+  // large-removal reports it. A fixture renamed into the source still counts.
   const debuggerChanged = files
-    .filter((f) => !(f.oldPath && DEBUGGER_TESTS.test(f.oldPath)))
+    .filter((f) => !(f.oldPath && VITEST_TEST.test(f.oldPath)))
     .flatMap((f) => (f.oldPath ? [f.path, f.oldPath] : [f.path]))
     .find((p) => DEBUGGER_SOURCE.test(p) && !DEBUGGER_TESTS.test(p));
   const testChanged = files.some((f) => f.status !== 'D' && TEST_CHANGE.test(f.path));

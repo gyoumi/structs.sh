@@ -168,6 +168,14 @@ describe('debugger-needs-test', () => {
     expectClean([{ status: 'D', path: 'instrumenter/src/fixtures/loop.c' }], 'deleting the fixture instrumenter/src/fixtures/loop.c alone');
   });
 
+  it('counts a fixture renamed into debugger source as a debugger change', () => {
+    const cases = [
+      { status: 'R', oldPath: 'client/src/Services/debugger/wasm/fixtures/helper.ts', path: 'client/src/Services/debugger/wasm/helper.ts' },
+      { status: 'R', oldPath: 'instrumenter/src/fixtures/x.rs', path: 'instrumenter/src/x.rs' },
+    ];
+    for (const file of cases) expectNeedsTest([file], `renaming the fixture ${file.oldPath} to ${file.path} with no test change`);
+  });
+
   it('no longer fires for the deleted debugger/ server', () => {
     expectClean([{ status: 'M', path: 'debugger/src/serve.py' }], 'debugger/src/serve.py changed with no test change');
   });
@@ -219,14 +227,24 @@ describe('debugger-needs-test', () => {
 });
 
 describe('large-removal', () => {
+  // Compares "rule path" pairs, so a failure shows every finding checkPr returned.
+  const expectFindings = (files, expected, what, labels = new Set()) => {
+    const result = checkPr(pr({ files, labels }));
+    assert.deepEqual(
+      result.map((f) => `${f.rule} ${f.path}`),
+      expected,
+      `${what} should give ${JSON.stringify(expected)}. Got findings: ${show(result)}`,
+    );
+  };
+
   it('rejects a source file cut to a fraction of its size', () => {
     const files = [{ status: 'M', path: 'client/src/visualiser-src/linked-list/controller.ts', oldLines: 200, newLines: 20 }];
-    assert.deepEqual(rulesHit(checkPr(pr({ files }))), ['large-removal']);
+    expectFindings(files, ['large-removal client/src/visualiser-src/linked-list/controller.ts'], 'client/src/visualiser-src/linked-list/controller.ts cut from 200 to 20 lines');
   });
 
   it('rejects an emptied file even when it was small', () => {
     const files = [{ status: 'M', path: 'e2e/support/test.ts', oldLines: 12, newLines: 0 }];
-    assert.deepEqual(rulesHit(checkPr(pr({ files }))), ['large-removal']);
+    expectFindings(files, ['large-removal e2e/support/test.ts'], 'e2e/support/test.ts emptied from 12 lines');
   });
 
   it('allows ordinary edits and small files', () => {
@@ -234,22 +252,22 @@ describe('large-removal', () => {
       { status: 'M', path: 'client/src/App.tsx', oldLines: 200, newLines: 150 },
       { status: 'M', path: 'client/src/utils/url.ts', oldLines: 20, newLines: 4 },
     ];
-    assert.deepEqual(checkPr(pr({ files })), []);
+    expectFindings(files, [], 'client/src/App.tsx 200 to 150 lines and client/src/utils/url.ts 20 to 4 lines');
   });
 
   it('rejects deleted test files', () => {
     const files = [{ status: 'D', path: 'e2e/tests/stepping.spec.ts' }];
-    assert.deepEqual(rulesHit(checkPr(pr({ files }))), ['large-removal']);
+    expectFindings(files, ['large-removal e2e/tests/stepping.spec.ts'], 'deleting e2e/tests/stepping.spec.ts');
   });
 
   it('rejects a test moved out of the test folders', () => {
     const files = [{ status: 'R', path: 'e2e/disabled/stepping.spec.ts', oldPath: 'e2e/tests/stepping.spec.ts' }];
-    assert.deepEqual(rulesHit(checkPr(pr({ files }))), ['large-removal']);
+    expectFindings(files, ['large-removal e2e/tests/stepping.spec.ts'], 'renaming e2e/tests/stepping.spec.ts to e2e/disabled/stepping.spec.ts');
   });
 
   it('allows a test moved within the test folders', () => {
     const files = [{ status: 'R', path: 'e2e/tests/steps/stepping.spec.ts', oldPath: 'e2e/tests/stepping.spec.ts' }];
-    assert.deepEqual(checkPr(pr({ files })), []);
+    expectFindings(files, [], 'renaming e2e/tests/stepping.spec.ts to e2e/tests/steps/stepping.spec.ts');
   });
 
   it('rejects deleted Vitest and instrumenter tests', () => {
@@ -257,7 +275,11 @@ describe('large-removal', () => {
       { status: 'D', path: 'client/src/Services/debugger/wasm/recording.test.ts' },
       { status: 'D', path: 'instrumenter/tests/instrument.rs' },
     ];
-    assert.equal(checkPr(pr({ files })).filter((f) => f.rule === 'large-removal').length, 2);
+    expectFindings(
+      files,
+      ['large-removal client/src/Services/debugger/wasm/recording.test.ts', 'large-removal instrumenter/tests/instrument.rs'],
+      'deleting client/src/Services/debugger/wasm/recording.test.ts and instrumenter/tests/instrument.rs',
+    );
   });
 
   it('rejects a Vitest test renamed so it no longer runs', () => {
@@ -268,7 +290,11 @@ describe('large-removal', () => {
         oldPath: 'client/src/Services/debugger/wasm/recording.test.ts',
       },
     ];
-    assert.deepEqual(rulesHit(checkPr(pr({ files }))), ['large-removal']);
+    expectFindings(
+      files,
+      ['large-removal client/src/Services/debugger/wasm/recording.test.ts'],
+      'renaming client/src/Services/debugger/wasm/recording.test.ts to recording.ts.bak (a test rename, not a debugger change)',
+    );
   });
 
   it('rejects a test renamed in its folder so its runner skips it', () => {
@@ -276,7 +302,11 @@ describe('large-removal', () => {
       { status: 'R', path: 'e2e/tests/stepping.spec.ts.bak', oldPath: 'e2e/tests/stepping.spec.ts' },
       { status: 'R', path: 'instrumenter/tests/instrument.rs.bak', oldPath: 'instrumenter/tests/instrument.rs' },
     ];
-    assert.equal(checkPr(pr({ files })).filter((f) => f.rule === 'large-removal').length, 2);
+    expectFindings(
+      files,
+      ['large-removal e2e/tests/stepping.spec.ts', 'large-removal instrumenter/tests/instrument.rs'],
+      'renaming e2e/tests/stepping.spec.ts and instrumenter/tests/instrument.rs to .bak',
+    );
   });
 
   it('no longer treats a pytest file as a test', () => {
@@ -308,12 +338,12 @@ describe('large-removal', () => {
 
   it('rejects deleting the tests of these rules', () => {
     const files = [{ status: 'D', path: 'scripts/pr-rules.test.mjs' }];
-    assert.deepEqual(rulesHit(checkPr(pr({ files }))), ['large-removal']);
+    expectFindings(files, ['large-removal scripts/pr-rules.test.mjs'], 'deleting scripts/pr-rules.test.mjs');
   });
 
   it('rejects a test of these rules cut to a fraction of its size', () => {
     const files = [{ status: 'M', path: 'scripts/pr-rules.test.mjs', oldLines: 300, newLines: 20 }];
-    assert.deepEqual(rulesHit(checkPr(pr({ files }))), ['large-removal']);
+    expectFindings(files, ['large-removal scripts/pr-rules.test.mjs'], 'scripts/pr-rules.test.mjs cut from 300 to 20 lines');
   });
 
   it('does not count a deleted test fixture as a test', () => {
@@ -324,12 +354,12 @@ describe('large-removal', () => {
 
   it('rejects an instrumenter test file cut to a fraction of its size', () => {
     const files = [{ status: 'M', path: 'instrumenter/tests/instrument.rs', oldLines: 400, newLines: 40 }];
-    assert.deepEqual(rulesHit(checkPr(pr({ files }))), ['large-removal']);
+    expectFindings(files, ['large-removal instrumenter/tests/instrument.rs'], 'instrumenter/tests/instrument.rs cut from 400 to 40 lines');
   });
 
   it('is waived by the removal-ok label', () => {
     const files = [{ status: 'D', path: 'e2e/tests/stepping.spec.ts' }];
-    assert.deepEqual(checkPr(pr({ files, labels: new Set(['removal-ok']) })), []);
+    expectFindings(files, [], 'deleting e2e/tests/stepping.spec.ts with the removal-ok label', new Set(['removal-ok']));
   });
 });
 
