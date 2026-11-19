@@ -15,7 +15,7 @@ Go through the session and list candidate lessons. For each, note the evidence: 
 - User corrections of the approach.
 - Commands or flags that failed before the right one worked.
 - Dead ends that cost real time and will recur.
-- Repo facts that were hard to find (ports, setup steps, test commands, quirks of the gdb backend or the e2e suite).
+- Repo facts that were hard to find (ports, setup steps, test commands, quirks of the wasm debugger or the e2e suite).
 
 For a long session, spawn two read-only reviewers in one message (models from `orchestrate-defaults`) and merge their lists:
 

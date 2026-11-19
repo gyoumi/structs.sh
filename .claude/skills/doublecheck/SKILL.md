@@ -15,7 +15,7 @@ Re-read the target text and list every verifiable claim with an id (C1, C2, ...)
 
 | Category | Examples |
 |---|---|
-| Technical | File paths, function names, import paths, command flags, socket event names, gdb MI commands |
+| Technical | File paths, function names, import paths, command flags, wasm imports, DWARF attributes |
 | Version | Package versions, config keys, timeouts |
 | Citation | Docs, specs, issues, PRs |
 | Causal | "X causes Y", "this prevents Z" |
@@ -29,7 +29,7 @@ Find a source for each claim:
 - File paths and line numbers: Glob or Read the file.
 - Names (functions, types, events, constants): Grep the repo for the exact name.
 - Command flags: run `<cmd> --help` or read the tool's docs.
-- Package behaviour: read the installed version in `node_modules/` or `debugger/.venv/`, or the upstream docs for that version.
+- Package behaviour: read the installed version in `node_modules/` or `instrumenter/Cargo.lock`, or the upstream docs for that version.
 - External facts: WebSearch or WebFetch the primary source.
 
 Record each as: found, not found, or contradicted.

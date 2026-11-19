@@ -18,8 +18,9 @@ Where failing commands usually live in this repo:
 
 | Area | Command |
 |---|---|
-| Visual debugger, as a student uses it | A Playwright test in `e2e/tests/` (`pnpm run e2e tests/<file>.spec.ts -g "<name>"` from the repo root). Start the backend first with `docker compose up -d debugger`. |
-| Debugger backend (gdb, MI parsing, sockets) | A pytest in `debugger/src/debugger/test/` (`cd debugger && uv run pytest src/debugger/test/<file>.py`). Needs `gdb` and `gcc` on the machine. |
+| Visual debugger, as a student uses it | A Playwright test in `e2e/tests/` (`pnpm run e2e tests/<file>.spec.ts -g "<name>"` from the repo root). |
+| Debugger compiler, runner or recorder | A Vitest test next to the code in `client/src/Services/debugger/wasm/` (`cd client && pnpm test <file>`). Build the instrumenter first with `pnpm run instrumenter`. |
+| Debugger instrumenter (DWARF, rewriting the wasm) | A `cargo test` in `instrumenter/tests/` (`cd instrumenter && cargo test`). |
 | Client types, lint, build | `cd client && pnpm run tsc`, `pnpm run lint`, `pnpm run build` |
 | Visualiser animation or layout | A Playwright script that loads the page and screenshots the state; see the `ui-visual-test` skill |
 
@@ -42,7 +43,7 @@ Do not edit product code until one hypothesis survives a confirming check.
 
 ## 4. Fix
 
-- Where a test seam exists (an e2e behaviour, a pytest), make the failing command a committed test before fixing.
+- Where a test seam exists (an e2e behaviour, a Vitest or `cargo test`), make the failing command a committed test before fixing.
 - Apply the smallest change that fixes the confirmed cause.
 - Re-run the same command, then any adjacent check you need for confidence.
 - If the fix does not turn the command green, stay in this loop. Do not start a separate speculative track.
@@ -55,7 +56,7 @@ If the same fix attempt fails twice in a row, stop and report what you tried ins
 Report each bug in this shape:
 
 - **What you see**: the visible symptom in everyday words.
-- **Why**: one short cause. Name the actor (client, debugger, gdb, socket).
+- **Why**: one short cause. Name the actor (client, compiler, instrumenter, recorder).
 - **Next**: the fix, or the one decision you need from the user.
 
 Put file paths and line numbers after the plain explanation, not in the first sentence. State the confirmed hypothesis so it can go in the commit or PR body.

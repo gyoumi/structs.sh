@@ -13,7 +13,7 @@ This skill does not cover click-path behaviour tests. Those belong in `e2e/tests
 ## Setup
 
 - The client runs on `http://localhost:3000` (`pnpm --dir client start`, or `docker compose up client`). Reuse a dev server that is already running; do not start a second one on another port.
-- The debugger page (`/debugger`) also needs the backend: `docker compose up -d debugger` (port 8000).
+- The debugger page (`/debugger`) runs in the browser and needs no backend, only the instrumenter built once with `pnpm run instrumenter`.
 - Use the Playwright installed at the repo root (`pnpm install && pnpm exec playwright install chromium` if needed).
 
 ## Routes
