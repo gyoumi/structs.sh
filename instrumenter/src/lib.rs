@@ -10,6 +10,10 @@
 //!   its variables can be found.
 //! - `structs.exit()` when the function returns.
 //!
+//! Before each of those functions sets up its stack frame, it fills the frame
+//! with the byte 0xAA, so an uninitialised local shows garbage, as it does
+//! under GDB, rather than the zeros fresh wasm memory starts with.
+//!
 //! It also tells the runner about the heap and stops NULL dereferences:
 //!
 //! - `structs.allocated(pointer, size)`, `structs.freed(pointer)` and
@@ -98,6 +102,7 @@ pub fn instrument(wasm: &[u8]) -> Result<Vec<u8>, String> {
     let (null, _) = module.add_import_func("structs", "null", no_type);
 
     let code: Vec<FunctionId> = module.funcs.iter_local().map(|(id, _)| id).collect();
+    let memory = module.memories.iter().next().map(|memory| memory.id());
 
     let mut names = Vec::new();
     for &id in &code {
@@ -142,6 +147,9 @@ pub fn instrument(wasm: &[u8]) -> Result<Vec<u8>, String> {
         }
         .unwrap_or_else(|| const_i32(0));
 
+        let fill = memory
+            .and_then(|memory| fill_frame(function, memory))
+            .unwrap_or_default();
         let loop_starts = loop_statements(function, &sequences, &info.starts);
         for &seq in &sequences {
             add_line_calls(
@@ -157,10 +165,12 @@ pub fn instrument(wasm: &[u8]) -> Result<Vec<u8>, String> {
             function,
             &sequences,
             body_type,
-            vec![
-                const_i32(names.len() as i32),
-                Instr::Call(ir::Call { func: enter }),
-            ],
+            fill.into_iter()
+                .chain([
+                    const_i32(names.len() as i32),
+                    Instr::Call(ir::Call { func: enter }),
+                ])
+                .collect(),
             vec![Instr::Call(ir::Call { func: exit })],
         );
         names.push(name);
@@ -226,6 +236,41 @@ fn sequences(function: &LocalFunction) -> Vec<InstrSeqId> {
         }
     }
     found
+}
+
+/// The byte an uninitialised local holds. Fresh wasm memory is zeroed, so
+/// without it an uninitialised `int` would show 0, where GDB shows garbage.
+const UNINITIALISED: i32 = 0xAA;
+
+/// Instructions that fill the function's stack frame with `UNINITIALISED`,
+/// to run before its prologue, so parameters are stored over the fill. At
+/// `-O0`, clang starts a function that has a frame with
+/// `global.get $__stack_pointer; i32.const size; i32.sub`, and the frame is
+/// the `size` bytes below the stack pointer.
+fn fill_frame(function: &LocalFunction, memory: walrus::MemoryId) -> Option<Vec<Instr>> {
+    let instrs = &function.block(function.entry_block()).instrs;
+    let [
+        (Instr::GlobalGet(stack_pointer), _),
+        (Instr::Const(size), _),
+        (Instr::Binop(sub), _),
+        ..,
+    ] = instrs.as_slice()
+    else {
+        return None;
+    };
+    let (Value::I32(size), BinaryOp::I32Sub) = (size.value, sub.op) else {
+        return None;
+    };
+    Some(vec![
+        Instr::GlobalGet(stack_pointer.clone()),
+        const_i32(size),
+        Instr::Binop(ir::Binop {
+            op: BinaryOp::I32Sub,
+        }),
+        const_i32(UNINITIALISED),
+        const_i32(size),
+        Instr::MemoryFill(ir::MemoryFill { memory }),
+    ])
 }
 
 /// Statements that start on a `loop` instruction, by the loop's body. A

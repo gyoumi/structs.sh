@@ -311,7 +311,8 @@ passes 11/16, including a new test for stepping back after the end.
   bugs and it would double CI time.
 - **Where wasm differs from real C**, we accept it for now: pointers are 4
   bytes, and fresh memory starts zeroed, so an uninitialised `int` often
-  shows 0 rather than garbage. See the follow-ups.
+  shows 0 rather than garbage. See the follow-ups. (Step 4b fills stack
+  frames, so locals no longer show 0.)
 
 ### 3a. Variables and types
 
