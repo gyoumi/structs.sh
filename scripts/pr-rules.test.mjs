@@ -176,6 +176,23 @@ describe('debugger-needs-test', () => {
     for (const file of cases) expectNeedsTest([file], `renaming the fixture ${file.oldPath} to ${file.path} with no test change`);
   });
 
+  it('counts a Vitest test renamed into debugger source as a debugger change', () => {
+    const file = { status: 'R', oldPath: 'client/src/Services/debugger/wasm/helper.test.ts', path: 'client/src/Services/debugger/wasm/helper.ts' };
+    const what = 'renaming client/src/Services/debugger/wasm/helper.test.ts to helper.ts with no test change';
+    expectNeedsTest([file], `${what}, with the removal-ok label (it waives large-removal, not the test requirement),`, new Set(['removal-ok']));
+    const result = checkPr(pr({ files: [file] }));
+    assert.deepEqual(
+      rulesHit(result).sort(),
+      ['debugger-needs-test', 'large-removal'],
+      `${what}, with no labels, should hit both debugger-needs-test and large-removal. Got findings: ${show(result)}`,
+    );
+  });
+
+  it('does not count a non-code file in the debugger folders as a debugger change', () => {
+    expectClean([{ status: 'M', path: 'client/src/Services/debugger/wasm/NOTES.md' }], 'changing client/src/Services/debugger/wasm/NOTES.md alone');
+    expectClean([{ status: 'M', path: 'instrumenter/src/NOTES.md' }], 'changing instrumenter/src/NOTES.md alone');
+  });
+
   it('no longer fires for the deleted debugger/ server', () => {
     expectClean([{ status: 'M', path: 'debugger/src/serve.py' }], 'debugger/src/serve.py changed with no test change');
   });
