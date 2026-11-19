@@ -32,6 +32,111 @@ export interface RunnerWorker {
 const startRunnerWorker = (): RunnerWorker =>
   new Worker(new URL('./runner.worker.ts', import.meta.url), { type: 'module' });
 
+/** Hands out runner workers that were started ahead of time. */
+export type RunnerPool = {
+  take: () => RunnerWorker;
+  /**
+   * Settles once the worker held for the next run has loaded, or failed to,
+   * so the page can say when it no longer needs the network.
+   */
+  whenReady: () => Promise<void>;
+  dispose: () => void;
+};
+
+/**
+ * Hands out runner workers without fetching anything at run time, so runs
+ * keep working once the network is off: a new worker fetches its script
+ * again. One worker is started ahead of the first run. A worker that has sent
+ * its result is idle, and each run starts its program afresh, so terminating
+ * it keeps it for the next run; one stopped mid-run (time-out or stop) or that
+ * failed is really terminated, and a replacement starts straight away.
+ */
+export const createRunnerPool = (createWorker = startRunnerWorker): RunnerPool => {
+  let ready: RunnerWorker | undefined;
+  let readyLoaded: Promise<void> = Promise.resolve();
+  /** Settles readyLoaded: kept with the held worker, so a run that takes it can too. */
+  let settleReady = () => {};
+  let disposed = false;
+
+  /** Holds a worker for the next run; `loaded` settles once it has loaded. */
+  const keepReady = (worker: RunnerWorker, loaded: () => void) => {
+    worker.onmessage = ({ data }) => {
+      if (data.type === 'ready') loaded();
+    };
+    // One that fails to load is dropped, so the next run starts its own and
+    // reports why, instead of waiting out its time limit.
+    worker.onerror = () => {
+      loaded();
+      worker.terminate();
+      if (ready === worker) ready = undefined;
+    };
+    ready = worker;
+    settleReady = loaded;
+  };
+
+  const startReady = () => {
+    let loaded = () => {};
+    readyLoaded = new Promise((resolve) => {
+      loaded = resolve;
+    });
+    try {
+      keepReady(createWorker(), loaded);
+    } catch {
+      // Left for the next run to start, so it reports why it couldn't.
+      loaded();
+    }
+  };
+
+  startReady();
+  return {
+    take() {
+      // A run can take the held worker before it has loaded, so the run
+      // settles whenReady() instead: once the worker says anything (it has
+      // loaded), fails, or is terminated (it's gone).
+      const loaded = ready ? settleReady : () => {};
+      const worker = ready ?? createWorker();
+      ready = undefined;
+      settleReady = () => {};
+      let answered = false;
+      let returned = false;
+      const lent: RunnerWorker = {
+        onmessage: null,
+        onerror: null,
+        postMessage: (request) => worker.postMessage(request),
+        terminate() {
+          if (returned) return;
+          returned = true;
+          loaded();
+          // Having answered a run, it has loaded.
+          if (answered && !ready && !disposed) {
+            keepReady(worker, () => {});
+            readyLoaded = Promise.resolve();
+            return;
+          }
+          worker.terminate();
+          if (!ready && !disposed) startReady();
+        },
+      };
+      worker.onmessage = (event) => {
+        loaded();
+        if (event.data.type !== 'ready') answered = true;
+        lent.onmessage?.(event);
+      };
+      worker.onerror = (event) => {
+        loaded();
+        lent.onerror?.(event);
+      };
+      return lent;
+    },
+    whenReady: () => readyLoaded,
+    dispose() {
+      disposed = true;
+      ready?.terminate();
+      ready = undefined;
+    },
+  };
+};
+
 /**
  * Records an instrumented program in its own Web Worker, so a program that
  * never ends can't freeze the page: past the time limit the worker is
@@ -69,6 +174,8 @@ export const recordInWorker = (
     try {
       worker = createWorker();
       worker.onmessage = ({ data }) => {
+        // Only says its script loaded: a run sent before then just waits.
+        if (data.type === 'ready') return;
         if (data.type === 'recorded') end({ recording: data.recording });
         else end({ error: data.message });
       };

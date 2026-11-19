@@ -1,6 +1,9 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 
+/** What the page has shown of the compiler's download so far. */
+type CompilerDownload = { seen: boolean; finished: boolean; lastStatus: string };
+
 /**
  * Drives the visual debugger page the way a user would.
  *
@@ -44,7 +47,27 @@ export class DebuggerPage {
 
   /** Opens the debugger with e2e/programs/<name> as the only file, selected. */
   async openProgram(name: string): Promise<void> {
-    const source = readFileSync(new URL(`../programs/${name}`, import.meta.url), 'utf8');
+    await this.openPrograms(name);
+  }
+
+  /**
+   * Opens the debugger with each e2e/programs/<name> as a file in one folder,
+   * and selects the first. selectProgram() switches between them without
+   * reloading the page.
+   */
+  async openPrograms(...names: string[]): Promise<void> {
+    const files = Object.fromEntries(
+      names.map((name) => [
+        name,
+        {
+          name,
+          path: `root/e2e/${name}`,
+          type: 'file',
+          parentPath: 'root/e2e',
+          data: readFileSync(new URL(`../programs/${name}`, import.meta.url), 'utf8'),
+        },
+      ]),
+    );
     const fileSystem = {
       name: 'root',
       path: 'root',
@@ -55,9 +78,7 @@ export class DebuggerPage {
           path: 'root/e2e',
           type: 'dir',
           parentPath: 'root',
-          children: {
-            [name]: { name, path: `root/e2e/${name}`, type: 'file', parentPath: 'root/e2e', data: source },
-          },
+          children: files,
         },
       },
     };
@@ -66,10 +87,16 @@ export class DebuggerPage {
       localStorage.setItem('Onboarding', 'done'); // skip the guided tour
       localStorage.setItem('fileSystem', JSON.stringify(fs));
     }, fileSystem);
+    await this.watchCompilerDownload();
 
     await this.page.goto('/debugger');
     await this.page.getByText('root', { exact: true }).click();
     await this.page.getByText('e2e', { exact: true }).click();
+    await this.selectProgram(names[0]);
+  }
+
+  /** Selects another file opened by openPrograms(), as the one Compile builds. */
+  async selectProgram(name: string): Promise<void> {
     await this.page.getByText(name, { exact: true }).click();
   }
 
@@ -81,10 +108,60 @@ export class DebuggerPage {
     await this.page.addInitScript(() => {
       localStorage.setItem('Onboarding', 'done'); // skip the guided tour
     });
+    await this.watchCompilerDownload();
     await this.page.goto('/debugger');
     await this.page.getByText('root', { exact: true }).click();
     await this.page.getByText(folder, { exact: true }).click();
     await this.page.getByText(name, { exact: true }).click();
+  }
+
+  /**
+   * Waits until the compiler has finished downloading: the "Loading compiler
+   * N%" status appeared and has gone again. Call it after openProgram().
+   *
+   * The status can come and go before this is called, or not be shown yet, so
+   * this reads what a watcher installed before the page loaded saw, rather
+   * than the status as it is now.
+   */
+  async waitForCompilerDownload(timeoutMs = 60_000): Promise<void> {
+    try {
+      await this.page.waitForFunction(
+        () => (window as unknown as { __e2eCompilerDownload?: CompilerDownload }).__e2eCompilerDownload?.finished,
+        null,
+        { timeout: timeoutMs },
+      );
+    } catch {
+      const seen = await this.page.evaluate(
+        () => (window as unknown as { __e2eCompilerDownload?: CompilerDownload }).__e2eCompilerDownload,
+      );
+      throw new Error(
+        `the compiler did not finish downloading within ${timeoutMs}ms: ` +
+          (seen?.lastStatus
+            ? `the status still read "${seen.lastStatus}"`
+            : 'the "Loading compiler" status never appeared'),
+      );
+    }
+  }
+
+  /**
+   * Takes the browser offline for the rest of the test: every request the
+   * page or its workers make from now on fails, as with the network off.
+   */
+  async goOffline(): Promise<void> {
+    await this.page.context().setOffline(true);
+  }
+
+  /**
+   * Starts listing every request the browser makes from now on, from the page
+   * and its Web Workers alike, as "METHOD url". The returned list keeps
+   * growing as requests are made, so read it at the end of the test.
+   */
+  recordRequests(): string[] {
+    const requests: string[] = [];
+    this.page.context().on('request', (request) => {
+      requests.push(`${request.method()} ${request.url()}`);
+    });
+    return requests;
   }
 
   /** Types a line into the console as the program's input, and presses Enter. */
@@ -103,12 +180,26 @@ export class DebuggerPage {
   /** Compiles the open program and waits until stepping is possible. */
   async startSession(): Promise<void> {
     await this.compileButton.click();
-    await expect(this.stepForwardButton, 'debug session did not start').toBeEnabled();
+    try {
+      await expect(this.stepForwardButton).toBeEnabled();
+    } catch {
+      throw new Error(
+        `debug session did not start: after clicking Compile the step button stayed disabled; ` +
+          `the console shows: ${await this.consoleForError()}`,
+      );
+    }
   }
 
   /** Clicks step forward once. Returns false once the client reports the session ended. */
   async stepForward(): Promise<boolean> {
-    await this.stepForwardButton.click();
+    try {
+      await this.stepForwardButton.click({ timeout: 10_000 });
+    } catch {
+      throw new Error(
+        `could not step forward: the step button stayed disabled for 10000ms; ` +
+          `lines visited: [${this.visitedLines.join(', ')}]; the console shows: ${await this.consoleForError()}`,
+      );
+    }
     const active = await this.waitUntilIdle();
     this.recordLine(await this.currentLine());
     return active;
@@ -126,7 +217,10 @@ export class DebuggerPage {
       if (!(await this.stepForward())) break;
     }
     if ((await this.currentLine()) === line) return;
-    throw new Error(`never reached line ${line}; lines visited: [${this.visitedLines.join(', ')}]`);
+    throw new Error(
+      `never reached line ${line}; lines visited: [${this.visitedLines.join(', ')}]; ` +
+        `the console shows: ${await this.consoleForError()}`,
+    );
   }
 
   /** Steps forward until the session ends. Returns the lines visited. */
@@ -142,11 +236,13 @@ export class DebuggerPage {
       if (stalled >= stallLimit) {
         throw new Error(
           `stepping stopped making progress but the session did not end; ` +
-            `lines visited: [${this.visitedLines.join(', ')}]`,
+            `lines visited: [${this.visitedLines.join(', ')}]; the console shows: ${await this.consoleForError()}`,
         );
       }
     }
-    throw new Error(`session still running after ${maxClicks} steps`);
+    throw new Error(
+      `session still running after ${maxClicks} steps; the console shows: ${await this.consoleForError()}`,
+    );
   }
 
   /**
@@ -188,6 +284,39 @@ export class DebuggerPage {
 
   // ----------------------------------------------------------------- helpers
 
+  /**
+   * Before the page loads, starts watching for the "Loading compiler" status,
+   * so waitForCompilerDownload() knows it came and went even if that happened
+   * before it was called.
+   */
+  private async watchCompilerDownload(): Promise<void> {
+    await this.page.addInitScript(() => {
+      const download: CompilerDownload = { seen: false, finished: false, lastStatus: '' };
+      (window as unknown as { __e2eCompilerDownload: CompilerDownload }).__e2eCompilerDownload = download;
+      const check = () => {
+        const status = Array.from(document.querySelectorAll('[role="status"]')).find((el) =>
+          el.textContent?.startsWith('Loading compiler'),
+        );
+        if (status) {
+          download.seen = true;
+          download.lastStatus = status.textContent ?? '';
+        } else if (download.seen) {
+          download.finished = true;
+        }
+      };
+      new MutationObserver(check).observe(document, { childList: true, subtree: true, characterData: true });
+    });
+  }
+
+  /**
+   * The console's text as one quoted line, for error messages, so a failure
+   * says what the program printed or why it could not run.
+   */
+  private async consoleForError(): Promise<string> {
+    const text = await this.console.innerText({ timeout: 2_000 }).catch(() => null);
+    return text === null ? '(the console could not be read)' : JSON.stringify(text.trim());
+  }
+
   private recordLine(line: number | null) {
     if (line !== null && this.visitedLines.at(-1) !== line) this.visitedLines.push(line);
   }
@@ -205,11 +334,15 @@ export class DebuggerPage {
   private async waitUntilIdle(timeoutMs = 10_000): Promise<boolean> {
     const sessionEnded = this.page.getByText('Debug session ended.', { exact: true });
     const stepReady = this.stepForwardButton.and(this.page.locator(':enabled'));
-    await expect(
-      sessionEnded.or(stepReady).first(),
-      `step did not finish within ${timeoutMs}ms: the step button stayed disabled and no ` +
-        `"Debug session ended." toast appeared; lines visited: [${this.visitedLines.join(', ')}]`,
-    ).toBeVisible({ timeout: timeoutMs });
+    try {
+      await expect(sessionEnded.or(stepReady).first()).toBeVisible({ timeout: timeoutMs });
+    } catch {
+      throw new Error(
+        `step did not finish within ${timeoutMs}ms: the step button stayed disabled and no ` +
+          `"Debug session ended." toast appeared; lines visited: [${this.visitedLines.join(', ')}]; ` +
+          `the console shows: ${await this.consoleForError()}`,
+      );
+    }
     return !(await sessionEnded.isVisible());
   }
 }

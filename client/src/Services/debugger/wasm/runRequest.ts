@@ -9,8 +9,12 @@ export type RunRequest = {
   input?: { text: string; eof: boolean };
 };
 
-/** What the runner worker sends back: one message, once the program ends. */
+/**
+ * What the runner worker sends back: 'ready' once its script has loaded, then
+ * one message per run, once the program ends.
+ */
 export type RunnerMessage =
+  | { type: 'ready' }
   | { type: 'recorded'; recording: Recording }
   | { type: 'error'; message: string };
 

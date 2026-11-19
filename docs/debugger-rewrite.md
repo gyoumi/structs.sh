@@ -457,6 +457,13 @@ checks pass, and the site runs from the client image alone.
 
 Found while building checkpoint 1, and not needed for it:
 
+- **Offline, a run cut short breaks the next one.** Once the page has
+  loaded, the debugger works offline, because runs reuse a runner Worker
+  started while the network was on. A Worker stopped mid-run (past the time
+  limit in a C library call, Ctrl+C, or compiling again while a program
+  runs) is thrown away, and its replacement can't fetch its script offline,
+  so the next run fails until the network is back. Caching the script, for
+  example with a service worker, would fix it.
 - **Private windows** download the largest compiler file again on each visit,
   because the browser caps how big a single cached file can be there. A Cache
   Storage fallback would fix it.

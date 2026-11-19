@@ -1,9 +1,10 @@
 import { BackendState, BackendTypeDeclaration } from '@/visualiser-debugger/Types/backendType';
 import { Debugger, DebuggerEvents, SourceFile } from './types';
+import { loadFonts as loadAllFonts } from './loadFonts';
 import { Compiler, CompilerStatus } from './wasm/compiler';
 import { createWorkerCompiler } from './wasm/workerCompiler';
 import { Recording, RunEnd, Step, TIME_LIMIT_MS } from './wasm/recording';
-import { RecordResult, recordInWorker } from './wasm/workerRunner';
+import { createRunnerPool, RecordResult, recordInWorker } from './wasm/workerRunner';
 
 /**
  * Extra time the worker gets past the recorder's own time limit, so the
@@ -11,18 +12,42 @@ import { RecordResult, recordInWorker } from './wasm/workerRunner';
  */
 const WORKER_GRACE_MS = 2_000;
 
-/** Records a compiled, instrumented program. */
 /** What the program reads from stdin: the text typed so far, and whether end-of-file was sent. */
 export type Input = { text: string; eof: boolean };
 
 /** Records a compiled, instrumented program. */
-export type Recorder = (
+export type Recorder = ((
   wasm: Uint8Array<ArrayBuffer>,
   options: { signal: AbortSignal; input: Input }
-) => Promise<RecordResult>;
+) => Promise<RecordResult>) & {
+  /** Settles once what the next run needs has loaded, or failed to. */
+  whenReady?: () => Promise<void>;
+  /** Stops anything the recorder started ahead of its next run. */
+  dispose?: () => void;
+};
 
-const recordWithTimeLimit: Recorder = (wasm, options) =>
-  recordInWorker(wasm, { ...options, timeLimitMs: TIME_LIMIT_MS + WORKER_GRACE_MS });
+/**
+ * Records in runner workers, the next one started now, alongside the compiler
+ * preload, so runs don't fetch anything and keep working offline.
+ */
+const createWorkerRecorder = (): Recorder => {
+  const runners = createRunnerPool();
+  const record: Recorder = (wasm, options) =>
+    recordInWorker(
+      wasm,
+      { ...options, timeLimitMs: TIME_LIMIT_MS + WORKER_GRACE_MS },
+      runners.take
+    );
+  record.whenReady = runners.whenReady;
+  record.dispose = runners.dispose;
+  return record;
+};
+
+/**
+ * What the page is told while the compiler is ready but the runner or fonts
+ * aren't yet: nearly done.
+ */
+const NEARLY_READY: CompilerStatus = { state: 'loading', done: 99, total: 100 };
 
 const TOO_LONG = `The program was stopped because it ran for too long (over ${TIME_LIMIT_MS / 1000} seconds).`;
 
@@ -96,18 +121,43 @@ export class WasmDebugger implements Debugger {
 
   private session: Session | null = null;
 
-  /** The latest news about the compiler's download, for events set later. */
+  /** The compiler's own latest news about its download. */
+  private compilerReport: CompilerStatus | null = null;
+
+  /** Whether the runner and the fonts have loaded, or failed to. */
+  private othersSettled = false;
+
+  /** The status last reported, for events set later. */
   private compilerStatus: CompilerStatus | null = null;
 
   constructor(
     private readonly compiler: Compiler = createWorkerCompiler(),
-    private readonly recorder: Recorder = recordWithTimeLimit
+    private readonly recorder: Recorder = createWorkerRecorder(),
+    loadFonts: () => Promise<unknown> = loadAllFonts
   ) {
     // Start the download when the page opens, not when Compile is clicked.
     compiler.preload((status) => {
-      this.compilerStatus = status;
-      this.events?.compilerStatus(status);
+      this.compilerReport = status;
+      this.reportStatus();
     });
+    // Likewise the runner and the fonts, so nothing is fetched mid-session,
+    // as when offline. The page says ready only once they have loaded too; one
+    // that fails doesn't hold it up, as the run or text then says why itself.
+    const others = [() => recorder.whenReady?.(), loadFonts].map((load) =>
+      Promise.resolve().then(load)
+    );
+    Promise.allSettled(others).then(() => {
+      this.othersSettled = true;
+      this.reportStatus();
+    });
+  }
+
+  /** Reports the compiler's status, as loading until the others have settled. */
+  private reportStatus() {
+    const status = this.compilerReport;
+    if (!status) return;
+    this.compilerStatus = status.state === 'ready' && !this.othersSettled ? NEARLY_READY : status;
+    this.events?.compilerStatus(this.compilerStatus);
   }
 
   setEvents(events: DebuggerEvents) {
@@ -267,5 +317,6 @@ export class WasmDebugger implements Debugger {
     this.latestStart += 1;
     this.endSession();
     this.compiler.dispose();
+    this.recorder.dispose?.();
   }
 }
