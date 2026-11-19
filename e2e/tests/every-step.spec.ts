@@ -1,7 +1,26 @@
 import { test, expect } from '../support/test';
+import type { DrawnStep } from '../support/debugger-page';
+import { sortNodes, valuesGdbDrew } from '../support/gdb-recording';
 
 // Checks that hold at every step of every program that runs to the end
 // without input. The programs are in e2e/programs/.
+
+/**
+ * Checks that the stepping these tests look at really happened, so they
+ * can't pass having seen nothing: every step highlighted a line, and every
+ * value the program puts in a node was drawn at some step (the values GDB
+ * drew, from e2e/fixtures/gdb-steps). A program with no nodes draws none.
+ */
+const expectStepsSeen = (program: string, steps: DrawnStep[], perStep: string[]) => {
+  const noLine = steps.flatMap(({ line }, index) => (line === null ? [`step ${index + 1}`] : []));
+  expect(noLine, `${program} stepped to the end: steps where no line was highlighted`).toEqual([]);
+  const drawn = sortNodes([...new Set(steps.flatMap(({ nodes }) => nodes.filter((value) => value !== '??')))]);
+  expect(
+    drawn,
+    `${program} stepped to the end (${steps.length} steps): node values drawn at some step, which should be ` +
+      `every value the program puts in a node. Every label drawn at each step:\n${perStep.join('\n')}\n`,
+  ).toEqual(valuesGdbDrew(program));
+};
 
 const programs = [
   'hello.c',
@@ -61,6 +80,7 @@ test.describe('every step of every program', () => {
         });
       });
       const perStep = steps.map(({ line, labels }, index) => `  step ${index + 1} (line ${line}): [${labels.join(', ')}]`);
+      expectStepsSeen(program, steps, perStep);
 
       expect(
         comebacks,
@@ -82,6 +102,8 @@ test.describe('every step of every program', () => {
         `${program} stepped to the end, reading the settled drawing after each step: errors the page logged ` +
           `or threw, with the step they came after. Every label drawn at each step:\n${perStep.join('\n')}\n`,
       ).toEqual([]);
+      // No errors only counts if the drawing code ran on every node.
+      expectStepsSeen(program, steps, perStep);
     });
   }
 });

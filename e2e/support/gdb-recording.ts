@@ -19,6 +19,19 @@ export const gdbStops = (program: string): GdbStop[] =>
     readFileSync(new URL(`../fixtures/gdb-steps/${program.replace(/\.c$/, '')}.json`, import.meta.url), 'utf8'),
   ).stops;
 
+/**
+ * The node values GDB drew at some stop, ignoring stops marked as GDB faults
+ * and "??", sorted. Every value the program puts in a node.
+ */
+export const valuesGdbDrew = (program: string): string[] =>
+  sortNodes([
+    ...new Set(
+      gdbStops(program)
+        .filter((stop) => !stop.gdbFault)
+        .flatMap((stop) => stop.nodes.filter((value) => value !== '??')),
+    ),
+  ]);
+
 /** The program's source lines, so lines[n - 1] is line n. */
 export const sourceLines = (program: string): string[] =>
   readFileSync(new URL(`../programs/${program}`, import.meta.url), 'utf8').split('\n');

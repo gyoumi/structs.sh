@@ -1,5 +1,5 @@
 import { test, expect } from '../support/test';
-import { describeLine, firstLineDifference, gdbStops, pairStops, sortNodes } from '../support/gdb-recording';
+import { describeLine, firstLineDifference, gdbStops, isFunctionEnd, pairStops, sortNodes } from '../support/gdb-recording';
 
 // Compares the wasm debugger with recordings of the old GDB debugger
 // stepping through the same programs (e2e/fixtures/gdb-steps/, which say how
@@ -45,6 +45,7 @@ test.describe('matches the GDB debugger', () => {
       await debuggerPage.startSession();
       const steps = await debuggerPage.drawingAtEachStep();
       const gdb = gdbStops(program);
+      expect(gdb.length, `${program}: stops in the GDB recording e2e/fixtures/gdb-steps`).toBeGreaterThan(0);
 
       // A stop is a run of steps on the same line: the step that ends the
       // session leaves the last line highlighted.
@@ -54,10 +55,30 @@ test.describe('matches the GDB debugger', () => {
         else stops.push({ line, steps: [index] });
       });
 
-      const differences = pairStops(
+      const pairs = pairStops(
         stops.map(({ line }) => line ?? -1),
         gdb.map(({ line }) => line),
-      ).flatMap(([wasmStop, gdbStop]) => {
+      );
+
+      // Every GDB stop whose drawing is compared must have a wasm stop to
+      // compare it with, or this test could pass having compared nothing. A
+      // wasm stop GDB doesn't make is fine (the line test reports those); a
+      // GDB stop on a closing } is one the wasm debugger may skip.
+      const paired = new Set(pairs.map(([, gdbStop]) => gdbStop));
+      const unpaired = gdb.flatMap((stop, index) =>
+        paired.has(index) || stop.gdbFault || isFunctionEnd(program, stop.line)
+          ? []
+          : [`GDB stop ${index + 1}, ${describeLine(program, stop.line)}`],
+      );
+      expect(
+        unpaired,
+        `${program} stepped to the end: GDB stops with no wasm stop on the same line to compare the drawing with ` +
+          `(they must all be compared, apart from closing braces and stops marked as GDB faults).\n` +
+          `  wasm lines: ${stops.map(({ line }) => line).join(' ')}\n` +
+          `  GDB lines:  ${gdb.map(({ line }) => line).join(' ')}\n`,
+      ).toEqual([]);
+
+      const differences = pairs.flatMap(([wasmStop, gdbStop]) => {
         const expected = gdb[gdbStop];
         if (expected.gdbFault) return [];
         return stops[wasmStop].steps

@@ -1089,6 +1089,67 @@ describe('recordRun', () => {
     );
 
     it(
+      'stops showing a struct once realloc shrinks its block past it, even when malloc reuses that memory',
+      async () => {
+        // fixtures/realloc_shrink.c: nodes = malloc(4 nodes) on line 9; last
+        // points at nodes[3] on line 14 (so it's shown), then is dropped on
+        // line 15; realloc shrinks the block to 1 node on line 16, in place;
+        // numbers = malloc(4 ints) on line 17, which wasm's malloc puts in the
+        // tail realloc gave back, and lines 18-20 fill it with 1000..1003.
+        const name = 'realloc_shrink.c';
+        const recording = await record(name, fixture(name));
+        const { steps } = recording;
+        const pointer = (index: number, variable: string) =>
+          steps[index].variables[variable]?.value as string;
+        const NODE_SIZE = 8; // struct node on wasm32: an int and a 4-byte pointer
+        const describeStep = (index: number) =>
+          `step ${index + 1} ${steps[index].function}:${steps[index].line}`;
+
+        // The situation the test needs: if any of these fail, the program no
+        // longer sets it up, rather than the recorder being wrong.
+        const shownLast = steps.findIndex((step) => step.line === 15);
+        const tail = pointer(shownLast, 'last');
+        expect(
+          steps[shownLast]?.heap[tail]?.typeName,
+          `${name} line 15: nodes[3] (last = ${tail}) is shown on the heap before the realloc`
+        ).toBe('struct node');
+        const afterRealloc = steps.findIndex((step) => step.line === 17);
+        const shrunk = pointer(afterRealloc, 'shrunk');
+        expect(
+          shrunk,
+          `${name} line 17: realloc(nodes, 1 node) on line 16 shrank the block in place (shrunk == nodes)`
+        ).toBe(pointer(afterRealloc, 'nodes'));
+        const afterMalloc = steps.findIndex((step) => step.line === 18);
+        const numbers = parseInt(pointer(afterMalloc, 'numbers'), 16);
+        expect(
+          numbers <= parseInt(tail, 16) && parseInt(tail, 16) + NODE_SIZE <= numbers + 16,
+          `${name} line 18: malloc(4 ints) on line 17 reused the tail, covering the old nodes[3] at ${tail} ` +
+            `(numbers = ${pointer(afterMalloc, 'numbers')})`
+        ).toBe(true);
+
+        // From the realloc on, no struct node may be shown past the shrunk
+        // block's end: that memory isn't a node any more.
+        const end = parseInt(shrunk, 16) + NODE_SIZE;
+        const stale = steps.slice(afterRealloc).flatMap((step, offset) =>
+          Object.values(step.heap)
+            .filter((entry) => entry.typeName === 'struct node' && parseInt(entry.addr, 16) >= end)
+            .map(
+              (entry) =>
+                `${describeStep(afterRealloc + offset)}: struct node at ${entry.addr} ` +
+                `${JSON.stringify(Object.fromEntries(Object.entries(entry.value).map(([field, f]) => [field, f.value])))}`
+            )
+        );
+        expect(
+          stale,
+          `${name}: struct nodes shown after realloc shrank nodes (${shrunk}) to 1 node, at or past its new end ` +
+            `0x${end.toString(16)}; that memory was given back and reused by numbers (${pointer(afterMalloc, 'numbers')}, ` +
+            `ints 1000..1003), so they are read from the ints`
+        ).toEqual([]);
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
       'shares a heap entry between steps while it stays the same',
       async () => {
         const recording = await record('linked_list.c', program('linked_list.c'));

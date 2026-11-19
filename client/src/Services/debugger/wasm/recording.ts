@@ -293,10 +293,22 @@ export const recordRun = async (
           shown.delete(unsigned(event.pointer));
           starts = null;
         } else if (event.pointer !== 0) {
-          allocations.delete(unsigned(event.old));
-          // Moved, its structs are now wherever the variables reach them.
-          if (event.pointer !== event.old) shown.delete(unsigned(event.old));
-          allocations.set(unsigned(event.pointer), unsigned(event.size));
+          const old = unsigned(event.old);
+          const start = unsigned(event.pointer);
+          const size = unsigned(event.size);
+          allocations.delete(old);
+          const structs = shown.get(old);
+          if (structs && start === old) {
+            // Resized in place: forget the structs no longer wholly inside it,
+            // so they aren't drawn from that memory once it's reused.
+            structs.forEach((type, address) => {
+              if (address + debug.types[type].size > start + size) structs.delete(address);
+            });
+          } else {
+            // Moved, its structs are now wherever the variables reach them.
+            shown.delete(old);
+          }
+          allocations.set(start, size);
           starts = null;
         }
       },
