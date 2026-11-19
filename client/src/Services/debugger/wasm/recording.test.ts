@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { compileAndInstrument } from './instrumenter';
-import { recordRun, Recording, Variable } from './recording';
+import { recordRun, Recording, Step, Variable } from './recording';
 import gdb from './fixtures/gdb-variables.json';
 // Recorded from the GDB debugger at line 20 of e2e/programs/linked_list.c.
 import gdbList from '../../../visualiser-debugger/Component/Visualizer/Parser/fixtures/gdb-linked-list-state.json';
@@ -1103,6 +1103,91 @@ describe('recordRun', () => {
   });
 
   describe('input', () => {
+    /** Where a waiting recording says the program is paused, if it says. */
+    const pausedAt = (recording: Recording) => (recording.end as { at?: Step }).at;
+
+    const SLOT_SOURCE = [
+      '#include <stdio.h>', // 1
+      'int slot(void) {', // 2
+      '    return 1;', // 3
+      '}', // 4
+      'int main(void) {', // 5
+      '    int values[2] = {0, 0};', // 6
+      '    scanf("%d", &values[slot()]);', // 7: slot() returns, then scanf waits
+      '    return values[1];', // 8
+      '}', // 9
+    ].join('\n');
+
+    it(
+      'says where it is paused when it waits in the caller right after a call returned',
+      async () => {
+        const recording = await record('slot.c', SLOT_SOURCE);
+        const steps = stepsOf(recording).join(', ');
+        const at = pausedAt(recording);
+
+        expect(recording.end, `slot.c with no input: end (steps: ${steps})`).toEqual({
+          waitingForInput: true,
+          at: expect.anything(),
+        });
+        expect(
+          at && `${at.function}:${at.line}@${at.depth}`,
+          `slot.c waits in scanf on main's line 7 after slot() returned: end.at as function:line@depth (steps: ${steps})`
+        ).toBe('main:7@0');
+        expect(at?.variables.values?.value, "slot.c: values in end.at's variables").toEqual([0, 0]);
+        expect(
+          recording.steps.at(-1)?.function,
+          `slot.c: the last recorded step is still slot()'s; end.at is not added as a step (steps: ${steps})`
+        ).toBe('slot');
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'says nothing more when it waits in a call that has a step on that line',
+      async () => {
+        // slot() returns on line 7, and main then has a step of its own on
+        // line 8, where scanf waits.
+        const ownLine = SLOT_SOURCE.replace(
+          '    scanf("%d", &values[slot()]);',
+          '    int i = slot();\n    scanf("%d", &values[i]);'
+        );
+        const cases: [string, string][] = [
+          ['sum_input.c (a plain scanf loop)', program('sum_input.c')],
+          ['slot.c with slot() on a line before the scanf', ownLine],
+        ];
+
+        const recordings = await Promise.all(
+          cases.map(([, source], i) => record(`case${i}.c`, source))
+        );
+        recordings.forEach((recording, i) => {
+          expect(
+            recording.end,
+            `${cases[i][0]} with no input: end should have no "at" (steps: ${stepsOf(recording).join(', ')})`
+          ).toEqual({ waitingForInput: true });
+        });
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'keeps the steps a full run has, so stepping by index carries on after the input arrives',
+      async () => {
+        const waiting = await record('slot.c', SLOT_SOURCE);
+        const full = await record('slot.c', SLOT_SOURCE, { input: { text: '5\n', eof: true } });
+
+        expect(full.end, 'slot.c given "5\\n" and end-of-file: end').toEqual({ exitCode: 5 });
+        expect(
+          stepsOf(waiting),
+          `slot.c: steps while waiting, against the first steps of the run given "5" (full run: ${stepsOf(full).join(', ')})`
+        ).toEqual(stepsOf(full).slice(0, waiting.steps.length));
+        expect(
+          stepsOf(full)[waiting.steps.length],
+          `slot.c given "5": the step after the ones recorded while waiting (waiting: ${stepsOf(waiting).join(', ')}; full: ${stepsOf(full).join(', ')})`
+        ).toBe('main:8');
+      },
+      CLANG_TIMEOUT
+    );
+
     it(
       'stops where the program waits for input it has not been given',
       async () => {
