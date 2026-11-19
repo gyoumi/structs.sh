@@ -34,7 +34,7 @@ git diff --diff-filter=D --name-only "$BASE"
 
 Then read every `-` hunk in modified files: deleted functions, guards, branches, effects, subscriptions, tests, and config. A review that only reads `+` lines cannot pass removal safety.
 
-For a wide diff, you may hand separate areas (for example `client/` and `debugger/`) to parallel Explore subagents and merge their findings.
+For a wide diff, you may hand separate areas (for example `client/` and `instrumenter/`) to parallel Explore subagents and merge their findings.
 
 ## 3. Checklist
 
@@ -45,9 +45,9 @@ For a wide diff, you may hand separate areas (for example `client/` and `debugge
 | 3 | Redundancy | No duplicated logic, and no dead code or parameters the tools miss. |
 | 4 | Structure | Logic sits in the right place: React components in `client/src/components` or the visualiser folders, animation logic in `visualiser-src/*/animation-producer`. |
 | 5 | Consistency | Naming, imports, and error handling match the surrounding code and the rest of the branch. Flag two files that solve the same concern in different ways. |
-| 6 | Tests | The new or changed test would fail without the change, and checks what a student sees. User-visible debugger behaviour changes have an e2e test, or an entry in `e2e/known-failures.json` with a reason. CI accepts a pytest alone, so this part is on the reviewer. |
+| 6 | Tests | Follows `.claude/rules/testing.md`. The new or changed test would fail without the change, and checks what a student sees. User-visible debugger behaviour changes have an e2e test, or an entry with a reason in that debugger's `e2e/known-failures/*.json` list. CI accepts a Vitest or `cargo test` alone, so whether an e2e test is needed is on the reviewer. |
 | 7 | Hardcoded values | No new hardcoded colours outside the theme or palette (the lint rule only warns for now), no magic numbers that belong in a `constants.ts`, no secrets. |
-| 8 | Security | Nothing user-controlled reaches a shell, gdb MI command, or nsjail config without escaping. See the path notes in `.coderabbit.yaml`. |
+| 8 | Security | Nothing user-controlled reaches a shell, `eval`, or raw HTML without escaping. Student programs run only in the runner's Web Worker. |
 | 9 | Docs | READMEs, `docs/`, and `e2e/README.md` still describe the code. Outdated docs are a finding. |
 | 10 | Scope | Every change relates to the branch's purpose. Flag drive-by edits. |
 
@@ -64,7 +64,7 @@ pnpm install   # a fresh worktree has no node_modules
 pnpm check:changed
 ```
 
-It runs the fast checks for the areas the branch touched. When the branch changes `client/`, `debugger/` or `e2e/`, also run the e2e suite, since `check:changed` only type-checks and lints e2e: `docker compose up -d debugger`, then `pnpm run e2e`. CI also runs the client build.
+It runs the fast checks for the areas the branch touched. When the branch changes `client/`, `instrumenter/` or `e2e/`, also run the e2e suite, since `check:changed` only type-checks and lints e2e: `pnpm run instrumenter`, then `pnpm run e2e`. CI also runs the client build.
 
 A `skipped` line in the output means that check did not run. Report it as unverified, not as passed.
 

@@ -13,7 +13,7 @@ When the user says "unslop" or "make this readable" with no file named, rewrite 
 ## Plain language
 
 - Say the mechanism or the number, not how it feels.
-- One idea per sentence. Name the actor: client, debugger, gdb, the student.
+- One idea per sentence. Name the actor: client, debugger, compiler, the student.
 - Use the plain word. If a reader would need the source open to parse a phrase, rewrite it.
 - Do not invent abstract nouns for ordinary actions. Say "show as", "tear down", "where the code decides", not "demote", "posture", "control point".
 - Put issue numbers, enum values, and file paths after the plain explanation, not in the opening sentence.
