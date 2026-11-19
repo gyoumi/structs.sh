@@ -432,7 +432,10 @@ Delete:
 
 pr-rules judges a PR by the base branch's rules, so this PR still needs the
 `removal-ok` label (it deletes the pytest files) and `human-approved` (it
-changes CI and other protected files). Only a person adds those labels.
+changes CI and other protected files). It also needs `no-test-needed` unless
+it adds or changes an e2e test: deleting `debugger/src` counts as a debugger
+change, and deleted tests don't count as tests. Only a person adds those
+labels.
 
 **You'll know it's done when** CI passes with no Python, no Docker for the
 debugger and no GDB, the e2e suite passes against wasm, and searching the
@@ -444,7 +447,7 @@ The PR rules keep agent config (`.claude/`) in PRs of its own, so the
 testing rule and the skill changes from the rewrite go into `dev` first.
 Then `dev` is merged into `debugger-rewrite` one last time, the ruleset is
 updated, and `debugger-rewrite` is merged into `dev`. That PR needs the same
-two labels as 4c, since `dev`'s rules still expect the GDB files.
+labels as 4c, since `dev`'s rules still expect the GDB files.
 
 **You'll know it's done when** `dev` has no server code, its required
 checks pass, and the site runs from the client image alone.
