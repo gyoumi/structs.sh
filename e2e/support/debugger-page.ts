@@ -290,23 +290,26 @@ export class DebuggerPage {
    * the same opacity, in reads `stableMs` apart.
    */
   async settledVisibleLabels(stableMs = 500, timeoutMs = 10_000): Promise<string[]> {
+    // Both start unread, so settling takes two real reads `stableMs` apart.
     let previous: string | undefined;
-    let current = '[]';
-    await expect
-      .poll(
-        async () => {
-          previous = current;
-          current = JSON.stringify(await this.labelsWithOpacity());
-          return current === previous;
-        },
-        {
-          message: `the visualiser's drawing kept changing for ${timeoutMs}ms; last labels and opacities: ${current}`,
-          intervals: [stableMs],
-          timeout: timeoutMs,
-        },
-      )
-      .toBe(true);
-    return (JSON.parse(current) as { text: string; opacity: number }[])
+    let current: string | undefined;
+    try {
+      await expect
+        .poll(
+          async () => {
+            previous = current;
+            current = JSON.stringify(await this.labelsWithOpacity());
+            return previous !== undefined && current === previous;
+          },
+          { intervals: [stableMs], timeout: timeoutMs },
+        )
+        .toBe(true);
+    } catch {
+      throw new Error(
+        `the visualiser's drawing kept changing for ${timeoutMs}ms; last labels and opacities: ${current}`,
+      );
+    }
+    return (JSON.parse(current ?? '[]') as { text: string; opacity: number }[])
       .filter(({ opacity }) => opacity >= 0.5)
       .map(({ text }) => text);
   }
