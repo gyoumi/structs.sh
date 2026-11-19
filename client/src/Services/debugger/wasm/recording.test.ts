@@ -10,6 +10,9 @@ import gdbList from '../../../visualiser-debugger/Component/Visualizer/Parser/fi
 
 const CLANG_TIMEOUT = 60_000;
 
+/** An int whose bytes are all 0xAA, as an uninitialised local holds. */
+const UNINITIALISED_INT = -1431655766;
+
 const program = (name: string) =>
   readFileSync(new URL(`../../../../../e2e/programs/${name}`, import.meta.url), 'utf8');
 
@@ -328,12 +331,77 @@ describe('recordRun', () => {
             .filter((step) => name in step.variables)
             .map((step) => `${step.function}:${step.line} ${name}=${step.variables[name].value}`);
 
-        // int a = 4; then int b = square(a);
-        expect(valuesOf('a')).toEqual(['main:7 a=0', 'main:8 a=4', 'main:8 a=4', 'main:9 a=4']);
-        expect(valuesOf('b')).toEqual(['main:7 b=0', 'main:8 b=0', 'main:8 b=0', 'main:9 b=16']);
-        expect(valuesOf('result')).toEqual(['square:2 result=0', 'square:3 result=16']);
+        // int a = 4; then int b = square(a); Before it's assigned, a variable
+        // holds the 0xAA bytes its frame is filled with.
+        expect(valuesOf('a')).toEqual([
+          `main:7 a=${UNINITIALISED_INT}`,
+          'main:8 a=4',
+          'main:8 a=4',
+          'main:9 a=4',
+        ]);
+        expect(valuesOf('b')).toEqual([
+          `main:7 b=${UNINITIALISED_INT}`,
+          `main:8 b=${UNINITIALISED_INT}`,
+          `main:8 b=${UNINITIALISED_INT}`,
+          'main:9 b=16',
+        ]);
+        expect(valuesOf('result')).toEqual([
+          `square:2 result=${UNINITIALISED_INT}`,
+          'square:3 result=16',
+        ]);
         // A parameter has its value from the call's first step.
         expect(valuesOf('x')).toEqual(['square:2 x=4', 'square:3 x=4']);
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'shows an uninitialised local as garbage, not 0, in every call',
+      async () => {
+        const source = [
+          '#include <stdlib.h>', // 1
+          'int fresh(int keep) {', // 2
+          '    int n;', // 3
+          '    int *p;', // 4
+          '    char c;', // 5
+          '    n = keep;', // 6
+          '    p = &n;', // 7
+          '    c = (char) keep;', // 8
+          '    return *p + c;', // 9
+          '}', // 10
+          'int main(void) {', // 11
+          '    int *zeroed = calloc(1, sizeof(int));', // 12
+          '    int total = fresh(1);', // 13
+          '    total += fresh(2);', // 14
+          '    return total + *zeroed;', // 15
+          '}', // 16
+        ].join('\n');
+
+        const recording = await record('uninitialised.c', source);
+        const calls = recording.steps.filter((step) => step.function === 'fresh');
+        const firstSteps = calls.filter((step) => step.line === 6);
+        const lastSteps = calls.filter((step) => step.line === 9);
+
+        // Each call's frame is filled again, so the second call doesn't see the
+        // first one's values. Parameters keep the value they were passed.
+        expect(firstSteps).toHaveLength(2);
+        firstSteps.forEach((step, call) => {
+          const { keep, n, p, c } = step.variables;
+          expect(keep.value).toBe(call + 1);
+          expect(n.value).toBe(UNINITIALISED_INT);
+          expect(p.value).toBe('0xaaaaaaaa');
+          expect(c.value).toBe(-86);
+        });
+        lastSteps.forEach((step, call) => {
+          const { n, p, c } = step.variables;
+          expect(n.value).toBe(call + 1);
+          expect(p.value).toBe(n.addr);
+          expect(c.value).toBe(call + 1);
+        });
+        // calloc still hands out zeroed memory.
+        const atReturn = recording.steps.find((step) => step.line === 15)!;
+        expect(atReturn.variables.total.value).toBe(1 + 1 + 2 + 2);
+        expect(recording.end).toEqual({ exitCode: 6 });
       },
       CLANG_TIMEOUT
     );
