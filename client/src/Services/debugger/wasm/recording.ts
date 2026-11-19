@@ -92,7 +92,8 @@ class LimitReached extends Error {
  * after a call made from that line returns. Returning from a call isn't a
  * step: after a function's last step comes the caller's next statement, as
  * the call's result may not be stored yet (a new list node reachable only from
- * it would vanish from the heap for that step).
+ * it would vanish from the heap for that step). So a program that crashes in
+ * a caller just after a call returns ends with a step on the caller's line.
  * A program that runs too many statements, or for too long, is stopped, and
  * its steps up to then are kept.
  */
@@ -121,6 +122,8 @@ export const recordRun = async (
     frameBase: number;
     /** The line of its latest step, so a repeat of it isn't a new step. */
     steppedLine: number | null;
+    /** Whether a call it made has returned since its latest step. */
+    returnedTo: boolean;
   };
   const calls: Call[] = [];
   let outputBeforeFirstStep = '';
@@ -159,9 +162,10 @@ export const recordRun = async (
   let previousHeap = new Map<string, { entry: HeapEntry; json: string }>();
   let recordedSize = 0;
 
-  const addStep = (call: Call, memory: () => DataView) => {
+  /** `again` adds a step even on the line of the call's latest step. */
+  const addStep = (call: Call, memory: () => DataView, again = false) => {
     if (call.statement === null || call.line === null) return;
-    if (call.steppedLine === call.line) return;
+    if (call.steppedLine === call.line && !again) return;
     const view = memory();
     const variables = readVariables(debug, call.statement, call.frameBase, view);
     const callFrames = calls.flatMap(({ statement, frameBase }) =>
@@ -200,7 +204,11 @@ export const recordRun = async (
       heap,
     });
     call.steppedLine = call.line;
+    call.returnedTo = false;
   };
+
+  /** Reads the program's memory, for a step added once it has crashed. */
+  let latestMemory: (() => DataView) | null = null;
 
   let end: RunEnd;
   try {
@@ -213,6 +221,7 @@ export const recordRun = async (
         else outputBeforeFirstStep += kept;
       },
       onTrace: (event, memory) => {
+        latestMemory = memory;
         if (event.type === 'enter') {
           const name = debug.functions[event.function] ?? `function ${event.function}`;
           calls.push({
@@ -221,6 +230,7 @@ export const recordRun = async (
             line: null,
             frameBase: 0,
             steppedLine: null,
+            returnedTo: false,
           });
         } else if (event.type === 'line') {
           statementsRun += 1;
@@ -234,6 +244,8 @@ export const recordRun = async (
           addStep(call, memory);
         } else if (event.type === 'exit') {
           calls.pop();
+          const caller = calls.at(-1);
+          if (caller) caller.returnedTo = true;
         } else if (event.type === 'allocated') {
           if (event.pointer !== 0) allocations.set(unsigned(event.pointer), unsigned(event.size));
           starts = null;
@@ -251,7 +263,19 @@ export const recordRun = async (
   } catch (error) {
     if (error instanceof LimitReached) end = error.end;
     else if (error === WAITING_FOR_INPUT) end = { waitingForInput: true };
-    else end = { crashed: error instanceof Error ? error.message : String(error) };
+    else {
+      end = { crashed: error instanceof Error ? error.message : String(error) };
+      // A crash in a call with no step since a call it made returned, such as
+      // `a / zero()`, would otherwise show on the returned call's last line.
+      const call = calls.at(-1);
+      if (call?.returnedTo && latestMemory) {
+        try {
+          addStep(call, latestMemory, true);
+        } catch {
+          // Past a limit, the steps so far are kept.
+        }
+      }
+    }
   }
 
   return {
