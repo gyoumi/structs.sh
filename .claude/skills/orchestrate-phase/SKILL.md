@@ -26,7 +26,7 @@ Use this lane when all are true:
 
 - One phase or one bug.
 - The cause is already known (an investigation, a failing e2e, or a clear spec gap).
-- About 10 product files or fewer, in one area (`client/`, `debugger/`, or `e2e/`).
+- About 10 product files or fewer, in one area (`client/`, `instrumenter/`, or `e2e/`).
 
 In this lane:
 
@@ -39,21 +39,21 @@ In this lane:
 1. **Resolve** the plan and phases. Confirm the branch matches the ticket when that is obvious.
 2. **Split** independent file slices. Spawn all workers in one message, each with the files it owns. Serialize only on a real file-ownership conflict. See `agent-mistakes-orchestration`, "One live worker per file".
 3. **Review loop.** After edits, spawn the `opus` phase reviewer (read-only) with the phase goal, the plan section, and the diff. The orchestrator buckets findings; a `sonnet` worker applies Act-on items; the reviewer re-checks only the delta. Repeat until APPROVE. Cap about 3 rounds. Wait for every named reviewer before applying anything.
-4. **Checks.** A `sonnet` checks worker runs the `review-branch` checks for the touched areas: client `tsc`, `lint`, `build`; debugger pytest; the e2e suite with the debugger running. Green before verify.
-5. **Verify.** For UI or animation changes, run `ui-visual-test` on the affected screens. For debugger behaviour, the matching e2e behaviour must pass or be on `e2e/known-failures.json` with a reason. Always verify, even for small phases.
+4. **Checks.** A `sonnet` checks worker runs the `review-branch` checks for the touched areas: client `tsc`, `lint`, `test`, `build`; the instrumenter's `cargo test`; the e2e suite. Green before verify.
+5. **Verify.** For UI or animation changes, run `ui-visual-test` on the affected screens. For debugger behaviour, the matching e2e behaviour must pass or be on that debugger's list in `e2e/known-failures/` with a reason. Always verify, even for small phases.
 6. **Report** done with evidence: checks run and results, screenshots or e2e summary, reviewer verdict, and follow-ups. Tick the phase's checkboxes in the plan file.
 
 ## Also reach for
 
 - `how` before implementing, if the plan does not explain the area.
-- `blast-radius` when the change touches shared visualiser code, the socket protocol, or the debugger's gdb handling.
+- `blast-radius` when the change touches shared visualiser code, or the debugger's compiler, instrumenter or recorder.
 - `diagnose` on a hard bug mid-phase, before more feature code.
-- Behaviour fixes start with one failing test at a public seam (an e2e behaviour or a pytest). When the defect came from the user, the first failing test checks exactly what they saw.
+- Behaviour fixes start with one failing test at a public seam (an e2e behaviour, a Vitest test, or a `cargo test`), as `.claude/rules/testing.md` describes. When the defect came from the user, the first failing test checks exactly what they saw.
 - A new defect reported while a worker is running on the same files: do not spawn a second worker on those files. Wait, then resume the worker with the new item or put it in the next worker's prompt.
 
 ## Hard stops
 
 - No product work by the orchestrator or an intermediate orchestrator.
-- Environment failures (debugger container down, missing dependency) are not skippable. Fix them, or stop after two identical failures and report.
+- Environment failures (instrumenter not built, missing dependency) are not skippable. Fix them, or stop after two identical failures and report.
 - No sleep-poll loops. Rely on subagent completion notifications.
 - Do not claim a review, check, screenshot, or e2e run that did not happen.

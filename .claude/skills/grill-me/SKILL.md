@@ -15,7 +15,7 @@ Move from broad to narrow:
 
 - What counts as done
 - What is out of scope
-- Constraints and dependencies (for example the gdb backend, socket events, existing visualisers)
+- Constraints and dependencies (for example the in-browser compiler, the recording format, existing visualisers)
 - How the result will be verified
 - UI and interaction details, when relevant
 - Edge cases, cleanup, and order of work
@@ -43,7 +43,7 @@ Test before asking: could the user answer without opening the code? If not, rewr
 
 ```text
 Bad:  Should the MI response handler propagate the error state to the store?
-Good: When gdb fails to start, where should the student see the error?
+Good: When the program doesn't compile, where should the student see the error?
 Good option: In the console panel (Recommended). That is where other compile errors appear.
 ```
 
