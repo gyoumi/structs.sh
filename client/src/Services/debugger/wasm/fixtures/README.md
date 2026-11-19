@@ -12,3 +12,8 @@ variables hold whatever was on the stack, where wasm memory starts zeroed.
 `realloc_shrink.c` shrinks a block of four `struct node`s to one with
 `realloc`, then mallocs a block of ints. wasm's malloc shrinks it in place
 and puts the ints in the tail it gave back, over the old fourth node.
+
+`pool_reuse.c` carves structs out of one malloc'd pool: a `struct node`
+at pool + 8 is shown, then a `struct triple` at pool + 4 reuses its bytes,
+with an int field where the node's `next` was, holding the address of a block
+nothing reaches as a struct.

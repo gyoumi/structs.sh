@@ -1149,6 +1149,104 @@ describe('recordRun', () => {
       CLANG_TIMEOUT
     );
 
+    describe('a pool whose memory is reused as another struct', () => {
+      // fixtures/pool_reuse.c: pool = malloc(64) on line 16; words =
+      // malloc(2 ints) on line 17 holds 777 and 0 (lines 18-19), the bytes of
+      // a struct node, but only an int * ever points at it. n points at a
+      // struct node at pool + 8 (line 20), so it's shown, then is dropped on
+      // line 23. t points at a struct triple at pool + 4 (line 24), whose c
+      // field covers the old node's next; line 27 stores words' address in
+      // t->c, as an int. Nothing reaches words as a struct node.
+      const name = 'pool_reuse.c';
+      const NODE_SIZE = 8; // struct node on wasm32: an int and a 4-byte pointer
+      const TRIPLE_SIZE = 12;
+      const pointer = (step: Step, variable: string) => step.variables[variable]?.value as string;
+      const describeEntry = (step: Step, address: string) => {
+        const entry = step.heap[address];
+        return `${entry.typeName} at ${address} ${JSON.stringify(
+          Object.fromEntries(Object.entries(entry.value).map(([field, f]) => [field, f.value]))
+        )}`;
+      };
+      const describeStep = (steps: Step[], index: number) =>
+        `step ${index + 1} ${steps[index].function}:${steps[index].line}`;
+
+      const recordPool = async () => {
+        const recording = await record(name, fixture(name));
+        const { steps } = recording;
+        // The situation the tests need: if these fail, the program no longer
+        // sets it up, rather than the recorder being wrong.
+        const nodeShown = steps.find((step) => step.line === 23);
+        const node = nodeShown && pointer(nodeShown, 'n');
+        expect(
+          nodeShown && node && nodeShown.heap[node]?.typeName,
+          `${name} line 23: n (${node}) points at a struct node at pool + 8, shown on the heap`
+        ).toBe('struct node');
+        const reused = steps.findIndex((step) => step.line === 25);
+        const triple = pointer(steps[reused], 't');
+        expect(
+          parseInt(triple, 16) + 4,
+          `${name} line 25: t (${triple}) points 4 bytes before the old node (${node}), so t->c covers its next`
+        ).toBe(parseInt(node!, 16));
+        const words = pointer(steps.at(-1)!, 'words');
+        return { steps, node: node!, reused, triple, words };
+      };
+
+      it(
+        'never shows memory that only an int field points at as a struct',
+        async () => {
+          const { steps, words } = await recordPool();
+
+          const phantoms = steps.flatMap((step, index) =>
+            words in step.heap
+              ? [`${describeStep(steps, index)}: ${describeEntry(step, words)}`]
+              : []
+          );
+          expect(
+            phantoms,
+            `${name}: heap entries at words (${words}), the block holding 777, 0 that only an int * and the ` +
+              `int t->c point at, so nothing reaches it as a struct: the old struct node at pool + 8 was followed ` +
+              `through its next field, which is now t->c`
+          ).toEqual([]);
+        },
+        CLANG_TIMEOUT
+      );
+
+      it(
+        'shows the reused memory only as the struct that now reaches it',
+        async () => {
+          const { steps, reused, triple } = await recordPool();
+          const start = parseInt(triple, 16);
+
+          const wrong = steps.slice(reused).flatMap((step, offset) => {
+            const where = describeStep(steps, reused + offset);
+            const missing =
+              step.heap[triple]?.typeName === 'struct triple'
+                ? []
+                : [`${where}: no struct triple at t (${triple})`];
+            const overlapping = Object.keys(step.heap)
+              .filter(
+                (address) => address !== triple && step.heap[address].typeName === 'struct node'
+              )
+              .filter((address) => {
+                const at = parseInt(address, 16);
+                return at < start + TRIPLE_SIZE && start < at + NODE_SIZE;
+              })
+              .map(
+                (address) =>
+                  `${where}: ${describeEntry(step, address)}, inside the struct triple at ${triple}`
+              );
+            return [...missing, ...overlapping];
+          });
+          expect(
+            wrong,
+            `${name}: from line 25, where t points at a struct triple at pool + 4 over the old struct node at ` +
+              `pool + 8, the triple should be shown and no struct node read from its bytes`
+          ).toEqual([]);
+        },
+        CLANG_TIMEOUT
+      );
+    });
+
     it(
       'shares a heap entry between steps while it stays the same',
       async () => {

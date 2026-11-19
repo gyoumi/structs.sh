@@ -182,6 +182,11 @@ export const recordRun = async (
     }
     structs.set(address, type);
   };
+  /** Forgets a struct whose memory now holds a different one. */
+  const forget = (address: number) => {
+    const allocation = allocationOf(address);
+    if (allocation !== null) shown.get(allocation.start)?.delete(address);
+  };
   const shownRoots = () =>
     [...shown.values()].flatMap((structs) =>
       [...structs].map(([address, type]): [number, number] => [type, address])
@@ -207,6 +212,7 @@ export const recordRun = async (
       readHeap(debug, callFrames, view, allocationOf, checkTime, {
         roots: shownRoots(),
         onShown: remember,
+        onOverlapped: forget,
       })
     ).forEach(([address, entry]) => {
       const json = JSON.stringify(entry, keepSpecialNumbers);

@@ -304,6 +304,11 @@ export type ShownStructs = {
   roots?: Iterable<[number, number]>;
   /** Called with each struct shown, as its address and type. */
   onShown?: (address: number, type: number) => void;
+  /**
+   * Called with a struct shown before that overlaps a different struct the
+   * variables reach now, so it's left out and can be forgotten.
+   */
+  onOverlapped?: (address: number) => void;
 };
 
 /**
@@ -314,7 +319,9 @@ export type ShownStructs = {
  * memory and the stack aren't shown. The `roots` in `shown` are read too,
  * after what the variables reach, along with what they reach, so a struct
  * shown before stays shown while only, say, a function's return value holds
- * it.
+ * it. What the variables reach wins: a struct found only that way that
+ * overlaps a different struct they reach (memory reused as another struct)
+ * isn't shown or followed.
  */
 export const readHeap = (
   debug: DebugSection,
@@ -323,7 +330,7 @@ export const readHeap = (
   allocationOf: (address: number) => Allocation | null,
   /** Called now and then during a long walk; it may throw to stop it. */
   checkTime: () => void = () => {},
-  { roots = [], onShown }: ShownStructs = {}
+  { roots = [], onShown, onOverlapped }: ShownStructs = {}
 ): Record<string, HeapEntry> => {
   const { types } = debug;
   const heap: Record<string, HeapEntry> = Object.create(null);
@@ -363,8 +370,37 @@ export const readHeap = (
     pending.push([index, address]);
   };
 
+  /** The heap structs the variables reach: their extents, and `type@address`. */
+  let fromVariables = true;
+  const reached: [number, number][] = [];
+  const reachedExactly = new Set<string>();
+  /** `reached` by start, with the furthest end of each and those before it. */
+  let byStart: { starts: number[]; furthestEnds: number[] } | null = null;
+  /** Whether [start, end) overlaps a struct the variables reach that isn't this one. */
+  const overlapsReached = (start: number, end: number, type: number) => {
+    if (reachedExactly.has(`${type}@${start}`)) return false;
+    if (!byStart) {
+      const sorted = [...reached].sort((a, b) => a[0] - b[0]);
+      const furthestEnds: number[] = [];
+      sorted.forEach(([, structEnd], i) =>
+        furthestEnds.push(Math.max(structEnd, furthestEnds[i - 1] ?? -Infinity))
+      );
+      byStart = { starts: sorted.map(([structStart]) => structStart), furthestEnds };
+    }
+    // How many reached structs start before `end`.
+    let low = 0;
+    let high = byStart.starts.length;
+    while (low < high) {
+      const middle = Math.floor((low + high) / 2);
+      if (byStart.starts[middle] < end) low = middle + 1;
+      else high = middle;
+    }
+    return low > 0 && byStart.furthestEnds[low - 1] > start;
+  };
+
   const look = (index: number, address: number) => {
-    const type = types[resolveIndex(types, index)];
+    const resolved = resolveIndex(types, index);
+    const type = types[resolved];
     if (type.kind === 'pointer' && type.to !== null) {
       const target = memory.getUint32(address, true);
       const pointee = types[resolveIndex(types, type.to)];
@@ -386,7 +422,15 @@ export const readHeap = (
       }
     } else if (type.kind === 'struct') {
       const heapKey = hex(address);
-      if (!(heapKey in heap) && inAllocation(address, type.size)) {
+      const onHeap = inAllocation(address, type.size);
+      if (onHeap && fromVariables) {
+        reached.push([address, address + type.size]);
+        reachedExactly.add(`${resolved}@${address}`);
+      } else if (onHeap && overlapsReached(address, address + type.size, resolved)) {
+        onOverlapped?.(address);
+        return;
+      }
+      if (!(heapKey in heap) && onHeap) {
         const whole = readValue(types, resolveIndex(types, index), memory, address) as Record<
           string,
           Value
@@ -440,6 +484,7 @@ export const readHeap = (
       .forEach(({ type, offset }) => visit(type, frameBase + offset))
   );
   walk();
+  fromVariables = false;
   // Then the structs shown before, so the ones the variables reach keep
   // their order. Reversed, as the last one queued is looked at first.
   [...roots].reverse().forEach(([type, address]) => visit(type, address));
