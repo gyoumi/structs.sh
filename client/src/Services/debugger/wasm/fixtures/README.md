@@ -17,3 +17,7 @@ and puts the ints in the tail it gave back, over the old fourth node.
 at pool + 8 is shown, then a `struct triple` at pool + 4 reuses its bytes,
 with an int field where the node's `next` was, holding the address of a block
 nothing reaches as a struct.
+
+`pool_same_address.c` shows a `struct node` at the start of a malloc'd pool,
+then reaches the same address as a `struct pair` for one step only, while
+the pool stays allocated to the end.

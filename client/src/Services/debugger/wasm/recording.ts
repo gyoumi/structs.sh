@@ -182,10 +182,14 @@ export const recordRun = async (
     }
     structs.set(address, type);
   };
-  /** Forgets a struct whose memory now holds a different one. */
-  const forget = (address: number) => {
+  /**
+   * Forgets a struct whose memory now holds a different one, but not another
+   * struct remembered at the same address since, such as the one there now.
+   */
+  const forget = (address: number, type: number) => {
     const allocation = allocationOf(address);
-    if (allocation !== null) shown.get(allocation.start)?.delete(address);
+    const structs = allocation && shown.get(allocation.start);
+    if (structs?.get(address) === type) structs.delete(address);
   };
   const shownRoots = () =>
     [...shown.values()].flatMap((structs) =>

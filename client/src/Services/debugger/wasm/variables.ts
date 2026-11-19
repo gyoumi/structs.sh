@@ -305,10 +305,11 @@ export type ShownStructs = {
   /** Called with each struct shown, as its address and type. */
   onShown?: (address: number, type: number) => void;
   /**
-   * Called with a struct shown before that overlaps a different struct the
-   * variables reach now, so it's left out and can be forgotten.
+   * Called with a struct shown before, as its address and type, that overlaps
+   * a different struct the variables reach now, so it's left out and can be
+   * forgotten.
    */
-  onOverlapped?: (address: number) => void;
+  onOverlapped?: (address: number, type: number) => void;
 };
 
 /**
@@ -427,7 +428,7 @@ export const readHeap = (
         reached.push([address, address + type.size]);
         reachedExactly.add(`${resolved}@${address}`);
       } else if (onHeap && overlapsReached(address, address + type.size, resolved)) {
-        onOverlapped?.(address);
+        onOverlapped?.(address, index);
         return;
       }
       if (!(heapKey in heap) && onHeap) {

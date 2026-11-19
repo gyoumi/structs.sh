@@ -1248,6 +1248,63 @@ describe('recordRun', () => {
     });
 
     it(
+      'keeps showing a struct that reuses a remembered struct’s address, after its last pointer is dropped',
+      async () => {
+        // fixtures/pool_same_address.c: pool = malloc(64) on line 14; n
+        // points at a struct node at pool + 0 (line 15), so it's shown, then
+        // is dropped on line 18. Lines 19-21 write 41, 42 there through an
+        // int *. p points at a struct pair at the same address on line 22,
+        // so it's shown at the step on line 23, and is dropped on line 23.
+        // The pool is never freed, so the pair stays shown to the end.
+        const name = 'pool_same_address.c';
+        const { steps } = await record(name, fixture(name));
+        const describeStep = (index: number) =>
+          `step ${index + 1} ${steps[index].function}:${steps[index].line}`;
+        const describeHeap = (index: number) =>
+          Object.values(steps[index].heap)
+            .map(
+              (entry) =>
+                `${entry.typeName} at ${entry.addr} ${JSON.stringify(
+                  Object.fromEntries(
+                    Object.entries(entry.value).map(([field, f]) => [field, f.value])
+                  )
+                )}`
+            )
+            .join(', ') || 'nothing';
+
+        // The situation the test needs: if these fail, the program no longer
+        // sets it up, rather than the recorder being wrong.
+        const nodeShown = steps.find((step) => step.line === 18);
+        const pool = nodeShown?.variables.pool?.value as string;
+        expect(
+          nodeShown?.heap[pool]?.typeName,
+          `${name} line 18: n points at a struct node at pool (${pool}), shown on the heap`
+        ).toBe('struct node');
+        const reached = steps.findIndex((step) => step.line === 23);
+        expect(
+          steps[reached]?.variables.p?.value,
+          `${name} line 23: p points at the struct pair at pool (${pool}), the old node's address`
+        ).toBe(pool);
+
+        const wrong = steps.slice(reached).flatMap((step, offset) => {
+          const entry = step.heap[pool];
+          return entry?.typeName === 'struct pair'
+            ? []
+            : [
+                `${describeStep(reached + offset)}: no struct pair at ${pool}; the whole heap holds ${describeHeap(reached + offset)}`,
+              ];
+        });
+        expect(
+          wrong,
+          `${name}: from line 23, where p reaches the struct pair {left: 41, right: 42} at pool (${pool}), the ` +
+            `same address as the struct node shown before, it should be shown at every step to the end (p is ` +
+            `dropped on line 23, but the pool is never freed)`
+        ).toEqual([]);
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
       'shares a heap entry between steps while it stays the same',
       async () => {
         const recording = await record('linked_list.c', program('linked_list.c'));
