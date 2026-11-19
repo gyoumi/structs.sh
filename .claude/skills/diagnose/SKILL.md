@@ -44,7 +44,8 @@ Do not edit product code until one hypothesis survives a confirming check.
 ## 4. Fix
 
 - Where a test seam exists (an e2e behaviour, a Vitest or `cargo test`), make the failing command a committed test before fixing.
-- Apply the smallest change that fixes the confirmed cause.
+- Tests and code come from different agents (`.claude/rules/testing.md`), so the agent that writes the test doesn't write the fix. Hand the fix to an implementer with the confirmed cause, the command that runs the test and its failure output, but not the test file.
+- The fix is the smallest change that fixes the confirmed cause.
 - Re-run the same command, then any adjacent check you need for confidence.
 - If the fix does not turn the command green, stay in this loop. Do not start a separate speculative track.
 - Remove every `[DEBUG-xxxx]` line before finishing. CI fails a PR that still has one.
