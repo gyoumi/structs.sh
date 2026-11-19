@@ -54,6 +54,8 @@ export type RunnerPool = {
 export const createRunnerPool = (createWorker = startRunnerWorker): RunnerPool => {
   let ready: RunnerWorker | undefined;
   let readyLoaded: Promise<void> = Promise.resolve();
+  /** Settles readyLoaded: kept with the held worker, so a run that takes it can too. */
+  let settleReady = () => {};
   let disposed = false;
 
   /** Holds a worker for the next run; `loaded` settles once it has loaded. */
@@ -69,6 +71,7 @@ export const createRunnerPool = (createWorker = startRunnerWorker): RunnerPool =
       if (ready === worker) ready = undefined;
     };
     ready = worker;
+    settleReady = loaded;
   };
 
   const startReady = () => {
@@ -87,8 +90,13 @@ export const createRunnerPool = (createWorker = startRunnerWorker): RunnerPool =
   startReady();
   return {
     take() {
+      // A run can take the held worker before it has loaded, so the run
+      // settles whenReady() instead: once the worker says anything (it has
+      // loaded), fails, or is terminated (it's gone).
+      const loaded = ready ? settleReady : () => {};
       const worker = ready ?? createWorker();
       ready = undefined;
+      settleReady = () => {};
       let answered = false;
       let returned = false;
       const lent: RunnerWorker = {
@@ -98,6 +106,7 @@ export const createRunnerPool = (createWorker = startRunnerWorker): RunnerPool =
         terminate() {
           if (returned) return;
           returned = true;
+          loaded();
           // Having answered a run, it has loaded.
           if (answered && !ready && !disposed) {
             keepReady(worker, () => {});
@@ -109,10 +118,14 @@ export const createRunnerPool = (createWorker = startRunnerWorker): RunnerPool =
         },
       };
       worker.onmessage = (event) => {
+        loaded();
         if (event.data.type !== 'ready') answered = true;
         lent.onmessage?.(event);
       };
-      worker.onerror = (event) => lent.onerror?.(event);
+      worker.onerror = (event) => {
+        loaded();
+        lent.onerror?.(event);
+      };
       return lent;
     },
     whenReady: () => readyLoaded,

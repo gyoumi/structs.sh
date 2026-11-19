@@ -3,7 +3,9 @@ import { DebuggerEvents } from './types';
 import { WasmDebugger } from './wasmDebugger';
 import { CompileResult, Compiler, CompilerStatus } from './wasm/compiler';
 import type { Recording, RunEnd } from './wasm/recording';
-import type { RecordResult } from './wasm/workerRunner';
+import type { RunnerMessage, RunRequest } from './wasm/runRequest';
+import { createRunnerPool, recordInWorker } from './wasm/workerRunner';
+import type { RecordResult, RunnerWorker } from './wasm/workerRunner';
 import type { Recorder } from './wasmDebugger';
 
 const createEvents = (): DebuggerEvents => ({
@@ -123,6 +125,51 @@ const compilerReporting = () => {
     report = onStatus;
   });
   return { compiler, report: (status: CompilerStatus) => report(status) };
+};
+
+/** Stands in for a runner Web Worker, so a test says when it loads and what it sends back. */
+class FakeRunnerWorker implements RunnerWorker {
+  onmessage: RunnerWorker['onmessage'] = null;
+
+  onerror: RunnerWorker['onerror'] = null;
+
+  received: RunRequest[] = [];
+
+  postMessage(request: RunRequest) {
+    this.received.push(request);
+  }
+
+  terminate() {}
+
+  send(message: RunnerMessage) {
+    this.onmessage?.({ data: message } as MessageEvent<RunnerMessage>);
+  }
+
+  /** What runner.worker.ts posts once its script and imports have loaded. */
+  sendReady() {
+    this.onmessage?.({ data: { type: 'ready' } } as unknown as MessageEvent<RunnerMessage>);
+  }
+}
+
+/**
+ * A recorder like the page's: a real runner pool, with fake workers listed in
+ * the order the pool started them.
+ */
+const poolRecorder = () => {
+  const workers: FakeRunnerWorker[] = [];
+  const pool = createRunnerPool(() => {
+    const worker = new FakeRunnerWorker();
+    workers.push(worker);
+    return worker;
+  });
+  const recorder: Recorder = Object.assign(
+    (
+      wasm: Uint8Array<ArrayBuffer>,
+      options: { signal: AbortSignal; input: { text: string; eof: boolean } }
+    ) => recordInWorker(wasm, { ...options, timeLimitMs: 60_000 }, pool.take),
+    { whenReady: pool.whenReady, dispose: pool.dispose }
+  );
+  return { recorder, workers };
 };
 
 const flush = () =>
@@ -689,6 +736,59 @@ describe('WasmDebugger', () => {
         ['ready', 'failed'],
         'compiler ready, runner loaded, fonts failed to load: latest compilerStatus state should have ended'
       ).toContain(latestStatus()?.state);
+    });
+
+    describe('when a run takes the runner before it has loaded', () => {
+      /** Compiler ready and fonts loaded, then a compile whose run takes the unloaded runner. */
+      const startEarlyRun = async () => {
+        const { compiler, report } = compilerReporting();
+        const { recorder, workers } = poolRecorder();
+        const wasm = createDebugger(compiler, recorder, async () => {});
+        wasm.setEvents(events);
+        report({ state: 'ready' });
+        await flush();
+        wasm.start({ name: 'hello.c', code: HELLO_SOURCE });
+        await vi.waitFor(() =>
+          expect(
+            workers[0]?.received.length,
+            'compile of hello.c, runner not loaded: programs sent to the runner started ahead'
+          ).toBe(1)
+        );
+        return { wasm, workers };
+      };
+
+      it('is ready once the runner says it has loaded during the run', async () => {
+        const { wasm, workers } = await startEarlyRun();
+
+        workers[0].sendReady();
+        workers[0].send({ type: 'recorded', recording: HELLO });
+        expect(
+          await wasm.step(),
+          'hello.c, first step after the run recorded: session still active'
+        ).toBe(true);
+        await flush();
+
+        expect(
+          latestStatus(),
+          "compiler ready, fonts loaded, a run took the unloaded runner, which then sent { type: 'ready' } and a recording: latest compilerStatus event"
+        ).toEqual({ state: 'ready' });
+      });
+
+      it('is ready once the runner answers the run, even without saying it loaded', async () => {
+        const { wasm, workers } = await startEarlyRun();
+
+        workers[0].send({ type: 'recorded', recording: HELLO });
+        expect(
+          await wasm.step(),
+          'hello.c, first step after the run recorded: session still active'
+        ).toBe(true);
+        await flush();
+
+        expect(
+          latestStatus(),
+          "compiler ready, fonts loaded, a run took the unloaded runner, which sent a recording but never { type: 'ready' }: latest compilerStatus event"
+        ).toEqual({ state: 'ready' });
+      });
     });
 
     it('reports a compiler that failed to load, even once the runner and fonts have loaded', async () => {

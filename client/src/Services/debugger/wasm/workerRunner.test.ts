@@ -600,6 +600,111 @@ describe('createRunnerPool, knowing when its worker has loaded', () => {
     );
   });
 
+  describe('a whenReady() promise taken before a run takes the worker that has not loaded yet', () => {
+    it('settles when the worker says it has loaded during the run', async () => {
+      const { pool, created } = startPool();
+      const ready = whenReadyOf(pool);
+
+      const run = recordInWorker(WASM, { timeLimitMs: TIME_LIMIT }, pool.take);
+      expectSentToWorkerStartedAhead(
+        created,
+        1,
+        'recordInWorker(pool.take) after whenReady(), before the worker loaded'
+      );
+      created[0].sendReady();
+
+      expect(
+        ['resolved', 'rejected'],
+        "whenReady() called, then a run took the unloaded worker, then it sent { type: 'ready' } mid-run: the earlier whenReady() promise should have settled"
+      ).toContain(await settledState(ready));
+
+      created[0].send({ type: 'recorded', recording: RECORDING });
+      expect(await run, 'same run, worker then sent a recording: result').toEqual({
+        recording: RECORDING,
+      });
+    });
+
+    it('settles when the worker answers the run without having said it loaded', async () => {
+      const { pool, created } = startPool();
+      const ready = whenReadyOf(pool);
+
+      const run = recordInWorker(WASM, { timeLimitMs: TIME_LIMIT }, pool.take);
+      expectSentToWorkerStartedAhead(
+        created,
+        1,
+        'recordInWorker(pool.take) after whenReady(), before the worker loaded'
+      );
+      created[0].send({ type: 'recorded', recording: RECORDING });
+      expect(await run, "worker sent a recording, never { type: 'ready' }: result").toEqual({
+        recording: RECORDING,
+      });
+
+      expect(
+        ['resolved', 'rejected'],
+        "whenReady() called, then a run took the unloaded worker, which answered with a recording (no { type: 'ready' }): the earlier whenReady() promise should have settled"
+      ).toContain(await settledState(ready));
+    });
+
+    it('settles when the run times out before anything arrives and the worker is terminated', async () => {
+      const { pool, created } = startPool();
+      const ready = whenReadyOf(pool);
+
+      const run = recordInWorker(WASM, { timeLimitMs: TIME_LIMIT }, pool.take);
+      expectSentToWorkerStartedAhead(
+        created,
+        1,
+        'recordInWorker(pool.take) after whenReady(), before the worker loaded'
+      );
+      await vi.advanceTimersByTimeAsync(TIME_LIMIT);
+      expect(await run, 'worker sent nothing within the time limit: result').toEqual({
+        timedOut: true,
+      });
+      expect(
+        created[0].terminated,
+        'run timed out before an answer: is the real worker terminated'
+      ).toBe(true);
+
+      // It may settle straight away, or once the replacement has loaded.
+      created[1]?.sendReady();
+      expect(
+        ['resolved', 'rejected'],
+        "whenReady() called, then a run took the unloaded worker and timed out (worker terminated; replacement, if any, then sent { type: 'ready' }): the earlier whenReady() promise should have settled"
+      ).toContain(await settledState(ready));
+    });
+
+    it('settles when the run is stopped before anything arrives and the worker is terminated', async () => {
+      const { pool, created } = startPool();
+      const ready = whenReadyOf(pool);
+      const controller = new AbortController();
+
+      const run = recordInWorker(
+        WASM,
+        { timeLimitMs: TIME_LIMIT, signal: controller.signal },
+        pool.take
+      );
+      expectSentToWorkerStartedAhead(
+        created,
+        1,
+        'recordInWorker(pool.take) after whenReady(), before the worker loaded'
+      );
+      controller.abort();
+      expect(await run, 'run stopped before the worker sent anything: result').toEqual({
+        stopped: true,
+      });
+      expect(
+        created[0].terminated,
+        'run stopped before an answer: is the real worker terminated'
+      ).toBe(true);
+
+      // It may settle straight away, or once the replacement has loaded.
+      created[1]?.sendReady();
+      expect(
+        ['resolved', 'rejected'],
+        "whenReady() called, then a run took the unloaded worker and was stopped (worker terminated; replacement, if any, then sent { type: 'ready' }): the earlier whenReady() promise should have settled"
+      ).toContain(await settledState(ready));
+    });
+  });
+
   it('whenReady() resolves for a worker kept after a run, which has loaded', async () => {
     const { pool, created } = startPool();
     created[0].sendReady();
