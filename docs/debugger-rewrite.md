@@ -403,7 +403,7 @@ passes with `?debugger=gdb`.
 
 ### 4b. Uninitialised variables
 
-Each new stack frame is filled with the byte `0xAA` when a function is
+**Done in #30.** Each new stack frame is filled with the byte `0xAA` when a function is
 entered, so an uninitialised `int` shows -1431655766 (`0xAAAAAAAA`) and an
 uninitialised pointer shows `0xaaaaaaaa`, rather than 0. Heap memory from
 `malloc` is left as it is (glibc often hands out zeroed memory too), and
