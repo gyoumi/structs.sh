@@ -44,7 +44,7 @@ PR that edits them is judged by the rules it started from:
 | Forbidden files | A non-pnpm lockfile, an `.env` file, a `.tsbuildinfo`, or a screenshot outside the image folders is committed | (not waivable) |
 | Debug tags | A temporary `[DEBUG-xxxx]` line is left in | (not waivable) |
 | Agent config alone | `.claude/` changes are mixed with other changes | (not waivable) |
-| Debugger needs a test | `instrumenter/src` or `client/src/Services/debugger` changes without an e2e test, a Vitest or cargo test, or a known-failures entry | `no-test-needed` label |
+| Debugger needs a test | Code in `instrumenter/src` or `client/src/Services/debugger` changes without an e2e test, a Vitest or cargo test, or a known-failures entry | `no-test-needed` label |
 | Large removal | A test file is deleted, or a source file is emptied or cut to under 30% of its size | `removal-ok` label |
 | Protected paths | CI, lint config, the `scripts` in a `package.json`, agent config or the known-failures list changes | `human-approved` label |
 
