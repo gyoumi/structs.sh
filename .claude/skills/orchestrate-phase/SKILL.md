@@ -54,6 +54,6 @@ In this lane:
 ## Hard stops
 
 - No product work by the orchestrator or an intermediate orchestrator.
-- Environment failures (debugger container down, missing dependency) are not skippable. Fix them, or stop after two identical failures and report.
+- Environment failures (instrumenter not built, missing dependency) are not skippable. Fix them, or stop after two identical failures and report.
 - No sleep-poll loops. Rely on subagent completion notifications.
 - Do not claim a review, check, screenshot, or e2e run that did not happen.

@@ -53,8 +53,8 @@ Run `pnpm install` at the repo root first, so the checks use the bumped dependen
 | Bump | Check |
 |---|---|
 | Vite or a Vite plugin | `cd client && pnpm run build`, then load `http://localhost:3000` |
-| GitHub Action or Dockerfile base image | Read the action's release notes for breaking input changes; `docker compose build client` for Dockerfile bumps |
-| Anything the e2e suite depends on | `pnpm run e2e` |
+| GitHub Action or Dockerfile base image | Read the action's release notes for breaking input changes; `docker build -f client/Dockerfile.prod .` from the repo root for Dockerfile bumps (`client/Dockerfile.dev` for the dev image) |
+| Anything the e2e suite depends on | `pnpm run instrumenter && pnpm run e2e` |
 
 For a major version bump, read the upstream changelog and list the breaking changes that apply to this repo.
 

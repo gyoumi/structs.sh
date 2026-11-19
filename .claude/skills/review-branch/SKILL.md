@@ -64,7 +64,7 @@ pnpm install   # a fresh worktree has no node_modules
 pnpm check:changed
 ```
 
-It runs the fast checks for the areas the branch touched. When the branch changes `client/`, `instrumenter/` or `e2e/`, also run the e2e suite, since `check:changed` only type-checks and lints e2e: `pnpm run e2e`. CI also runs the client build.
+It runs the fast checks for the areas the branch touched. When the branch changes `client/`, `instrumenter/` or `e2e/`, also run the e2e suite, since `check:changed` only type-checks and lints e2e: `pnpm run instrumenter`, then `pnpm run e2e`. CI also runs the client build.
 
 A `skipped` line in the output means that check did not run. Report it as unverified, not as passed.
 

@@ -18,7 +18,7 @@ Where failing commands usually live in this repo:
 
 | Area | Command |
 |---|---|
-| Visual debugger, as a student uses it | A Playwright test in `e2e/tests/` (`pnpm run e2e tests/<file>.spec.ts -g "<name>"` from the repo root). |
+| Visual debugger, as a student uses it | A Playwright test in `e2e/tests/` (`pnpm run e2e tests/<file>.spec.ts -g "<name>"` from the repo root). Build the instrumenter first with `pnpm run instrumenter`. |
 | Debugger compiler, runner or recorder | A Vitest test next to the code in `client/src/Services/debugger/wasm/` (`cd client && pnpm test <file>`). Build the instrumenter first with `pnpm run instrumenter`. |
 | Debugger instrumenter (DWARF, rewriting the wasm) | A `cargo test` in `instrumenter/tests/` (`cd instrumenter && cargo test`). |
 | Client types, lint, build | `cd client && pnpm run tsc`, `pnpm run lint`, `pnpm run build` |

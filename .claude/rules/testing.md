@@ -66,8 +66,8 @@ PR.
 
 ## Report what was actually run
 
-Say which checks ran and their results. If something couldn't run (no
-debugger running, a network problem, a missing tool), say that, and don't
+Say which checks ran and their results. If something couldn't run (the
+instrumenter not built, a network problem, a missing tool), say that, and don't
 describe it as passing.
 
 ## Commands
@@ -77,5 +77,5 @@ describe it as passing.
 | Unit tests | `pnpm run instrumenter`, then `cd client && pnpm test` (`pnpm test:watch` while working) |
 | Instrumenter | `cd instrumenter && cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test` |
 | Client types, lint, build | `cd client && pnpm run tsc && pnpm run lint && pnpm run build` |
-| e2e | `pnpm run e2e:typecheck && pnpm run e2e` from the repo root |
+| e2e | `pnpm run instrumenter`, then `pnpm run e2e:typecheck && pnpm run e2e` from the repo root |
 | One e2e behaviour | `pnpm run e2e -g "<behaviour>"` |
