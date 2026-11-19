@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Recording } from './recording';
 import type { RunnerMessage, RunRequest } from './runRequest';
-import { RecordResult, recordInWorker, RunnerWorker } from './workerRunner';
+import { createRunnerPool, RecordResult, recordInWorker, RunnerWorker } from './workerRunner';
 
 /** Stands in for the runner worker, so a test can say what it sends back. */
 class FakeWorker implements RunnerWorker {
@@ -64,21 +64,29 @@ describe('recordInWorker', () => {
 
     run.worker.send({ type: 'recorded', recording: RECORDING });
 
-    expect(await run.done).toEqual({ recording: RECORDING });
-    expect(run.worker.received).toEqual([{ wasm: WASM }]);
-    expect(run.worker.terminated).toBe(true);
+    expect(await run.done, 'worker sent a recording: result').toEqual({ recording: RECORDING });
+    expect(run.worker.received, 'messages posted to the worker').toEqual([{ wasm: WASM }]);
+    expect(run.worker.terminated, 'worker sent a recording: worker terminated').toBe(true);
   });
 
   it('stops a program that runs past the time limit', async () => {
     const run = startRun();
 
     await vi.advanceTimersByTimeAsync(TIME_LIMIT - 1);
-    expect(run.result()).toBeUndefined();
-    expect(run.worker.terminated).toBe(false);
+    expect(
+      run.result(),
+      `no answer, ${TIME_LIMIT - 1}ms of a ${TIME_LIMIT}ms limit: result`
+    ).toBeUndefined();
+    expect(
+      run.worker.terminated,
+      `${TIME_LIMIT - 1}ms of a ${TIME_LIMIT}ms limit: worker terminated`
+    ).toBe(false);
 
     await vi.advanceTimersByTimeAsync(1);
-    expect(run.result()).toEqual({ timedOut: true });
-    expect(run.worker.terminated).toBe(true);
+    expect(run.result(), `no answer by the ${TIME_LIMIT}ms limit: result`).toEqual({
+      timedOut: true,
+    });
+    expect(run.worker.terminated, `${TIME_LIMIT}ms limit reached: worker terminated`).toBe(true);
   });
 
   it('ignores anything the worker sends after the run has ended', async () => {
@@ -87,7 +95,9 @@ describe('recordInWorker', () => {
 
     run.worker.send({ type: 'recorded', recording: RECORDING });
 
-    expect(await run.done).toEqual({ timedOut: true });
+    expect(await run.done, 'recording sent after the time limit: result').toEqual({
+      timedOut: true,
+    });
   });
 
   it('does not time out a program that has already finished', async () => {
@@ -96,7 +106,9 @@ describe('recordInWorker', () => {
 
     await vi.advanceTimersByTimeAsync(TIME_LIMIT * 2);
 
-    expect(await run.done).toEqual({ recording: RECORDING });
+    expect(await run.done, 'recording sent, then twice the time limit passed: result').toEqual({
+      recording: RECORDING,
+    });
   });
 
   it('resolves with an error when the worker reports one', async () => {
@@ -105,8 +117,10 @@ describe('recordInWorker', () => {
     run.worker.send({ type: 'error', message: 'invalid module' });
 
     const result = await run.done;
-    expect(result).toEqual({ error: expect.stringContaining('invalid module') });
-    expect(run.worker.terminated).toBe(true);
+    expect(result, "worker sent { type: 'error', message: 'invalid module' }: result").toEqual({
+      error: expect.stringContaining('invalid module'),
+    });
+    expect(run.worker.terminated, 'worker sent an error message: worker terminated').toBe(true);
   });
 
   it('resolves with an error when the worker itself fails, such as failing to load', async () => {
@@ -115,8 +129,13 @@ describe('recordInWorker', () => {
     run.worker.crash('Failed to fetch runner.worker.js');
 
     const result = await run.done;
-    expect(result).toEqual({ error: expect.stringContaining('Failed to fetch runner.worker.js') });
-    expect(run.worker.terminated).toBe(true);
+    expect(
+      result,
+      "worker raised an error event 'Failed to fetch runner.worker.js': result"
+    ).toEqual({
+      error: expect.stringContaining('Failed to fetch runner.worker.js'),
+    });
+    expect(run.worker.terminated, 'worker raised an error event: worker terminated').toBe(true);
   });
 
   it('resolves with an error when the worker cannot be created', async () => {
@@ -124,7 +143,9 @@ describe('recordInWorker', () => {
       throw new Error('Workers are not supported');
     });
 
-    expect(result).toEqual({ error: expect.stringContaining('Workers are not supported') });
+    expect(result, "createWorker threw 'Workers are not supported': result").toEqual({
+      error: expect.stringContaining('Workers are not supported'),
+    });
   });
 
   it('stops the program when the run is cancelled', async () => {
@@ -138,8 +159,8 @@ describe('recordInWorker', () => {
 
     controller.abort();
 
-    expect(await done).toEqual({ stopped: true });
-    expect(worker.terminated).toBe(true);
+    expect(await done, 'signal aborted mid-run: result').toEqual({ stopped: true });
+    expect(worker.terminated, 'signal aborted mid-run: worker terminated').toBe(true);
   });
 
   it('does not start a run that was cancelled before it began', async () => {
@@ -153,8 +174,11 @@ describe('recordInWorker', () => {
       createWorker
     );
 
-    expect(result).toEqual({ stopped: true });
-    expect(createWorker).not.toHaveBeenCalled();
+    expect(result, 'signal aborted before the run: result').toEqual({ stopped: true });
+    expect(
+      createWorker,
+      'signal aborted before the run: createWorker calls'
+    ).not.toHaveBeenCalled();
   });
 
   it('uses a new worker for every run', async () => {
@@ -168,6 +192,252 @@ describe('recordInWorker', () => {
     await vi.advanceTimersByTimeAsync(TIME_LIMIT);
     await Promise.all(runs);
 
-    expect(createWorker).toHaveBeenCalledTimes(2);
+    expect(
+      createWorker,
+      'two recordInWorker runs given createWorker: createWorker calls'
+    ).toHaveBeenCalledTimes(2);
+  });
+});
+
+/** A pool whose workers are fakes, listed in the order the pool started them. */
+const startPool = () => {
+  const created: FakeWorker[] = [];
+  const pool = createRunnerPool(() => {
+    const worker = new FakeWorker();
+    created.push(worker);
+    return worker;
+  });
+  return { pool, created };
+};
+
+/** Which of the pool's workers, by start order, a message posted to `lent` reaches. */
+const reachedBy = (lent: RunnerWorker, created: FakeWorker[]) => {
+  const before = created.map((worker) => worker.received.length);
+  lent.postMessage({ wasm: WASM });
+  return created.findIndex((worker, i) => worker.received.length > before[i]);
+};
+
+/**
+ * Checks that the run just started went to the worker the pool started ahead
+ * (the first one created), so a test that answers on that worker fails here
+ * with a message, rather than with a TypeError or a hang.
+ */
+const expectSentToWorkerStartedAhead = (
+  created: FakeWorker[],
+  programs: number,
+  context: string
+) => {
+  expect(
+    created.length,
+    `${context}: workers started (one should have been started ahead)`
+  ).toBeGreaterThanOrEqual(1);
+  expect(created[0].received.length, `${context}: programs sent to the worker started ahead`).toBe(
+    programs
+  );
+};
+
+describe('createRunnerPool', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('starts one worker as soon as it is created, before any run', () => {
+    const { created } = startPool();
+
+    expect(created.length, 'createRunnerPool(), no take() yet: workers started').toBe(1);
+    expect(
+      created[0].terminated,
+      'createRunnerPool(), no take() yet: started worker terminated'
+    ).toBe(false);
+  });
+
+  it('take() hands out the worker it started ahead, without starting another', () => {
+    const { pool, created } = startPool();
+
+    const lent = pool.take();
+
+    expect(created.length, 'createRunnerPool() then take(): workers started in all').toBe(1);
+    expect(
+      reachedBy(lent, created),
+      'createRunnerPool() then take(): which worker (by start order) a postMessage on the taken one reaches'
+    ).toBe(0);
+  });
+
+  it('keeps a worker that answered once its run ends, for the next run', async () => {
+    const { pool, created } = startPool();
+    const options = { timeLimitMs: TIME_LIMIT };
+
+    const first = recordInWorker(WASM, options, pool.take);
+    expectSentToWorkerStartedAhead(created, 1, 'recordInWorker(pool.take), run 1');
+    created[0].send({ type: 'recorded', recording: RECORDING });
+    expect(
+      await first,
+      'recordInWorker(pool.take), run 1, worker sent a recording: result'
+    ).toEqual({
+      recording: RECORDING,
+    });
+    expect(
+      created[0].terminated,
+      'run 1 got its recording, then recordInWorker terminated the taken worker: is the real worker terminated'
+    ).toBe(false);
+
+    const second = recordInWorker(WASM, options, pool.take);
+    expect(
+      created.length,
+      'two runs in a row through recordInWorker(pool.take): workers started'
+    ).toBe(1);
+    expect(
+      created[0].received.length,
+      'two runs in a row through recordInWorker(pool.take): programs the one worker was sent'
+    ).toBe(2);
+    created[0].send({ type: 'recorded', recording: RECORDING });
+    expect(await second, 'recordInWorker(pool.take), run 2 on the kept worker: result').toEqual({
+      recording: RECORDING,
+    });
+    expect(created.length, 'after two runs in a row: workers started').toBe(1);
+  });
+
+  it('terminates a worker whose run timed out before it answered, and starts a replacement', async () => {
+    const { pool, created } = startPool();
+
+    const run = recordInWorker(WASM, { timeLimitMs: TIME_LIMIT }, pool.take);
+    await vi.advanceTimersByTimeAsync(TIME_LIMIT);
+
+    expect(await run, 'recordInWorker(pool.take), worker never answered: result').toEqual({
+      timedOut: true,
+    });
+    expect(
+      created[0].terminated,
+      'run timed out before an answer: is the real worker terminated'
+    ).toBe(true);
+    expect(
+      created.length,
+      'run timed out before an answer: workers started (the first plus a replacement)'
+    ).toBe(2);
+    expect(created[1].terminated, 'run timed out: is the replacement terminated').toBe(false);
+    expect(
+      reachedBy(pool.take(), created),
+      'take() after a timed-out run: which worker (by start order) it hands out'
+    ).toBe(1);
+    expect(created.length, 'take() after a timed-out run: workers started in all').toBe(2);
+  });
+
+  it('terminates a worker whose run was stopped before it answered, and starts a replacement', async () => {
+    const { pool, created } = startPool();
+    const controller = new AbortController();
+
+    const run = recordInWorker(
+      WASM,
+      { timeLimitMs: TIME_LIMIT, signal: controller.signal },
+      pool.take
+    );
+    controller.abort();
+
+    expect(await run, 'recordInWorker(pool.take), stopped before an answer: result').toEqual({
+      stopped: true,
+    });
+    expect(
+      created[0].terminated,
+      'run stopped before an answer: is the real worker terminated'
+    ).toBe(true);
+    expect(
+      created.length,
+      'run stopped before an answer: workers started (the first plus a replacement)'
+    ).toBe(2);
+    expect(created[1].terminated, 'run stopped: is the replacement terminated').toBe(false);
+  });
+
+  it('terminates and replaces a worker that fails during a run', async () => {
+    const { pool, created } = startPool();
+
+    const run = recordInWorker(WASM, { timeLimitMs: TIME_LIMIT }, pool.take);
+    expectSentToWorkerStartedAhead(
+      created,
+      1,
+      'recordInWorker(pool.take), before the worker fails'
+    );
+    created[0].crash('worker crashed mid-run');
+
+    expect(await run, 'recordInWorker(pool.take), worker raised an error event: result').toEqual({
+      error: expect.stringContaining('worker crashed mid-run'),
+    });
+    expect(created[0].terminated, 'worker raised an error during its run: is it terminated').toBe(
+      true
+    );
+    expect(
+      created.length,
+      'worker raised an error during its run: workers started (the first plus a replacement)'
+    ).toBe(2);
+    expect(created[1].terminated, 'worker failed mid-run: is the replacement terminated').toBe(
+      false
+    );
+    expect(
+      reachedBy(pool.take(), created),
+      'take() after a run whose worker failed: which worker (by start order) it hands out'
+    ).toBe(1);
+  });
+
+  it('drops an idle worker that fails, such as its script not loading, and the next take() starts a new one', () => {
+    const { pool, created } = startPool();
+
+    expect(
+      created.length,
+      'createRunnerPool(): workers started ahead, before the idle one fails'
+    ).toBe(1);
+    created[0].crash('Failed to fetch runner.worker.js');
+
+    expect(created[0].terminated, 'idle ready worker raised an error event: is it terminated').toBe(
+      true
+    );
+
+    const lent = pool.take();
+    expect(created.length, 'take() after the idle worker failed: workers started in all').toBe(2);
+    expect(
+      reachedBy(lent, created),
+      'take() after the idle worker failed: which worker (by start order) it hands out (0 is the failed one)'
+    ).toBe(1);
+  });
+
+  it('dispose() terminates the ready worker and starts no replacement', () => {
+    const { pool, created } = startPool();
+
+    expect(created.length, 'createRunnerPool(): workers started ahead, before dispose()').toBe(1);
+    pool.dispose();
+
+    expect(created[0].terminated, 'dispose() with an idle ready worker: is it terminated').toBe(
+      true
+    );
+    expect(created.length, 'dispose(): workers started in all (no replacement)').toBe(1);
+  });
+
+  it('after dispose(), a run that ends terminates its worker and starts no replacement', async () => {
+    const { pool, created } = startPool();
+
+    const answered = recordInWorker(WASM, { timeLimitMs: TIME_LIMIT }, pool.take);
+    expectSentToWorkerStartedAhead(created, 1, 'recordInWorker(pool.take), before dispose()');
+    pool.dispose();
+    created[0].send({ type: 'recorded', recording: RECORDING });
+    expect(await answered, 'take(), dispose(), then the worker sent a recording: result').toEqual({
+      recording: RECORDING,
+    });
+    expect(
+      created[0].terminated,
+      'run answered after dispose(): is its worker terminated (not kept for another run)'
+    ).toBe(true);
+
+    const unanswered = recordInWorker(WASM, { timeLimitMs: TIME_LIMIT }, pool.take);
+    pool.dispose();
+    await vi.advanceTimersByTimeAsync(TIME_LIMIT);
+    expect(await unanswered, 'take() after dispose(), worker never answered: result').toEqual({
+      timedOut: true,
+    });
+    expect(
+      created.length,
+      'two runs ended after dispose(): workers started in all (one per take(), no replacements)'
+    ).toBe(2);
   });
 });

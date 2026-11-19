@@ -3,7 +3,7 @@ import { Debugger, DebuggerEvents, SourceFile } from './types';
 import { Compiler, CompilerStatus } from './wasm/compiler';
 import { createWorkerCompiler } from './wasm/workerCompiler';
 import { Recording, RunEnd, Step, TIME_LIMIT_MS } from './wasm/recording';
-import { RecordResult, recordInWorker } from './wasm/workerRunner';
+import { createRunnerPool, RecordResult, recordInWorker } from './wasm/workerRunner';
 
 /**
  * Extra time the worker gets past the recorder's own time limit, so the
@@ -11,18 +11,33 @@ import { RecordResult, recordInWorker } from './wasm/workerRunner';
  */
 const WORKER_GRACE_MS = 2_000;
 
-/** Records a compiled, instrumented program. */
 /** What the program reads from stdin: the text typed so far, and whether end-of-file was sent. */
 export type Input = { text: string; eof: boolean };
 
 /** Records a compiled, instrumented program. */
-export type Recorder = (
+export type Recorder = ((
   wasm: Uint8Array<ArrayBuffer>,
   options: { signal: AbortSignal; input: Input }
-) => Promise<RecordResult>;
+) => Promise<RecordResult>) & {
+  /** Stops anything the recorder started ahead of its next run. */
+  dispose?: () => void;
+};
 
-const recordWithTimeLimit: Recorder = (wasm, options) =>
-  recordInWorker(wasm, { ...options, timeLimitMs: TIME_LIMIT_MS + WORKER_GRACE_MS });
+/**
+ * Records in runner workers, the next one started now, alongside the compiler
+ * preload, so runs don't fetch anything and keep working offline.
+ */
+const createWorkerRecorder = (): Recorder => {
+  const runners = createRunnerPool();
+  const record: Recorder = (wasm, options) =>
+    recordInWorker(
+      wasm,
+      { ...options, timeLimitMs: TIME_LIMIT_MS + WORKER_GRACE_MS },
+      runners.take
+    );
+  record.dispose = runners.dispose;
+  return record;
+};
 
 const TOO_LONG = `The program was stopped because it ran for too long (over ${TIME_LIMIT_MS / 1000} seconds).`;
 
@@ -101,7 +116,7 @@ export class WasmDebugger implements Debugger {
 
   constructor(
     private readonly compiler: Compiler = createWorkerCompiler(),
-    private readonly recorder: Recorder = recordWithTimeLimit
+    private readonly recorder: Recorder = createWorkerRecorder()
   ) {
     // Start the download when the page opens, not when Compile is clicked.
     compiler.preload((status) => {
@@ -267,5 +282,6 @@ export class WasmDebugger implements Debugger {
     this.latestStart += 1;
     this.endSession();
     this.compiler.dispose();
+    this.recorder.dispose?.();
   }
 }
