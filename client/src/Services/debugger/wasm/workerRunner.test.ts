@@ -1,7 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Recording } from './recording';
 import type { RunnerMessage, RunRequest } from './runRequest';
-import { createRunnerPool, RecordResult, recordInWorker, RunnerWorker } from './workerRunner';
+import {
+  createRunnerPool,
+  RecordResult,
+  recordInWorker,
+  RunnerPool,
+  RunnerWorker,
+} from './workerRunner';
 
 /** Stands in for the runner worker, so a test can say what it sends back. */
 class FakeWorker implements RunnerWorker {
@@ -27,6 +33,14 @@ class FakeWorker implements RunnerWorker {
 
   crash(message: string) {
     this.onerror?.({ message } as ErrorEvent);
+  }
+
+  /**
+   * Says the worker's script and imports have loaded. The message is
+   * `{ type: 'ready' }`, which runner.worker.ts posts once it has loaded.
+   */
+  sendReady() {
+    this.onmessage?.({ data: { type: 'ready' } } as unknown as MessageEvent<RunnerMessage>);
   }
 }
 
@@ -439,5 +453,164 @@ describe('createRunnerPool', () => {
       created.length,
       'two runs ended after dispose(): workers started in all (one per take(), no replacements)'
     ).toBe(2);
+  });
+});
+
+/**
+ * The pool's whenReady(): settles once the worker it holds for the next run
+ * has loaded (resolves), or can't load (resolves or rejects, as long as it
+ * doesn't hang). Reached through a cast so this file type-checks before the
+ * pool has it.
+ */
+const whenReadyOf = (pool: RunnerPool) => {
+  const { whenReady } = pool as RunnerPool & { whenReady?: () => Promise<void> };
+  expect(
+    typeof whenReady,
+    'createRunnerPool(): pool.whenReady, which says when the worker it holds has loaded'
+  ).toBe('function');
+  return whenReady!();
+};
+
+/** Whether a promise has settled once pending work has run: 'pending', 'resolved' or 'rejected'. */
+const settledState = async (promise: Promise<unknown>) => {
+  let state = 'pending';
+  promise.then(
+    () => {
+      state = 'resolved';
+    },
+    () => {
+      state = 'rejected';
+    }
+  );
+  await vi.advanceTimersByTimeAsync(0);
+  return state;
+};
+
+describe('createRunnerPool, knowing when its worker has loaded', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('whenReady() waits until the worker it started ahead says it has loaded', async () => {
+    const { pool, created } = startPool();
+    const ready = whenReadyOf(pool);
+
+    expect(
+      await settledState(ready),
+      "createRunnerPool(), worker started but has not sent { type: 'ready' }: whenReady()"
+    ).toBe('pending');
+
+    created[0].sendReady();
+
+    expect(
+      await settledState(ready),
+      "createRunnerPool(), then the worker sent { type: 'ready' } while idle: whenReady()"
+    ).toBe('resolved');
+  });
+
+  it('whenReady() settles, rather than hanging, when the worker it holds fails to load', async () => {
+    const { pool, created } = startPool();
+    const ready = whenReadyOf(pool);
+
+    created[0].crash('Failed to fetch runner.worker.js');
+
+    expect(
+      ['resolved', 'rejected'],
+      'createRunnerPool(), idle worker raised an error event before it loaded: whenReady() should have settled'
+    ).toContain(await settledState(ready));
+  });
+
+  it('whenReady() settles, rather than hanging, when no worker can be started', async () => {
+    const pool = createRunnerPool(() => {
+      throw new Error('Workers are not supported');
+    });
+
+    expect(
+      ['resolved', 'rejected'],
+      "createRunnerPool() whose createWorker throws 'Workers are not supported': whenReady() should have settled"
+    ).toContain(await settledState(whenReadyOf(pool)));
+  });
+
+  it('a run started before its worker has loaded waits, then gets its recording', async () => {
+    const { pool, created } = startPool();
+
+    const run = recordInWorker(WASM, { timeLimitMs: TIME_LIMIT }, pool.take);
+    expectSentToWorkerStartedAhead(
+      created,
+      1,
+      'recordInWorker(pool.take) before the worker loaded'
+    );
+    created[0].sendReady();
+    expect(
+      await settledState(run),
+      "run started before the worker loaded, then the worker sent { type: 'ready' }: the run should still be waiting for its recording"
+    ).toBe('pending');
+    created[0].send({ type: 'recorded', recording: RECORDING });
+
+    expect(
+      await run,
+      "run started before the worker loaded; worker sent { type: 'ready' }, then a recording: result"
+    ).toEqual({ recording: RECORDING });
+  });
+
+  it('a worker that only said it loaded has not answered: a run that times out still terminates and replaces it', async () => {
+    const { pool, created } = startPool();
+
+    const run = recordInWorker(WASM, { timeLimitMs: TIME_LIMIT }, pool.take);
+    expectSentToWorkerStartedAhead(
+      created,
+      1,
+      'recordInWorker(pool.take) before the worker loaded'
+    );
+    created[0].sendReady();
+    await vi.advanceTimersByTimeAsync(TIME_LIMIT);
+
+    expect(
+      await run,
+      "worker sent { type: 'ready' } but no recording within the time limit: result"
+    ).toEqual({ timedOut: true });
+    expect(
+      created[0].terminated,
+      "worker sent only { type: 'ready' }, then the run timed out: is the real worker terminated"
+    ).toBe(true);
+    expect(created.length, 'run timed out: workers started (the first plus a replacement)').toBe(2);
+  });
+
+  it('whenReady() after a worker was replaced waits for the replacement to load', async () => {
+    const { pool, created } = startPool();
+    created[0].sendReady();
+    const run = recordInWorker(WASM, { timeLimitMs: TIME_LIMIT }, pool.take);
+    await vi.advanceTimersByTimeAsync(TIME_LIMIT);
+    await run;
+    expect(created.length, 'run timed out: workers started (the first plus a replacement)').toBe(2);
+
+    const ready = whenReadyOf(pool);
+    expect(
+      await settledState(ready),
+      "replacement started after a timed-out run, not yet sent { type: 'ready' }: whenReady()"
+    ).toBe('pending');
+
+    created[1].sendReady();
+    expect(await settledState(ready), "replacement sent { type: 'ready' }: whenReady()").toBe(
+      'resolved'
+    );
+  });
+
+  it('whenReady() resolves for a worker kept after a run, which has loaded', async () => {
+    const { pool, created } = startPool();
+    created[0].sendReady();
+    const run = recordInWorker(WASM, { timeLimitMs: TIME_LIMIT }, pool.take);
+    created[0].send({ type: 'recorded', recording: RECORDING });
+    await run;
+
+    expect(created.length, 'run answered: workers started (the answered one is kept)').toBe(1);
+    expect(
+      await settledState(whenReadyOf(pool)),
+      'whenReady() after a run whose worker answered and was kept'
+    ).toBe('resolved');
   });
 });

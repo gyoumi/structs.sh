@@ -10,3 +10,6 @@ const scope = globalThis as unknown as {
 scope.onmessage = async ({ data }) => {
   await answerRunRequest(data, (message) => scope.postMessage(message));
 };
+
+// Its script and imports have loaded, so it can run with the network off.
+scope.postMessage({ type: 'ready' });

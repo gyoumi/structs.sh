@@ -74,6 +74,57 @@ const controlledRecorder = () => {
   };
 };
 
+/** A promise the test settles, for something the debugger loads ahead of time. */
+const loading = () => {
+  let loaded: () => void = () => {};
+  let failed: (error: Error) => void = () => {};
+  const promise = new Promise<void>((resolve, reject) => {
+    loaded = resolve;
+    failed = reject;
+  });
+  promise.catch(() => {});
+  return { promise, loaded: () => loaded(), failed: (reason: string) => failed(new Error(reason)) };
+};
+
+/**
+ * A recorder whose runner worker, started ahead of the first run, loads when
+ * the test says. Assumed seam: Recorder.whenReady(), which settles once the
+ * runner it holds has loaded (resolves) or failed to load.
+ */
+const recorderLoading = () => {
+  const runner = loading();
+  const recorder: Recorder = Object.assign(recorderReturning(HELLO), {
+    whenReady: () => runner.promise,
+  });
+  return { recorder, ...runner };
+};
+
+/**
+ * Assumed seam: WasmDebugger's third constructor argument loads the fonts and
+ * resolves once they have loaded (loadFonts() by default). Reached through a
+ * cast so this file type-checks before the constructor takes it.
+ */
+const createDebugger = (
+  compiler: Compiler,
+  recorder: Recorder,
+  loadFonts: () => Promise<unknown>
+) =>
+  new (WasmDebugger as unknown as new (
+    compiler: Compiler,
+    recorder: Recorder,
+    loadFonts: () => Promise<unknown>
+  ) => WasmDebugger)(compiler, recorder, loadFonts);
+
+/** A compiler whose download the test reports on, through preload's callback. */
+const compilerReporting = () => {
+  let report: (status: CompilerStatus) => void = () => {};
+  const compiler = compilerReturning(COMPILED);
+  vi.mocked(compiler.preload).mockImplementation((onStatus) => {
+    report = onStatus;
+  });
+  return { compiler, report: (status: CompilerStatus) => report(status) };
+};
+
 const flush = () =>
   new Promise<void>((resolve) => {
     setTimeout(resolve, 0);
@@ -489,22 +540,173 @@ describe('WasmDebugger', () => {
     expect(events.sessionStarted).not.toHaveBeenCalled();
   });
 
-  it('starts loading the compiler straight away and reports its status, even to events set later', () => {
-    let report: (status: CompilerStatus) => void = () => {};
-    const compiler = compilerReturning(COMPILED);
-    vi.mocked(compiler.preload).mockImplementation((onStatus) => {
-      report = onStatus;
+  it('starts loading the compiler straight away and reports its status, even to events set later', async () => {
+    // The runner and the fonts have loaded, so the status follows the compiler's.
+    const { compiler, report } = compilerReporting();
+    const wasm = createDebugger(
+      compiler,
+      Object.assign(recorderReturning(HELLO), { whenReady: async () => {} }),
+      async () => {}
+    );
+    expect(compiler.preload, 'new WasmDebugger(): compiler.preload calls').toHaveBeenCalledOnce();
+    report({ state: 'loading', done: 1, total: 4 });
+    await flush();
+    wasm.setEvents(events);
+    await flush();
+
+    const statuses = () => vi.mocked(events.compilerStatus).mock.calls.map(([status]) => status);
+    expect(
+      statuses()[0]?.state,
+      'compiler reported loading 1/4 before setEvents(): first compilerStatus event the late events got'
+    ).toBe('loading');
+
+    report({ state: 'ready' });
+    await flush();
+    expect(
+      statuses().at(-1),
+      'compiler then reported ready, runner and fonts already loaded: latest compilerStatus event'
+    ).toEqual({ state: 'ready' });
+  });
+
+  describe('compiler status, which waits for the runner and the fonts too', () => {
+    const latestStatus = () => vi.mocked(events.compilerStatus).mock.calls.at(-1)?.[0];
+
+    it('stays loading while the runner has not loaded, and is ready once it has', async () => {
+      const { compiler, report } = compilerReporting();
+      const runner = recorderLoading();
+      const wasm = createDebugger(compiler, runner.recorder, async () => {});
+      wasm.setEvents(events);
+
+      report({ state: 'ready' });
+      await flush();
+      expect(
+        latestStatus()?.state,
+        'compiler ready, fonts loaded, runner worker not loaded yet: latest compilerStatus event'
+      ).toBe('loading');
+
+      runner.loaded();
+      await flush();
+      expect(
+        latestStatus(),
+        'compiler ready, fonts loaded, then the runner worker loaded: latest compilerStatus event'
+      ).toEqual({ state: 'ready' });
     });
 
-    const wasm = new WasmDebugger(compiler);
-    expect(compiler.preload).toHaveBeenCalledOnce();
-    report({ state: 'loading', done: 1, total: 4 });
-    wasm.setEvents(events);
-    report({ state: 'ready' });
+    it('stays loading while the fonts have not loaded, and is ready once they have', async () => {
+      const { compiler, report } = compilerReporting();
+      const fonts = loading();
+      const wasm = createDebugger(
+        compiler,
+        Object.assign(recorderReturning(HELLO), { whenReady: async () => {} }),
+        () => fonts.promise
+      );
+      wasm.setEvents(events);
 
-    expect(vi.mocked(events.compilerStatus).mock.calls).toEqual([
-      [{ state: 'loading', done: 1, total: 4 }],
-      [{ state: 'ready' }],
-    ]);
+      report({ state: 'ready' });
+      await flush();
+      expect(
+        latestStatus()?.state,
+        'compiler ready, runner loaded, fonts not loaded yet: latest compilerStatus event'
+      ).toBe('loading');
+
+      fonts.loaded();
+      await flush();
+      expect(
+        latestStatus(),
+        'compiler ready, runner loaded, then the fonts loaded: latest compilerStatus event'
+      ).toEqual({ state: 'ready' });
+    });
+
+    it('stays loading while the compiler has not loaded, even once the runner and fonts have', async () => {
+      const { compiler, report } = compilerReporting();
+      const wasm = createDebugger(
+        compiler,
+        Object.assign(recorderReturning(HELLO), { whenReady: async () => {} }),
+        async () => {}
+      );
+      wasm.setEvents(events);
+
+      report({ state: 'loading', done: 1, total: 4 });
+      await flush();
+      expect(
+        latestStatus()?.state,
+        'compiler loading 1/4, runner and fonts loaded: latest compilerStatus event'
+      ).toBe('loading');
+    });
+
+    it('tells events set later that it is still loading while the runner has not loaded', async () => {
+      const { compiler, report } = compilerReporting();
+      const runner = recorderLoading();
+      const wasm = createDebugger(compiler, runner.recorder, async () => {});
+
+      report({ state: 'ready' });
+      await flush();
+      wasm.setEvents(events);
+      await flush();
+      expect(
+        latestStatus()?.state,
+        'compiler ready and runner not loaded before setEvents(): latest compilerStatus event the late events got'
+      ).toBe('loading');
+
+      runner.loaded();
+      await flush();
+      expect(latestStatus(), 'then the runner loaded: latest compilerStatus event').toEqual({
+        state: 'ready',
+      });
+    });
+
+    it('does not stay loading when the runner fails to load', async () => {
+      const { compiler, report } = compilerReporting();
+      const runner = recorderLoading();
+      const wasm = createDebugger(compiler, runner.recorder, async () => {});
+      wasm.setEvents(events);
+
+      report({ state: 'ready' });
+      runner.failed('Failed to fetch runner.worker.js');
+      await flush();
+
+      expect(
+        ['ready', 'failed'],
+        'compiler ready, fonts loaded, runner worker failed to load: latest compilerStatus state should have ended'
+      ).toContain(latestStatus()?.state);
+    });
+
+    it('does not stay loading when a font fails to load', async () => {
+      const { compiler, report } = compilerReporting();
+      const fonts = loading();
+      const wasm = createDebugger(
+        compiler,
+        Object.assign(recorderReturning(HELLO), { whenReady: async () => {} }),
+        () => fonts.promise
+      );
+      wasm.setEvents(events);
+
+      report({ state: 'ready' });
+      fonts.failed('Failed to fetch CharlieText-Bold.ttf');
+      await flush();
+
+      expect(
+        ['ready', 'failed'],
+        'compiler ready, runner loaded, fonts failed to load: latest compilerStatus state should have ended'
+      ).toContain(latestStatus()?.state);
+    });
+
+    it('reports a compiler that failed to load, even once the runner and fonts have loaded', async () => {
+      const { compiler, report } = compilerReporting();
+      const wasm = createDebugger(
+        compiler,
+        Object.assign(recorderReturning(HELLO), { whenReady: async () => {} }),
+        async () => {}
+      );
+      wasm.setEvents(events);
+
+      report({ state: 'failed' });
+      await flush();
+
+      expect(
+        latestStatus(),
+        'compiler failed to load, runner and fonts loaded: latest compilerStatus event'
+      ).toEqual({ state: 'failed' });
+    });
   });
 });

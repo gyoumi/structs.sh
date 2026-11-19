@@ -33,7 +33,15 @@ const startRunnerWorker = (): RunnerWorker =>
   new Worker(new URL('./runner.worker.ts', import.meta.url), { type: 'module' });
 
 /** Hands out runner workers that were started ahead of time. */
-export type RunnerPool = { take: () => RunnerWorker; dispose: () => void };
+export type RunnerPool = {
+  take: () => RunnerWorker;
+  /**
+   * Settles once the worker held for the next run has loaded, or failed to,
+   * so the page can say when it no longer needs the network.
+   */
+  whenReady: () => Promise<void>;
+  dispose: () => void;
+};
 
 /**
  * Hands out runner workers without fetching anything at run time, so runs
@@ -45,13 +53,18 @@ export type RunnerPool = { take: () => RunnerWorker; dispose: () => void };
  */
 export const createRunnerPool = (createWorker = startRunnerWorker): RunnerPool => {
   let ready: RunnerWorker | undefined;
+  let readyLoaded: Promise<void> = Promise.resolve();
   let disposed = false;
 
-  const keepReady = (worker: RunnerWorker) => {
+  /** Holds a worker for the next run; `loaded` settles once it has loaded. */
+  const keepReady = (worker: RunnerWorker, loaded: () => void) => {
+    worker.onmessage = ({ data }) => {
+      if (data.type === 'ready') loaded();
+    };
     // One that fails to load is dropped, so the next run starts its own and
     // reports why, instead of waiting out its time limit.
-    worker.onmessage = null;
     worker.onerror = () => {
+      loaded();
       worker.terminate();
       if (ready === worker) ready = undefined;
     };
@@ -59,10 +72,15 @@ export const createRunnerPool = (createWorker = startRunnerWorker): RunnerPool =
   };
 
   const startReady = () => {
+    let loaded = () => {};
+    readyLoaded = new Promise((resolve) => {
+      loaded = resolve;
+    });
     try {
-      keepReady(createWorker());
+      keepReady(createWorker(), loaded);
     } catch {
       // Left for the next run to start, so it reports why it couldn't.
+      loaded();
     }
   };
 
@@ -80,8 +98,10 @@ export const createRunnerPool = (createWorker = startRunnerWorker): RunnerPool =
         terminate() {
           if (returned) return;
           returned = true;
+          // Having answered a run, it has loaded.
           if (answered && !ready && !disposed) {
-            keepReady(worker);
+            keepReady(worker, () => {});
+            readyLoaded = Promise.resolve();
             return;
           }
           worker.terminate();
@@ -89,12 +109,13 @@ export const createRunnerPool = (createWorker = startRunnerWorker): RunnerPool =
         },
       };
       worker.onmessage = (event) => {
-        answered = true;
+        if (event.data.type !== 'ready') answered = true;
         lent.onmessage?.(event);
       };
       worker.onerror = (event) => lent.onerror?.(event);
       return lent;
     },
+    whenReady: () => readyLoaded,
     dispose() {
       disposed = true;
       ready?.terminate();
@@ -140,6 +161,8 @@ export const recordInWorker = (
     try {
       worker = createWorker();
       worker.onmessage = ({ data }) => {
+        // Only says its script loaded: a run sent before then just waits.
+        if (data.type === 'ready') return;
         if (data.type === 'recorded') end({ recording: data.recording });
         else end({ error: data.message });
       };
