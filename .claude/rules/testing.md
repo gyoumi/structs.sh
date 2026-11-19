@@ -59,7 +59,8 @@ so the tests check the spec rather than the code written to pass them.
 ## Test behaviour, not implementation
 
 - Assert on what a caller or a student can observe, not on private details.
-- In e2e tests, only `e2e/support/debugger-page.ts` touches selectors or page
+- In e2e tests, only the page objects in `e2e/support/` (such as
+  `debugger-page.ts` and `visualiser-page.ts`) touch selectors or page
   internals.
 - Don't assert on compiler wording. gcc and clang phrase errors differently,
   so match the identifier or line number.
