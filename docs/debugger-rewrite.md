@@ -115,6 +115,9 @@ empty known-failures list; GDB still has 5 on its list.
   the Pyroscope and Grafana services.
 - Merge `debugger-rewrite` into `dev`.
 
+**Status:** reached (#29, #30, #31, #32, #33, #34, #35). The debugger also
+works offline once the page has loaded (#34).
+
 See "The goal, step by step".
 
 Error messages for students, restoring a session after a refresh, and
@@ -444,7 +447,7 @@ code for GDB and Socket.IO finds only history.
 
 ### 4d. Into dev
 
-The PR rules keep agent config (`.claude/`) in PRs of its own, so the
+**Done in #33 and #35.** The PR rules keep agent config (`.claude/`) in PRs of its own, so the
 testing rule and the skill changes from the rewrite go into `dev` first.
 Then `dev` is merged into `debugger-rewrite` one last time, the ruleset is
 updated, and `debugger-rewrite` is merged into `dev`. That PR needs the same
