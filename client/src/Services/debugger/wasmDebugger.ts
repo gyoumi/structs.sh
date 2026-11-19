@@ -1,5 +1,6 @@
 import { BackendState, BackendTypeDeclaration } from '@/visualiser-debugger/Types/backendType';
 import { Debugger, DebuggerEvents, SourceFile } from './types';
+import { loadFonts } from './loadFonts';
 import { Compiler, CompilerStatus } from './wasm/compiler';
 import { createWorkerCompiler } from './wasm/workerCompiler';
 import { Recording, RunEnd, Step, TIME_LIMIT_MS } from './wasm/recording';
@@ -123,6 +124,8 @@ export class WasmDebugger implements Debugger {
       this.compilerStatus = status;
       this.events?.compilerStatus(status);
     });
+    // Likewise the fonts, so nothing is fetched mid-session, as when offline.
+    loadFonts();
   }
 
   setEvents(events: DebuggerEvents) {

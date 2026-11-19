@@ -47,7 +47,27 @@ export class DebuggerPage {
 
   /** Opens the debugger with e2e/programs/<name> as the only file, selected. */
   async openProgram(name: string): Promise<void> {
-    const source = readFileSync(new URL(`../programs/${name}`, import.meta.url), 'utf8');
+    await this.openPrograms(name);
+  }
+
+  /**
+   * Opens the debugger with each e2e/programs/<name> as a file in one folder,
+   * and selects the first. selectProgram() switches between them without
+   * reloading the page.
+   */
+  async openPrograms(...names: string[]): Promise<void> {
+    const files = Object.fromEntries(
+      names.map((name) => [
+        name,
+        {
+          name,
+          path: `root/e2e/${name}`,
+          type: 'file',
+          parentPath: 'root/e2e',
+          data: readFileSync(new URL(`../programs/${name}`, import.meta.url), 'utf8'),
+        },
+      ]),
+    );
     const fileSystem = {
       name: 'root',
       path: 'root',
@@ -58,9 +78,7 @@ export class DebuggerPage {
           path: 'root/e2e',
           type: 'dir',
           parentPath: 'root',
-          children: {
-            [name]: { name, path: `root/e2e/${name}`, type: 'file', parentPath: 'root/e2e', data: source },
-          },
+          children: files,
         },
       },
     };
@@ -74,6 +92,11 @@ export class DebuggerPage {
     await this.page.goto('/debugger');
     await this.page.getByText('root', { exact: true }).click();
     await this.page.getByText('e2e', { exact: true }).click();
+    await this.selectProgram(names[0]);
+  }
+
+  /** Selects another file opened by openPrograms(), as the one Compile builds. */
+  async selectProgram(name: string): Promise<void> {
     await this.page.getByText(name, { exact: true }).click();
   }
 
@@ -126,6 +149,19 @@ export class DebuggerPage {
    */
   async goOffline(): Promise<void> {
     await this.page.context().setOffline(true);
+  }
+
+  /**
+   * Starts listing every request the browser makes from now on, from the page
+   * and its Web Workers alike, as "METHOD url". The returned list keeps
+   * growing as requests are made, so read it at the end of the test.
+   */
+  recordRequests(): string[] {
+    const requests: string[] = [];
+    this.page.context().on('request', (request) => {
+      requests.push(`${request.method()} ${request.url()}`);
+    });
+    return requests;
   }
 
   /** Types a line into the console as the program's input, and presses Enter. */
