@@ -1,0 +1,53 @@
+{
+  "about": {
+    "program": "e2e/programs/bst.c",
+    "debugger": "The old GDB debugger: the client from the gdb-video worktree at commit 905330df (\"feat(debugger): show uninitialised locals as garbage, not 0 (#30)\"), opened at /debugger?debugger=gdb, with its GDB server (serve.py) on port 8000.",
+    "recorded": "2026-11-20",
+    "method": "Playwright opened the program, clicked Compile, then clicked step forward, until 4 steps in a row changed neither the highlighted line nor the drawing. After each step it read the highlighted line, and the visualiser's SVG text labels that were at least half opaque, once they read the same twice 500 ms apart. GDB mode draws node values only, not pointer names, so \"nodes\" is the values drawn, sorted (their order on screen is layout). \"??\" is a node whose value is not set yet.",
+    "checked": "Each stop was checked by hand against the C source. Where GDB drew the wrong nodes, the stop has a gdbFault giving the reason and what it should show, and the comparison skips that stop's drawing.",
+    "gdbDifferences": [
+      "GDB never stops on main's first line: the server runs one `next` before the first step.",
+      "GDB stops on a function's closing `}`, where the wasm debugger usually doesn't (clang's wasm line table has no row for it).",
+      "GDB never tells the page that the session ended: it repeats the last stop, and those repeats are left out here."
+    ]
+  },
+  "stops": [
+    {"line":27,"nodes":[]},
+    {"line":10,"nodes":[]},
+    {"line":11,"nodes":[]},
+    {"line":12,"nodes":["??"]},
+    {"line":13,"nodes":["5"]},
+    {"line":14,"nodes":["5"]},
+    {"line":15,"nodes":["5"]},
+    {"line":23,"nodes":[],"gdbFault":"insert's closing brace after `return n;`: node 5, made on line 11 and being returned, isn't drawn. Should show: 5"},
+    {"line":28,"nodes":["5"]},
+    {"line":10,"nodes":["5"]},
+    {"line":17,"nodes":["5"]},
+    {"line":18,"nodes":["5"]},
+    {"line":10,"nodes":["5"]},
+    {"line":11,"nodes":["5"]},
+    {"line":12,"nodes":["5","??"]},
+    {"line":13,"nodes":["3","5"]},
+    {"line":14,"nodes":["3","5"]},
+    {"line":15,"nodes":["3","5"]},
+    {"line":23,"nodes":["5"],"gdbFault":"insert's closing brace after `return n;`: node 3, made on line 11 and being returned, isn't drawn. Should show: 3, 5"},
+    {"line":22,"nodes":["3","5"]},
+    {"line":23,"nodes":["3","5"]},
+    {"line":29,"nodes":["3","5"]},
+    {"line":10,"nodes":["3","5"]},
+    {"line":17,"nodes":["3","5"]},
+    {"line":20,"nodes":["3","5"]},
+    {"line":10,"nodes":["3","5"]},
+    {"line":11,"nodes":["3","5"]},
+    {"line":12,"nodes":["3","5","??"]},
+    {"line":13,"nodes":["3","5","8"]},
+    {"line":14,"nodes":["3","5","8"]},
+    {"line":15,"nodes":["3","5","8"]},
+    {"line":23,"nodes":["3","5"],"gdbFault":"insert's closing brace after `return n;`: node 8, made on line 11 and being returned, isn't drawn. Should show: 3, 5, 8"},
+    {"line":22,"nodes":["3","5","8"]},
+    {"line":23,"nodes":["3","5","8"]},
+    {"line":30,"nodes":["3","5","8"]},
+    {"line":31,"nodes":["3","5","8"]},
+    {"line":32,"nodes":["3","5","8"]}
+  ]
+}

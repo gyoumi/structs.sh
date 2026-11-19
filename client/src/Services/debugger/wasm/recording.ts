@@ -42,8 +42,9 @@ export type Step = {
   /** The variables in scope as the statement starts, innermost first. */
   variables: Record<string, Variable>;
   /**
-   * The structs on the heap that any frame's variables reach, by address. An
-   * entry that didn't change since the step before is the same object.
+   * The structs on the heap that any frame's variables reach, and those shown
+   * at an earlier step that aren't freed yet, by address. An entry that didn't
+   * change since the step before is the same object.
    */
   heap: Record<string, HeapEntry>;
 };
@@ -164,6 +165,28 @@ export const recordRun = async (
     return address < start + size ? { start, size } : null;
   };
 
+  /**
+   * The structs shown so far, as their address and type, by the start of the
+   * live allocation they're in. Each is shown at every step until it's freed,
+   * even when no variable reaches it any more (a node that's only a call's
+   * return value, or a leak).
+   */
+  const shown = new Map<number, Map<number, number>>();
+  const remember = (address: number, type: number) => {
+    const allocation = allocationOf(address);
+    if (allocation === null) return;
+    let structs = shown.get(allocation.start);
+    if (!structs) {
+      structs = new Map();
+      shown.set(allocation.start, structs);
+    }
+    structs.set(address, type);
+  };
+  const shownRoots = () =>
+    [...shown.values()].flatMap((structs) =>
+      [...structs].map(([address, type]): [number, number] => [type, address])
+    );
+
   /** The last step's heap entries, as JSON, to share the ones that don't change. */
   let previousHeap = new Map<string, { entry: HeapEntry; json: string }>();
   let recordedSize = 0;
@@ -180,22 +203,25 @@ export const recordRun = async (
     let size = JSON.stringify(variables).length;
     const heap: Record<string, HeapEntry> = Object.create(null);
     const seen = new Map<string, { entry: HeapEntry; json: string }>();
-    Object.entries(readHeap(debug, callFrames, view, allocationOf, checkTime)).forEach(
-      ([address, entry]) => {
-        const json = JSON.stringify(entry, keepSpecialNumbers);
-        // Every step holds a reference to each entry, shared or not.
-        size += address.length + REFERENCE_SIZE;
-        const before = previousHeap.get(address);
-        if (before?.json === json) {
-          heap[address] = before.entry;
-          seen.set(address, before);
-        } else {
-          heap[address] = entry;
-          seen.set(address, { entry, json });
-          size += json.length;
-        }
+    Object.entries(
+      readHeap(debug, callFrames, view, allocationOf, checkTime, {
+        roots: shownRoots(),
+        onShown: remember,
+      })
+    ).forEach(([address, entry]) => {
+      const json = JSON.stringify(entry, keepSpecialNumbers);
+      // Every step holds a reference to each entry, shared or not.
+      size += address.length + REFERENCE_SIZE;
+      const before = previousHeap.get(address);
+      if (before?.json === json) {
+        heap[address] = before.entry;
+        seen.set(address, before);
+      } else {
+        heap[address] = entry;
+        seen.set(address, { entry, json });
+        size += json.length;
       }
-    );
+    });
     if (recordedSize + size > sizeLimit) throw new LimitReached({ sizeLimit });
     recordedSize += size;
     previousHeap = seen;
@@ -264,9 +290,12 @@ export const recordRun = async (
           starts = null;
         } else if (event.type === 'freed') {
           allocations.delete(unsigned(event.pointer));
+          shown.delete(unsigned(event.pointer));
           starts = null;
         } else if (event.pointer !== 0) {
           allocations.delete(unsigned(event.old));
+          // Moved, its structs are now wherever the variables reach them.
+          if (event.pointer !== event.old) shown.delete(unsigned(event.old));
           allocations.set(unsigned(event.pointer), unsigned(event.size));
           starts = null;
         }

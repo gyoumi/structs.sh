@@ -1,0 +1,18 @@
+{
+  "about": {
+    "program": "e2e/programs/hello.c",
+    "debugger": "The old GDB debugger: the client from the gdb-video worktree at commit 905330df (\"feat(debugger): show uninitialised locals as garbage, not 0 (#30)\"), opened at /debugger?debugger=gdb, with its GDB server (serve.py) on port 8000.",
+    "recorded": "2026-11-20",
+    "method": "Playwright opened the program, clicked Compile, then clicked step forward, until 4 steps in a row changed neither the highlighted line nor the drawing. After each step it read the highlighted line, and the visualiser's SVG text labels that were at least half opaque, once they read the same twice 500 ms apart. GDB mode draws node values only, not pointer names, so \"nodes\" is the values drawn, sorted (their order on screen is layout). \"??\" is a node whose value is not set yet.",
+    "checked": "Each stop was checked by hand against the C source. Where GDB drew the wrong nodes, the stop has a gdbFault giving the reason and what it should show, and the comparison skips that stop's drawing.",
+    "gdbDifferences": [
+      "GDB never stops on main's first line: the server runs one `next` before the first step.",
+      "GDB stops on a function's closing `}`, where the wasm debugger usually doesn't (clang's wasm line table has no row for it).",
+      "GDB never tells the page that the session ended: it repeats the last stop, and those repeats are left out here."
+    ]
+  },
+  "stops": [
+    {"line":5,"nodes":[]},
+    {"line":6,"nodes":[]}
+  ]
+}

@@ -298,12 +298,23 @@ export type Frame = { statement: number; frameBase: number };
 /** A live heap allocation. */
 export type Allocation = { start: number; size: number };
 
+/** Structs shown at earlier steps, to show again while they're live. */
+export type ShownStructs = {
+  /** Each struct shown before, as [type, address]. */
+  roots?: Iterable<[number, number]>;
+  /** Called with each struct shown, as its address and type. */
+  onShown?: (address: number, type: number) => void;
+};
+
 /**
  * The structs on the heap that the variables of every frame reach, as GDB
  * shows the heap. Pointers are followed through struct fields, arrays and
  * tables of pointers, and a struct inside a heap struct is shown too. A
  * pointer is only followed into memory `allocationOf` says is live, so freed
- * memory and the stack aren't shown.
+ * memory and the stack aren't shown. The `roots` in `shown` are read too,
+ * after what the variables reach, along with what they reach, so a struct
+ * shown before stays shown while only, say, a function's return value holds
+ * it.
  */
 export const readHeap = (
   debug: DebugSection,
@@ -311,7 +322,8 @@ export const readHeap = (
   memory: DataView,
   allocationOf: (address: number) => Allocation | null,
   /** Called now and then during a long walk; it may throw to stop it. */
-  checkTime: () => void = () => {}
+  checkTime: () => void = () => {},
+  { roots = [], onShown }: ShownStructs = {}
 ): Record<string, HeapEntry> => {
   const { types } = debug;
   const heap: Record<string, HeapEntry> = Object.create(null);
@@ -391,6 +403,7 @@ export const readHeap = (
             ])
           ),
         };
+        onShown?.(address, index);
       }
       type.fields
         .filter((field) => field.bitSize === undefined && leadsSomewhere(field.type))
@@ -407,21 +420,29 @@ export const readHeap = (
     }
   };
 
+  const walk = () => {
+    while (pending.length > 0) {
+      tick();
+      const [type, address] = pending.pop()!;
+      try {
+        look(type, address);
+      } catch (error) {
+        // An address past the end of memory has nothing to follow. Anything
+        // else, such as checkTime stopping the walk, goes on up.
+        if (!(error instanceof RangeError)) throw error;
+      }
+    }
+  };
+
   frames.forEach(({ statement, frameBase }) =>
     (debug.statements[statement]?.variables ?? [])
       .filter(({ type }) => leadsSomewhere(type))
       .forEach(({ type, offset }) => visit(type, frameBase + offset))
   );
-  while (pending.length > 0) {
-    tick();
-    const [type, address] = pending.pop()!;
-    try {
-      look(type, address);
-    } catch (error) {
-      // An address past the end of memory has nothing to follow. Anything
-      // else, such as checkTime stopping the walk, goes on up.
-      if (!(error instanceof RangeError)) throw error;
-    }
-  }
+  walk();
+  // Then the structs shown before, so the ones the variables reach keep
+  // their order. Reversed, as the last one queued is looked at first.
+  [...roots].reverse().forEach(([type, address]) => visit(type, address));
+  walk();
   return heap;
 };

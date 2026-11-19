@@ -1,4 +1,9 @@
-import { UserAnnotation, DataStructureType, isLinkedListNode } from '../../../Types/annotationType';
+import {
+  UserAnnotation,
+  DataStructureType,
+  isLinkedListNode,
+  isStackVariableLabelled,
+} from '../../../Types/annotationType';
 import { Addr, BackendState } from '../../../Types/backendType';
 import { EntityType } from '../Entities/BaseEntity/baseEntity';
 import { EdgeEntity } from '../Entities/BaseEntity/edgeEntity';
@@ -308,13 +313,17 @@ export class LinkedListParser implements Parser {
       // === Get linked list node pointers from the backend stack data
       const { stackAnnotation } = annotation;
       Object.entries(backendStructure.stack_data).forEach(([name, memoryValue]) => {
-        if (stackAnnotation === undefined) return;
-        if (!stackAnnotation[name]) return;
-        if (stackAnnotation[name] === undefined || stackAnnotation[name] === null) return;
+        // Variables carry their type name beside their value (see
+        // isLinkedListNode), though MemoryValue doesn't say so.
+        const typeName = 'typeName' in memoryValue ? String(memoryValue.typeName) : '';
+        if (!isStackVariableLabelled(stackAnnotation, name, typeName)) return;
 
-        const prevPointer = pointers.find(
-          (pointer) => pointer.attachedUid === cacheEntity[memoryValue.value as string].uid
-        );
+        // A pointer that isn't to a drawn node (NULL, garbage, or a freed
+        // node) gets no label.
+        const target = memoryValue.value;
+        if (typeof target !== 'string' || !cacheLinkedListNode.has(target as Addr)) return;
+
+        const prevPointer = pointers.find((pointer) => pointer.attachedUid === target);
         if (prevPointer) {
           prevPointer.label += `, ${name}`;
           return;
@@ -323,7 +332,7 @@ export class LinkedListParser implements Parser {
         const annotationEntity: PointerEntity = {
           uid: `${name}`,
           type: EntityType.POINTER,
-          attachedUid: cacheEntity[memoryValue.value as string].uid,
+          attachedUid: target,
           colorHex: '#FFFFFF',
           label: name,
         };

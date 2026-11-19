@@ -1,12 +1,12 @@
 // @ts-nocheck
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import styles from '@/styles/Configuration.module.css';
 import { ChevronDownIcon } from '@radix-ui/react-icons';
 import SyntaxHighlighter from 'react-syntax-highlighter';
 import { github, dark } from 'react-syntax-highlighter/dist/esm/styles/hljs';
 import { MotionCollapse } from './MotionCollapse';
 import './typeAnnotation.css';
-import { StackVariableRole } from '../../Types/annotationType';
+import { StackVariableRole, isStackVariableLabelled } from '../../Types/annotationType';
 import { MemoryValue, isPointerType } from '../../Types/backendType';
 import { useGlobalStore } from '../../Store/globalStateStore';
 import { useTheme } from '../../Contexts/ThemeContexts';
@@ -20,33 +20,17 @@ export const StackVarAnnotation: React.FC<StackVariableAnnotationProp> = ({
   name,
   memoryValue,
 }: StackVariableAnnotationProp) => {
-  // Annotate by default if the variable contains a pointer
-  const [selectedRole, setSelectedRole] = useState<StackVariableRole>(
-    isPointerType(memoryValue.typeName)
-      ? StackVariableRole.LinkedListPointer
-      : StackVariableRole.Empty
-  );
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const stackAnnotation = useGlobalStore(
     (state) => state.visualizer.userAnnotation.stackAnnotation
   );
   const updateStackAnnotation = useGlobalStore((state) => state.updateStackAnnotation);
   const { darkMode } = useTheme();
-
-  // Annotate by default if the variable contains a pointer
-  useEffect(() => {
-    if (selectedRole === StackVariableRole.LinkedListPointer) {
-      const newStackAnnotation = {
-        [name]: memoryValue.typeName,
-      };
-      updateStackAnnotation(newStackAnnotation);
-    }
-
-    // Persist the stack variable state
-    if (name in stackAnnotation && stackAnnotation[name] === null) {
-      setSelectedRole(StackVariableRole.Empty);
-    }
-  }, [memoryValue.typeName, name, selectedRole, stackAnnotation, updateStackAnnotation]);
+  // A pointer is labelled unless the student turned it off (see
+  // isStackVariableLabelled), so the role shown comes from the same rule.
+  const selectedRole = isStackVariableLabelled(stackAnnotation, name, memoryValue.typeName)
+    ? StackVariableRole.LinkedListPointer
+    : StackVariableRole.Empty;
 
   return (
     <div style={{ paddingBottom: '8px' }}>
@@ -94,7 +78,6 @@ export const StackVarAnnotation: React.FC<StackVariableAnnotationProp> = ({
                     key={role[0]}
                     type="button"
                     onClick={() => {
-                      setSelectedRole(role[1]);
                       if (role[1] === StackVariableRole.LinkedListPointer) {
                         updateStackAnnotation({ [name]: memoryValue.typeName });
                       } else {

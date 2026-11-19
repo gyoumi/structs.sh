@@ -464,6 +464,10 @@ Found while building checkpoint 1, and not needed for it:
   doesn't show its line between iterations: the function's steps run back
   to back, because each revisit is the same line in the same call. GDB shows
   the line each time.
+- **An `if` whose body ends in a call** stops once more on `} else {` after
+  the call returns (bst.c line 19): clang puts the branch's jump on that
+  line. GDB goes straight to the next statement. It's on the wasm
+  known-failures list.
 - **Offline, a run cut short breaks the next one.** Once the page has
   loaded, the debugger works offline, because runs reuse a runner Worker
   started while the network was on. A Worker stopped mid-run (past the time

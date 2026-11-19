@@ -1,0 +1,54 @@
+{
+  "frame_info": {
+    "file": "delete.c",
+    "line": "    return rest;",
+    "line_num": 18,
+    "function": "delete_first"
+  },
+  "stack_data": {
+    "head": {
+      "addr": "0xffec",
+      "typeName": "struct node *",
+      "value": "0x10280"
+    },
+    "rest": {
+      "addr": "0xffe8",
+      "typeName": "struct node *",
+      "value": "0x10290"
+    }
+  },
+  "heap_data": {
+    "0x10290": {
+      "addr": "0x10290",
+      "typeName": "struct node",
+      "value": {
+        "value": {
+          "kind": "int",
+          "value": 2,
+          "addr": null
+        },
+        "next": {
+          "kind": "struct node *",
+          "value": "0x102a0",
+          "addr": null
+        }
+      }
+    },
+    "0x102a0": {
+      "addr": "0x102a0",
+      "typeName": "struct node",
+      "value": {
+        "value": {
+          "kind": "int",
+          "value": 1,
+          "addr": null
+        },
+        "next": {
+          "kind": "struct node *",
+          "value": "0x0",
+          "addr": null
+        }
+      }
+    }
+  }
+}
