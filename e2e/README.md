@@ -8,9 +8,10 @@ There are two groups:
 
 - **The debugger:** open a C program, compile it, step through it. The same
   tests run against both debuggers:
-  - **gdb**, the current one, which runs on the server. This is the default.
-  - **wasm**, the replacement being built, which runs in the browser. The page
-    uses it when opened with `?debugger=wasm`. See `docs/debugger-rewrite.md`.
+  - **wasm**, which runs in the browser. This is the default, and the page
+    uses it unless it's opened with `?debugger=gdb`. See
+    `docs/debugger-rewrite.md`.
+  - **gdb**, the old one, which runs on the server until it's deleted.
 - **The landing page and the visualisers:** open a structure, run operations,
   control playback, share a link. These apply to the current frontend and to
   any redesign of it, so a redesign can show it does everything the old one did.
@@ -20,18 +21,17 @@ There are two groups:
 From the repo root:
 
 ```sh
-docker compose up -d debugger            # the current backend
 pnpm install                             # the frontend and the e2e suite
 pnpm exec playwright install chromium
+pnpm run instrumenter                    # needs Rust; see instrumenter/README.md
 pnpm run e2e                             # starts the frontend if it isn't running
 ```
 
-To run against the wasm debugger, which needs no server but does need its
-instrumenter built (see `instrumenter/README.md`):
+To run against GDB:
 
 ```sh
-pnpm run instrumenter                    # needs Rust
-pnpm run e2e:wasm                        # the same as E2E_DEBUGGER=wasm pnpm run e2e
+docker compose up -d debugger            # the old backend
+E2E_DEBUGGER=gdb pnpm run e2e
 ```
 
 The visualiser tests don't need the debugger backend. To run only them:
@@ -47,7 +47,7 @@ Set `E2E_BASE_URL` to test a frontend that is already running, e.g.
 After each run, a per-feature summary is printed:
 
 ```
-Feature progress (gdb debugger)
+Feature progress (wasm debugger)
 
   compiling                  3/3 working
   linked list visualisation  2/2 working
@@ -75,16 +75,10 @@ gives a reason. CI runs it on every PR.
 
 ## Using this during the rewrite
 
-CI runs the suite against both debuggers.
-
-1. **gdb** passes everything apart from 4 bugs in the current app, which are on
-   its known-failures list.
-2. **wasm** starts with every test on its list, at `0/15 working`.
-3. **As features are rebuilt on wasm,** its tests start passing and are
-   reported as "now passing". Remove each from `known-failures/wasm.json` in
-   the same PR.
-4. **When wasm reaches 15/15,** it becomes the default and the gdb job and
-   list are deleted.
+CI runs the suite against both debuggers. wasm, the default, passes every
+debugger test, so its list holds only the 2 visualiser bugs. GDB's list also
+holds the bugs in the old app and the typed input its server never had. The GDB job and its list are
+deleted with the server (step 4c in `docs/debugger-rewrite.md`).
 
 If the wasm debugger works differently inside, update `support/debugger-page.ts`.
 The test files themselves shouldn't need to change.
