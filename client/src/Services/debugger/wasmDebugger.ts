@@ -257,10 +257,12 @@ export class WasmDebugger implements Debugger {
     if (index >= steps.length && 'waitingForInput' in end) {
       // Paused somewhere the last step doesn't show, so show it once, as a
       // view rather than a step: the next step after more input is typed is
-      // still the one at session.next.
+      // still the one at session.next. A state was sent, so say so, as the
+      // page only moves on when step() resolves true.
       if (end.at && end.at !== session.pausedShown) {
         session.pausedShown = end.at;
         this.events?.state(stateAt(session.file, end.at));
+        return true;
       }
       return false;
     }

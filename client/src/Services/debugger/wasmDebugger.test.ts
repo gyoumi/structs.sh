@@ -440,6 +440,8 @@ describe('WasmDebugger', () => {
           .mocked(events.state)
           .mock.calls.map(([state]) => `${state.frame_info.function}:${state.frame_info.line_num}`);
 
+      // The page moves to a new state only when step() resolves true, so the
+      // paused state counts as the next state once, but not as a recorded step.
       it('shows where the program is paused, once, when stepping past the last step while it waits', async () => {
         const wasm = new WasmDebugger(compilerReturning(COMPILED), pausedRecorder);
         wasm.setEvents(events);
@@ -453,8 +455,8 @@ describe('WasmDebugger', () => {
         ).toEqual([true, true, true]);
         expect(
           await wasm.step(),
-          'slot.c: step() past the last recorded step while waiting for input (it is not a step)'
-        ).toBe(false);
+          'slot.c, no input yet: 4th step(), past the 3 recorded steps while waiting with end.at = main:7, should resolve true (it sent the paused state)'
+        ).toBe(true);
         expect(
           statesShown(),
           'slot.c: states shown after stepping past the last step while waiting; the paused state main:7 (end.at) should follow slot:3'
@@ -464,7 +466,10 @@ describe('WasmDebugger', () => {
           "slot.c: variables in the paused state shown (end.at's)"
         ).toEqual(['values']);
 
-        expect(await wasm.step(), 'slot.c: step() again while still waiting').toBe(false);
+        expect(
+          await wasm.step(),
+          'slot.c, no input yet: 5th step(), again while still waiting after the paused state was shown, should resolve false (nothing new)'
+        ).toBe(false);
         expect(
           statesShown(),
           'slot.c: states shown after stepping again while waiting (nothing new)'
@@ -483,7 +488,7 @@ describe('WasmDebugger', () => {
         await wasm.step();
         await wasm.step();
         await wasm.step();
-        await wasm.step(); // past the last step: shows the paused state, if any
+        await wasm.step(); // past the last step: shows the paused state
 
         wasm.sendStdin('5');
 
