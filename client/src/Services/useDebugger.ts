@@ -20,7 +20,7 @@ const addToTimeline = (state: BackendState) => {
     .appendFrontendNewState(state, parser.parseState(state, userAnnotation));
 };
 
-/** Lets the page drive whichever debugger the URL picked (see debugger/createDebugger.ts). */
+/** Lets the page drive the debugger (see debugger/wasmDebugger.ts). */
 export const useDebugger = () => {
   const {
     updateCurrFocusedTab,

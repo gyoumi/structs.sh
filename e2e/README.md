@@ -6,12 +6,9 @@ part of it is rewritten.
 
 There are two groups:
 
-- **The debugger:** open a C program, compile it, step through it. The same
-  tests run against both debuggers:
-  - **wasm**, which runs in the browser. This is the default, and the page
-    uses it unless it's opened with `?debugger=gdb`. See
-    `docs/debugger-rewrite.md`.
-  - **gdb**, the old one, which runs on the server until it's deleted.
+- **The debugger:** open a C program, compile it, step through it. The
+  debugger runs in the browser (see `docs/debugger-rewrite.md`), so there is
+  no backend to start.
 - **The landing page and the visualisers:** open a structure, run operations,
   control playback, share a link. These apply to the current frontend and to
   any redesign of it, so a redesign can show it does everything the old one did.
@@ -27,14 +24,7 @@ pnpm run instrumenter                    # needs Rust; see instrumenter/README.m
 pnpm run e2e                             # starts the frontend if it isn't running
 ```
 
-To run against GDB:
-
-```sh
-docker compose up -d debugger            # the old backend
-E2E_DEBUGGER=gdb pnpm run e2e
-```
-
-The visualiser tests don't need the debugger backend. To run only them:
+To run only the visualiser tests:
 
 ```sh
 pnpm run e2e landing not-found visualiser-navigation linked-list-operations \
@@ -47,7 +37,7 @@ Set `E2E_BASE_URL` to test a frontend that is already running, e.g.
 After each run, a per-feature summary is printed:
 
 ```
-Feature progress (wasm debugger)
+Feature progress
 
   compiling                  3/3 working
   linked list visualisation  2/2 working
@@ -62,8 +52,8 @@ Feature progress (wasm debugger)
 
 ## Known failures
 
-`known-failures/gdb.json` and `known-failures/wasm.json` list the behaviours
-that don't work yet on each debugger, each with a reason.
+`known-failures/wasm.json` lists the behaviours that don't work yet, each with
+a reason.
 Those tests are expected to fail, so they don't turn the run red. When one
 starts passing, Playwright reports it as a failure so it gets removed from the
 list: a fixed feature can't stay marked as broken, and a broken one can't be
@@ -73,27 +63,23 @@ added silently.
 `pnpm run check:known-failures` checks that every entry names a real test and
 gives a reason. CI runs it on every PR.
 
-## Using this during the rewrite
+## Changing the debugger
 
-CI runs the suite against both debuggers. wasm, the default, passes every
-debugger test, so its list holds only the 2 visualiser bugs. GDB's list also
-holds the bugs in the old app and the typed input its server never had. The GDB job and its list are
-deleted with the server (step 4c in `docs/debugger-rewrite.md`).
-
-If the wasm debugger works differently inside, update `support/debugger-page.ts`.
-The test files themselves shouldn't need to change.
+The suite was the spec for rewriting the debugger to run in the browser, and
+it still checks what a student sees. If the debugger works differently inside,
+update `support/debugger-page.ts`. The test files themselves shouldn't need to
+change.
 
 ## Using this for a frontend redesign
 
-The visualiser tests pass on the current frontend, apart from 2 bugs on both
-known-failures lists: rewinding leaves the timeline at the end, and Create Link
-is never shown. The suite runs once per debugger, so a visualiser entry goes in
-both lists.
+The visualiser tests pass on the current frontend, apart from 2 bugs on the
+known-failures list: rewinding leaves the timeline at the end, and Create Link
+is never shown.
 
 A redesign replaces `support/landing-page.ts` and `support/visualiser-page.ts`
 and leaves the tests alone. If every test still passes, the redesign does
 everything the current frontend does. A feature it drops on purpose goes on the
-known-failures lists with the reason, so the gap is written down and reviewed.
+known-failures list with the reason, so the gap is written down and reviewed.
 
 ## Writing tests
 
@@ -117,5 +103,5 @@ known-failures lists with the reason, so the gap is written down and reviewed.
   page object method instead.
 - No `waitForTimeout()`. Wait for something the user would see.
 - No `test.skip()` or `test.only()`. A test that can't pass yet goes in
-  that debugger's `known-failures/*.json` list with a reason.
+  `known-failures/wasm.json` with a reason.
 - Every promise is awaited.

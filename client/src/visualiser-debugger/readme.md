@@ -1,7 +1,7 @@
 # Project Name
 The Frontend part of visualize-debugger. The project that transfer user's C program into interactive visualization. 
 
-A react project for converting GDB related instance data (as called state) maps to a visualization. 
+A react project for converting the debugger's data (called state) maps to a visualization. 
 
 ## High Level Concept in this Project
 1. Declarative over Imperative
