@@ -25,10 +25,20 @@ const run = (cmd, args) =>
 /**
  * The GitHub repo ("owner/name") a remote URL points at: https, scp-style
  * (git@github.com:owner/name) or ssh://, with or without a port, as with
- * ssh.github.com:443.
+ * ssh.github.com:443. Hosts ignore case; owner/name comes back as written.
  */
 export function githubRepo(url) {
-  return url.match(/github\.com(?::\d+(?=\/))?[:/]([^/\s:]+\/[^/\s]+?)(?:\.git)?\/?$/)?.[1];
+  return url.match(/github\.com(?::\d+(?=\/))?[:/]([^/\s:]+\/[^/\s]+?)(?:\.git)?\/?$/i)?.[1];
+}
+
+/**
+ * The repo and base branch from what `gh pr view --json baseRefName,url,state`
+ * prints, or undefined unless it's an open GitHub PR. gh also shows closed and
+ * merged PRs, whose base is stale.
+ */
+export function prFromView({ baseRefName, url, state } = {}) {
+  const repo = url?.match(/^https:\/\/github\.com\/([^/]+\/[^/]+)\/pull\/\d+\/?$/i)?.[1];
+  return state === 'OPEN' && baseRefName && repo ? { repo, branch: baseRefName } : undefined;
 }
 
 /** Each git remote's GitHub repo ("owner/name"), by remote name. */
@@ -53,9 +63,8 @@ export function openPr(remotes) {
   const lookups = [remotes.origin && branch ? [branch, '--repo', remotes.origin] : null, []].filter(Boolean);
   for (const lookup of lookups) {
     try {
-      const [baseBranch, url] = run('gh', ['pr', 'view', ...lookup, '--json', 'baseRefName,url', '--jq', '.baseRefName, .url']).split('\n');
-      const repo = url?.match(/github\.com\/([^/]+\/[^/]+)\/pull\//)?.[1];
-      if (baseBranch && repo) return { repo, branch: baseBranch };
+      const pr = prFromView(JSON.parse(run('gh', ['pr', 'view', ...lookup, '--json', 'baseRefName,url,state'])));
+      if (pr) return pr;
     } catch {
       // No PR there, or gh isn't installed or signed in.
     }
