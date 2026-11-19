@@ -36,9 +36,16 @@ const MANIFEST = /^(client\/)?package\.json$/;
 // matched anywhere in an added line, since TOML can also write them as
 // dotted keys (lib.test), inline tables or quoted keys. `path` can point a
 // test at another file. Other lines, such as dependency bumps, stay
-// unprotected.
+// unprotected. Quoted keys can spell a setting with TOML's \uXXXX and
+// \UXXXXXXXX escapes, so those are decoded first.
 const CARGO_MANIFEST = /^instrumenter\/Cargo\.toml$/;
 const CARGO_TEST_SETTING = /\b(autotests|autobenches|test|harness|doctest|required-features|path)\b/;
+// Invalid escapes (surrogates, or past U+10FFFF) are left as they are.
+const decodeTomlEscapes = (text) =>
+  text.replace(/\\u([0-9a-fA-F]{4})|\\U([0-9a-fA-F]{8})/g, (escape, short, long) => {
+    const code = parseInt(short ?? long, 16);
+    return code > 0x10ffff || (code >= 0xd800 && code <= 0xdfff) ? escape : String.fromCodePoint(code);
+  });
 
 const OTHER_LOCKFILES = new Set(['package-lock.json', 'npm-shrinkwrap.json', 'yarn.lock', 'bun.lock', 'bun.lockb']);
 const IMAGE_FOLDERS = [/^client\/public\//, /^client\/src\//, /^docs\/docs\/images\//];
@@ -135,7 +142,7 @@ export function checkPr({ files, tracked, addedLines, labels }) {
     const manifestScripts = files
       .filter((f) => (MANIFEST.test(f.path) || MANIFEST.test(f.oldPath ?? '')) && (f.status !== 'M' || f.scriptsChanged))
       .flatMap((f) => (f.oldPath ? [f.path, f.oldPath] : [f.path]));
-    const cargoTestSettings = addedLines.filter((l) => CARGO_MANIFEST.test(l.path) && CARGO_TEST_SETTING.test(l.text)).map((l) => l.path);
+    const cargoTestSettings = addedLines.filter((l) => CARGO_MANIFEST.test(l.path) && CARGO_TEST_SETTING.test(decodeTomlEscapes(l.text))).map((l) => l.path);
     for (const path of new Set(paths)) {
       if (PROTECTED.some((re) => re.test(path)) || manifestScripts.includes(path) || cargoTestSettings.includes(path)) {
         add('protected-paths', path, `Changes to CI, lint config, the package.json scripts CI runs, agent config or known failures need a person to add the "${LABELS.humanApproved}" label.`);

@@ -450,6 +450,66 @@ describe('protected-paths', () => {
     }
   });
 
+  it('protects test settings whose quoted key is spelled with TOML Unicode escapes', () => {
+    const files = [{ status: 'M', path: 'instrumenter/Cargo.toml' }];
+    // Each line as written in Cargo.toml (one backslash), and the setting it spells.
+    const lines = [
+      ['"\\u0061utotests" = false', 'autotests = false'],
+      ['"\\U00000061utotests" = false', 'autotests = false'],
+      ['"h\\u0061rness" = false', 'harness = false, under [[test]]'],
+      ['lib = { "t\\u0065st" = false }', 'lib = { test = false }'],
+      ['"\\u0064octest" = false', 'doctest = false'],
+      ['"required-f\\u0065atures" = ["slow"]', 'required-features = ["slow"]'],
+      ['"\\u0070\\u0061\\u0074\\u0068" = "tests/empty.rs"', 'path = "tests/empty.rs"'],
+      ['"\\U00000061utobenches" = false', 'autobenches = false'],
+    ];
+    // Every line is checked before failing, so the message lists them all.
+    const missed = lines
+      .map(([text, meaning]) => {
+        const result = checkPr(pr({ files, addedLines: [{ path: 'instrumenter/Cargo.toml', line: 3, text }] }));
+        const hit = rulesHit(result).includes('protected-paths') && result.length === 1;
+        return hit ? null : `  ${text}  (decodes to ${meaning}; got findings: ${show(result)})`;
+      })
+      .filter(Boolean);
+    assert.deepEqual(
+      missed,
+      [],
+      'each added line in instrumenter/Cargo.toml below spells a test setting with a TOML \\u or \\U escape, so it should hit ' +
+        `protected-paths (and nothing else) like its plain spelling, but didn't:\n${missed.join('\n')}`,
+    );
+  });
+
+  it('does not protect Cargo.toml lines with no test setting, escaped or not', () => {
+    const files = [{ status: 'M', path: 'instrumenter/Cargo.toml' }];
+    const lines = [
+      ['serde = "1.0.2"', 'a dependency bump'],
+      ['"\\u0077alrus" = "0.24"', 'walrus = "0.24", a dependency bump'],
+      ['description = "caf\\u00e9 \\U0001F600"', 'a description with escaped characters'],
+    ];
+    for (const [text, meaning] of lines) {
+      const addedLines = [{ path: 'instrumenter/Cargo.toml', line: 9, text }];
+      const result = checkPr(pr({ files, addedLines }));
+      assert.deepEqual(
+        result,
+        [],
+        `added line ${text} in instrumenter/Cargo.toml (${meaning}) should hit no rule. Got findings: ${show(result)}`,
+      );
+    }
+  });
+
+  it('only decodes escapes in instrumenter/Cargo.toml: an escaped setting word elsewhere is not protected', () => {
+    const text = '"\\u0061utotests" = false';
+    for (const path of ['client/src/settings.toml', 'docs/Cargo.toml']) {
+      const files = [{ status: 'M', path }];
+      const addedLines = [{ path, line: 3, text }];
+      const result = checkPr(pr({ files, addedLines }));
+      assert.ok(
+        !rulesHit(result).includes('protected-paths'),
+        `added line ${text} in ${path} (not instrumenter/Cargo.toml) should not hit protected-paths. Got findings: ${show(result)}`,
+      );
+    }
+  });
+
   it('accepts them once a person adds the human-approved label', () => {
     const files = [{ status: 'M', path: '.github/workflows/e2e.yml' }];
     assert.deepEqual(checkPr(pr({ files, labels: new Set(['human-approved']) })), []);
