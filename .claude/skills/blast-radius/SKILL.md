@@ -1,6 +1,6 @@
 ---
 name: blast-radius
-description: Check what a change could break before trusting it, and say honestly how far the check got. Use for "blast radius", "what could this break", a small diff you do not trust, or before merging a change to the debugger backend, socket protocol, or shared visualiser code.
+description: Check what a change could break before trusting it, and say honestly how far the check got. Use for "blast radius", "what could this break", a small diff you do not trust, or before merging a change to the debugger's compiler, instrumenter or recorder, or shared visualiser code.
 argument-hint: <change, diff, or PR to check>
 ---
 
@@ -12,9 +12,9 @@ Find the one fact that makes the change safe, and prove it with the narrowest us
 
 List everything that depends on what changed:
 
-- Grep for every caller of a changed function, export, constant, CSS class, or socket event.
+- Grep for every caller of a changed function, export, constant, CSS class, or recording field.
 - For shared visualiser code (`client/src/visualiser-src/common/`), list each visualiser that imports it.
-- For the debugger, follow the event from `debugger/src/` through `client/src/Services/socketClient.ts` to the components that read it.
+- For the debugger, follow a value from the instrumenter (`instrumenter/src/`) through the recorder (`client/src/Services/debugger/wasm/`) to the components that read it.
 - For a changed default or constant, list every place that relied on the old value.
 
 ## 2. Pick the risky case
@@ -27,8 +27,8 @@ Run the narrowest check that fails if you are wrong:
 
 | Change | Narrowest proof |
 |---|---|
-| Visual debugger behaviour | The matching e2e test, `pnpm run e2e -g "<behaviour>"` with the debugger running |
-| Debugger backend | The matching pytest in `debugger/src/debugger/test/` |
+| Visual debugger behaviour | The matching e2e test, `pnpm run e2e -g "<behaviour>"`, after `pnpm run instrumenter` |
+| Debugger instrumenter | `cargo test` in `instrumenter/` |
 | Client logic (parsers, stores, the rewrite's compiler, runner, recorder) | The matching Vitest file, `cd client && pnpm test <file>` |
 | Visualiser animation or layout | A screenshot of the risky case (see `ui-visual-test`) |
 | Types or exports | `cd client && pnpm run tsc` |
