@@ -460,6 +460,10 @@ checks pass, and the site runs from the client image alone.
 
 Found while building checkpoint 1, and not needed for it:
 
+- **A loop written on one line that calls a function** (`for (...) total += f(i);`)
+  doesn't show its line between iterations: the function's steps run back
+  to back, because each revisit is the same line in the same call. GDB shows
+  the line each time.
 - **Offline, a run cut short breaks the next one.** Once the page has
   loaded, the debugger works offline, because runs reuse a runner Worker
   started while the network was on. A Worker stopped mid-run (past the time

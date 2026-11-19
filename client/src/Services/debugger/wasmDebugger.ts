@@ -105,6 +105,8 @@ type Session = {
    */
   outputShownAt: number;
   outputShownLength: number;
+  /** The paused state last shown (a recording's end.at), so it's shown once. */
+  pausedShown: Step | null;
   ended: boolean;
 };
 
@@ -190,6 +192,7 @@ export class WasmDebugger implements Debugger {
       next: 0,
       outputShownAt: -1,
       outputShownLength: 0,
+      pausedShown: null,
       ended: false,
     };
     this.session = session;
@@ -251,7 +254,18 @@ export class WasmDebugger implements Debugger {
     }
 
     // The program is waiting for input: typing it records the program again.
-    if (index >= steps.length && 'waitingForInput' in end) return false;
+    if (index >= steps.length && 'waitingForInput' in end) {
+      // Paused somewhere the last step doesn't show, so show it once, as a
+      // view rather than a step: the next step after more input is typed is
+      // still the one at session.next. A state was sent, so say so, as the
+      // page only moves on when step() resolves true.
+      if (end.at && end.at !== session.pausedShown) {
+        session.pausedShown = end.at;
+        this.events?.state(stateAt(session.file, end.at));
+        return true;
+      }
+      return false;
+    }
 
     session.next += 1;
     if (index < steps.length) {

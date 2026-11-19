@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { compileAndInstrument } from './instrumenter';
-import { recordRun, Recording, Variable } from './recording';
+import { recordRun, Recording, Step, Variable } from './recording';
 import gdb from './fixtures/gdb-variables.json';
 // Recorded from the GDB debugger at line 20 of e2e/programs/linked_list.c.
 import gdbList from '../../../visualiser-debugger/Component/Visualizer/Parser/fixtures/gdb-linked-list-state.json';
@@ -36,6 +36,26 @@ const record = async (
 /** Steps as "function:line", the way a student would see them. */
 const stepsOf = (recording: Recording) =>
   recording.steps.map((step) => `${step.function}:${step.line}`);
+
+/**
+ * Steps that go back to the line of the call a function just returned from,
+ * as "step N function:line": where a step is shallower than the one before it
+ * and on the same line as the caller's step that made the call. GDB never
+ * shows these; after a call returns, the next step is the caller's next
+ * statement.
+ */
+const returnSteps = (recording: Recording) =>
+  recording.steps.flatMap((step, index) => {
+    const before = recording.steps[index - 1];
+    if (!before || step.depth >= before.depth) return [];
+    const caller = recording.steps
+      .slice(0, index)
+      .reverse()
+      .find((earlier) => earlier.depth === step.depth);
+    return caller && caller.function === step.function && caller.line === step.line
+      ? [`step ${index + 1} ${step.function}:${step.line}`]
+      : [];
+  });
 
 describe('recordRun', () => {
   it(
@@ -72,16 +92,17 @@ describe('recordRun', () => {
   );
 
   it(
-    'steps into the student’s functions and back to the line that called them',
+    'steps into the student’s functions, and once one returns, on to the caller’s next line',
     async () => {
       const recording = await record('functions.c', program('functions.c'));
 
-      expect(stepsOf(recording)).toEqual([
+      // No step back on line 8 once square returns, as in GDB: the next step
+      // is line 9.
+      expect(stepsOf(recording), 'functions.c: steps as function:line').toEqual([
         'main:7',
         'main:8',
         'square:2',
         'square:3',
-        'main:8',
         'main:9',
       ]);
     },
@@ -94,17 +115,15 @@ describe('recordRun', () => {
       const recording = await record('linked_list.c', program('linked_list.c'));
       const prepend = ['prepend:9', 'prepend:10', 'prepend:11', 'prepend:12'];
 
-      expect(stepsOf(recording)).toEqual([
+      // After each prepend returns, the next step is main's next line.
+      expect(stepsOf(recording), 'linked_list.c: steps as function:line').toEqual([
         'main:16',
         'main:17',
         ...prepend,
-        'main:17',
         'main:18',
         ...prepend,
-        'main:18',
         'main:19',
         ...prepend,
-        'main:19',
         'main:20',
         'main:21',
       ]);
@@ -170,8 +189,13 @@ describe('recordRun', () => {
       const recording = await record('fact.c', source);
 
       // fact has two returns, which clang joins on the closing brace (line 6),
-      // so each call ends there, as it does in GDB.
-      expect(recording.steps.map((step) => `${step.function}:${step.line}@${step.depth}`)).toEqual([
+      // so each call ends there, as it does in GDB. Once a call returns, the
+      // next step is the caller's next line (its closing brace), not line 5
+      // again; main has no line after the call, so the run ends.
+      expect(
+        recording.steps.map((step) => `${step.function}:${step.line}@${step.depth}`),
+        'fact.c (fact(3)): steps as function:line@depth'
+      ).toEqual([
         'main:9@0',
         'fact:2@1',
         'fact:5@1',
@@ -180,17 +204,15 @@ describe('recordRun', () => {
         'fact:2@3',
         'fact:3@3',
         'fact:6@3',
-        'fact:5@2',
         'fact:6@2',
-        'fact:5@1',
         'fact:6@1',
-        'main:9@0',
       ]);
       // Each call reads its own n, from its own frame.
       expect(
         recording.steps
           .filter((step) => step.function === 'fact')
-          .map((step) => `${step.line}@${step.depth} n=${step.variables.n.value}`)
+          .map((step) => `${step.line}@${step.depth} n=${step.variables.n.value}`),
+        'fact.c (fact(3)): n at each step in fact, as line@depth'
       ).toEqual([
         '2@1 n=3',
         '5@1 n=3',
@@ -199,11 +221,41 @@ describe('recordRun', () => {
         '2@3 n=1',
         '3@3 n=1',
         '6@3 n=1',
-        '5@2 n=2',
         '6@2 n=2',
-        '5@1 n=3',
         '6@1 n=3',
       ]);
+    },
+    CLANG_TIMEOUT
+  );
+
+  it(
+    'never steps back onto the line of a call once it returns',
+    async () => {
+      const recursive = [
+        'int fact(int n) {',
+        '    if (n <= 1) {',
+        '        return 1;',
+        '    }',
+        '    return n * fact(n - 1);',
+        '}',
+        'int main(void) {',
+        '    return fact(3) == 6 ? 0 : 1;',
+        '}',
+      ].join('\n');
+      const programs: [string, string][] = [
+        ['functions.c', program('functions.c')],
+        ['linked_list.c', program('linked_list.c')],
+        ['fact.c', recursive],
+      ];
+
+      const recordings = await Promise.all(programs.map(([name, source]) => record(name, source)));
+      recordings.forEach((recording, index) => {
+        const [name] = programs[index];
+        expect(
+          returnSteps(recording),
+          `${name}: steps back on the line that made a call, right after it returned (GDB shows none); all steps: ${stepsOf(recording).join(', ')}`
+        ).toEqual([]);
+      });
     },
     CLANG_TIMEOUT
   );
@@ -233,6 +285,109 @@ describe('recordRun', () => {
     },
     CLANG_TIMEOUT
   );
+
+  describe('a crash right after a call returns', () => {
+    /** The last step as "function:line@depth", and the steps before it, for messages. */
+    const lastStep = (recording: Recording) => {
+      const last = recording.steps.at(-1);
+      return last && `${last.function}:${last.line}@${last.depth}`;
+    };
+
+    it(
+      'ends on the caller’s line, with its variables, when it crashes as the call returns',
+      async () => {
+        const source = [
+          'int zero(void) {', // 1
+          '    return 0;', // 2
+          '}', // 3
+          'int main(void) {', // 4
+          '    int a = 1;', // 5
+          '    return a / zero();', // 6: divides by zero once zero() returns
+          '}', // 7
+        ].join('\n');
+
+        const recording = await record('divide.c', source);
+        const steps = stepsOf(recording).join(', ');
+
+        expect(recording.end, `divide.c: how the run ended (steps: ${steps})`).toEqual({
+          crashed: expect.any(String),
+        });
+        expect(
+          lastStep(recording),
+          `divide.c crashes in main on line 6 after zero() returns: last step, as function:line@depth (steps: ${steps})`
+        ).toBe('main:6@0');
+        expect(
+          recording.steps.at(-1)?.variables.a?.value,
+          `divide.c: a in the last step's variables (steps: ${steps})`
+        ).toBe(1);
+        expect(
+          recording.steps.some((step) => step.function === 'zero'),
+          `divide.c: the call to zero() still has its own steps before the crash (steps: ${steps})`
+        ).toBe(true);
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'ends on the caller’s line when it dereferences a NULL pointer a call returned',
+      async () => {
+        const source = [
+          '#include <stddef.h>', // 1
+          'struct node { int value; struct node *next; };', // 2
+          'struct node *none(void) {', // 3
+          '    return NULL;', // 4
+          '}', // 5
+          'int main(void) {', // 6
+          '    struct node *n = none();', // 7
+          '    return none()->value;', // 8: reads through the NULL none() returned
+          '}', // 9
+        ].join('\n');
+
+        const recording = await record('none.c', source);
+        const steps = stepsOf(recording).join(', ');
+
+        expect(recording.end, `none.c: how the run ended (steps: ${steps})`).toEqual({
+          crashed: 'NULL pointer dereference',
+        });
+        expect(
+          lastStep(recording),
+          `none.c dereferences NULL in main on line 8 after none() returns: last step, as function:line@depth (steps: ${steps})`
+        ).toBe('main:8@0');
+        expect(
+          recording.steps.at(-1)?.variables.n?.value,
+          `none.c: n in the last step's variables (steps: ${steps})`
+        ).toBe('0x0');
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'adds no step when the crash is inside the called function, on a line it has a step for',
+      async () => {
+        const source = [
+          'int divide(int x, int y) {', // 1
+          '    return x / y;', // 2: divides by zero
+          '}', // 3
+          'int main(void) {', // 4
+          '    int a = divide(1, 0);', // 5
+          '    return a;', // 6
+          '}', // 7
+        ].join('\n');
+
+        const recording = await record('inside.c', source);
+        const steps = stepsOf(recording).join(', ');
+
+        expect(recording.end, `inside.c: how the run ended (steps: ${steps})`).toEqual({
+          crashed: expect.any(String),
+        });
+        expect(
+          stepsOf(recording),
+          'inside.c crashes inside divide() on line 2, which already has a step: steps as function:line'
+        ).toEqual(['main:5', 'divide:2']);
+      },
+      CLANG_TIMEOUT
+    );
+  });
 
   it(
     'steps through every pass of a loop',
@@ -332,25 +487,27 @@ describe('recordRun', () => {
             .map((step) => `${step.function}:${step.line} ${name}=${step.variables[name].value}`);
 
         // int a = 4; then int b = square(a); Before it's assigned, a variable
-        // holds the 0xAA bytes its frame is filled with.
-        expect(valuesOf('a')).toEqual([
+        // holds the 0xAA bytes its frame is filled with. b gets square's
+        // result on the step after the call, line 9.
+        expect(valuesOf('a'), 'functions.c: a at each step in main').toEqual([
           `main:7 a=${UNINITIALISED_INT}`,
-          'main:8 a=4',
           'main:8 a=4',
           'main:9 a=4',
         ]);
-        expect(valuesOf('b')).toEqual([
+        expect(valuesOf('b'), 'functions.c: b at each step in main').toEqual([
           `main:7 b=${UNINITIALISED_INT}`,
-          `main:8 b=${UNINITIALISED_INT}`,
           `main:8 b=${UNINITIALISED_INT}`,
           'main:9 b=16',
         ]);
-        expect(valuesOf('result')).toEqual([
+        expect(valuesOf('result'), 'functions.c: result at each step in square').toEqual([
           `square:2 result=${UNINITIALISED_INT}`,
           'square:3 result=16',
         ]);
         // A parameter has its value from the call's first step.
-        expect(valuesOf('x')).toEqual(['square:2 x=4', 'square:3 x=4']);
+        expect(valuesOf('x'), 'functions.c: x at each step in square').toEqual([
+          'square:2 x=4',
+          'square:3 x=4',
+        ]);
       },
       CLANG_TIMEOUT
     );
@@ -624,6 +781,50 @@ describe('recordRun', () => {
           'struct node',
           'struct node',
         ]);
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'never drops a node from the heap for one step and shows it again, as a call returns',
+      async () => {
+        // What the user saw: a node prepend made vanished on the step after
+        // the call returned, before `list = ...` stored it, then came back.
+        const recording = await record('linked_list.c', program('linked_list.c'));
+        const onHeap = recording.steps.map((step) => new Set(Object.keys(step.heap)));
+        const describeStep = (index: number) => {
+          const step = recording.steps[index];
+          const values = Object.values(step.heap).map(
+            (entry) => (entry.value as Record<string, { value: unknown }>).value?.value
+          );
+          return `step ${index + 1} ${step.function}:${step.line} heap values [${values.join(', ')}]`;
+        };
+
+        // A node that is on the heap at some step and again later must be
+        // there at every step in between.
+        const gaps: string[] = [];
+        onHeap.forEach((addrs, index) => {
+          addrs.forEach((addr) => {
+            const back = onHeap.findIndex((later, at) => at > index && later.has(addr));
+            const missing = onHeap.findIndex(
+              (between, at) => at > index && at < back && !between.has(addr)
+            );
+            if (
+              back !== -1 &&
+              missing !== -1 &&
+              !gaps.some((gap) => gap.startsWith(`node ${addr} `))
+            ) {
+              gaps.push(
+                `node ${addr} is on the heap at ${describeStep(index)}, missing at ${describeStep(missing)}, back at ${describeStep(back)}`
+              );
+            }
+          });
+        });
+
+        expect(
+          gaps,
+          `linked_list.c: nodes that disappear from the heap for a step and come back. Every step:\n${recording.steps.map((_, i) => describeStep(i)).join('\n')}\n`
+        ).toEqual([]);
       },
       CLANG_TIMEOUT
     );
@@ -902,6 +1103,91 @@ describe('recordRun', () => {
   });
 
   describe('input', () => {
+    /** Where a waiting recording says the program is paused, if it says. */
+    const pausedAt = (recording: Recording) => (recording.end as { at?: Step }).at;
+
+    const SLOT_SOURCE = [
+      '#include <stdio.h>', // 1
+      'int slot(void) {', // 2
+      '    return 1;', // 3
+      '}', // 4
+      'int main(void) {', // 5
+      '    int values[2] = {0, 0};', // 6
+      '    scanf("%d", &values[slot()]);', // 7: slot() returns, then scanf waits
+      '    return values[1];', // 8
+      '}', // 9
+    ].join('\n');
+
+    it(
+      'says where it is paused when it waits in the caller right after a call returned',
+      async () => {
+        const recording = await record('slot.c', SLOT_SOURCE);
+        const steps = stepsOf(recording).join(', ');
+        const at = pausedAt(recording);
+
+        expect(recording.end, `slot.c with no input: end (steps: ${steps})`).toEqual({
+          waitingForInput: true,
+          at: expect.anything(),
+        });
+        expect(
+          at && `${at.function}:${at.line}@${at.depth}`,
+          `slot.c waits in scanf on main's line 7 after slot() returned: end.at as function:line@depth (steps: ${steps})`
+        ).toBe('main:7@0');
+        expect(at?.variables.values?.value, "slot.c: values in end.at's variables").toEqual([0, 0]);
+        expect(
+          recording.steps.at(-1)?.function,
+          `slot.c: the last recorded step is still slot()'s; end.at is not added as a step (steps: ${steps})`
+        ).toBe('slot');
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'says nothing more when it waits in a call that has a step on that line',
+      async () => {
+        // slot() returns on line 7, and main then has a step of its own on
+        // line 8, where scanf waits.
+        const ownLine = SLOT_SOURCE.replace(
+          '    scanf("%d", &values[slot()]);',
+          '    int i = slot();\n    scanf("%d", &values[i]);'
+        );
+        const cases: [string, string][] = [
+          ['sum_input.c (a plain scanf loop)', program('sum_input.c')],
+          ['slot.c with slot() on a line before the scanf', ownLine],
+        ];
+
+        const recordings = await Promise.all(
+          cases.map(([, source], i) => record(`case${i}.c`, source))
+        );
+        recordings.forEach((recording, i) => {
+          expect(
+            recording.end,
+            `${cases[i][0]} with no input: end should have no "at" (steps: ${stepsOf(recording).join(', ')})`
+          ).toEqual({ waitingForInput: true });
+        });
+      },
+      CLANG_TIMEOUT
+    );
+
+    it(
+      'keeps the steps a full run has, so stepping by index carries on after the input arrives',
+      async () => {
+        const waiting = await record('slot.c', SLOT_SOURCE);
+        const full = await record('slot.c', SLOT_SOURCE, { input: { text: '5\n', eof: true } });
+
+        expect(full.end, 'slot.c given "5\\n" and end-of-file: end').toEqual({ exitCode: 5 });
+        expect(
+          stepsOf(waiting),
+          `slot.c: steps while waiting, against the first steps of the run given "5" (full run: ${stepsOf(full).join(', ')})`
+        ).toEqual(stepsOf(full).slice(0, waiting.steps.length));
+        expect(
+          stepsOf(full)[waiting.steps.length],
+          `slot.c given "5": the step after the ones recorded while waiting (waiting: ${stepsOf(waiting).join(', ')}; full: ${stepsOf(full).join(', ')})`
+        ).toBe('main:8');
+      },
+      CLANG_TIMEOUT
+    );
+
     it(
       'stops where the program waits for input it has not been given',
       async () => {

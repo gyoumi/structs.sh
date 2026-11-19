@@ -54,8 +54,14 @@ export type RunEnd =
   | { stepLimit: number }
   | { timeLimit: number }
   | { sizeLimit: number }
-  /** It read past the input typed so far; typing more records it again. */
-  | { waitingForInput: true };
+  /**
+   * It read past the input typed so far; typing more records it again. `at`
+   * is where it's paused when that's in a call with no step since a call it
+   * made returned (as in `scanf("%d", &values[slot()])`), so the last step
+   * isn't where it is. It's not a step, as stepping on after more input is
+   * typed goes by step number.
+   */
+  | { waitingForInput: true; at?: Step };
 
 export type Recording = {
   steps: Step[];
@@ -88,8 +94,12 @@ class LimitReached extends Error {
 
 /**
  * Runs an instrumented program to the end and records its steps. A step is
- * one statement: a repeat of the same line in the same call is skipped, and
- * returning from a call is a step back on the caller's line, as GDB shows it.
+ * one statement: a repeat of the same line in the same call is skipped, even
+ * after a call made from that line returns. Returning from a call isn't a
+ * step: after a function's last step comes the caller's next statement, as
+ * the call's result may not be stored yet (a new list node reachable only from
+ * it would vanish from the heap for that step). So a program that crashes in
+ * a caller just after a call returns ends with a step on the caller's line.
  * A program that runs too many statements, or for too long, is stopped, and
  * its steps up to then are kept.
  */
@@ -109,18 +119,20 @@ export const recordRun = async (
   } = {}
 ): Promise<Recording> => {
   const debug = readDebugSection(await WebAssembly.compile(wasm));
-  const steps: (Step & { frame: number })[] = [];
+  const steps: Step[] = [];
   type Call = {
     function: string;
-    frame: number;
     /** The statement it's on, once it has started one. */
     statement: number | null;
     line: number | null;
     frameBase: number;
+    /** The line of its latest step, so a repeat of it isn't a new step. */
+    steppedLine: number | null;
+    /** Whether a call it made has returned since its latest step. */
+    returnedTo: boolean;
   };
   const calls: Call[] = [];
   let outputBeforeFirstStep = '';
-  let frames = 0;
   let statementsRun = 0;
   const limitOutput = createOutputLimit();
   const deadline = performance.now() + timeLimitMs;
@@ -156,10 +168,9 @@ export const recordRun = async (
   let previousHeap = new Map<string, { entry: HeapEntry; json: string }>();
   let recordedSize = 0;
 
-  const addStep = (call: Call, memory: () => DataView) => {
-    const last = steps.at(-1);
-    if (call.statement === null || call.line === null) return;
-    if (last?.frame === call.frame && last.line === call.line) return;
+  /** What a call shows now, counted toward the size limit. */
+  const readStep = (call: Call, memory: () => DataView): Step | null => {
+    if (call.statement === null || call.line === null) return null;
     const view = memory();
     const variables = readVariables(debug, call.statement, call.frameBase, view);
     const callFrames = calls.flatMap(({ statement, frameBase }) =>
@@ -189,16 +200,28 @@ export const recordRun = async (
     recordedSize += size;
     previousHeap = seen;
 
-    steps.push({
+    return {
       function: call.function,
       line: call.line,
       depth: calls.indexOf(call),
       output: '',
       variables,
       heap,
-      frame: call.frame,
-    });
+    };
   };
+
+  /** `again` adds a step even on the line of the call's latest step. */
+  const addStep = (call: Call, memory: () => DataView, again = false) => {
+    if (call.steppedLine === call.line && !again) return;
+    const step = readStep(call, memory);
+    if (!step) return;
+    steps.push(step);
+    call.steppedLine = call.line;
+    call.returnedTo = false;
+  };
+
+  /** Reads the program's memory, for what's shown once it has stopped. */
+  let latestMemory: (() => DataView) | null = null;
 
   let end: RunEnd;
   try {
@@ -211,10 +234,17 @@ export const recordRun = async (
         else outputBeforeFirstStep += kept;
       },
       onTrace: (event, memory) => {
+        latestMemory = memory;
         if (event.type === 'enter') {
-          frames += 1;
           const name = debug.functions[event.function] ?? `function ${event.function}`;
-          calls.push({ function: name, frame: frames, statement: null, line: null, frameBase: 0 });
+          calls.push({
+            function: name,
+            statement: null,
+            line: null,
+            frameBase: 0,
+            steppedLine: null,
+            returnedTo: false,
+          });
         } else if (event.type === 'line') {
           statementsRun += 1;
           if (statementsRun > stepLimit) throw new LimitReached({ stepLimit });
@@ -228,7 +258,7 @@ export const recordRun = async (
         } else if (event.type === 'exit') {
           calls.pop();
           const caller = calls.at(-1);
-          if (caller) addStep(caller, memory);
+          if (caller) caller.returnedTo = true;
         } else if (event.type === 'allocated') {
           if (event.pointer !== 0) allocations.set(unsigned(event.pointer), unsigned(event.size));
           starts = null;
@@ -245,12 +275,36 @@ export const recordRun = async (
     end = { exitCode };
   } catch (error) {
     if (error instanceof LimitReached) end = error.end;
-    else if (error === WAITING_FOR_INPUT) end = { waitingForInput: true };
-    else end = { crashed: error instanceof Error ? error.message : String(error) };
+    else if (error === WAITING_FOR_INPUT) {
+      end = { waitingForInput: true };
+      // Paused in a call with no step since a call it made returned: say
+      // where, without adding a step (see RunEnd).
+      const call = calls.at(-1);
+      if (call?.returnedTo && latestMemory) {
+        try {
+          const at = readStep(call, latestMemory);
+          if (at) end = { waitingForInput: true, at };
+        } catch {
+          // Past a limit, the last step stands for where it is.
+        }
+      }
+    } else {
+      end = { crashed: error instanceof Error ? error.message : String(error) };
+      // A crash in a call with no step since a call it made returned, such as
+      // `a / zero()`, would otherwise show on the returned call's last line.
+      const call = calls.at(-1);
+      if (call?.returnedTo && latestMemory) {
+        try {
+          addStep(call, latestMemory, true);
+        } catch {
+          // Past a limit, the steps so far are kept.
+        }
+      }
+    }
   }
 
   return {
-    steps: steps.map(({ frame: _frame, ...step }) => step),
+    steps,
     outputBeforeFirstStep,
     end,
     types: structDeclarations(debug),

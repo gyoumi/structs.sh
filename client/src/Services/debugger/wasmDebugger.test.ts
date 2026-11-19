@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DebuggerEvents } from './types';
 import { WasmDebugger } from './wasmDebugger';
 import { CompileResult, Compiler, CompilerStatus } from './wasm/compiler';
-import type { Recording, RunEnd } from './wasm/recording';
+import type { Recording, RunEnd, Step } from './wasm/recording';
 import type { RunnerMessage, RunRequest } from './wasm/runRequest';
 import { createRunnerPool, recordInWorker } from './wasm/workerRunner';
 import type { RecordResult, RunnerWorker } from './wasm/workerRunner';
@@ -397,6 +397,119 @@ describe('WasmDebugger', () => {
       expect(events.output).toHaveBeenLastCalledWith(expect.stringMatching(/stopped/));
       expect(inputs).toHaveLength(1);
       expect(await wasm.step()).toBe(false);
+    });
+
+    describe('paused right after a call returned', () => {
+      // scanf("%d", &values[slot()]) on line 7: slot() returns, then scanf
+      // waits, so main has no step of its own yet. The recorder says where it
+      // is paused in end.at (assumed shape: { waitingForInput: true, at: Step }).
+      const stepOn = (
+        fn: string,
+        line: number,
+        depth: number,
+        variables: Step['variables'] = {}
+      ): Step => ({
+        function: fn,
+        line,
+        depth,
+        output: '',
+        variables,
+        heap: {},
+      });
+      const VALUES = { values: { addr: '0x1000', typeName: 'int [2]', value: [0, 0] } };
+      const AT = stepOn('main', 7, 0, VALUES);
+      const FULL_STEPS = [
+        stepOn('main', 6, 0),
+        stepOn('main', 7, 0, VALUES),
+        stepOn('slot', 3, 1),
+        stepOn('main', 8, 0, { values: { ...VALUES.values, value: [0, 5] } }),
+      ];
+      /** The run before any input: the full run's first steps, paused at AT. */
+      const PAUSED = {
+        ...HELLO,
+        steps: FULL_STEPS.slice(0, 3),
+        end: { waitingForInput: true, at: AT } as unknown as RunEnd,
+      };
+      const FULL: Recording = { ...HELLO, steps: FULL_STEPS, end: { exitCode: 5 } };
+      const pausedRecorder: Recorder = async (_wasm, { input }) => ({
+        recording: input.text || input.eof ? FULL : PAUSED,
+      });
+      /** Each state the page was sent, as "function:line". */
+      const statesShown = () =>
+        vi
+          .mocked(events.state)
+          .mock.calls.map(([state]) => `${state.frame_info.function}:${state.frame_info.line_num}`);
+
+      // The page moves to a new state only when step() resolves true, so the
+      // paused state counts as the next state once, but not as a recorded step.
+      it('shows where the program is paused, once, when stepping past the last step while it waits', async () => {
+        const wasm = new WasmDebugger(compilerReturning(COMPILED), pausedRecorder);
+        wasm.setEvents(events);
+        wasm.start({ name: 'slot.c', code: HELLO_SOURCE });
+        await flush();
+
+        const stepped = [await wasm.step(), await wasm.step(), await wasm.step()];
+        expect(
+          stepped,
+          'slot.c paused at main:7 after 3 steps: step() results for the 3 recorded steps'
+        ).toEqual([true, true, true]);
+        expect(
+          await wasm.step(),
+          'slot.c, no input yet: 4th step(), past the 3 recorded steps while waiting with end.at = main:7, should resolve true (it sent the paused state)'
+        ).toBe(true);
+        expect(
+          statesShown(),
+          'slot.c: states shown after stepping past the last step while waiting; the paused state main:7 (end.at) should follow slot:3'
+        ).toEqual(['main:6', 'main:7', 'slot:3', 'main:7']);
+        expect(
+          Object.keys(vi.mocked(events.state).mock.lastCall?.[0].stack_data ?? {}),
+          "slot.c: variables in the paused state shown (end.at's)"
+        ).toEqual(['values']);
+
+        expect(
+          await wasm.step(),
+          'slot.c, no input yet: 5th step(), again while still waiting after the paused state was shown, should resolve false (nothing new)'
+        ).toBe(false);
+        expect(
+          statesShown(),
+          'slot.c: states shown after stepping again while waiting (nothing new)'
+        ).toEqual(['main:6', 'main:7', 'slot:3', 'main:7']);
+        expect(
+          events.sessionEnded,
+          'slot.c: sessionEnded while waiting for input'
+        ).not.toHaveBeenCalled();
+      });
+
+      it('after the input arrives, the next step is the full run’s next step, none skipped or repeated', async () => {
+        const wasm = new WasmDebugger(compilerReturning(COMPILED), pausedRecorder);
+        wasm.setEvents(events);
+        wasm.start({ name: 'slot.c', code: HELLO_SOURCE });
+        await flush();
+        await wasm.step();
+        await wasm.step();
+        await wasm.step();
+        await wasm.step(); // past the last step: shows the paused state
+
+        wasm.sendStdin('5');
+
+        expect(await wasm.step(), 'slot.c given "5" after pausing: step() result').toBe(true);
+        expect(
+          statesShown().at(-1),
+          `slot.c given "5" after pausing: state shown by the next step should be the full run's 4th step, main:8 (states shown: ${statesShown().join(', ')})`
+        ).toBe('main:8');
+        expect(
+          statesShown().filter((state) => state === 'slot:3'),
+          `slot.c: times slot:3 was shown (states shown: ${statesShown().join(', ')})`
+        ).toHaveLength(1);
+        expect(
+          await wasm.step(),
+          'slot.c given "5": step() after the last step of the full run'
+        ).toBe(false);
+        expect(
+          events.sessionEnded,
+          'slot.c given "5": sessionEnded after the last step'
+        ).toHaveBeenCalledOnce();
+      });
     });
 
     it('sends end-of-file, keeping the input typed before it', async () => {
