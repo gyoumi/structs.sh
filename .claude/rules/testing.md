@@ -32,10 +32,35 @@ PR.
   start with a throwaway script. Write the real tests once you know what
   "right" looks like.
 
+## Tests and code come from different agents
+
+When agents do the work, one writes the tests and another writes the code,
+so the tests check the spec rather than the code written to pass them.
+
+- The test writer works from the spec (the plan or issue, and the public
+  interface the change touches), writes the tests, runs them, and checks
+  they fail for the expected reason.
+- The implementer never opens the test files, not even while debugging. It
+  works from the spec, the command that runs the tests, and what the runner
+  prints.
+- So every assertion explains itself when it fails: the input (the C
+  program or call), the behaviour checked, and the expected and actual
+  values. For example `expect(n.value, 'fresh(1) line 6: uninitialised int
+  n').toBe(...)`, not a bare `toBe`. This includes existing tests in the
+  area being changed.
+- When the output isn't enough, the implementer says what it couldn't tell,
+  and the test writer improves the messages. The implementer still doesn't
+  look.
+- Whoever coordinates the two may read both, and sends review findings to
+  the agent that owns the file. Reviewers read everything.
+- A change with no new or changed tests (a deletion, refactor or docs
+  change) needs no test writer.
+
 ## Test behaviour, not implementation
 
 - Assert on what a caller or a student can observe, not on private details.
-- In e2e tests, only `e2e/support/debugger-page.ts` touches selectors or page
+- In e2e tests, only the page objects in `e2e/support/` (such as
+  `debugger-page.ts` and `visualiser-page.ts`) touch selectors or page
   internals.
 - Don't assert on compiler wording. gcc and clang phrase errors differently,
   so match the identifier or line number.
