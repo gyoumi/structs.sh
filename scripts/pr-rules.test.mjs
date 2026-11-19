@@ -196,8 +196,15 @@ describe('debugger-needs-test', () => {
     );
   });
 
-  it('accepts a debugger change that comes with a cargo test', () => {
+  it('accepts a debugger change that comes with a cargo test or a cargo test fixture', () => {
     expectClean([debuggerChange, { status: 'M', path: 'instrumenter/tests/instrument.rs' }], 'instrumenter/src/lib.rs with instrumenter/tests/instrument.rs changed');
+    expectClean([debuggerChange, { status: 'A', path: 'instrumenter/tests/fixtures/loop.wasm' }], 'instrumenter/src/lib.rs with instrumenter/tests/fixtures/loop.wasm added');
+  });
+
+  it('does not count Markdown under instrumenter/tests as a test change', () => {
+    for (const path of ['instrumenter/tests/fixtures/README.md', 'instrumenter/tests/README.md']) {
+      expectNeedsTest([debuggerChange, { status: 'M', path }], `instrumenter/src/lib.rs with only ${path} changed`);
+    }
   });
 
   it('accepts a known-failures entry as the test change', () => {
