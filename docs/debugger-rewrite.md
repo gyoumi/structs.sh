@@ -504,8 +504,9 @@ e2e suite and the GDB comparison must pass unchanged at every step.
 
 ### 5a. Structure
 
-**Done in #41,** with the instrumenter's folders named in #41 and the
-TypeScript names in #44.
+**Done in #41,** which also named the instrumenter's folders (`dwarf/`,
+`function_transforms/`). The names inside them were reviewed in #43, and
+the TypeScript names in #44.
 
 Split the source files over 300 lines (today `instrumenter/src/debug.rs`,
 `instrumenter/src/lib.rs`, `wasm/variables.ts`, `wasm/recording.ts`,
