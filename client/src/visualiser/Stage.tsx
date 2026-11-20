@@ -249,6 +249,7 @@ const Stage = ({ label, className, style, children }: StageProps) => {
 
   return (
     <div className={[styles.frame, className].filter(Boolean).join(' ')} style={style}>
+      {/* The engine measures #visualiser-container and draws into #visualiser-canvas. */}
       {/* eslint-disable jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex */}
       <div
         id="visualiser-container"
