@@ -22,8 +22,8 @@ describe('buildDebuggerEvents', () => {
   it('marks the session active when it starts', () => {
     events.sessionStarted();
 
-    expect(handlers.setActive).toHaveBeenCalledWith(true);
-    expect(handlers.setMessage).toHaveBeenCalledWith(
+    expect(handlers.setActive, 'sessionStarted(): setActive calls').toHaveBeenCalledWith(true);
+    expect(handlers.setMessage, 'sessionStarted(): setMessage calls').toHaveBeenCalledWith(
       expect.objectContaining({ content: 'Debug session started.' })
     );
   });
@@ -31,17 +31,23 @@ describe('buildDebuggerEvents', () => {
   it('shows each new state, adding it to the timeline as it arrives', () => {
     events.state(INITIAL_PROGRAM_STATE);
 
-    expect(handlers.setLatestProgramState).toHaveBeenCalledWith(INITIAL_PROGRAM_STATE);
+    expect(
+      handlers.setLatestProgramState,
+      'state(INITIAL_PROGRAM_STATE): setLatestProgramState calls'
+    ).toHaveBeenCalledWith(INITIAL_PROGRAM_STATE);
     // Added straight away, not when the page next renders, so a step that
     // resolves can move to it.
-    expect(handlers.addToTimeline).toHaveBeenCalledWith(INITIAL_PROGRAM_STATE);
+    expect(
+      handlers.addToTimeline,
+      'state(INITIAL_PROGRAM_STATE): addToTimeline calls'
+    ).toHaveBeenCalledWith(INITIAL_PROGRAM_STATE);
   });
 
   it('marks the session inactive when it ends', () => {
     events.sessionEnded();
 
-    expect(handlers.setActive).toHaveBeenCalledWith(false);
-    expect(handlers.setMessage).toHaveBeenCalledWith(
+    expect(handlers.setActive, 'sessionEnded(): setActive calls').toHaveBeenCalledWith(false);
+    expect(handlers.setMessage, 'sessionEnded(): setMessage calls').toHaveBeenCalledWith(
       expect.objectContaining({ content: 'Debug session ended.' })
     );
   });
@@ -71,14 +77,23 @@ describe('buildDebuggerEvents', () => {
   it('shows compile errors in the console and switches to it', () => {
     events.compileError(['main.c:3: error: oops']);
 
-    expect(handlers.appendConsoleChunks).toHaveBeenCalledWith(['main.c:3: error: oops']);
-    expect(handlers.updateCurrFocusedTab).toHaveBeenCalledWith('2');
+    expect(
+      handlers.appendConsoleChunks,
+      "compileError(['main.c:3: error: oops']): appendConsoleChunks calls"
+    ).toHaveBeenCalledWith(['main.c:3: error: oops']);
+    expect(
+      handlers.updateCurrFocusedTab,
+      "compileError(...): updateCurrFocusedTab calls ('2' is the console tab)"
+    ).toHaveBeenCalledWith('2');
   });
 
   it('records the compiler’s loading status', () => {
     events.compilerStatus({ state: 'loading', done: 1, total: 2 });
 
-    expect(handlers.setCompilerStatus).toHaveBeenCalledWith({
+    expect(
+      handlers.setCompilerStatus,
+      'compilerStatus({ loading, 1/2 }): setCompilerStatus calls'
+    ).toHaveBeenCalledWith({
       state: 'loading',
       done: 1,
       total: 2,
@@ -88,6 +103,9 @@ describe('buildDebuggerEvents', () => {
   it('shows program output in the console', () => {
     events.output('hi');
 
-    expect(handlers.appendConsoleChunks).toHaveBeenCalledWith(['h', 'i']);
+    expect(
+      handlers.appendConsoleChunks,
+      "output('hi'): appendConsoleChunks calls, one chunk per character"
+    ).toHaveBeenCalledWith(['h', 'i']);
   });
 });

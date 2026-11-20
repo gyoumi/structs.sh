@@ -2,7 +2,7 @@
 //! `structs.exit` to the program's functions, and describes their statements,
 //! variables and types in a `structs.debug` section. Whether the calls happen
 //! in the right places, and the variables read right, is tested by running
-//! programs: see client/src/Services/debugger/wasm/recording.test.ts.
+//! programs: see client/src/Services/debugger/wasm/recording.*.test.ts.
 
 use structs_instrumenter::instrument;
 use wasmparser::{Parser, Payload, Validator};
@@ -58,10 +58,13 @@ fn read(wasm: &[u8]) -> (Vec<String>, Vec<String>, Option<String>) {
 #[test]
 fn every_program_comes_out_valid() {
     for (name, wasm) in FIXTURES {
-        let output = instrument(wasm).unwrap_or_else(|error| panic!("{name}: {error}"));
+        let output = instrument(wasm)
+            .unwrap_or_else(|error| panic!("{name}.wasm: instrument() failed: {error}"));
         Validator::new()
             .validate_all(&output)
-            .unwrap_or_else(|error| panic!("{name}: invalid output: {error}"));
+            .unwrap_or_else(|error| {
+                panic!("{name}.wasm: the instrumented module should be valid wasm, but: {error}")
+            });
     }
 }
 
@@ -74,8 +77,14 @@ fn every_program_gains_the_trace_imports_and_keeps_its_exports() {
         let mut expected = imports.clone();
         expected.extend(TRACE_IMPORTS.map(String::from));
         expected.sort();
-        assert_eq!(new_imports, expected, "{name}");
-        assert_eq!(new_exports, exports, "{name}");
+        assert_eq!(
+            new_imports, expected,
+            "{name}.wasm: imports after instrumenting should be the original ones plus the structs.* trace imports"
+        );
+        assert_eq!(
+            new_exports, exports,
+            "{name}.wasm: exports after instrumenting should be unchanged"
+        );
     }
 }
 
@@ -90,7 +99,11 @@ fn debug_section(wasm: &[u8]) -> String {
 fn the_programs_functions_are_listed_by_their_c_names() {
     // clang compiles `int main(void)` as `__original_main`; the debug info
     // still calls it `main`.
-    assert!(debug_section(FIXTURES[1].1).starts_with(r#"{"functions":["square","main"],"#));
+    let debug = debug_section(FIXTURES[1].1);
+    assert!(
+        debug.starts_with(r#"{"functions":["square","main"],"#),
+        "functions.wasm structs.debug should start by listing the functions square and main; got {debug}"
+    );
 }
 
 #[test]
@@ -100,11 +113,11 @@ fn each_statement_lists_the_variables_in_scope_with_where_they_live() {
     // square's parameter, then its local, each at an offset from the frame.
     assert!(
         debug.contains(r#"{"line":3,"variables":[{"name":"x","type":0,"offset":12},{"name":"result","type":0,"offset":8}]}"#),
-        "{debug}"
+        "functions.wasm structs.debug: square's line 3 should list x at frame offset 12 and result at 8; got {debug}"
     );
     assert!(
         debug.contains(r#"{"kind":"int","name":"int","size":4,"signed":true}"#),
-        "{debug}"
+        "functions.wasm structs.debug: type 0 should be a signed 4-byte int; got {debug}"
     );
 }
 
@@ -114,13 +127,13 @@ fn types_are_named_in_c_syntax() {
 
     assert!(
         debug.contains(r#""kind":"pointer","name":"struct node *","size":4,"to":"#),
-        "{debug}"
+        "linked_list.wasm structs.debug: should name the 4-byte pointer type struct node *; got {debug}"
     );
     assert!(
         debug.contains(
             r#""kind":"struct","name":"struct node","size":8,"fields":[{"name":"value","type":"#
         ),
-        "{debug}"
+        "linked_list.wasm structs.debug: should name the 8-byte struct node, value first; got {debug}"
     );
 }
 
@@ -135,12 +148,22 @@ fn a_program_without_debug_info_is_left_alone() {
 
     let (imports, _, debug) = read(&instrument(&wasm).unwrap());
 
-    assert!(imports.is_empty());
-    assert_eq!(debug, None);
+    assert!(
+        imports.is_empty(),
+        "a module with no debug info: imports after instrumenting should be none; got {imports:?}"
+    );
+    assert_eq!(
+        debug, None,
+        "a module with no debug info: should get no structs.debug section"
+    );
 }
 
 #[test]
 fn bytes_that_are_not_wasm_are_an_error() {
-    let error = instrument(b"int main(void) { return 0; }").unwrap_err();
-    assert!(!error.is_empty());
+    let error = instrument(b"int main(void) { return 0; }")
+        .expect_err("instrument(C source text as bytes) should fail");
+    assert!(
+        !error.is_empty(),
+        "instrument(C source text as bytes): the error should say why"
+    );
 }

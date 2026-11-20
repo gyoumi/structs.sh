@@ -19,13 +19,22 @@ describe('createWorkerCompiler', () => {
     const worker = createFakeWorker();
     const create = vi.fn(() => worker as unknown as Worker);
     const compiler = createWorkerCompiler(create);
-    expect(create).not.toHaveBeenCalled();
+    expect(
+      create,
+      'createWorkerCompiler(), before any compile: workers created'
+    ).not.toHaveBeenCalled();
 
     const compiled = compiler.compile('main.c', 'int main(void) { return 0; }');
     worker.answer({ id: 0, result: { ok: false, errors: 'oops' } });
 
-    await expect(compiled).resolves.toEqual({ ok: false, errors: 'oops' });
-    expect(create).toHaveBeenCalledOnce();
+    await expect(
+      compiled,
+      "compile('main.c'), worker answered request 0 with errors 'oops': result"
+    ).resolves.toEqual({
+      ok: false,
+      errors: 'oops',
+    });
+    expect(create, "compile('main.c'): workers created").toHaveBeenCalledOnce();
   });
 
   it('answers waiting compiles with an error when the worker fails to load', async () => {
@@ -35,11 +44,17 @@ describe('createWorkerCompiler', () => {
     const compiled = compiler.compile('main.c', '');
     worker.onerror?.({ message: 'network error' });
 
-    await expect(compiled).resolves.toEqual({
+    await expect(
+      compiled,
+      "compile('main.c'), then the worker raised 'network error': result"
+    ).resolves.toEqual({
       ok: false,
       errors: 'The compiler failed to load: network error',
     });
-    expect(worker.terminate).toHaveBeenCalledOnce();
+    expect(
+      worker.terminate,
+      "the worker raised 'network error': terminate calls"
+    ).toHaveBeenCalledOnce();
   });
 
   it('answers with an error when the worker cannot be started', async () => {
@@ -47,7 +62,10 @@ describe('createWorkerCompiler', () => {
       throw new Error('Module workers are not supported');
     });
 
-    await expect(compiler.compile('main.c', '')).resolves.toEqual({
+    await expect(
+      compiler.compile('main.c', ''),
+      "compile('main.c'), creating the worker threw 'Module workers are not supported': result"
+    ).resolves.toEqual({
       ok: false,
       errors: expect.stringContaining('Module workers are not supported'),
     });
@@ -60,7 +78,10 @@ describe('createWorkerCompiler', () => {
     });
     const compiler = createWorkerCompiler(() => worker as unknown as Worker);
 
-    await expect(compiler.compile('main.c', '')).resolves.toEqual({
+    await expect(
+      compiler.compile('main.c', ''),
+      "compile('main.c'), postMessage threw 'could not clone': result"
+    ).resolves.toEqual({
       ok: false,
       errors: expect.stringContaining('could not clone'),
     });
@@ -75,11 +96,11 @@ describe('createWorkerCompiler', () => {
     worker.answer({ status: { state: 'loading', done: 1, total: 2 } });
     worker.answer({ status: { state: 'ready' } });
 
-    expect(worker.posted).toEqual([{ load: true }]);
-    expect(onStatus.mock.calls).toEqual([
-      [{ state: 'loading', done: 1, total: 2 }],
-      [{ state: 'ready' }],
-    ]);
+    expect(worker.posted, 'preload(): messages posted to the worker').toEqual([{ load: true }]);
+    expect(
+      onStatus.mock.calls,
+      'preload(), the worker sent loading 1/2 then ready: statuses reported'
+    ).toEqual([[{ state: 'loading', done: 1, total: 2 }], [{ state: 'ready' }]]);
   });
 
   it('reports a failed load when the worker cannot be started for preloading', () => {
@@ -90,7 +111,10 @@ describe('createWorkerCompiler', () => {
 
     compiler.preload(onStatus);
 
-    expect(onStatus).toHaveBeenCalledWith({ state: 'failed' });
+    expect(
+      onStatus,
+      "preload(), creating the worker threw 'Module workers are not supported': statuses reported"
+    ).toHaveBeenCalledWith({ state: 'failed' });
   });
 
   it('stops the worker and settles waiting compiles when disposed', async () => {
@@ -100,7 +124,12 @@ describe('createWorkerCompiler', () => {
     const compiled = compiler.compile('main.c', '');
     compiler.dispose();
 
-    expect(worker.terminate).toHaveBeenCalledOnce();
-    await expect(compiled).resolves.toMatchObject({ ok: false });
+    expect(
+      worker.terminate,
+      "dispose() during compile('main.c'): terminate calls"
+    ).toHaveBeenCalledOnce();
+    await expect(compiled, "dispose() during compile('main.c'): result").resolves.toMatchObject({
+      ok: false,
+    });
   });
 });

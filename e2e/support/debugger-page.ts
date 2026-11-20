@@ -1,14 +1,11 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import { Drawing, nodeValues, type DrawnStep, type PointerLabel } from './drawing';
+
+export type { DrawnStep, PointerLabel } from './drawing';
 
 /** What the page has shown of the compiler's download so far. */
 type CompilerDownload = { seen: boolean; finished: boolean; lastStatus: string };
-
-/** A pointer-name label and the value of the node it is drawn beside, or null if it is beside none. */
-export type PointerLabel = { name: string; node: string | null };
-
-/** One step's drawing: the highlighted line, every label, and the labels that are node values. */
-export type DrawnStep = { line: number | null; labels: string[]; nodes: string[] };
 
 /**
  * Console errors that are not the app's fault and are ignored by
@@ -43,7 +40,10 @@ export class DebuggerPage {
   private readonly lineAfterStep: (number | null)[] = [];
   private readonly errors: { step: number; text: string }[] = [];
 
+  private readonly drawing: Drawing;
+
   constructor(readonly page: Page) {
+    this.drawing = new Drawing(this.visualiser);
     // Listening from the start catches errors on load and between steps too.
     page.on('console', (message) => {
       if (message.type() !== 'error') return;
@@ -323,39 +323,12 @@ export class DebuggerPage {
 
   /** Labels drawn in the visualiser: node values and pointer names. */
   async visualisedLabels(): Promise<string[]> {
-    return this.visualiser.locator('svg text').allTextContents();
+    return this.drawing.labels();
   }
 
-  /**
-   * The labels a user can see once the drawing has stopped changing. The
-   * visualiser redraws a moment after a step and fades nodes in and out, and
-   * a node it hides stays in the page at opacity 0, so this counts a label
-   * only when it is at least half opaque. Settled means the same labels, at
-   * the same opacity, in reads `stableMs` apart.
-   */
+  /** The labels a user can see once the drawing has stopped changing (see Drawing). */
   async settledVisibleLabels(stableMs = 500, timeoutMs = 10_000): Promise<string[]> {
-    // Both start unread, so settling takes two real reads `stableMs` apart.
-    let previous: string | undefined;
-    let current: string | undefined;
-    try {
-      await expect
-        .poll(
-          async () => {
-            previous = current;
-            current = JSON.stringify(await this.labelsWithOpacity());
-            return previous !== undefined && current === previous;
-          },
-          { intervals: [stableMs], timeout: timeoutMs },
-        )
-        .toBe(true);
-    } catch {
-      throw new Error(
-        `the visualiser's drawing kept changing for ${timeoutMs}ms; last labels and opacities: ${current}`,
-      );
-    }
-    return (JSON.parse(current ?? '[]') as { text: string; opacity: number }[])
-      .filter(({ opacity }) => opacity >= 0.5)
-      .map(({ text }) => text);
+    return this.drawing.settledVisibleLabels(stableMs, timeoutMs);
   }
 
   /**
@@ -376,51 +349,16 @@ export class DebuggerPage {
   }
 
   /**
-   * The pointer names drawn once the drawing has stopped moving, each with
-   * the node it points at, sorted by name. The visualiser draws a pointer as
-   * an arrow below its node with the name under it, so a name belongs to the
-   * node above it that is nearest horizontally. Names stacked for one node
-   * ("head," over "n") each count, without the comma.
-   */
-  async settledPointerLabels(stableMs = 500, timeoutMs = 10_000): Promise<PointerLabel[]> {
-    let previous: string | undefined;
-    let current: string | undefined;
-    try {
-      await expect
-        .poll(
-          async () => {
-            previous = current;
-            current = JSON.stringify(await this.labelsWithPlace());
-            return previous !== undefined && current === previous;
-          },
-          { intervals: [stableMs], timeout: timeoutMs },
-        )
-        .toBe(true);
-    } catch {
-      throw new Error(`the visualiser's drawing kept moving for ${timeoutMs}ms; last labels: ${current}`);
-    }
-    const visible = (JSON.parse(current ?? '[]') as { text: string; opacity: number; x: number; y: number }[]).filter(
-      ({ opacity }) => opacity >= 0.5,
-    );
-    const isNode = (text: string) => DebuggerPage.nodeValues([text]).length === 1;
-    const nodes = visible.filter(({ text }) => isNode(text));
-    return visible
-      .filter(({ text }) => !isNode(text) && text.trim() !== '')
-      .map((label) => {
-        const above = nodes
-          .filter((node) => node.y < label.y)
-          .sort((a, b) => Math.abs(a.x - label.x) - Math.abs(b.x - label.x) || b.y - a.y);
-        return { name: label.text.replace(/,$/, ''), node: above[0]?.text ?? null };
-      })
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }
-
-  /**
    * The labels that are node values: a number, or "??" for a node whose value
    * isn't set yet. The others are pointer names ("list", "head, n").
    */
   static nodeValues(labels: string[]): string[] {
-    return labels.filter((label) => /^(-?\d+|\?\?)$/.test(label));
+    return nodeValues(labels);
+  }
+
+  /** The pointer names drawn once the drawing has stopped moving, each with the node it points at (see Drawing). */
+  async settledPointerLabels(stableMs = 500, timeoutMs = 10_000): Promise<PointerLabel[]> {
+    return this.drawing.settledPointerLabels(stableMs, timeoutMs);
   }
 
   /**
@@ -476,43 +414,6 @@ export class DebuggerPage {
   private async consoleForError(): Promise<string> {
     const text = await this.console.innerText({ timeout: 2_000 }).catch(() => null);
     return text === null ? '(the console could not be read)' : JSON.stringify(text.trim());
-  }
-
-  /**
-   * Each label in the visualiser with how opaque it is, counting its
-   * ancestors' opacity, rounded to 0.01. Hidden or undisplayed counts as 0.
-   */
-  private async labelsWithOpacity(): Promise<{ text: string; opacity: number }[]> {
-    return this.visualiser.locator('svg text').evaluateAll((labels) =>
-      labels.map((label) => {
-        let opacity = 1;
-        for (let el: Element | null = label; el; el = el.parentElement) {
-          const style = getComputedStyle(el);
-          opacity *= style.display === 'none' || style.visibility === 'hidden' ? 0 : Number(style.opacity);
-        }
-        return { text: label.textContent ?? '', opacity: Math.round(opacity * 100) / 100 };
-      }),
-    );
-  }
-
-  /** Each label with its opacity (as in labelsWithOpacity) and the centre of its box on screen, rounded to 1px. */
-  private async labelsWithPlace(): Promise<{ text: string; opacity: number; x: number; y: number }[]> {
-    return this.visualiser.locator('svg text').evaluateAll((labels) =>
-      labels.map((label) => {
-        let opacity = 1;
-        for (let el: Element | null = label; el; el = el.parentElement) {
-          const style = getComputedStyle(el);
-          opacity *= style.display === 'none' || style.visibility === 'hidden' ? 0 : Number(style.opacity);
-        }
-        const box = label.getBoundingClientRect();
-        return {
-          text: label.textContent ?? '',
-          opacity: Math.round(opacity * 100) / 100,
-          x: Math.round(box.x + box.width / 2),
-          y: Math.round(box.y + box.height / 2),
-        };
-      }),
-    );
   }
 
   private recordLine(line: number | null) {

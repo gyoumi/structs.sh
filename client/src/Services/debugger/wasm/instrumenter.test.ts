@@ -15,7 +15,7 @@ describe('compileAndInstrument', () => {
     'gives a program that still runs and prints its output',
     async () => {
       const result = await compileAndInstrument('hello.c', program('hello.c'));
-      expect(result.ok).toBe(true);
+      expect(result, 'hello.c: compile and instrument result').toMatchObject({ ok: true });
       if (!result.ok) return;
 
       let output = '';
@@ -25,8 +25,10 @@ describe('compileAndInstrument', () => {
         },
       });
 
-      expect(output).toBe('hello from structs\n');
-      expect(exitCode).toBe(0);
+      expect(output, 'hello.c instrumented, run without a recorder: output').toBe(
+        'hello from structs\n'
+      );
+      expect(exitCode, 'hello.c instrumented, run without a recorder: exit code').toBe(0);
     },
     CLANG_TIMEOUT
   );
@@ -36,9 +38,11 @@ describe('compileAndInstrument', () => {
     async () => {
       const result = await compileAndInstrument('compile_error.c', program('compile_error.c'));
 
-      expect(result.ok).toBe(false);
+      expect(result, 'compile_error.c: compile and instrument result').toMatchObject({ ok: false });
       if (result.ok) return;
-      expect(result.errors).toContain('undeclared_variable');
+      expect(result.errors, 'compile_error.c: errors, as clang gave them').toContain(
+        'undeclared_variable'
+      );
     },
     CLANG_TIMEOUT
   );
@@ -48,6 +52,9 @@ describe('instrumentProgram', () => {
   it('reports bytes that are not a wasm program as an error', async () => {
     const notWasm = new TextEncoder().encode('int main(void) { return 0; }');
 
-    await expect(instrumentProgram(notWasm)).rejects.toThrow(/instrument/i);
+    await expect(
+      instrumentProgram(notWasm),
+      'instrumentProgram(C source text as bytes): how it settles'
+    ).rejects.toThrow(/instrument/i);
   });
 });

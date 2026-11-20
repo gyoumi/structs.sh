@@ -8,12 +8,21 @@ describe('loadClang', () => {
 
     await loadClang(progress);
     const [done, total] = progress.mock.lastCall!;
-    expect(total).toBeGreaterThan(50_000_000);
-    expect(done).toBe(total);
+    expect(
+      total,
+      'loadClang(), first load: total bytes in the last progress report'
+    ).toBeGreaterThan(50_000_000);
+    expect(
+      done,
+      `loadClang(), first load: bytes done in the last progress report, of ${total}`
+    ).toBe(total);
 
     progress.mockClear();
     await loadClang(progress);
     await compileC('main.c', 'int main(void) { return 0; }\n');
-    expect(progress).not.toHaveBeenCalled();
+    expect(
+      progress,
+      'loadClang() again, then a compile, once clang has loaded: progress reports'
+    ).not.toHaveBeenCalled();
   }, 60_000);
 });

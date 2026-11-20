@@ -42,7 +42,7 @@ CI and `client/Dockerfile.prod` build it the same way.
 cd instrumenter
 cargo test                                   # tests/ uses programs compiled by clang
 # Where the calls land is tested by running programs:
-# client/src/Services/debugger/wasm/recording.test.ts
+# client/src/Services/debugger/wasm/recording.*.test.ts
 cargo fmt --check
 cargo clippy --all-targets -- -D warnings
 ```

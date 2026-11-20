@@ -1,61 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Recording } from './recording';
-import type { RunnerMessage, RunRequest } from './runRequest';
-import {
-  createStandbyRunner,
-  RecordResult,
-  recordInWorker,
-  RunnerWorker,
-  StandbyRunner,
-} from './workerRunner';
+import { FakeRunnerWorker, RECORDING, TIME_LIMIT, WASM } from './__tests__/runnerTestKit';
+import { RecordResult, recordInWorker } from './workerRunner';
 
-/** Stands in for the runner worker, so a test can say what it sends back. */
-class FakeWorker implements RunnerWorker {
-  onmessage: RunnerWorker['onmessage'] = null;
-
-  onerror: RunnerWorker['onerror'] = null;
-
-  received: RunRequest[] = [];
-
-  terminated = false;
-
-  postMessage(request: RunRequest) {
-    this.received.push(request);
-  }
-
-  terminate() {
-    this.terminated = true;
-  }
-
-  send(message: RunnerMessage) {
-    this.onmessage?.({ data: message } as MessageEvent<RunnerMessage>);
-  }
-
-  crash(message: string) {
-    this.onerror?.({ message } as ErrorEvent);
-  }
-
-  /**
-   * Says the worker's script and imports have loaded. The message is
-   * `{ type: 'ready' }`, which runner.worker.ts posts once it has loaded.
-   */
-  sendReady() {
-    this.onmessage?.({ data: { type: 'ready' } } as unknown as MessageEvent<RunnerMessage>);
-  }
-}
-
-const WASM = new Uint8Array([0, 97, 115, 109]);
-const TIME_LIMIT = 5_000;
-const RECORDING: Recording = {
-  steps: [{ function: 'main', line: 2, depth: 0, output: 'hi\n', variables: {}, heap: {} }],
-  outputBeforeFirstStep: '',
-  end: { exitCode: 3 },
-  types: [],
-};
+// recordInWorker on its own worker each run. The standby runner, which keeps
+// a worker ready between runs, is in workerRunner.standby.test.ts and
+// workerRunner.whenReady.test.ts.
 
 /** Starts a recording on a fake worker. */
 const startRun = () => {
-  const worker = new FakeWorker();
+  const worker = new FakeRunnerWorker();
   let result: RecordResult | undefined;
   const done = recordInWorker(WASM, { timeLimitMs: TIME_LIMIT }, () => worker).then((settled) => {
     result = settled;
@@ -125,31 +78,25 @@ describe('recordInWorker', () => {
     });
   });
 
-  it('resolves with an error when the worker reports one', async () => {
+  it.each([
+    {
+      name: "the worker sends { type: 'error', message: 'invalid module' }",
+      fail: (worker: FakeRunnerWorker) => worker.send({ type: 'error', message: 'invalid module' }),
+      text: 'invalid module',
+    },
+    {
+      // Such as failing to load its script.
+      name: "the worker raises an error event 'Failed to fetch runner.worker.js'",
+      fail: (worker: FakeRunnerWorker) => worker.crash('Failed to fetch runner.worker.js'),
+      text: 'Failed to fetch runner.worker.js',
+    },
+  ])('resolves with an error when $name', async ({ name, fail, text }) => {
     const run = startRun();
 
-    run.worker.send({ type: 'error', message: 'invalid module' });
+    fail(run.worker);
 
-    const result = await run.done;
-    expect(result, "worker sent { type: 'error', message: 'invalid module' }: result").toEqual({
-      error: expect.stringContaining('invalid module'),
-    });
-    expect(run.worker.terminated, 'worker sent an error message: worker terminated').toBe(true);
-  });
-
-  it('resolves with an error when the worker itself fails, such as failing to load', async () => {
-    const run = startRun();
-
-    run.worker.crash('Failed to fetch runner.worker.js');
-
-    const result = await run.done;
-    expect(
-      result,
-      "worker raised an error event 'Failed to fetch runner.worker.js': result"
-    ).toEqual({
-      error: expect.stringContaining('Failed to fetch runner.worker.js'),
-    });
-    expect(run.worker.terminated, 'worker raised an error event: worker terminated').toBe(true);
+    expect(await run.done, `${name}: result`).toEqual({ error: expect.stringContaining(text) });
+    expect(run.worker.terminated, `${name}: worker terminated`).toBe(true);
   });
 
   it('resolves with an error when the worker cannot be created', async () => {
@@ -163,7 +110,7 @@ describe('recordInWorker', () => {
   });
 
   it('stops the program when the run is cancelled', async () => {
-    const worker = new FakeWorker();
+    const worker = new FakeRunnerWorker();
     const controller = new AbortController();
     const done = recordInWorker(
       WASM,
@@ -178,7 +125,7 @@ describe('recordInWorker', () => {
   });
 
   it('does not start a run that was cancelled before it began', async () => {
-    const createWorker = vi.fn(() => new FakeWorker());
+    const createWorker = vi.fn(() => new FakeRunnerWorker());
     const controller = new AbortController();
     controller.abort();
 
@@ -196,7 +143,7 @@ describe('recordInWorker', () => {
   });
 
   it('uses a new worker for every run', async () => {
-    const createWorker = vi.fn(() => new FakeWorker());
+    const createWorker = vi.fn(() => new FakeRunnerWorker());
     const options = { timeLimitMs: TIME_LIMIT };
 
     const runs = [
@@ -210,516 +157,5 @@ describe('recordInWorker', () => {
       createWorker,
       'two recordInWorker runs given createWorker: createWorker calls'
     ).toHaveBeenCalledTimes(2);
-  });
-});
-
-/** A standby runner whose workers are fakes, listed in the order it started them. */
-const startStandby = () => {
-  const created: FakeWorker[] = [];
-  const standby = createStandbyRunner(() => {
-    const worker = new FakeWorker();
-    created.push(worker);
-    return worker;
-  });
-  return { standby, created };
-};
-
-/** Which of the standby runner's workers, by start order, a message posted to `lent` reaches. */
-const reachedBy = (lent: RunnerWorker, created: FakeWorker[]) => {
-  const before = created.map((worker) => worker.received.length);
-  lent.postMessage({ wasm: WASM });
-  return created.findIndex((worker, i) => worker.received.length > before[i]);
-};
-
-/**
- * Checks that the run just started went to the worker the standby runner started ahead
- * (the first one created), so a test that answers on that worker fails here
- * with a message, rather than with a TypeError or a hang.
- */
-const expectSentToWorkerStartedAhead = (
-  created: FakeWorker[],
-  programs: number,
-  context: string
-) => {
-  expect(
-    created.length,
-    `${context}: workers started (one should have been started ahead)`
-  ).toBeGreaterThanOrEqual(1);
-  expect(created[0].received.length, `${context}: programs sent to the worker started ahead`).toBe(
-    programs
-  );
-};
-
-describe('createStandbyRunner', () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it('starts one worker as soon as it is created, before any run', () => {
-    const { created } = startStandby();
-
-    expect(created.length, 'createStandbyRunner(), no take() yet: workers started').toBe(1);
-    expect(
-      created[0].terminated,
-      'createStandbyRunner(), no take() yet: started worker terminated'
-    ).toBe(false);
-  });
-
-  it('take() hands out the worker it started ahead, without starting another', () => {
-    const { standby, created } = startStandby();
-
-    const lent = standby.take();
-
-    expect(created.length, 'createStandbyRunner() then take(): workers started in all').toBe(1);
-    expect(
-      reachedBy(lent, created),
-      'createStandbyRunner() then take(): which worker (by start order) a postMessage on the taken one reaches'
-    ).toBe(0);
-  });
-
-  it('keeps a worker that answered once its run ends, for the next run', async () => {
-    const { standby, created } = startStandby();
-    const options = { timeLimitMs: TIME_LIMIT };
-
-    const first = recordInWorker(WASM, options, standby.take);
-    expectSentToWorkerStartedAhead(created, 1, 'recordInWorker(standby.take), run 1');
-    created[0].send({ type: 'recorded', recording: RECORDING });
-    expect(
-      await first,
-      'recordInWorker(standby.take), run 1, worker sent a recording: result'
-    ).toEqual({
-      recording: RECORDING,
-    });
-    expect(
-      created[0].terminated,
-      'run 1 got its recording, then recordInWorker terminated the taken worker: is the real worker terminated'
-    ).toBe(false);
-
-    const second = recordInWorker(WASM, options, standby.take);
-    expect(
-      created.length,
-      'two runs in a row through recordInWorker(standby.take): workers started'
-    ).toBe(1);
-    expect(
-      created[0].received.length,
-      'two runs in a row through recordInWorker(standby.take): programs the one worker was sent'
-    ).toBe(2);
-    created[0].send({ type: 'recorded', recording: RECORDING });
-    expect(await second, 'recordInWorker(standby.take), run 2 on the kept worker: result').toEqual({
-      recording: RECORDING,
-    });
-    expect(created.length, 'after two runs in a row: workers started').toBe(1);
-  });
-
-  it('terminates a worker whose run timed out before it answered, and starts a replacement', async () => {
-    const { standby, created } = startStandby();
-
-    const run = recordInWorker(WASM, { timeLimitMs: TIME_LIMIT }, standby.take);
-    await vi.advanceTimersByTimeAsync(TIME_LIMIT);
-
-    expect(await run, 'recordInWorker(standby.take), worker never answered: result').toEqual({
-      timedOut: true,
-    });
-    expect(
-      created[0].terminated,
-      'run timed out before an answer: is the real worker terminated'
-    ).toBe(true);
-    expect(
-      created.length,
-      'run timed out before an answer: workers started (the first plus a replacement)'
-    ).toBe(2);
-    expect(created[1].terminated, 'run timed out: is the replacement terminated').toBe(false);
-    expect(
-      reachedBy(standby.take(), created),
-      'take() after a timed-out run: which worker (by start order) it hands out'
-    ).toBe(1);
-    expect(created.length, 'take() after a timed-out run: workers started in all').toBe(2);
-  });
-
-  it('terminates a worker whose run was stopped before it answered, and starts a replacement', async () => {
-    const { standby, created } = startStandby();
-    const controller = new AbortController();
-
-    const run = recordInWorker(
-      WASM,
-      { timeLimitMs: TIME_LIMIT, signal: controller.signal },
-      standby.take
-    );
-    controller.abort();
-
-    expect(await run, 'recordInWorker(standby.take), stopped before an answer: result').toEqual({
-      stopped: true,
-    });
-    expect(
-      created[0].terminated,
-      'run stopped before an answer: is the real worker terminated'
-    ).toBe(true);
-    expect(
-      created.length,
-      'run stopped before an answer: workers started (the first plus a replacement)'
-    ).toBe(2);
-    expect(created[1].terminated, 'run stopped: is the replacement terminated').toBe(false);
-  });
-
-  it('terminates and replaces a worker that fails during a run', async () => {
-    const { standby, created } = startStandby();
-
-    const run = recordInWorker(WASM, { timeLimitMs: TIME_LIMIT }, standby.take);
-    expectSentToWorkerStartedAhead(
-      created,
-      1,
-      'recordInWorker(standby.take), before the worker fails'
-    );
-    created[0].crash('worker crashed mid-run');
-
-    expect(await run, 'recordInWorker(standby.take), worker raised an error event: result').toEqual(
-      {
-        error: expect.stringContaining('worker crashed mid-run'),
-      }
-    );
-    expect(created[0].terminated, 'worker raised an error during its run: is it terminated').toBe(
-      true
-    );
-    expect(
-      created.length,
-      'worker raised an error during its run: workers started (the first plus a replacement)'
-    ).toBe(2);
-    expect(created[1].terminated, 'worker failed mid-run: is the replacement terminated').toBe(
-      false
-    );
-    expect(
-      reachedBy(standby.take(), created),
-      'take() after a run whose worker failed: which worker (by start order) it hands out'
-    ).toBe(1);
-  });
-
-  it('drops an idle worker that fails, such as its script not loading, and the next take() starts a new one', () => {
-    const { standby, created } = startStandby();
-
-    expect(
-      created.length,
-      'createStandbyRunner(): workers started ahead, before the idle one fails'
-    ).toBe(1);
-    created[0].crash('Failed to fetch runner.worker.js');
-
-    expect(created[0].terminated, 'idle ready worker raised an error event: is it terminated').toBe(
-      true
-    );
-
-    const lent = standby.take();
-    expect(created.length, 'take() after the idle worker failed: workers started in all').toBe(2);
-    expect(
-      reachedBy(lent, created),
-      'take() after the idle worker failed: which worker (by start order) it hands out (0 is the failed one)'
-    ).toBe(1);
-  });
-
-  it('dispose() terminates the ready worker and starts no replacement', () => {
-    const { standby, created } = startStandby();
-
-    expect(created.length, 'createStandbyRunner(): workers started ahead, before dispose()').toBe(
-      1
-    );
-    standby.dispose();
-
-    expect(created[0].terminated, 'dispose() with an idle ready worker: is it terminated').toBe(
-      true
-    );
-    expect(created.length, 'dispose(): workers started in all (no replacement)').toBe(1);
-  });
-
-  it('after dispose(), a run that ends terminates its worker and starts no replacement', async () => {
-    const { standby, created } = startStandby();
-
-    const answered = recordInWorker(WASM, { timeLimitMs: TIME_LIMIT }, standby.take);
-    expectSentToWorkerStartedAhead(created, 1, 'recordInWorker(standby.take), before dispose()');
-    standby.dispose();
-    created[0].send({ type: 'recorded', recording: RECORDING });
-    expect(await answered, 'take(), dispose(), then the worker sent a recording: result').toEqual({
-      recording: RECORDING,
-    });
-    expect(
-      created[0].terminated,
-      'run answered after dispose(): is its worker terminated (not kept for another run)'
-    ).toBe(true);
-
-    const unanswered = recordInWorker(WASM, { timeLimitMs: TIME_LIMIT }, standby.take);
-    standby.dispose();
-    await vi.advanceTimersByTimeAsync(TIME_LIMIT);
-    expect(await unanswered, 'take() after dispose(), worker never answered: result').toEqual({
-      timedOut: true,
-    });
-    expect(
-      created.length,
-      'two runs ended after dispose(): workers started in all (one per take(), no replacements)'
-    ).toBe(2);
-  });
-});
-
-/**
- * The standby runner's whenReady(): settles once the worker it holds for the next run
- * has loaded (resolves), or can't load (resolves or rejects, as long as it
- * doesn't hang). Reached through a cast so this file type-checks before the
- * standby runner has it.
- */
-const whenReadyOf = (standby: StandbyRunner) => {
-  const { whenReady } = standby as StandbyRunner & { whenReady?: () => Promise<void> };
-  expect(
-    typeof whenReady,
-    'createStandbyRunner(): standby.whenReady, which says when the worker it holds has loaded'
-  ).toBe('function');
-  return whenReady!();
-};
-
-/** Whether a promise has settled once pending work has run: 'pending', 'resolved' or 'rejected'. */
-const settledState = async (promise: Promise<unknown>) => {
-  let state = 'pending';
-  promise.then(
-    () => {
-      state = 'resolved';
-    },
-    () => {
-      state = 'rejected';
-    }
-  );
-  await vi.advanceTimersByTimeAsync(0);
-  return state;
-};
-
-describe('createStandbyRunner, knowing when its worker has loaded', () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it('whenReady() waits until the worker it started ahead says it has loaded', async () => {
-    const { standby, created } = startStandby();
-    const ready = whenReadyOf(standby);
-
-    expect(
-      await settledState(ready),
-      "createStandbyRunner(), worker started but has not sent { type: 'ready' }: whenReady()"
-    ).toBe('pending');
-
-    created[0].sendReady();
-
-    expect(
-      await settledState(ready),
-      "createStandbyRunner(), then the worker sent { type: 'ready' } while idle: whenReady()"
-    ).toBe('resolved');
-  });
-
-  it('whenReady() settles, rather than hanging, when the worker it holds fails to load', async () => {
-    const { standby, created } = startStandby();
-    const ready = whenReadyOf(standby);
-
-    created[0].crash('Failed to fetch runner.worker.js');
-
-    expect(
-      ['resolved', 'rejected'],
-      'createStandbyRunner(), idle worker raised an error event before it loaded: whenReady() should have settled'
-    ).toContain(await settledState(ready));
-  });
-
-  it('whenReady() settles, rather than hanging, when no worker can be started', async () => {
-    const standby = createStandbyRunner(() => {
-      throw new Error('Workers are not supported');
-    });
-
-    expect(
-      ['resolved', 'rejected'],
-      "createStandbyRunner() whose createWorker throws 'Workers are not supported': whenReady() should have settled"
-    ).toContain(await settledState(whenReadyOf(standby)));
-  });
-
-  it('a run started before its worker has loaded waits, then gets its recording', async () => {
-    const { standby, created } = startStandby();
-
-    const run = recordInWorker(WASM, { timeLimitMs: TIME_LIMIT }, standby.take);
-    expectSentToWorkerStartedAhead(
-      created,
-      1,
-      'recordInWorker(standby.take) before the worker loaded'
-    );
-    created[0].sendReady();
-    expect(
-      await settledState(run),
-      "run started before the worker loaded, then the worker sent { type: 'ready' }: the run should still be waiting for its recording"
-    ).toBe('pending');
-    created[0].send({ type: 'recorded', recording: RECORDING });
-
-    expect(
-      await run,
-      "run started before the worker loaded; worker sent { type: 'ready' }, then a recording: result"
-    ).toEqual({ recording: RECORDING });
-  });
-
-  it('a worker that only said it loaded has not answered: a run that times out still terminates and replaces it', async () => {
-    const { standby, created } = startStandby();
-
-    const run = recordInWorker(WASM, { timeLimitMs: TIME_LIMIT }, standby.take);
-    expectSentToWorkerStartedAhead(
-      created,
-      1,
-      'recordInWorker(standby.take) before the worker loaded'
-    );
-    created[0].sendReady();
-    await vi.advanceTimersByTimeAsync(TIME_LIMIT);
-
-    expect(
-      await run,
-      "worker sent { type: 'ready' } but no recording within the time limit: result"
-    ).toEqual({ timedOut: true });
-    expect(
-      created[0].terminated,
-      "worker sent only { type: 'ready' }, then the run timed out: is the real worker terminated"
-    ).toBe(true);
-    expect(created.length, 'run timed out: workers started (the first plus a replacement)').toBe(2);
-  });
-
-  it('whenReady() after a worker was replaced waits for the replacement to load', async () => {
-    const { standby, created } = startStandby();
-    created[0].sendReady();
-    const run = recordInWorker(WASM, { timeLimitMs: TIME_LIMIT }, standby.take);
-    await vi.advanceTimersByTimeAsync(TIME_LIMIT);
-    await run;
-    expect(created.length, 'run timed out: workers started (the first plus a replacement)').toBe(2);
-
-    const ready = whenReadyOf(standby);
-    expect(
-      await settledState(ready),
-      "replacement started after a timed-out run, not yet sent { type: 'ready' }: whenReady()"
-    ).toBe('pending');
-
-    created[1].sendReady();
-    expect(await settledState(ready), "replacement sent { type: 'ready' }: whenReady()").toBe(
-      'resolved'
-    );
-  });
-
-  describe('a whenReady() promise taken before a run takes the worker that has not loaded yet', () => {
-    it('settles when the worker says it has loaded during the run', async () => {
-      const { standby, created } = startStandby();
-      const ready = whenReadyOf(standby);
-
-      const run = recordInWorker(WASM, { timeLimitMs: TIME_LIMIT }, standby.take);
-      expectSentToWorkerStartedAhead(
-        created,
-        1,
-        'recordInWorker(standby.take) after whenReady(), before the worker loaded'
-      );
-      created[0].sendReady();
-
-      expect(
-        ['resolved', 'rejected'],
-        "whenReady() called, then a run took the unloaded worker, then it sent { type: 'ready' } mid-run: the earlier whenReady() promise should have settled"
-      ).toContain(await settledState(ready));
-
-      created[0].send({ type: 'recorded', recording: RECORDING });
-      expect(await run, 'same run, worker then sent a recording: result').toEqual({
-        recording: RECORDING,
-      });
-    });
-
-    it('settles when the worker answers the run without having said it loaded', async () => {
-      const { standby, created } = startStandby();
-      const ready = whenReadyOf(standby);
-
-      const run = recordInWorker(WASM, { timeLimitMs: TIME_LIMIT }, standby.take);
-      expectSentToWorkerStartedAhead(
-        created,
-        1,
-        'recordInWorker(standby.take) after whenReady(), before the worker loaded'
-      );
-      created[0].send({ type: 'recorded', recording: RECORDING });
-      expect(await run, "worker sent a recording, never { type: 'ready' }: result").toEqual({
-        recording: RECORDING,
-      });
-
-      expect(
-        ['resolved', 'rejected'],
-        "whenReady() called, then a run took the unloaded worker, which answered with a recording (no { type: 'ready' }): the earlier whenReady() promise should have settled"
-      ).toContain(await settledState(ready));
-    });
-
-    it('settles when the run times out before anything arrives and the worker is terminated', async () => {
-      const { standby, created } = startStandby();
-      const ready = whenReadyOf(standby);
-
-      const run = recordInWorker(WASM, { timeLimitMs: TIME_LIMIT }, standby.take);
-      expectSentToWorkerStartedAhead(
-        created,
-        1,
-        'recordInWorker(standby.take) after whenReady(), before the worker loaded'
-      );
-      await vi.advanceTimersByTimeAsync(TIME_LIMIT);
-      expect(await run, 'worker sent nothing within the time limit: result').toEqual({
-        timedOut: true,
-      });
-      expect(
-        created[0].terminated,
-        'run timed out before an answer: is the real worker terminated'
-      ).toBe(true);
-
-      // It may settle straight away, or once the replacement has loaded.
-      created[1]?.sendReady();
-      expect(
-        ['resolved', 'rejected'],
-        "whenReady() called, then a run took the unloaded worker and timed out (worker terminated; replacement, if any, then sent { type: 'ready' }): the earlier whenReady() promise should have settled"
-      ).toContain(await settledState(ready));
-    });
-
-    it('settles when the run is stopped before anything arrives and the worker is terminated', async () => {
-      const { standby, created } = startStandby();
-      const ready = whenReadyOf(standby);
-      const controller = new AbortController();
-
-      const run = recordInWorker(
-        WASM,
-        { timeLimitMs: TIME_LIMIT, signal: controller.signal },
-        standby.take
-      );
-      expectSentToWorkerStartedAhead(
-        created,
-        1,
-        'recordInWorker(standby.take) after whenReady(), before the worker loaded'
-      );
-      controller.abort();
-      expect(await run, 'run stopped before the worker sent anything: result').toEqual({
-        stopped: true,
-      });
-      expect(
-        created[0].terminated,
-        'run stopped before an answer: is the real worker terminated'
-      ).toBe(true);
-
-      // It may settle straight away, or once the replacement has loaded.
-      created[1]?.sendReady();
-      expect(
-        ['resolved', 'rejected'],
-        "whenReady() called, then a run took the unloaded worker and was stopped (worker terminated; replacement, if any, then sent { type: 'ready' }): the earlier whenReady() promise should have settled"
-      ).toContain(await settledState(ready));
-    });
-  });
-
-  it('whenReady() resolves for a worker kept after a run, which has loaded', async () => {
-    const { standby, created } = startStandby();
-    created[0].sendReady();
-    const run = recordInWorker(WASM, { timeLimitMs: TIME_LIMIT }, standby.take);
-    created[0].send({ type: 'recorded', recording: RECORDING });
-    await run;
-
-    expect(created.length, 'run answered: workers started (the answered one is kept)').toBe(1);
-    expect(
-      await settledState(whenReadyOf(standby)),
-      'whenReady() after a run whose worker answered and was kept'
-    ).toBe('resolved');
   });
 });

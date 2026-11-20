@@ -15,10 +15,13 @@ describe('compileC', () => {
     async () => {
       const result = await compileC('counter.c', program('counter.c'));
 
-      expect(result.ok).toBe(true);
+      expect(result, 'counter.c: compile result').toMatchObject({ ok: true });
       if (!result.ok) return;
       const module = await WebAssembly.compile(result.wasm);
-      expect(WebAssembly.Module.customSections(module, '.debug_info')).not.toHaveLength(0);
+      expect(
+        WebAssembly.Module.customSections(module, '.debug_info').length,
+        'counter.c: .debug_info sections in the wasm'
+      ).toBeGreaterThan(0);
     },
     CLANG_TIMEOUT
   );
@@ -28,10 +31,14 @@ describe('compileC', () => {
     async () => {
       const result = await compileC('compile_error.c', program('compile_error.c'));
 
-      expect(result.ok).toBe(false);
+      expect(result, 'compile_error.c: compile result').toMatchObject({ ok: false });
       if (result.ok) return;
-      expect(result.errors).toContain('undeclared_variable');
-      expect(result.errors).toContain('compile_error.c:2');
+      expect(result.errors, 'compile_error.c: errors, naming the undeclared identifier').toContain(
+        'undeclared_variable'
+      );
+      expect(result.errors, 'compile_error.c: errors, naming the file and line 2').toContain(
+        'compile_error.c:2'
+      );
     },
     CLANG_TIMEOUT
   );
@@ -42,9 +49,14 @@ describe('compileC', () => {
       const source = 'int helper(void);\nint main(void) { return helper(); }\n';
       const result = await compileC('main.c', source);
 
-      expect(result.ok).toBe(false);
+      expect(
+        result,
+        'main.c calling helper(), declared but never defined: compile result'
+      ).toMatchObject({
+        ok: false,
+      });
       if (result.ok) return;
-      expect(result.errors).toContain('helper');
+      expect(result.errors, 'main.c: link errors, naming helper').toContain('helper');
     },
     CLANG_TIMEOUT
   );
@@ -54,7 +66,12 @@ describe('compileC', () => {
     async () => {
       const result = await compileC('-counter.c', program('counter.c'));
 
-      expect(result.ok).toBe(true);
+      expect(
+        result,
+        '-counter.c (counter.c under a name starting with a dash): compile result'
+      ).toMatchObject({
+        ok: true,
+      });
     },
     CLANG_TIMEOUT
   );
@@ -64,7 +81,7 @@ describe('compileC', () => {
     async () => {
       const result = await compileC('notes', 'int main(void) { return 0; }\n');
 
-      expect(result.ok).toBe(true);
+      expect(result, 'a file named "notes" (no .c): compile result').toMatchObject({ ok: true });
     },
     CLANG_TIMEOUT
   );
