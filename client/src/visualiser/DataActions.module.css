@@ -1,0 +1,56 @@
+.utility {
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--surface);
+  box-shadow: none;
+  color: var(--ink);
+  cursor: pointer;
+  box-sizing: border-box;
+  transition:
+    transform 90ms ease,
+    box-shadow 90ms ease,
+    background-color 140ms ease;
+  font-weight: 400;
+}
+
+.utilities {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  max-width: calc(100% - 90px);
+}
+
+.utility {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  height: 38px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 400;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+@media (max-width: 560px) {
+  .utilityNoun {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .utility {
+    transition: none;
+    animation: none;
+  }
+}
