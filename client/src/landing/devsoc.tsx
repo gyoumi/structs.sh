@@ -3,16 +3,10 @@ import { Theme } from '@/ui/theme';
 
 export type DevsocChar = '<' | 'd' | 'e' | 'v' | '/' | '>';
 
-/** DevSoc's `<dev/>` mark in reading order. */
 export const DEVSOC: DevsocChar[] = ['<', 'd', 'e', 'v', '/', '>'];
 
-/** The vertical centre of the whole mark, so the characters share a baseline when drawn one by one. */
 export const DEVSOC_CY = 82.15;
 
-/**
- * The characters of DevSoc's `<dev/>` mark, traced from the icon at devsoc.app.
- * `cx` is each character's horizontal centre in the icon's coordinates.
- */
 export const devsocGlyphs: Record<DevsocChar, { cx: number; shape: ReactNode }> = {
   '<': {
     cx: 15.25,
@@ -58,7 +52,6 @@ export const devsocGlyphs: Record<DevsocChar, { cx: number; shape: ReactNode }> 
   },
 };
 
-/** DevSoc's own colours: letters in white or charcoal, the brackets and slash in red. */
 export const devsocInk = (char: DevsocChar, theme: Theme) => {
   const letter = char === 'd' || char === 'e' || char === 'v';
   if (theme === 'dark') return letter ? '#FFFFFF' : '#D9807E';

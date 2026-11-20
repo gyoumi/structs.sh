@@ -12,7 +12,6 @@ export const canvasThemes: Record<Theme, Partial<CanvasTheme>> = {
     ...shared,
     ink: '#23225E',
     nodeFill: '#FFFFFF',
-    /* Drawings are thin-lined, so a mid blue reads as faint beside the navy ink. */
     accent: '#2B65A6',
     onAccent: '#FFFFFF',
     danger: '#C53A3A',

@@ -2,6 +2,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useEffectEvent,
   useRef,
   useState,
   useSyncExternalStore,
@@ -34,12 +35,12 @@ export const useCreateSession = (
   const dataKey = data ? `data:${data.join(',')}` : 'random';
   const drawnTheme = useRef(theme);
 
-  // The engine draws into #visualiser-canvas, so attach after the stage has mounted.
-  useEffect(() => {
+  const attach = useEffectEvent(() => {
     drawnTheme.current = theme;
     session.attach(topic.title, theme, data, makeData);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session, topic.title, dataKey]);
+  });
+
+  useEffect(() => attach(), [session, topic.title, dataKey]);
 
   useEffect(() => {
     if (drawnTheme.current === theme) return;
