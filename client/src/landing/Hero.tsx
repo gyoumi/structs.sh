@@ -1,130 +1,38 @@
-import { Fragment, ReactElement, useState } from 'react';
-import { useTheme } from '@/ui/theme';
-import { DEVSOC, DevsocChar, DevsocGlyph, devsocInk } from './devsoc';
+import { ReactElement, useState } from 'react';
+import { DEVSOC, DevsocChar } from './devsoc';
 import { clamp01, progress, useTimeline } from './useTimeline';
+import {
+  Arrow,
+  DROP_DISTANCE,
+  FIRST_NODE_X,
+  Label,
+  Line,
+  Node,
+  NODE_SPACING,
+  Point,
+  ROW_Y,
+  slot,
+} from './HeroDrawing';
 import styles from './Hero.module.css';
 
-const R = 19;
-const X0 = 34;
-const DX = 68;
-const Y = 58;
-const DROP = 68;
 const FADE_MS = 500;
 const SETTLE_MS = 400;
-
-const KEYWORDS = new Set(['void', 'struct', 'char', 'while', 'return']);
-
-interface Point {
-  x: number;
-  y: number;
-}
-
-const slot = (index: number): Point => ({ x: X0 + index * DX, y: Y });
-
-/** A pointer between two nodes' rims, drawn `grow` of the way along. */
-const Arrow = ({
-  from,
-  to,
-  grow = 1,
-  opacity = 1,
-}: {
-  from: Point;
-  to: Point;
-  grow?: number;
-  opacity?: number;
-}) => {
-  if (grow <= 0 || opacity <= 0) return null;
-  const angle = Math.atan2(to.y - from.y, to.x - from.x);
-  const ux = Math.cos(angle);
-  const uy = Math.sin(angle);
-  const sx = from.x + ux * (R + 3);
-  const sy = from.y + uy * (R + 3);
-  const length = Math.hypot(to.x - from.x, to.y - from.y) - (R + 3) - (R + 5);
-  const ex = sx + ux * length * grow;
-  const ey = sy + uy * length * grow;
-  const hx = ex - ux * 7;
-  const hy = ey - uy * 7;
-  const px = -uy * 4.5;
-  const py = ux * 4.5;
-  return (
-    <g className={styles.arrow} opacity={opacity}>
-      <line x1={sx} y1={sy} x2={hx} y2={hy} />
-      <polygon points={`${ex},${ey} ${hx + px},${hy + py} ${hx - px},${hy - py}`} />
-    </g>
-  );
-};
-
-const Node = ({
-  char,
-  at,
-  lit,
-  opacity = 1,
-}: {
-  char: DevsocChar;
-  at: Point;
-  lit: boolean;
-  opacity?: number;
-}) => {
-  const theme = useTheme();
-  if (opacity <= 0) return null;
-  return (
-    <g transform={`translate(${at.x} ${at.y})`} opacity={opacity}>
-      <circle r={R} className={styles.node} data-lit={lit || undefined} />
-      <DevsocGlyph char={char} scale={19 / 44} fill={devsocInk(char, theme)} />
-    </g>
-  );
-};
-
-/** A pointer variable's name under the node it points at. Nodes hanging below the list use a smaller gap. */
-const Label = ({
-  at,
-  opacity,
-  below = 40,
-  children,
-}: {
-  at: Point;
-  opacity: number;
-  below?: number;
-  children: string;
-}) => (
-  <text x={at.x} y={at.y + below} className={styles.label} opacity={opacity}>
-    {children}
-  </text>
-);
-
-const Line = ({ text }: { text: string }) => (
-  <>
-    {text.split(/(\w+)/).map((part, i) =>
-      KEYWORDS.has(part) ? (
-        <span key={i} className={styles.keyword}>
-          {part}
-        </span>
-      ) : (
-        <Fragment key={i}>{part}</Fragment>
-      )
-    )}
-  </>
-);
 
 interface Scene {
   title: string;
   label: string;
   code: { text: string; indent: number }[];
-  /** When each step starts, and the line of `code` it runs. */
   steps: { at: number; line: number }[];
-  /** When the operation has finished and its labels fade. */
   doneAt: number;
   Stage: (props: { time: number }) => ReactElement;
 }
 
-/** Four statements, one every `gap` ms from the start. */
 const statements = (gap: number) => [0, 1, 2, 3].map((line) => ({ at: line * gap, line }));
 
 const INSERT_STEPS = statements(1100);
 const RISE_AT = 4400;
 const RISE_MS = 500;
 
-/** `insert_after` links a new `v` node in, then the list rises into a straight line. */
 const InsertStage = ({ time }: { time: number }) => {
   const [, made, linked, spliced] = INSERT_STEPS.map((step) => step.at);
   const rise = progress(time, RISE_AT, RISE_MS);
@@ -134,7 +42,7 @@ const InsertStage = ({ time }: { time: number }) => {
     '<': slot(0),
     d: slot(1),
     e: slot(2),
-    v: { x: slot(3).x, y: Y + DROP * (1 - rise) },
+    v: { x: slot(3).x, y: ROW_Y + DROP_DISTANCE * (1 - rise) },
     '/': slot(4),
     '>': slot(5),
   };
@@ -165,7 +73,6 @@ const InsertStage = ({ time }: { time: number }) => {
 const DELETE_STEPS = statements(1100);
 const DELETE_DONE = 4400;
 
-/** `delete_after` unlinks a stray second `e` hanging between `e` and `v`, then frees it. */
 const DeleteStage = ({ time }: { time: number }) => {
   const [, targeted, unlinked, freed] = DELETE_STEPS.map((step) => step.at);
   const labels = 1 - progress(time, DELETE_DONE, FADE_MS);
@@ -177,7 +84,7 @@ const DeleteStage = ({ time }: { time: number }) => {
     '/': slot(4),
     '>': slot(5),
   };
-  const stray = { x: (slot(2).x + slot(3).x) / 2, y: Y + DROP };
+  const stray = { x: (slot(2).x + slot(3).x) / 2, y: ROW_Y + DROP_DISTANCE };
   const alive = 1 - progress(time, freed, 400);
   const prev = progress(time, 150, 250) * labels;
   const target = progress(time, targeted, 300);
@@ -208,7 +115,6 @@ const SEARCH_START = 700;
 const SEARCH_STEP_MS = 380;
 const SEARCH_MOVE_MS = 300;
 const HOPS = DEVSOC.length - 1;
-/** When `curr` moves on to each next node. */
 const HOP_AT = Array.from(
   { length: HOPS },
   (_, hop) => SEARCH_START + (2 * hop + 1) * SEARCH_STEP_MS
@@ -223,7 +129,6 @@ const SEARCH_STEPS = [
 ];
 const SEARCH_DONE = SEARCH_STEPS[SEARCH_STEPS.length - 1].at + SEARCH_STEP_MS;
 
-/** `search` walks `curr` along a dimmed list, lighting each node, until it reaches `>`. */
 const SearchStage = ({ time }: { time: number }) => {
   const labels = 1 - progress(time, SEARCH_DONE, FADE_MS);
   const place = HOP_AT.reduce((sum, at) => sum + progress(time, at, SEARCH_MOVE_MS), 0);
@@ -242,7 +147,7 @@ const SearchStage = ({ time }: { time: number }) => {
           opacity={0.3 + 0.7 * clamp01(place - i + 1)}
         />
       ))}
-      <Label at={{ x: X0 + place * DX, y: Y }} opacity={curr}>
+      <Label at={{ x: FIRST_NODE_X + place * NODE_SPACING, y: ROW_Y }} opacity={curr}>
         curr
       </Label>
     </>
@@ -297,10 +202,6 @@ const SCENES: Scene[] = [
   },
 ];
 
-/**
- * An editor running a linked list operation that completes DevSoc's `<dev/>`. Each page load picks
- * one of `SCENES`, and replays on hover keep it.
- */
 const Hero = () => {
   const [scene] = useState(() => SCENES[Math.floor(Math.random() * SCENES.length)]);
   const { ref, time, replay } = useTimeline(scene.doneAt + FADE_MS + SETTLE_MS);

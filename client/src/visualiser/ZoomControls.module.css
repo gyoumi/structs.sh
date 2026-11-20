@@ -1,0 +1,39 @@
+.zoomButton {
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--surface);
+  box-shadow: none;
+  color: var(--ink);
+  cursor: pointer;
+  box-sizing: border-box;
+  transition:
+    transform 90ms ease,
+    box-shadow 90ms ease,
+    background-color 140ms ease;
+  font-weight: 400;
+}
+
+.zoom {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.zoomButton {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zoomButton {
+    transition: none;
+    animation: none;
+  }
+}

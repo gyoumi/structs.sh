@@ -7,7 +7,6 @@ const shared: Partial<CanvasTheme> = {
   pointerText: true,
 };
 
-/** Whatever is current is marked in the logo's sand, in the drawing as in the code. */
 export const canvasThemes: Record<Theme, Partial<CanvasTheme>> = {
   light: {
     ...shared,

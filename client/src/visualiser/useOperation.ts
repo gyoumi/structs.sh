@@ -10,7 +10,6 @@ const friendlyError = (message: string): string => {
   return message;
 };
 
-/** An insert can land just past the last node, while a delete needs a node at the index. */
 export const indexMaxFor = (args: string[], size: number): number | undefined => {
   if (!args.includes('index')) return undefined;
   return args.includes('value') ? size : size - 1;

@@ -69,6 +69,5 @@ export const easeInOut = (n: number) => {
   return p < 0.5 ? 4 * p * p * p : 1 - (-2 * p + 2) ** 3 / 2;
 };
 
-/** Progress through the window that starts at `start` and lasts `length`, eased. */
 export const progress = (time: number, start: number, length: number) =>
   easeInOut((time - start) / length);

@@ -1,0 +1,253 @@
+.tool,
+.play {
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--surface);
+  box-shadow: none;
+  color: var(--ink);
+  cursor: pointer;
+  box-sizing: border-box;
+  transition:
+    transform 90ms ease,
+    box-shadow 90ms ease,
+    background-color 140ms ease;
+  font-weight: 400;
+}
+
+.transport {
+  display: grid;
+  grid-template-columns: auto minmax(120px, 1fr) auto auto;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 14px;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tool {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.play {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 38px;
+  background: var(--sand);
+  color: var(--on-sand);
+  border-color: var(--sand);
+}
+
+.tool:disabled,
+.play:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.slider {
+  min-width: 0;
+}
+
+.sliderControl {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  cursor: pointer;
+}
+
+.sliderTrack {
+  position: relative;
+  width: 100%;
+  height: 3px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--line);
+  box-sizing: border-box;
+}
+
+.sliderFill {
+  height: 100%;
+  border-radius: 0;
+  background: var(--sand);
+}
+
+.sliderThumb {
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 2px;
+  background: var(--sand);
+  box-shadow: none;
+  box-sizing: border-box;
+  transform: none;
+  z-index: 1;
+}
+
+.sliderThumb:has(:focus-visible) {
+  outline: 3px solid var(--steel);
+  outline-offset: 3px;
+}
+
+.stepCount {
+  margin: 0;
+  min-width: 96px;
+  font-size: 13px;
+  font-weight: 400;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+.speed {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 76px;
+  height: 32px;
+  padding: 0 8px 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.speed[data-open] svg {
+  transform: rotate(180deg);
+}
+
+.speedMenu {
+  min-width: var(--anchor-width);
+  margin: 0;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+  font-family: 'JetBrains Mono Variable', monospace;
+  transform-origin: var(--transform-origin);
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease;
+  font-variant-ligatures: none;
+}
+
+.speedMenu[data-starting-style],
+.speedMenu[data-ending-style] {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.speedItem {
+  padding: 4px 10px;
+  border-radius: 2px;
+  font-size: 13px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.speedItem[data-highlighted] {
+  background: var(--surface-hover);
+  color: var(--ink);
+}
+
+.speedItem[data-selected] {
+  background: var(--sand);
+  color: var(--on-sand);
+}
+
+.tooltip {
+  margin: 0;
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: #23225e;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'JetBrains Mono Variable', monospace;
+  font-variant-ligatures: none;
+}
+
+.speed[data-open] {
+  border-color: var(--sand);
+  color: var(--ink);
+}
+
+.speed:hover {
+  border-color: var(--sand);
+  color: var(--ink);
+}
+
+.play:hover:not(:disabled) {
+  background: #f3d8a2;
+}
+
+@media (max-width: 1360px) {
+  .transport {
+    grid-template-columns: auto minmax(100px, 1fr) auto;
+  }
+
+  .stepCount {
+    display: none;
+  }
+}
+
+@media (max-width: 860px) {
+  .transport {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'tools speed'
+      'route route';
+    gap: 4px 12px;
+  }
+
+  .toolbar {
+    grid-area: tools;
+    gap: 6px;
+  }
+
+  .slider {
+    grid-area: route;
+    padding: 0 12px;
+  }
+
+  .speed {
+    grid-area: speed;
+  }
+}
+
+@media (max-width: 560px) {
+  .tool {
+    width: 34px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tool,
+  .play,
+  .speedMenu {
+    transition: none;
+    animation: none;
+  }
+}
