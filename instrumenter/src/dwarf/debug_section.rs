@@ -1,13 +1,9 @@
-//! Writes what was read as the `structs.debug` section's JSON.
-
 use std::fmt::Write;
 
 use super::DebugInfo;
 use super::types::{POINTER_SIZE, Type, size_of};
 
-/// The `structs.debug` section: a JSON object the recorder reads (see
-/// client/src/Services/debugger/wasm/recording.ts).
-pub(crate) fn section_json(function_names: &[String], info: &DebugInfo) -> String {
+pub(crate) fn debug_section_json(function_names: &[String], info: &DebugInfo) -> String {
     let mut out = String::from("{\"functions\":[");
     for (index, name) in function_names.iter().enumerate() {
         if index > 0 {
@@ -90,23 +86,20 @@ fn type_json(types: &[Type], index: usize) -> String {
                 "{{\"kind\":\"array\",\"name\":{name},\"size\":{size},\"of\":{of},\"count\":{count}}}"
             )
         }
-        Type::Alias { to, qualifier, .. } => {
-            let kind = if qualifier.is_some() {
-                "qualified"
-            } else {
-                "typedef"
-            };
-            let size = size_of(types, index);
-            format!(
-                "{{\"kind\":\"{kind}\",\"name\":{name},\"size\":{size},\"to\":{}}}",
-                optional(*to)
-            )
-        }
+        Type::Typedef { to, .. } => alias_json("typedef", &name, size_of(types, index), *to),
+        Type::Qualified { to, .. } => alias_json("qualified", &name, size_of(types, index), *to),
         Type::Function { .. } | Type::Other { .. } => {
             let size = size_of(types, index);
             format!("{{\"kind\":\"other\",\"name\":{name},\"size\":{size}}}")
         }
     }
+}
+
+fn alias_json(kind: &str, name: &str, size: u64, to: Option<usize>) -> String {
+    format!(
+        "{{\"kind\":\"{kind}\",\"name\":{name},\"size\":{size},\"to\":{}}}",
+        optional(to)
+    )
 }
 
 pub(crate) fn json_string(string: &str) -> String {

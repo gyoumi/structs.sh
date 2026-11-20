@@ -8,6 +8,12 @@ import { EntityConcrete } from '../../../Types/frontendType';
 import { LinkedListNode } from './linkedListHeap';
 import { Position } from './linkedListLayout';
 
+function laidOutPosition(nodesPosition: Map<Addr, Position>, uid: Addr): Position {
+  const position = nodesPosition.get(uid);
+  if (!position) throw new Error(`The layout gave no position to node ${uid}`);
+  return position;
+}
+
 /** A node entity for each list node, and an edge to its next node if that is drawn. */
 export function buildNodesAndEdges(
   nodesByUid: Map<Addr, LinkedListNode>,
@@ -18,7 +24,7 @@ export function buildNodesAndEdges(
   const edges: EdgeEntity[] = [];
 
   nodesByUid.forEach((node, uid) => {
-    // Create NodeEntity from LinkedListNode
+    const { x, y } = laidOutPosition(nodesPosition, uid);
     const nodeEntity: NodeEntity = {
       uid,
       type: EntityType.NODE,
@@ -26,15 +32,12 @@ export function buildNodesAndEdges(
       colorHex: '#FFFFFF',
       size: DEFAULT_NODE_SIZE,
       edgeUids: [],
-      // @ts-ignore
-      x: nodesPosition.get(uid).x,
-      // @ts-ignore
-      y: nodesPosition.get(uid).y,
+      x,
+      y,
     };
     nodes.push(nodeEntity);
     cacheEntity[uid] = nodeEntity;
 
-    // If there's a next node, create an edge
     if (node.next) {
       const toNode = nodesByUid.get(node.next);
       if (toNode) {
@@ -49,7 +52,6 @@ export function buildNodesAndEdges(
         edges.push(edgeEntity);
         cacheEntity[edgeEntity.uid] = edgeEntity;
 
-        // Attach this edge to the node
         nodeEntity.edgeUids.push(edgeEntity.uid);
       }
     }
@@ -67,15 +69,9 @@ export function buildPointerLabels(
 ): PointerEntity[] {
   const pointers: PointerEntity[] = [];
 
-  // === Get linked list node pointers from the backend stack data
   Object.entries(backendStructure.stack_data).forEach(([name, memoryValue]) => {
-    // Variables carry their type name beside their value (see
-    // isLinkedListNode), though MemoryValue doesn't say so.
-    const typeName = 'typeName' in memoryValue ? String(memoryValue.typeName) : '';
-    if (!isStackVariableLabelled(stackAnnotation, name, typeName)) return;
+    if (!isStackVariableLabelled(stackAnnotation, name, memoryValue.typeName)) return;
 
-    // A pointer that isn't to a drawn node (NULL, garbage, or a freed
-    // node) gets no label.
     const target = memoryValue.value;
     if (typeof target !== 'string' || !nodesByUid.has(target as Addr)) return;
 

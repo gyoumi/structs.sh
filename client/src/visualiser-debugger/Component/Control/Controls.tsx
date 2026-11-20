@@ -20,7 +20,6 @@ import {
 
 const BUFFER_THRESHOLD = 30;
 
-/** The play button's buffering: off, asked for, or fetching states. */
 type BufferStage = 'off' | 'requested' | 'buffering';
 
 const Controls = () => {
@@ -32,11 +31,9 @@ const Controls = () => {
 
   const [bufferStage, setBufferStage] = useState<BufferStage>('off');
   const loading = bufferStage === 'buffering';
-  /** Whether a step forward is waiting for the debugger's next state. */
-  const [fetching, setFetching] = useState<boolean>(false);
+  const [awaitingNextState, setAwaitingNextState] = useState<boolean>(false);
   const atLatestState = currentIndex >= states.length - 1;
 
-  // Avoid race condition
   const bufferingRef = useRef<boolean>(false);
   const { setToastMessage: setMessage } = useToastStateStore();
   const compilerStatus = useCompilerStatusStore((state) => state.status);
@@ -85,7 +82,6 @@ const Controls = () => {
     if (states.length - currentIndex < BUFFER_THRESHOLD) {
       startBuffering(BUFFER_THRESHOLD);
     } else {
-      // There's no need to buffer at this point
       setMessage({
         content: 'Buffer completed.',
         colorTheme: 'info',
@@ -96,8 +92,6 @@ const Controls = () => {
     }
   }, [bufferStage, currentIndex, setMessage, startBuffering, states.length]);
 
-  // New states join the timeline as they arrive (see useDebugger). This parses
-  // the latest one again when the annotations or the visualiser change.
   useEffect(() => {
     if (isInitialBackendState(currFrame)) {
       return;
@@ -105,7 +99,7 @@ const Controls = () => {
 
     if (currFrame && userAnnotation) {
       const newParsedState = parser.parseState(currFrame, userAnnotation);
-      useFrontendStateStore.getState().appendFrontendNewState(currFrame, newParsedState);
+      useFrontendStateStore.getState().pushOrReplaceFrontendState(currFrame, newParsedState);
     } else {
       let issue = 'something';
       if (!currFrame) {
@@ -147,9 +141,8 @@ const Controls = () => {
         )}
       </Button>
 
-      {/* Step Backward BTN: still works once the session has ended */}
       <Button
-        disabled={fetching || currentIndex <= 0}
+        disabled={awaitingNextState || currentIndex <= 0}
         onClick={() => {
           stepBackward();
         }}
@@ -157,18 +150,16 @@ const Controls = () => {
         <UndoIcon />
       </Button>
 
-      {/* Step Forward BTN */}
       <Button
-        disabled={fetching || (!isActive && atLatestState)}
+        disabled={awaitingNextState || (!isActive && atLatestState)}
         onClick={async () => {
           if (!atLatestState) {
             stepForward();
             return;
           }
-          setFetching(true);
+          setAwaitingNextState(true);
           const gotState = await getNextState();
-          setFetching(false);
-          // The new state is already on the timeline, so move to it.
+          setAwaitingNextState(false);
           if (gotState) stepForward();
         }}
       >

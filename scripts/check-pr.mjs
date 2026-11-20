@@ -1,15 +1,6 @@
 #!/usr/bin/env node
-// Runs the PR rules in scripts/pr-rules.mjs against a git diff.
-//
-//   node scripts/check-pr.mjs --base <sha> --head <sha>   # CI (.github/workflows/pr-rules.yml)
-//   node scripts/check-pr.mjs --local [--target <branch>]  # your branch plus uncommitted work, vs its PR's base
-//                                                          # branch (or --target, or origin/dev)
-//
 // It only reads the two commits with git and never runs code from them, so CI
 // can run the base branch's copy of this script against an untrusted PR.
-//
-// Labels come from the PR_LABELS env var (a JSON array of names). With --local
-// there are no labels, so rules a label can waive print as notes, not failures.
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
@@ -50,7 +41,7 @@ const scriptsOf = (text) => {
   try {
     return JSON.stringify(JSON.parse(text).scripts ?? {});
   } catch {
-    return undefined; // unparseable counts as changed
+    return undefined;
   }
 };
 

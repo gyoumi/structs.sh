@@ -30,7 +30,7 @@ const TRACE_IMPORTS: [&str; 7] = [
 fn read(wasm: &[u8]) -> (Vec<String>, Vec<String>, Option<String>) {
     let mut imports = Vec::new();
     let mut exports = Vec::new();
-    let mut functions = None;
+    let mut debug = None;
     for payload in Parser::new(0).parse_all(wasm) {
         match payload.expect("a readable module") {
             Payload::ImportSection(section) => {
@@ -45,14 +45,14 @@ fn read(wasm: &[u8]) -> (Vec<String>, Vec<String>, Option<String>) {
                 }
             }
             Payload::CustomSection(section) if section.name() == "structs.debug" => {
-                functions = Some(String::from_utf8(section.data().to_vec()).unwrap());
+                debug = Some(String::from_utf8(section.data().to_vec()).unwrap());
             }
             _ => {}
         }
     }
     imports.sort();
     exports.sort();
-    (imports, exports, functions)
+    (imports, exports, debug)
 }
 
 #[test]
@@ -109,7 +109,7 @@ fn each_statement_lists_the_variables_in_scope_with_where_they_live() {
 }
 
 #[test]
-fn types_are_named_as_gdb_names_them() {
+fn types_are_named_in_c_syntax() {
     let debug = debug_section(FIXTURES[2].1);
 
     assert!(
@@ -133,10 +133,10 @@ fn a_program_without_debug_info_is_left_alone() {
     module.exports.add("_start", start);
     let wasm = module.emit_wasm();
 
-    let (imports, _, functions) = read(&instrument(&wasm).unwrap());
+    let (imports, _, debug) = read(&instrument(&wasm).unwrap());
 
     assert!(imports.is_empty());
-    assert_eq!(functions, None);
+    assert_eq!(debug, None);
 }
 
 #[test]

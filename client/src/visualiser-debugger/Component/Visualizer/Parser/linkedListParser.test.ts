@@ -29,8 +29,20 @@ const annotation: UserAnnotation = {
   },
 };
 
+type Drawing = NonNullable<ReturnType<LinkedListParser['parseState']>>;
+
+/** The graph parseState drew, failing with `where` in the message if it drew nothing. */
+const drawing = (graph: Drawing | undefined, where: string): Drawing => {
+  if (graph === undefined)
+    throw new Error(`${where}: parseState returned undefined instead of a drawing`);
+  return graph;
+};
+
 describe('LinkedListParser', () => {
-  const graph = new LinkedListParser().parseState(state, annotation);
+  const graph = drawing(
+    new LinkedListParser().parseState(state, annotation),
+    'linked_list.c line 20 (GDB recording, list 1 -> 2 -> 3, list annotated)'
+  );
   const nodeAt = (label: string) => graph.nodes.find((node) => node.label === label)!;
 
   it('draws one node per list element', () => {
@@ -92,7 +104,7 @@ describe('LinkedListParser with pointers that point at no drawn node', () => {
   };
 
   /** "node <value>" for a pointer's node, or what it is attached to if that is no node. */
-  const describePointers = (graph: ReturnType<LinkedListParser['parseState']>) =>
+  const describePointers = (graph: Drawing) =>
     graph.pointers.map((pointer) => {
       const node = graph.nodes.find((candidate) => candidate.uid === pointer.attachedUid);
       return `${pointer.label} -> ${node ? `node ${node.label}` : `no drawn node (${pointer.attachedUid})`}`;
@@ -103,8 +115,7 @@ describe('LinkedListParser with pointers that point at no drawn node', () => {
     const input = reverseLine24 as unknown as BackendState;
 
     it('draws every node on the heap', () => {
-      const graph = parse(input, ['head', 'prev', 'next'], where);
-      expect(graph, `${where}: parseState returned undefined instead of a drawing`).toBeDefined();
+      const graph = drawing(parse(input, ['head', 'prev', 'next'], where), where);
       expect(
         graph.nodes.map((node) => node.label).sort(),
         `${where}: labels of the nodes drawn (the heap holds 1 -> 2 -> 3)`
@@ -112,8 +123,7 @@ describe('LinkedListParser with pointers that point at no drawn node', () => {
     });
 
     it('links the nodes as the heap does', () => {
-      const graph = parse(input, ['head', 'prev', 'next'], where);
-      expect(graph, `${where}: parseState returned undefined instead of a drawing`).toBeDefined();
+      const graph = drawing(parse(input, ['head', 'prev', 'next'], where), where);
       const links = graph.edges.map(
         (edge) =>
           `${graph.cacheEntity[edge.fromNodeUid]?.label} -> ${graph.cacheEntity[edge.toNodeUid]?.label}`
@@ -122,8 +132,7 @@ describe('LinkedListParser with pointers that point at no drawn node', () => {
     });
 
     it('labels only the pointer that points at a node', () => {
-      const graph = parse(input, ['head', 'prev', 'next'], where);
-      expect(graph, `${where}: parseState returned undefined instead of a drawing`).toBeDefined();
+      const graph = drawing(parse(input, ['head', 'prev', 'next'], where), where);
       expect(
         describePointers(graph),
         `${where}: pointer labels drawn; prev (NULL) and next (uninitialised) point at no node, so only head is drawn`
@@ -136,8 +145,7 @@ describe('LinkedListParser with pointers that point at no drawn node', () => {
     const input = deleteFirstLine18 as unknown as BackendState;
 
     it('draws the nodes still on the heap and labels only the pointer to one of them', () => {
-      const graph = parse(input, ['head', 'rest'], where);
-      expect(graph, `${where}: parseState returned undefined instead of a drawing`).toBeDefined();
+      const graph = drawing(parse(input, ['head', 'rest'], where), where);
       expect(
         graph.nodes.map((node) => node.label).sort(),
         `${where}: labels of the nodes drawn (the heap holds 2 -> 1; node 3 was freed on line 17)`

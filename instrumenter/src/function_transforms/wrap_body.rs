@@ -1,5 +1,3 @@
-//! Wraps a function's body so code runs on every way out of it.
-
 use std::collections::HashSet;
 
 use walrus::LocalFunction;

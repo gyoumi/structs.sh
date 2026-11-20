@@ -1,15 +1,6 @@
-//! Reads the compiled program's DWARF debug info (line tables, scopes,
-//! variables and types) and writes the `structs.debug` section the client
-//! reads. It is about the C program being debugged, not this crate's own
-//! debugging.
-//!
-//! It reads where each of the program's statements starts, the variables in
-//! scope there and where they live, and the types of those variables, named
-//! the way GDB names them.
-
+mod debug_section;
 mod line_table;
 mod scopes;
-mod section;
 mod struct_fields;
 mod type_names;
 mod type_reader;
@@ -21,19 +12,18 @@ use std::ops::Range;
 use gimli::{EndianSlice, LittleEndian, UnitOffset};
 use walrus::Module;
 
-pub(crate) use section::section_json;
+pub(crate) use debug_section::debug_section_json;
 use types::Type;
 
 type Dwarf<'a> = gimli::Dwarf<EndianSlice<'a, LittleEndian>>;
 type Unit<'a> = gimli::Unit<EndianSlice<'a, LittleEndian>>;
 type Entry<'a, 'u> = gimli::DebuggingInformationEntry<'a, 'u, EndianSlice<'a, LittleEndian>>;
 
-/// Everything read from the debug info. Offsets are positions in the original
-/// file, as walrus's `InstrLocId`s are.
+/// Offsets are positions in the original file, as walrus's `InstrLocId`s are.
 #[derive(Default)]
 pub(crate) struct DebugInfo {
-    /// Where each statement starts, as an index into `statements`.
-    pub starts: BTreeMap<u32, usize>,
+    /// Where each statement statement_at_offset, as an index into `statements`.
+    pub statement_at_offset: BTreeMap<u32, usize>,
     pub statements: Vec<Statement>,
     pub functions: Vec<Function>,
     pub types: Vec<Type>,
@@ -41,7 +31,6 @@ pub(crate) struct DebugInfo {
 
 pub(crate) struct Statement {
     pub line: u32,
-    /// The variables in scope, innermost scope first, as GDB lists them.
     pub variables: Vec<Variable>,
 }
 
@@ -87,10 +76,9 @@ fn read(dwarf: &Dwarf, code_start: u32) -> gimli::Result<DebugInfo> {
             dwarf,
             unit: &unit,
             types: &mut info.types,
-            seen: HashMap::new(),
+            types_by_offset: HashMap::new(),
         };
 
-        // Each statement's address in the unit, and its line.
         let rows = reader.statement_rows()?;
 
         let mut functions = Vec::new();
@@ -99,7 +87,7 @@ fn read(dwarf: &Dwarf, code_start: u32) -> gimli::Result<DebugInfo> {
         let mut children = root.children();
         while let Some(child) = children.next()? {
             if child.entry().tag() == gimli::DW_TAG_subprogram
-                && let Some(function) = reader.function(child)?
+                && let Some(function) = reader.function(child, code_start)?
             {
                 functions.push(function);
             }
@@ -107,28 +95,21 @@ fn read(dwarf: &Dwarf, code_start: u32) -> gimli::Result<DebugInfo> {
 
         for (address, line) in rows {
             let offset = code_start + address as u32;
-            if info.starts.contains_key(&offset) {
+            if info.statement_at_offset.contains_key(&offset) {
                 continue;
             }
             let variables = functions
                 .iter()
-                .find(|(_, scopes)| scopes[0].ranges.iter().any(|r| r.contains(&address)))
+                .find(|(function, _)| function.ranges.iter().any(|r| r.contains(&offset)))
                 .map(|(_, scopes)| scopes::visible(scopes, address))
                 .unwrap_or_default();
-            info.starts.insert(offset, info.statements.len());
+            info.statement_at_offset
+                .insert(offset, info.statements.len());
             info.statements.push(Statement { line, variables });
         }
 
-        for (function, scopes) in functions {
-            info.functions.push(Function {
-                ranges: scopes[0]
-                    .ranges
-                    .iter()
-                    .map(|r| code_start + r.start as u32..code_start + r.end as u32)
-                    .collect(),
-                ..function
-            });
-        }
+        info.functions
+            .extend(functions.into_iter().map(|(function, _)| function));
     }
     Ok(info)
 }
@@ -137,8 +118,7 @@ struct UnitReader<'a, 'u> {
     dwarf: &'u Dwarf<'a>,
     unit: &'u Unit<'a>,
     types: &'u mut Vec<Type>,
-    /// Types already read, by their place in the unit.
-    seen: HashMap<UnitOffset, usize>,
+    types_by_offset: HashMap<UnitOffset, usize>,
 }
 
 impl UnitReader<'_, '_> {

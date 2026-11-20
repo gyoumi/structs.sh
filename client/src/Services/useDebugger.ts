@@ -12,15 +12,13 @@ import {
 } from '../visualiser-debugger/Store/toastStateStore';
 import { useQueue } from './useQueue';
 
-/** Parses a state for the visualiser and adds it to the steps the controls move through. */
 const addToTimeline = (state: BackendState) => {
   const { parser, userAnnotation } = useGlobalStore.getState().visualizer;
   useFrontendStateStore
     .getState()
-    .appendFrontendNewState(state, parser.parseState(state, userAnnotation));
+    .pushOrReplaceFrontendState(state, parser.parseState(state, userAnnotation));
 };
 
-/** Lets the page drive the debugger (see debugger/wasmDebugger.ts). */
 export const useDebugger = () => {
   const {
     updateCurrFocusedTab,
@@ -38,7 +36,6 @@ export const useDebugger = () => {
   const setCompilerStatus = useCompilerStatusStore((state) => state.setStatus);
   const queue = useQueue();
 
-  // Connect the debugger's events to the page
   useEffect(() => {
     if (!debuggerClient) {
       return;
@@ -67,7 +64,6 @@ export const useDebugger = () => {
     setCompilerStatus,
   ]);
 
-  // reset entire debuggin session
   const resetDebugSession = useCallback(() => {
     updateNextFrame(INITIAL_BACKEND_STATE);
     clearFrontendState();
@@ -84,7 +80,6 @@ export const useDebugger = () => {
     resetConsoleChunks,
   ]);
 
-  // send code to the debugger to start a debugging session
   const sendCode = useCallback(() => {
     if (!debuggerClient) return;
 
@@ -105,30 +100,26 @@ export const useDebugger = () => {
     debuggerClient.start({ name: file.name, code: file.data });
   }, [debuggerClient, resetDebugSession, setToastMessage]);
 
-  // step the debugger once, waiting for any earlier steps to finish
-  const executeNextWithRetry = useCallback(() => {
+  const queueStep = useCallback(() => {
     if (!debuggerClient) return Promise.resolve(false);
 
     return queue(() => debuggerClient.step());
   }, [debuggerClient, queue]);
 
-  // to call multiple next states in bulk
   const bulkSendNextStates = useCallback(
     async (count: number) => {
-      const results = await Promise.all(
-        Array.from({ length: count }, () => executeNextWithRetry())
-      );
+      const results = await Promise.all(Array.from({ length: count }, () => queueStep()));
       return results.filter(Boolean).length;
     },
-    [executeNextWithRetry]
+    [queueStep]
   );
 
   return {
-    resetConsoleChunks, // Clear console logs
-    appendConsoleChunks, // Append logs
-    sendCode, // Start session with file
-    getNextState: executeNextWithRetry, // Step once
-    bulkSendNextStates, // Step multiple times
-    resetDebugSession, // Full reset
+    resetConsoleChunks,
+    appendConsoleChunks,
+    sendCode,
+    getNextState: queueStep,
+    bulkSendNextStates,
+    resetDebugSession,
   };
 };

@@ -1,5 +1,3 @@
-//! Reads the types of the program's variables into the type table.
-
 use gimli::{AttributeValue, UnitOffset};
 
 use super::types::Type;
@@ -21,17 +19,19 @@ impl UnitReader<'_, '_> {
         )
     }
 
-    /// Adds a type now, before its parts, so a type that refers back to
-    /// itself (`struct node *next`) finds it. `fill` then replaces it.
-    fn placeholder(&mut self, offset: UnitOffset, name: String) -> usize {
-        self.types.push(Type::Other { name, size: 0 });
+    fn record_type(&mut self, offset: UnitOffset, ty: Type) -> usize {
+        self.types.push(ty);
         let index = self.types.len() - 1;
-        self.seen.insert(offset, index);
+        self.types_by_offset.insert(offset, index);
         index
     }
 
+    fn reserve_slot_for_recursive_type(&mut self, offset: UnitOffset, name: String) -> usize {
+        self.record_type(offset, Type::Other { name, size: 0 })
+    }
+
     fn type_at(&mut self, offset: UnitOffset) -> gimli::Result<usize> {
-        if let Some(&index) = self.seen.get(&offset) {
+        if let Some(&index) = self.types_by_offset.get(&offset) {
             return Ok(index);
         }
         let unit = self.unit;
@@ -49,7 +49,7 @@ impl UnitReader<'_, '_> {
             gimli::DW_TAG_pointer_type => {
                 let to = self.type_attribute(&entry)?;
                 Type::Pointer {
-                    name: self.declare_pointer(to, ""),
+                    name: self.format_pointer_declarator(to, ""),
                     to,
                 }
             }
@@ -74,16 +74,12 @@ impl UnitReader<'_, '_> {
                 size,
             },
         };
-        self.types.push(ty);
-        let index = self.types.len() - 1;
-        self.seen.insert(offset, index);
-        Ok(index)
+        Ok(self.record_type(offset, ty))
     }
 
     fn base_type(entry: &Entry, name: String, size: u64) -> gimli::Result<Type> {
         Ok(match entry.attr_value(gimli::DW_AT_encoding)? {
             Some(AttributeValue::Encoding(gimli::DW_ATE_float)) => Type::Float { name, size },
-            // `double _Complex` and the like: not read, but sized.
             Some(AttributeValue::Encoding(
                 gimli::DW_ATE_complex_float | gimli::DW_ATE_imaginary_float,
             )) => Type::Other { name, size },
@@ -103,8 +99,6 @@ impl UnitReader<'_, '_> {
     }
 
     fn enumeration(&mut self, entry: &Entry, name: String, size: u64) -> gimli::Result<Type> {
-        // Signed when clang gives the enum a signed underlying type,
-        // as it does when a value is negative.
         let underlying = self.type_attribute(entry)?.map(|ty| &self.types[ty]);
         Ok(Type::Int {
             name,
@@ -114,14 +108,7 @@ impl UnitReader<'_, '_> {
     }
 
     fn add_struct(&mut self, offset: UnitOffset, name: String, size: u64) -> gimli::Result<usize> {
-        let index = self.placeholder(offset, name.clone());
-        // Its size is known now, for a typedef of it read while its
-        // fields are (`typedef struct node Node` with `Node *next`).
-        self.types[index] = Type::Struct {
-            name: name.clone(),
-            size,
-            fields: Vec::new(),
-        };
+        let index = self.reserve_slot_for_recursive_type(offset, name.clone());
         let fields = self.fields(offset)?;
         self.types[index] = Type::Struct { name, size, fields };
         Ok(index)
@@ -129,20 +116,23 @@ impl UnitReader<'_, '_> {
 
     fn add_array_type(&mut self, offset: UnitOffset, entry: &Entry) -> gimli::Result<usize> {
         let Some(element) = self.type_attribute(entry)? else {
-            return Ok(self.placeholder(offset, "void []".to_string()));
+            let void_array = Type::Other {
+                name: "void []".to_string(),
+                size: 0,
+            };
+            return Ok(self.record_type(offset, void_array));
         };
         let counts = self.subrange_counts(offset)?;
         // int a[2][3] is an array of 2 arrays of 3 ints.
         let mut inner = element;
         for &count in counts.iter().skip(1).rev() {
-            inner = self.add_array(inner, count);
+            inner = self.push_array_dimension(inner, count);
         }
-        let index = self.add_array(inner, counts.first().copied().unwrap_or(0));
-        self.seen.insert(offset, index);
+        let index = self.push_array_dimension(inner, counts.first().copied().unwrap_or(0));
+        self.types_by_offset.insert(offset, index);
         Ok(index)
     }
 
-    /// The length of each dimension of the array at `offset`, outermost first.
     fn subrange_counts(&self, offset: UnitOffset) -> gimli::Result<Vec<u64>> {
         let mut counts = Vec::new();
         let mut tree = self.unit.entries_tree(Some(offset))?;
@@ -163,9 +153,8 @@ impl UnitReader<'_, '_> {
         Ok(counts)
     }
 
-    /// Adds an array of `count` of type `of`.
-    fn add_array(&mut self, of: usize, count: u64) -> usize {
-        let name = self.declare(Some(of), &format!("[{count}]"));
+    fn push_array_dimension(&mut self, of: usize, count: u64) -> usize {
+        let name = self.format_declarator(Some(of), &format!("[{count}]"));
         self.types.push(Type::Array { name, of, count });
         self.types.len() - 1
     }
@@ -176,13 +165,9 @@ impl UnitReader<'_, '_> {
         entry: &Entry,
         name: String,
     ) -> gimli::Result<usize> {
-        let index = self.placeholder(offset, name.clone());
+        let index = self.reserve_slot_for_recursive_type(offset, name.clone());
         let to = self.type_attribute(entry)?;
-        self.types[index] = Type::Alias {
-            name,
-            to,
-            qualifier: None,
-        };
+        self.types[index] = Type::Typedef { name, to };
         Ok(index)
     }
 
@@ -193,17 +178,17 @@ impl UnitReader<'_, '_> {
             _ => "restrict",
         };
         let to = self.type_attribute(entry)?;
-        self.types.push(Type::Alias {
+        self.types.push(Type::Qualified {
             name: String::new(),
             to,
-            qualifier: Some(qualifier),
+            qualifier,
         });
         let index = self.types.len() - 1;
-        let name = self.declare(Some(index), "");
-        if let Type::Alias { name: slot, .. } = &mut self.types[index] {
+        let name = self.format_declarator(Some(index), "");
+        if let Type::Qualified { name: slot, .. } = &mut self.types[index] {
             *slot = name;
         }
-        self.seen.insert(offset, index);
+        self.types_by_offset.insert(offset, index);
         Ok(index)
     }
 
@@ -211,14 +196,12 @@ impl UnitReader<'_, '_> {
         let returns = self.type_attribute(entry)?;
         let parameters = self.parameters(offset)?;
         Ok(Type::Function {
-            name: self.declare(returns, &format!("({parameters})")),
+            name: self.format_declarator(returns, &format!("({parameters})")),
             returns,
             parameters,
         })
     }
 
-    /// The parameter list of the function type at `offset`: `int, char *`,
-    /// `void`, or with `...` for a variadic function.
     fn parameters(&mut self, offset: UnitOffset) -> gimli::Result<String> {
         let unit = self.unit;
         let mut parameters = Vec::new();

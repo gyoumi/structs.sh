@@ -4,7 +4,11 @@ import { Parser } from '../Component/Visualizer/Parser/parser';
 import { parserFactory } from '../Component/Visualizer/Parser/parserFactory';
 import { VisualizerComponent } from '../Component/Visualizer/Visulizer/visualizer';
 import { visualizerFactory } from '../Component/Visualizer/Visulizer/visualizerFactory';
-import { StackAnnotation, UserAnnotation } from '../Types/annotationType';
+import {
+  DataStructureAnnotationConcrete,
+  StackAnnotation,
+  UserAnnotation,
+} from '../Types/annotationType';
 import { BackendState, BackendTypeDeclaration, INITIAL_BACKEND_STATE } from '../Types/backendType';
 import { VisualizerType } from '../Types/visualizerType';
 
@@ -64,6 +68,7 @@ type GlobalStoreActions = {
   updateCurrFocusedTab: (tab: string) => void;
   updateUserAnnotation: (annotation: UserAnnotation) => void;
   updateStackAnnotation: (annotation: StackAnnotation) => void;
+  updateTypeAnnotation: (annotation: DataStructureAnnotationConcrete) => void;
   updateTypeDeclaration: (type: BackendTypeDeclaration) => void;
   updateNextFrame: (backendState: BackendState) => void;
   clearTypeDeclarations: () => void;
@@ -140,6 +145,24 @@ export const useGlobalStore: UseBoundStore<StoreApi<GlobalStateStore & GlobalSto
           }),
           false,
           'updateStackAnnotation'
+        );
+      },
+      updateTypeAnnotation: (typeAnnotation) => {
+        set(
+          (state) => ({
+            visualizer: {
+              ...state.visualizer,
+              userAnnotation: {
+                ...state.visualizer.userAnnotation,
+                typeAnnotation: {
+                  ...state.visualizer.userAnnotation.typeAnnotation,
+                  [typeAnnotation.typeName]: typeAnnotation,
+                },
+              },
+            },
+          }),
+          false,
+          'updateTypeAnnotation'
         );
       },
       updateTypeDeclaration: (type: BackendTypeDeclaration) => {

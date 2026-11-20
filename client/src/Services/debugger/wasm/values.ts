@@ -1,20 +1,18 @@
 import { DebugType, resolve, resolveIndex } from './debugSection';
 
 /**
- * A value as GDB shows it: a number for integers, characters and floats, a
- * hex string for a pointer (`0x0` for NULL), an array for an array, and an
- * object of fields for a struct. null where there's nothing to read.
+ * A number for integers, characters and floats, a hex string for a pointer
+ * (`0x0` for NULL), an array for an array, and an object of fields for a
+ * struct. null where there's nothing to read.
  */
 export type Value = number | string | null | Value[] | { [field: string]: Value };
 
-/** Elements shown from one array: GDB's default `print elements`. */
 const ARRAY_LIMIT = 200;
 
 export const hex = (address: number) => `0x${address.toString(16)}`;
 
 const CHAR_TYPES = ['char', 'signed char', 'unsigned char'];
 
-/** A C character type, not, say, an enum that happens to be one byte. */
 const isChar = (type: DebugType) => type.kind === 'int' && CHAR_TYPES.includes(type.name);
 
 const ESCAPES: Record<number, string> = {
@@ -29,10 +27,6 @@ const ESCAPES: Record<number, string> = {
   92: '\\\\',
 };
 
-/**
- * A char array as GDB shows it: a quoted C string, up to its terminating NUL
- * (or the array's end), with special characters escaped.
- */
 const readString = (memory: DataView, address: number, count: number) => {
   let text = '';
   for (let i = 0; i < Math.min(count, ARRAY_LIMIT); i += 1) {
@@ -45,10 +39,6 @@ const readString = (memory: DataView, address: number, count: number) => {
   return `"${text}"`;
 };
 
-/**
- * A number of `type` at `address`, or null for a size there's no reader for,
- * such as a 16-byte `long double`, rather than a wrong value.
- */
 const readNumber = (memory: DataView, address: number, type: DebugType): number | null => {
   if (type.kind === 'float') {
     if (type.size === 4) return memory.getFloat32(address, true);
@@ -72,7 +62,6 @@ const readNumber = (memory: DataView, address: number, type: DebugType): number 
   }
 };
 
-/** A bit-field: `bitSize` bits starting `bitOffset` bits into the struct. */
 const readBits = (
   type: DebugType,
   memory: DataView,
@@ -81,7 +70,6 @@ const readBits = (
 ) => {
   const first = struct + Math.floor(bitOffset / 8);
   const shift = bitOffset % 8;
-  // The bytes it spans, read little-endian, then its bits taken out.
   let bits = 0n;
   for (let i = Math.ceil((shift + bitSize) / 8) - 1; i >= 0; i -= 1) {
     bits = bits * 256n + BigInt(memory.getUint8(first + i));
@@ -91,7 +79,6 @@ const readBits = (
   return Number(signed ? BigInt.asIntN(bitSize, value) : value);
 };
 
-/** Reads a value of type `index` at `address`. */
 export const readValue = (
   types: DebugType[],
   index: number,

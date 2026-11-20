@@ -1,27 +1,23 @@
-//! Instruments one function compiled from the program's own source, one the
-//! debug info describes rather than a C library function: fills its frame,
-//! and adds the `enter`, `line` and `exit` calls.
-
 use walrus::ir::{self, Instr, InstrSeqType};
 use walrus::{FunctionId, MemoryId, Module};
 
-use super::frame_fill::fill_frame;
+use super::frame_fill::frame_fill_instrs;
 use super::line_calls::{add_line_calls, loop_statements};
 use super::wrap_body::wrap_body;
 use super::{const_i32, sequences};
 use crate::Imports;
 use crate::dwarf::{DebugInfo, FrameBase, Function};
-use crate::parse::Indices;
+use crate::parse::WasmIndices;
 
 /// Instruments function `id` if the line table covers it, as function
-/// number `number` for `enter`. Returns its C name, or None if it isn't
+/// `function_index` for `enter`. Returns its C name, or None if it isn't
 /// one of the program's own functions.
-pub(crate) fn instrument_function(
+pub(crate) fn instrument(
     module: &mut Module,
     id: FunctionId,
-    number: usize,
+    function_index: usize,
     info: &DebugInfo,
-    indices: &Indices,
+    indices: &WasmIndices,
     imports: &Imports,
     memory: Option<MemoryId>,
 ) -> Option<String> {
@@ -39,7 +35,7 @@ pub(crate) fn instrument_function(
     let first = offsets.clone().min()?;
     if !offsets
         .into_iter()
-        .any(|offset| info.starts.contains_key(&offset))
+        .any(|offset| info.statement_at_offset.contains_key(&offset))
     {
         return None;
     }
@@ -48,20 +44,20 @@ pub(crate) fn instrument_function(
         .iter()
         .find(|function| function.ranges.iter().any(|r| r.contains(&first)));
     let name = described.map_or_else(
-        || format!("function {number}"),
+        || format!("function {function_index}"),
         |function| function.name.clone(),
     );
     let frame_base = frame_base(described, id, indices);
 
     let fill = memory
-        .and_then(|memory| fill_frame(function, memory))
+        .and_then(|memory| frame_fill_instrs(function, memory))
         .unwrap_or_default();
-    let loop_starts = loop_statements(function, &sequences, &info.starts);
+    let loop_starts = loop_statements(function, &sequences, &info.statement_at_offset);
     for &seq in &sequences {
         add_line_calls(
             function,
             seq,
-            &info.starts,
+            &info.statement_at_offset,
             loop_starts.get(&seq).copied(),
             &frame_base,
             imports.line,
@@ -73,7 +69,7 @@ pub(crate) fn instrument_function(
         body_type,
         fill.into_iter()
             .chain([
-                const_i32(number as i32),
+                const_i32(function_index as i32),
                 Instr::Call(ir::Call {
                     func: imports.enter,
                 }),
@@ -84,9 +80,7 @@ pub(crate) fn instrument_function(
     Some(name)
 }
 
-/// The instruction that reads the function's frame base, or 0 if it's not
-/// known.
-fn frame_base(described: Option<&Function>, id: FunctionId, indices: &Indices) -> Instr {
+fn frame_base(described: Option<&Function>, id: FunctionId, indices: &WasmIndices) -> Instr {
     match described.and_then(|function| function.frame_base) {
         Some(FrameBase::Local(index)) => indices
             .locals

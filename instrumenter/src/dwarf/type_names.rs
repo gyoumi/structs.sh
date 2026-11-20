@@ -1,47 +1,41 @@
-//! Names types the way GDB does, following how C declarators nest.
-
 use super::UnitReader;
 use super::types::Type;
 
 impl UnitReader<'_, '_> {
-    /// GDB's name for a type, built the way C declarators nest: `inner` is
-    /// what's already been wrapped around it, so a pointer to an array of 3
-    /// ints is `int (*)[3]` and an array of 2 of those is `int (*[2])[3]`.
-    pub(super) fn declare(&self, ty: Option<usize>, inner: &str) -> String {
+    /// A type's name, as the client's visualiser and variable panel match
+    /// and show it, spelled like the names recorded in
+    /// `client/src/Services/debugger/wasm/fixtures/gdb-variables.json`
+    /// (`int [3]`, `char *`, `Node *`), and built the way C declarators nest:
+    /// `inner` is what's already been wrapped around it, so a pointer to an
+    /// array of 3 ints is `int (*)[3]` and an array of 2 of those is
+    /// `int (*[2])[3]`.
+    pub(super) fn format_declarator(&self, ty: Option<usize>, inner: &str) -> String {
         match ty.map(|ty| &self.types[ty]) {
-            Some(Type::Pointer { to, .. }) => self.declare_pointer(*to, inner),
+            Some(Type::Pointer { to, .. }) => self.format_pointer_declarator(*to, inner),
             Some(Type::Array { of, count, .. }) => {
-                self.declare(Some(*of), &format!("{inner}[{count}]"))
+                self.format_declarator(Some(*of), &format!("{inner}[{count}]"))
             }
             Some(Type::Function {
                 returns,
                 parameters,
                 ..
-            }) => self.declare(*returns, &format!("{inner}({parameters})")),
-            Some(Type::Alias {
-                qualifier: Some(_), ..
-            }) => {
-                // The qualifiers down to the type they qualify, in GDB's order.
+            }) => self.format_declarator(*returns, &format!("{inner}({parameters})")),
+            Some(Type::Qualified { .. }) => {
                 let mut qualifiers = Vec::new();
                 let mut target = ty;
-                while let Some(Type::Alias {
-                    qualifier: Some(qualifier),
-                    to,
-                    ..
-                }) = target.map(|ty| &self.types[ty])
+                while let Some(Type::Qualified { qualifier, to, .. }) =
+                    target.map(|ty| &self.types[ty])
                 {
                     qualifiers.push(*qualifier);
                     target = *to;
                 }
-                qualifiers.sort_by_key(|qualifier| *qualifier != "const");
-                let qualifiers = qualifiers.join(" ");
+                let qualifiers = const_first(qualifiers).join(" ");
                 match target.map(|ty| &self.types[ty]) {
-                    // A qualified pointer: `char * const`, `int (* const)(int)`.
                     Some(Type::Pointer { to, .. }) => {
-                        self.declare_qualified_pointer(*to, &qualifiers, inner)
+                        self.format_qualified_pointer_declarator(*to, &qualifiers, inner)
                     }
                     _ => {
-                        let base = format!("{qualifiers} {}", self.declare(target, ""));
+                        let base = format!("{qualifiers} {}", self.format_declarator(target, ""));
                         if inner.is_empty() {
                             base
                         } else {
@@ -61,14 +55,11 @@ impl UnitReader<'_, '_> {
         }
     }
 
-    /// A pointer to `to` inside `inner`: `struct node *`, `char **`, and
-    /// `int (*)(int)` where the pointer needs brackets.
-    pub(super) fn declare_pointer(&self, to: Option<usize>, inner: &str) -> String {
-        self.declare_qualified_pointer(to, "", inner)
+    pub(super) fn format_pointer_declarator(&self, to: Option<usize>, inner: &str) -> String {
+        self.format_qualified_pointer_declarator(to, "", inner)
     }
 
-    /// A pointer with `qualifiers` (`const`, `volatile`, or none).
-    fn declare_qualified_pointer(
+    fn format_qualified_pointer_declarator(
         &self,
         to: Option<usize>,
         qualifiers: &str,
@@ -83,9 +74,14 @@ impl UnitReader<'_, '_> {
         };
         let target = to.map(|to| &self.types[to]);
         if matches!(target, Some(Type::Array { .. } | Type::Function { .. })) {
-            self.declare(to, &format!("({star})"))
+            self.format_declarator(to, &format!("({star})"))
         } else {
-            self.declare(to, &star)
+            self.format_declarator(to, &star)
         }
     }
+}
+
+fn const_first(mut qualifiers: Vec<&'static str>) -> Vec<&'static str> {
+    qualifiers.sort_by_key(|qualifier| *qualifier != "const");
+    qualifiers
 }

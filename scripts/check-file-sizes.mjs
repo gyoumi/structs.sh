@@ -1,19 +1,11 @@
 #!/usr/bin/env node
-// Keeps the debugger rewrite's files small: source files up to 300 lines,
-// test files up to 500. Only the files inScope() accepts count.
-//
-//   node scripts/check-file-sizes.mjs [--only source|test]
-//
-// Run it from the repo root. It checks the files git tracks there. It imports
-// nothing from the other scripts, so it can be copied on its own.
-
 import { execFileSync } from 'node:child_process';
 import { readFileSync, realpathSync } from 'node:fs';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const LIMITS = { source: 300, test: 500 };
 
-// Folders end in "/" and match whole path segments; everything else is an exact file.
 const SCOPE = [
   'client/src/Services/debugger/',
   'client/src/Services/useDebugger.ts',
@@ -35,7 +27,6 @@ const IGNORED_FOLDERS = new Set(['fixtures', 'generated']);
 const TEST_SUFFIXES = ['.test.ts', '.test.tsx', '.spec.ts', '.test.mjs'];
 const TEST_FOLDERS = ['instrumenter/tests/', 'e2e/'];
 
-// Files directly in this folder (not in subfolders) whose names start with linkedList.
 const LINKED_LIST_FOLDER = 'client/src/visualiser-debugger/Component/Visualizer/Parser/';
 
 const matches = (path, entry) => (entry.endsWith('/') ? path.startsWith(entry) : path === entry);
@@ -50,7 +41,6 @@ const isLinkedListParserFile = (path) => {
 export function inScope(path) {
   if (!SCOPE.some((entry) => matches(path, entry)) && !isLinkedListParserFile(path)) return false;
   if (!CODE_EXTENSIONS.some((ext) => path.endsWith(ext))) return false;
-  // Every segment but the last is a folder.
   return !path.split('/').slice(0, -1).some((folder) => IGNORED_FOLDERS.has(folder));
 }
 
@@ -79,7 +69,6 @@ export function oversized(files, { only } = {}) {
     .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 }
 
-/** Lines in a file's text; a last line without a newline still counts. */
 function countLines(text) {
   if (text === '') return 0;
   const newlines = text.split('\n').length - 1;
@@ -88,7 +77,6 @@ function countLines(text) {
 
 const USAGE = 'usage: node scripts/check-file-sizes.mjs [--only source|test]';
 
-/** @returns {{ only?: 'source' | 'test' } | undefined} undefined when the arguments are wrong. */
 function parseArgs(args) {
   let only;
   for (let i = 0; i < args.length; i += 1) {
@@ -108,7 +96,8 @@ function main(args) {
     return 2;
   }
 
-  const tracked = execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
+  const repoRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
+  const tracked = execFileSync('git', ['ls-files', '-z'], { cwd: repoRoot, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
     .split('\0')
     .filter((path) => path && inScope(path) && (!options.only || kindOf(path) === options.only));
 
@@ -116,7 +105,7 @@ function main(args) {
   for (const path of tracked) {
     let text;
     try {
-      text = readFileSync(path, 'utf8');
+      text = readFileSync(join(repoRoot, path), 'utf8');
     } catch (error) {
       // Tracked but deleted from the working tree: nothing to measure.
       if (error.code === 'ENOENT') continue;

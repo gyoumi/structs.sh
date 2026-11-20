@@ -88,7 +88,14 @@ export type TypedValue =
   | SizetValue
   | ArrayValue;
 
-export type MemoryValue = TypedValue & { addr: Addr };
+export type RecordedValue =
+  | number
+  | string
+  | null
+  | RecordedValue[]
+  | { [field: Name]: RecordedValue };
+
+export type MemoryValue = { addr: string; typeName: string; value: RecordedValue };
 export type NativeType = TypedValue['type'];
 export type Value = TypedValue['value'];
 export type NativeTypeName = NativeType['typeName'];

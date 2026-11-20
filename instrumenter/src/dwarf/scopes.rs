@@ -1,20 +1,21 @@
-//! Reads each function, its nested scopes and the variables declared in them.
-
 use std::ops::Range;
 
 use gimli::{AttributeValue, EndianSlice, LittleEndian};
 
 use super::{Entry, FrameBase, Function, UnitReader, Variable};
 
-/// A scope inside a function: the function itself, or a block within it.
 pub(super) struct Scope {
-    pub ranges: Vec<Range<u64>>,
+    ranges: Vec<Range<u64>>,
     depth: usize,
     variables: Vec<Variable>,
 }
 
 /// The variables in scope at `address`: innermost scope first, and in the
-/// order they're declared within each scope, as GDB lists them.
+/// order they're declared within each scope. The client keeps the first
+/// variable of each name, so an inner one hides an outer one, and builds its
+/// variable list in this order, the order recorded in
+/// `client/src/Services/debugger/wasm/fixtures/gdb-variables.json`
+/// (`i,xs,n,total` inside `sum`'s loop).
 pub(super) fn visible(scopes: &[Scope], address: u64) -> Vec<Variable> {
     let mut open: Vec<&Scope> = scopes
         .iter()
@@ -27,10 +28,11 @@ pub(super) fn visible(scopes: &[Scope], address: u64) -> Vec<Variable> {
 }
 
 impl<'a> UnitReader<'a, '_> {
-    /// A function, and its scopes with the function itself first.
+    /// A function, and its scopes, its own outermost one included.
     pub(super) fn function(
         &mut self,
         node: gimli::EntriesTreeNode<EndianSlice<'a, LittleEndian>>,
+        code_start: u32,
     ) -> gimli::Result<Option<(Function, Vec<Scope>)>> {
         let entry = node.entry();
         let Some(name) = self.string(entry, gimli::DW_AT_name)? else {
@@ -41,20 +43,21 @@ impl<'a> UnitReader<'a, '_> {
             return Ok(None);
         }
         let frame_base = self.frame_base(entry)?;
+        let function = Function {
+            ranges: ranges
+                .iter()
+                .map(|r| code_start + r.start as u32..code_start + r.end as u32)
+                .collect(),
+            name,
+            frame_base,
+        };
         let mut scopes = vec![Scope {
             ranges,
             depth: 0,
             variables: Vec::new(),
         }];
         self.scope(node, 0, &mut scopes)?;
-        Ok(Some((
-            Function {
-                ranges: Vec::new(),
-                name,
-                frame_base,
-            },
-            scopes,
-        )))
+        Ok(Some((function, scopes)))
     }
 
     fn frame_base(&self, entry: &Entry) -> gimli::Result<Option<FrameBase>> {
@@ -70,8 +73,6 @@ impl<'a> UnitReader<'a, '_> {
         })
     }
 
-    /// Reads the variables declared directly in scope `index`, and the blocks
-    /// nested inside it.
     fn scope(
         &mut self,
         node: gimli::EntriesTreeNode<EndianSlice<'a, LittleEndian>>,
@@ -84,7 +85,7 @@ impl<'a> UnitReader<'a, '_> {
             let entry = child.entry();
             match entry.tag() {
                 gimli::DW_TAG_formal_parameter | gimli::DW_TAG_variable => {
-                    if let Some(variable) = self.variable(entry)? {
+                    if let Some(variable) = self.frame_variable(entry)? {
                         scopes[index].variables.push(variable);
                     }
                 }
@@ -104,9 +105,7 @@ impl<'a> UnitReader<'a, '_> {
         Ok(())
     }
 
-    /// A variable that lives at a fixed place in its function's frame. Others,
-    /// such as `static` ones, aren't shown.
-    fn variable(&mut self, entry: &Entry) -> gimli::Result<Option<Variable>> {
+    fn frame_variable(&mut self, entry: &Entry) -> gimli::Result<Option<Variable>> {
         let Some(name) = self.string(entry, gimli::DW_AT_name)? else {
             return Ok(None);
         };

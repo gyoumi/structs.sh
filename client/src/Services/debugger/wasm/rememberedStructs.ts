@@ -4,8 +4,7 @@ import type { Allocation } from './heap';
 /**
  * The structs shown so far, as their address and type, by the start of the
  * live allocation they're in. Each is shown at every step until it's freed,
- * even when no variable reaches it any more (a node that's only a call's
- * return value, or a leak).
+ * even when no variable reaches it any more.
  */
 export const createRememberedStructs = (
   types: DebugType[],
@@ -43,14 +42,12 @@ export const createRememberedStructs = (
     },
     reallocated(old: number, start: number, size: number) {
       const structs = shown.get(old);
-      if (structs && start === old) {
-        // Resized in place: forget the structs no longer wholly inside it,
-        // so they aren't drawn from that memory once it's reused.
+      const resizedInPlace = start === old;
+      if (structs && resizedInPlace) {
         structs.forEach((type, address) => {
           if (address + types[type].size > start + size) structs.delete(address);
         });
       } else {
-        // Moved, its structs are now wherever the variables reach them.
         shown.delete(old);
       }
     },

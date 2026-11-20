@@ -5,7 +5,6 @@ import { WasmDebugger } from './wasmDebugger';
 
 interface DebuggerStore {
   debuggerClient: Debugger | null;
-  /** Creates the debugger, if there isn't one. */
   initialise: () => void;
   close: () => void;
 }

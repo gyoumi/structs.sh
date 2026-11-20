@@ -1,5 +1,3 @@
-//! The passes that rewrite the program's functions.
-
 pub(crate) mod allocations;
 mod frame_fill;
 mod line_calls;
@@ -10,7 +8,6 @@ mod wrap_body;
 use walrus::LocalFunction;
 use walrus::ir::{self, Instr, InstrSeqId, Value};
 
-/// Every instruction sequence in the function: its body and nested blocks.
 fn sequences(function: &LocalFunction) -> Vec<InstrSeqId> {
     let mut found = Vec::new();
     let mut pending = vec![function.entry_block()];

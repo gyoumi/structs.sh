@@ -318,15 +318,15 @@ function makeRepo(tracked, untracked = []) {
   return root;
 }
 
-function runCli(cwd, args = []) {
-  const result = spawnSync(process.execPath, ['scripts/check-file-sizes.mjs', ...args], { cwd, encoding: 'utf8' });
+function runCli(cwd, args = [], script = 'scripts/check-file-sizes.mjs') {
+  const result = spawnSync(process.execPath, [script, ...args], { cwd, encoding: 'utf8' });
   const output = `${result.stdout ?? ''}${result.stderr ?? ''}`;
   return { status: result.status, output, lines: output.split('\n').filter((line) => line.trim() !== '') };
 }
 
 const quoted = (output) => output.split('\n').map((l) => `    | ${l}`).join('\n');
-const describeRun = (repo, args, run) =>
-  `\`node scripts/check-file-sizes.mjs ${args.join(' ')}\` in ${repo}\n  exit code: ${run.status}\n  output:\n${quoted(run.output)}`;
+const describeRun = (repo, args, run, script = 'scripts/check-file-sizes.mjs') =>
+  `\`node ${[script, ...args].join(' ')}\` in ${repo}\n  exit code: ${run.status}\n  output:\n${quoted(run.output)}`;
 
 const overLine = (path, lines, limit, kind) => `${path}: ${lines} lines, over the ${limit}-line limit for ${kind} files`;
 const reportLines = (run) => run.lines.filter((line) => /: \d+ lines, over the \d+-line limit for \w+ files$/.test(line.trim())).map((l) => l.trim());
@@ -393,6 +393,20 @@ describe('CLI in a temporary git repo', () => {
       [overLine('client/src/Services/debugger/wasm/huge.test.ts', 501, 500, 'test')],
       `the over-limit lines with --only test\n${what}`,
     );
+  });
+
+  it('checks the whole repo, with repo-relative paths, when run from a subfolder', () => {
+    const repo = makeRepo([['client/src/Services/debugger/wasm/big.ts', linesOf(301)], ['instrumenter/src/lib.rs', linesOf(400)], ['e2e/support/page.ts', linesOf(10)]]);
+    const expected = [overLine('client/src/Services/debugger/wasm/big.ts', 301, 300, 'source'), overLine('instrumenter/src/lib.rs', 400, 300, 'source')];
+    const repoDescription = 'a temp git repo with tracked client/src/Services/debugger/wasm/big.ts (301 lines), instrumenter/src/lib.rs (400) and e2e/support/page.ts (10)';
+    const fromRoot = runCli(repo);
+    same(reportLines(fromRoot), expected, `run from the repo root\n${describeRun(repoDescription, [], fromRoot)}`);
+    for (const [sub, script] of [['client', '../scripts/check-file-sizes.mjs'], ['e2e/support', '../../scripts/check-file-sizes.mjs']]) {
+      const run = runCli(join(repo, sub), [], script);
+      const what = describeRun(`${repoDescription}, run from its ${sub}/ folder`, [], run, script);
+      assert.equal(run.status, 1, `exit code should be 1 from ${sub}/: the CLI checks the whole repo (git top-level), whatever folder it runs from\n${what}`);
+      same(reportLines(run), expected, `the over-limit lines from ${sub}/ should match the run from the root, with repo-relative paths\n${what}`);
+    }
   });
 
   it('with --only test, passes when only source files are over', () => {

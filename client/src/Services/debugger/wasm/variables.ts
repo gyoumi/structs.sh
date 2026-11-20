@@ -1,9 +1,3 @@
-/**
- * Reads a program's variables from its memory, using the `structs.debug`
- * section the instrumenter writes (see instrumenter/src/dwarf/mod.rs). Values and
- * type names come out the way the GDB debugger sends them, so the page shows
- * both the same way.
- */
 import { DebugSection } from './debugSection';
 import { hex, readValue, Value } from './values';
 
@@ -14,7 +8,6 @@ export { hex, readValue } from './values';
 export type { Allocation, Frame, HeapEntry, HeapField, ShownStructs } from './heap';
 export { readHeap } from './heap';
 
-/** A variable as the GDB debugger sends it in `stack_data`. */
 export type Variable = { addr: string; typeName: string; value: Value };
 
 /**
@@ -28,7 +21,6 @@ export const readVariables = (
   frameBase: number,
   memory: DataView
 ): Record<string, Variable> => {
-  // No prototype, so a variable called `constructor` is still found.
   const variables: Record<string, Variable> = Object.create(null);
   (debug.statements[statement]?.variables ?? []).forEach(({ name, type, offset }) => {
     // An inner variable hides an outer one with the same name, as in C.

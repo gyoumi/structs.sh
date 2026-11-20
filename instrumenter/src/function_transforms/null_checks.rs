@@ -1,5 +1,3 @@
-//! Stops NULL dereferences: checks the address of every memory access.
-
 use std::collections::HashMap;
 
 use walrus::ir::{self, BinaryOp, Instr, InstrLocId, StoreKind};
@@ -11,19 +9,18 @@ use super::{const_i32, sequences};
 /// program's data at 1024 and above.
 const LOWEST_VALID_ADDRESS: i32 = 1024;
 
-/// Adds the check, and runs it before every memory access in `code`.
-pub(crate) fn check_addresses(module: &mut Module, code: &[FunctionId], null: FunctionId) {
-    let check = add_null_check(module, null);
-    for &id in code {
+pub(crate) fn add_null_checks(module: &mut Module, functions: &[FunctionId], null: FunctionId) {
+    let check = add_null_check_helper(module, null);
+    for &id in functions {
         let function = module.funcs.get_mut(id).kind.unwrap_local_mut();
-        add_null_checks(function, &mut module.locals, check);
+        add_null_checks_to_function(function, &mut module.locals, check);
     }
 }
 
 /// Adds `check(address, offset) -> address`, which calls `null` when
 /// `address + offset` is below `LOWEST_VALID_ADDRESS`. The offset is the
 /// instruction's own: clang reads a global as address 0 plus its offset.
-fn add_null_check(module: &mut Module, null: FunctionId) -> FunctionId {
+fn add_null_check_helper(module: &mut Module, null: FunctionId) -> FunctionId {
     let address = module.locals.add(ValType::I32);
     let offset = module.locals.add(ValType::I32);
     let mut check = FunctionBuilder::new(
@@ -49,14 +46,12 @@ fn add_null_check(module: &mut Module, null: FunctionId) -> FunctionId {
     check.finish(vec![address, offset], &mut module.funcs)
 }
 
-/// Spare locals for juggling a memory instruction's operands, one of each
-/// type, made when first needed.
-struct Spares<'a> {
+struct ScratchLocals<'a> {
     locals: &'a mut ModuleLocals,
     made: HashMap<(ValType, u8), LocalId>,
 }
 
-impl Spares<'_> {
+impl ScratchLocals<'_> {
     fn get(&mut self, ty: ValType, which: u8) -> LocalId {
         *self
             .made
@@ -65,11 +60,14 @@ impl Spares<'_> {
     }
 }
 
-/// Runs `check` on the address of every load, store, `memory.copy` and
-/// `memory.fill`. The address is under the stored value, so a store sets the
-/// value aside first.
-fn add_null_checks(function: &mut LocalFunction, locals: &mut ModuleLocals, check: FunctionId) {
-    let mut spares = Spares {
+/// The address is under the stored value, so a store sets the value aside
+/// first.
+fn add_null_checks_to_function(
+    function: &mut LocalFunction,
+    locals: &mut ModuleLocals,
+    check: FunctionId,
+) {
+    let mut spares = ScratchLocals {
         locals,
         made: HashMap::new(),
     };
@@ -89,9 +87,7 @@ fn add_null_checks(function: &mut LocalFunction, locals: &mut ModuleLocals, chec
     }
 }
 
-/// What runs before `instr` to check the addresses it reads or writes.
-fn checks_before(instr: &Instr, spares: &mut Spares, check: FunctionId) -> Vec<Instr> {
-    // The check takes the instruction's offset, as a 32-bit number.
+fn checks_before(instr: &Instr, spares: &mut ScratchLocals, check: FunctionId) -> Vec<Instr> {
     let call = |offset: u64| {
         [
             const_i32(offset as u32 as i32),
@@ -134,7 +130,6 @@ fn checks_before(instr: &Instr, spares: &mut Spares, check: FunctionId) -> Vec<I
     }
 }
 
-/// The type of the value a store writes.
 fn stored_type(kind: StoreKind) -> ValType {
     match kind {
         StoreKind::I32 { .. } | StoreKind::I32_8 { .. } | StoreKind::I32_16 { .. } => ValType::I32,

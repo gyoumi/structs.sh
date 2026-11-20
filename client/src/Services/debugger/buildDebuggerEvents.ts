@@ -7,7 +7,6 @@ type Page = {
   setMessage: (msg: { content: string; colorTheme: string; durationMs: number }) => void;
   setActive: (active: boolean) => void;
   updateNextFrame: (state: BackendState) => void;
-  /** Adds a state to the steps the controls move through. */
   addToTimeline: (state: BackendState) => void;
   updateTypeDeclaration: (type: BackendTypeDeclaration) => void;
   appendConsoleChunks: (chunks: string[]) => void;
@@ -15,7 +14,6 @@ type Page = {
   setCompilerStatus: (status: CompilerStatus) => void;
 };
 
-/** Connects what a debugger reports to the page's stores. */
 export const buildDebuggerEvents = ({
   setMessage,
   setActive,

@@ -1,12 +1,9 @@
-//! Reads the fields of a struct or union.
-
 use gimli::UnitOffset;
 
 use super::UnitReader;
 use super::types::{Field, Type};
 
 impl UnitReader<'_, '_> {
-    /// The fields of the struct or union at `offset`.
     pub(super) fn fields(&mut self, offset: UnitOffset) -> gimli::Result<Vec<Field>> {
         let unit = self.unit;
         let mut fields = Vec::new();
@@ -45,7 +42,6 @@ impl UnitReader<'_, '_> {
         Ok(fields)
     }
 
-    /// The fields of the anonymous struct or union `ty`, moved to `offset`.
     fn lifted_fields(&self, ty: usize, offset: u64) -> Vec<Field> {
         let Type::Struct { fields: inner, .. } = &self.types[ty] else {
             return Vec::new();

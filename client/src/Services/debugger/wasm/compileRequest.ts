@@ -2,7 +2,6 @@ import { loadClang } from './compile';
 import { CompileResult, CompilerStatus } from './compiler';
 import { compileAndInstrument, loadInstrumenter } from './instrumenter';
 
-/** Loads clang, reporting its progress, and the much smaller instrumenter. */
 const loadCompiler = async (onProgress: (done: number, total: number) => void) => {
   await Promise.all([loadClang(onProgress), loadInstrumenter()]);
 };
@@ -10,9 +9,7 @@ const loadCompiler = async (onProgress: (done: number, total: number) => void) =
 export type CompileRequest = { id: number; fileName: string; source: string };
 export type CompileResponse = { id: number; result: CompileResult };
 
-/** Asks the worker to start downloading the compiler. */
 export type LoadRequest = { load: true };
-/** Tells the page how the compiler's download is going. */
 export type StatusMessage = { status: CompilerStatus };
 
 /**
@@ -57,10 +54,11 @@ export const answerCompileRequest = async (
   }
 };
 
-/**
- * Answers a message from the page. A compile first makes sure the compiler
- * has loaded, reporting progress, so a retry after a failed preload shows it.
- */
+const failWithoutReloadingClang = (id: number, loadError: string): CompileResponse => ({
+  id,
+  result: { ok: false, errors: `The compiler failed to load: ${loadError}` },
+});
+
 export const answerCompilerMessage = async (
   data: CompileRequest | LoadRequest,
   post: (message: StatusMessage | CompileResponse) => void,
@@ -75,12 +73,7 @@ export const answerCompilerMessage = async (
   const loadError = await answerLoadRequest(post, load);
   if ('load' in data) return;
   if (loadError !== null) {
-    // Answer now rather than have the compile retry the download without
-    // progress. The next compile tries loading again.
-    post({
-      id: data.id,
-      result: { ok: false, errors: `The compiler failed to load: ${loadError}` },
-    });
+    post(failWithoutReloadingClang(data.id, loadError));
     return;
   }
   post(await answerCompileRequest(data, compile));
