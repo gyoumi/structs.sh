@@ -8,6 +8,9 @@ describe('useDebuggerStore', () => {
 
     useDebuggerStore.getState().close();
 
-    expect(useCompilerStatusStore.getState().status).toBeNull();
+    expect(
+      useCompilerStatusStore.getState().status,
+      'compiler status loading 1/2, then close(): compiler status'
+    ).toBeNull();
   });
 });

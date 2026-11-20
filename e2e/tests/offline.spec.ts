@@ -8,26 +8,6 @@ import { test, expect } from '../support/test';
 // Line numbers refer to e2e/programs/linked_list.c and e2e/programs/sum_input.c.
 
 test.describe('working offline', () => {
-  test('a program compiles and steps with the network off', async ({ debuggerPage }) => {
-    await test.step('online: open linked_list.c and wait for the compiler to download', async () => {
-      await debuggerPage.openProgram('linked_list.c');
-      await debuggerPage.waitForCompilerDownload();
-    });
-
-    await debuggerPage.goOffline();
-
-    await test.step('offline: compile linked_list.c and step to line 20', async () => {
-      await debuggerPage.startSession();
-      await debuggerPage.stepUntilLine(20); // int done = 1;
-    });
-
-    await expect
-      .poll(() => debuggerPage.visualisedLabels(), {
-        message: 'offline, linked_list.c stepped to line 20: labels drawn for the list 1 -> 2 -> 3',
-      })
-      .toEqual(expect.arrayContaining(['1', '2', '3', 'list']));
-  });
-
   test('a program compiles and steps a second time with the network off', async ({ debuggerPage }) => {
     await test.step('online: open linked_list.c and wait for the compiler to download', async () => {
       await debuggerPage.openProgram('linked_list.c');

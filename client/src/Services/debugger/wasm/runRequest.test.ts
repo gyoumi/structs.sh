@@ -26,7 +26,10 @@ describe('answerRunRequest', () => {
         '#include <stdio.h>\nint main(void) {\n    printf("one\\n");\n    return 4;\n}\n'
       );
 
-      expect(await answer(wasm)).toEqual([
+      expect(
+        await answer(wasm),
+        'main.c (printf("one\\n") on line 3, return 4 on line 4): messages posted'
+      ).toEqual([
         {
           type: 'recorded',
           recording: {
@@ -47,7 +50,9 @@ describe('answerRunRequest', () => {
   it('posts an error when the module is not valid wasm', async () => {
     const messages = await answer(new Uint8Array([1, 2, 3]));
 
-    expect(messages).toHaveLength(1);
-    expect(messages[0].type).toBe('error');
+    expect(
+      messages.map((message) => message.type),
+      'bytes 1, 2, 3 (not wasm): types of the messages posted'
+    ).toEqual(['error']);
   });
 });

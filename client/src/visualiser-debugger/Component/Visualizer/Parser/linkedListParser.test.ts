@@ -71,14 +71,15 @@ const drawing = (graph: Drawing | undefined, where: string): Drawing => {
 };
 
 describe('LinkedListParser', () => {
-  const graph = drawing(
-    new LinkedListParser().parseState(state, annotation),
-    'linked_list.c line 20 (GDB recording, list 1 -> 2 -> 3, list annotated)'
-  );
+  const where = 'linked_list.c line 20 (GDB recording, list 1 -> 2 -> 3, list annotated)';
+  const graph = drawing(new LinkedListParser().parseState(state, annotation), where);
   const nodeAt = (label: string) => graph.nodes.find((node) => node.label === label)!;
 
   it('draws one node per list element', () => {
-    expect(graph.nodes.map((node) => node.label).sort()).toEqual(['1', '2', '3']);
+    expect(
+      graph.nodes.map((node) => node.label).sort(),
+      `${where}: labels of the nodes drawn`
+    ).toEqual(['1', '2', '3']);
   });
 
   it('links each node to the next one', () => {
@@ -86,18 +87,26 @@ describe('LinkedListParser', () => {
       (edge) =>
         `${graph.cacheEntity[edge.fromNodeUid].label} -> ${graph.cacheEntity[edge.toNodeUid].label}`
     );
-    expect(links.sort()).toEqual(['1 -> 2', '2 -> 3']);
+    expect(links.sort(), `${where}: edges drawn`).toEqual(['1 -> 2', '2 -> 3']);
   });
 
   it('places the nodes left to right in list order', () => {
-    expect(nodeAt('1').x).toBeLessThan(nodeAt('2').x);
-    expect(nodeAt('2').x).toBeLessThan(nodeAt('3').x);
+    expect(nodeAt('1').x, `${where}: x of node 1, left of node 2 at ${nodeAt('2').x}`).toBeLessThan(
+      nodeAt('2').x
+    );
+    expect(nodeAt('2').x, `${where}: x of node 2, left of node 3 at ${nodeAt('3').x}`).toBeLessThan(
+      nodeAt('3').x
+    );
   });
 
   it('points the annotated stack variable at the head of the list', () => {
-    expect(graph.pointers).toHaveLength(1);
-    expect(graph.pointers[0].label).toBe('list');
-    expect(graph.pointers[0].attachedUid).toBe(nodeAt('1').uid);
+    const pointers = graph.pointers.map((pointer) => {
+      const node = graph.nodes.find((candidate) => candidate.uid === pointer.attachedUid);
+      return `${pointer.label} -> ${node ? `node ${node.label}` : `no drawn node (${pointer.attachedUid})`}`;
+    });
+    expect(pointers, `${where}: pointer labels drawn, and the node each is attached to`).toEqual([
+      'list -> node 1',
+    ]);
   });
 });
 
