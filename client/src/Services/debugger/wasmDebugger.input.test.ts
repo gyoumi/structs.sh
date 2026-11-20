@@ -77,9 +77,10 @@ describe('WasmDebugger input', () => {
       `${what}, given "5", run to the end: sessionEnded events`
     ).toHaveBeenCalledOnce();
     expect(
-      outputCalls(events).slice(0, 2),
-      `${what}, given "5": the first two output events, with all their arguments, which shouldn't repeat after the re-recording`
-    ).toEqual([['hi\n'], ['Number: ']]);
+      outputCalls(events),
+      `${what}, given "5", run to the end: every output event, with all its arguments; nothing printed before ` +
+        'the re-recording should be shown again, and the last should say how the program ended'
+    ).toEqual([['hi\n'], ['Number: '], [expect.stringContaining('exit code 0')]]);
   });
 
   it('shows output the waiting statement prints once its input arrives', async () => {
