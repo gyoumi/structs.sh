@@ -477,6 +477,11 @@ Found while building checkpoint 1, and not needed for it:
   old node's pointer fields can still be followed and draw unrelated memory.
   This needs casts between incompatible structs, which COMP2521 programs
   rarely use.
+- **A struct whose first field is a struct** shares its address with that
+  field, and the recorder remembers one struct per address. So after
+  `inner = &outer->first; outer = NULL;`, only the inner struct is shown
+  there from then on, though the outer one is still allocated. Remembering
+  every struct at an address (or preferring the outer one) would fix it.
 - **Offline, a run cut short breaks the next one.** Once the page has
   loaded, the debugger works offline, because runs reuse a runner Worker
   started while the network was on. A Worker stopped mid-run (past the time
