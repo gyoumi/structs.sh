@@ -153,6 +153,7 @@ describe('createStandbyRunner, knowing when its worker has loaded', () => {
       name: string;
       end: (controller: AbortController) => Promise<unknown> | void;
       result: RecordResult;
+      stopsWithSignal?: boolean;
     }>([
       {
         name: 'the run times out',
@@ -161,19 +162,21 @@ describe('createStandbyRunner, knowing when its worker has loaded', () => {
       },
       {
         name: 'the run is stopped',
+        // Only this run is given a signal to stop it.
+        stopsWithSignal: true,
         end: (controller) => controller.abort(),
         result: { stopped: true },
       },
     ])(
       'settles when $name before anything arrives and the worker is terminated',
-      async ({ name, end, result }) => {
+      async ({ name, end, result, stopsWithSignal }) => {
         const { standby, created } = startStandby();
         const ready = standby.whenReady();
         const controller = new AbortController();
 
         const run = recordInWorker(
           WASM,
-          { timeLimitMs: TIME_LIMIT, signal: controller.signal },
+          { timeLimitMs: TIME_LIMIT, ...(stopsWithSignal ? { signal: controller.signal } : {}) },
           standby.take
         );
         expectSentToWorkerStartedAhead(

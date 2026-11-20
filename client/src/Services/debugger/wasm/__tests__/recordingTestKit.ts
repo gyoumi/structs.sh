@@ -38,6 +38,10 @@ export const stepsOf = (recording: Recording) =>
 export const describeStep = (steps: Step[], index: number) =>
   `step ${index + 1} ${steps[index].function}:${steps[index].line}`;
 
+/** What the program printed during its recorded steps, without what it printed before the first. */
+export const stepOutput = (recording: Recording) =>
+  recording.steps.map((step) => step.output).join('');
+
 /** Everything the program printed, before and during its steps. */
 export const outputOf = (recording: Recording) =>
   recording.outputBeforeFirstStep + recording.steps.map((step) => step.output).join('');

@@ -17,19 +17,23 @@ const expectFindings = (files, expected, what, labels = new Set()) => {
 };
 
 describe('large-removal', () => {
+  // The rows with no-test-needed are the folders checked for shrinking; the
+  // label keeps instrumenter/src/lib.rs from also hitting debugger-needs-test.
   const shrunk = [
-    ['client/src/visualiser-src/linked-list/controller.ts', 200, 20],
-    ['client/src/App.tsx', 400, 10],
-    ['e2e/support/test.ts', 400, 10],
-    ['instrumenter/src/lib.rs', 400, 10],
-    ['instrumenter/tests/instrument.rs', 400, 40],
-    ['scripts/pr-rules.test.mjs', 300, 20],
+    ['client/src/visualiser-src/linked-list/controller.ts', 200, 20, []],
+    ['client/src/App.tsx', 400, 10, ['no-test-needed']],
+    ['e2e/support/test.ts', 400, 10, ['no-test-needed']],
+    ['instrumenter/src/lib.rs', 400, 10, ['no-test-needed']],
+    ['instrumenter/tests/instrument.rs', 400, 10, ['no-test-needed']],
+    ['instrumenter/tests/instrument.rs', 400, 40, []],
+    ['scripts/pr-rules.test.mjs', 400, 10, ['no-test-needed']],
+    ['scripts/pr-rules.test.mjs', 300, 20, []],
   ];
-  for (const [path, oldLines, newLines] of shrunk) {
-    it(`rejects ${path} cut to a fraction of its size`, () => {
-      // no-test-needed, so a debugger source file hits only large-removal.
+  for (const [path, oldLines, newLines, labels] of shrunk) {
+    const labelled = labels.length ? ` (${labels.join(', ')})` : '';
+    it(`rejects ${path} cut from ${oldLines} to ${newLines} lines${labelled}`, () => {
       const files = [{ status: 'M', path, oldLines, newLines }];
-      expectFindings(files, [`large-removal ${path}`], `${path} cut from ${oldLines} to ${newLines} lines`, new Set(['no-test-needed']));
+      expectFindings(files, [`large-removal ${path}`], `${path} cut from ${oldLines} to ${newLines} lines${labelled}`, new Set(labels));
     });
   }
 
@@ -58,6 +62,18 @@ describe('large-removal', () => {
     });
   }
 
+  it('reports every deleted test in a PR, not just the first', () => {
+    const files = [
+      { status: 'D', path: 'client/src/Services/debugger/wasm/recording.test.ts' },
+      { status: 'D', path: 'instrumenter/tests/instrument.rs' },
+    ];
+    expectFindings(
+      files,
+      ['large-removal client/src/Services/debugger/wasm/recording.test.ts', 'large-removal instrumenter/tests/instrument.rs'],
+      'one PR deleting client/src/Services/debugger/wasm/recording.test.ts and instrumenter/tests/instrument.rs',
+    );
+  });
+
   const skippedTests = [
     ['e2e/tests/stepping.spec.ts', 'e2e/disabled/stepping.spec.ts', 'moved out of the test folders'],
     ['client/src/Services/debugger/wasm/recording.test.ts', 'client/src/Services/debugger/wasm/recording.ts.bak', 'renamed so Vitest no longer runs it'],
@@ -69,6 +85,18 @@ describe('large-removal', () => {
       expectFindings([{ status: 'R', path, oldPath }], [`large-removal ${oldPath}`], `renaming ${oldPath} to ${path}`);
     });
   }
+
+  it('reports every test renamed so its runner skips it in a PR, not just the first', () => {
+    const files = [
+      { status: 'R', path: 'e2e/tests/stepping.spec.ts.bak', oldPath: 'e2e/tests/stepping.spec.ts' },
+      { status: 'R', path: 'instrumenter/tests/instrument.rs.bak', oldPath: 'instrumenter/tests/instrument.rs' },
+    ];
+    expectFindings(
+      files,
+      ['large-removal e2e/tests/stepping.spec.ts', 'large-removal instrumenter/tests/instrument.rs'],
+      'one PR renaming e2e/tests/stepping.spec.ts and instrumenter/tests/instrument.rs to .bak',
+    );
+  });
 
   it('allows a test moved within the test folders', () => {
     const files = [{ status: 'R', path: 'e2e/tests/steps/stepping.spec.ts', oldPath: 'e2e/tests/stepping.spec.ts' }];

@@ -347,7 +347,7 @@ describe('WasmDebugger', () => {
 
   it('ends the session when the program is interrupted while it is being recorded', async () => {
     const { recorder } = controlledRecorder();
-    const wasm = await startedDebugger(events, recorder, 'loop.c');
+    const wasm = await startedDebugger(events, recorder, 'loop.c', '');
 
     wasm.interrupt();
     await flush();

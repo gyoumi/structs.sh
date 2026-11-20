@@ -179,7 +179,7 @@ describe('recordRun: variables', () => {
         '    return text[0] + buf[0] + big[299] + odd[0];', // 7
         '}', // 8
       ],
-      line: 7,
+      step: 7,
       values: {
         text: '"hi"',
         buf: '"ab"',
@@ -203,7 +203,7 @@ describe('recordRun: variables', () => {
         '    return 0;', // 10
         '}', // 11
       ],
-      line: 10,
+      step: 10,
       values: {
         nodes: [
           { value: 2, next: '0x0' },
@@ -227,7 +227,8 @@ describe('recordRun: variables', () => {
         '    return 0;', // 8
         '}', // 9
       ],
-      line: 8,
+      // The final step, as the old test read it.
+      step: 'last' as const,
       values: {
         square: { kind: 1, side: 4, radius: expect.any(Number) },
         big: null,
@@ -239,11 +240,14 @@ describe('recordRun: variables', () => {
     },
   ])(
     'reads $name',
-    async ({ name, file, source, line, values }) => {
-      const variables = variablesAt(await record(file, source.join('\n')), line);
+    async ({ name, file, source, step, values }) => {
+      const recording = await record(file, source.join('\n'));
+      const last = recording.steps.at(-1);
+      const variables = step === 'last' ? (last?.variables ?? {}) : variablesAt(recording, step);
+      const where = step === 'last' ? `the last step (line ${last?.line})` : `line ${step}`;
 
       Object.entries(values).forEach(([variable, expected]) => {
-        expect(variables[variable]?.value, `${name}; line ${line}: ${variable}`).toEqual(expected);
+        expect(variables[variable]?.value, `${name}; ${where}: ${variable}`).toEqual(expected);
       });
     },
     CLANG_TIMEOUT

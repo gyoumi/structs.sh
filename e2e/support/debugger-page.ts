@@ -340,12 +340,20 @@ export class DebuggerPage {
     for (let i = 0; i < maxSteps; i++) {
       const active = await this.stepForward();
       const labels = await this.settledVisibleLabels();
-      steps.push({ line: await this.currentLine(), labels, nodes: nodeValues(labels) });
+      steps.push({ line: await this.currentLine(), labels, nodes: DebuggerPage.nodeValues(labels) });
       if (!active) return steps;
     }
     throw new Error(
       `session still running after ${maxSteps} steps; lines visited: [${this.visitedLines.join(', ')}]`,
     );
+  }
+
+  /**
+   * The labels that are node values: a number, or "??" for a node whose value
+   * isn't set yet. The others are pointer names ("list", "head, n").
+   */
+  static nodeValues(labels: string[]): string[] {
+    return nodeValues(labels);
   }
 
   /** The pointer names drawn once the drawing has stopped moving, each with the node it points at (see Drawing). */

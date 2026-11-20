@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Recording, Step } from './recording';
-import { CLANG_TIMEOUT, outputOf, program, record, stepsOf } from './__tests__/recordingTestKit';
+import { CLANG_TIMEOUT, program, record, stepOutput, stepsOf } from './__tests__/recordingTestKit';
 
 // What a recording does with stdin: it reads the input typed so far, and
 // stops where the program waits for more. Typing more records it again.
@@ -55,7 +55,7 @@ describe('recordRun: input', () => {
         '    int i = slot();\n    scanf("%d", &values[i]);'
       );
 
-      const recording = await record('own_line.c', ownLine);
+      const recording = await record('case1.c', ownLine);
 
       expect(
         recording.end,
@@ -146,8 +146,8 @@ describe('recordRun: input', () => {
         exitCode: 0,
       });
       expect(
-        outputOf(recording),
-        'reads.c given "a\\nb\\n": output, printing what each read got as [first][second]'
+        stepOutput(recording),
+        'reads.c given "a\\nb\\n": output of the recorded steps, printing what each read got as [first][second]'
       ).toBe('[a\n][b\n]');
     },
     CLANG_TIMEOUT
@@ -171,7 +171,10 @@ describe('recordRun: input', () => {
       expect(recording.end, 'empty_read.c (read(0, &c, 0)), no input: end').toEqual({
         exitCode: 0,
       });
-      expect(outputOf(recording), 'empty_read.c: output, printing what read returned').toBe('0');
+      expect(
+        stepOutput(recording),
+        'empty_read.c: output of the recorded steps, printing what read returned'
+      ).toBe('0');
     },
     CLANG_TIMEOUT
   );
@@ -199,10 +202,13 @@ describe('recordRun: input', () => {
         'split.c (writes é a byte at a time around a read), no input: end'
       ).toEqual({ waitingForInput: true });
       expect(
-        outputOf(waiting),
-        "split.c, no input: output while waiting, which shouldn't show é's first byte alone"
+        stepOutput(waiting),
+        "split.c, no input: output of the recorded steps while waiting, which shouldn't show é's first byte alone"
       ).toBe('');
-      expect(outputOf(done), 'split.c given "x" and end-of-file: output').toBe('é');
+      expect(
+        stepOutput(done),
+        'split.c given "x" and end-of-file: output of the recorded steps'
+      ).toBe('é');
     },
     CLANG_TIMEOUT
   );
@@ -217,9 +223,10 @@ describe('recordRun: input', () => {
       expect(recording.end, 'sum_input.c given "2\\n3\\n" and end-of-file: end').toEqual({
         exitCode: 0,
       });
-      expect(outputOf(recording), 'sum_input.c given "2\\n3\\n" and end-of-file: output').toBe(
-        'total 5\n'
-      );
+      expect(
+        stepOutput(recording),
+        'sum_input.c given "2\\n3\\n" and end-of-file: output of the recorded steps'
+      ).toBe('total 5\n');
     },
     CLANG_TIMEOUT
   );

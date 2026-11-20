@@ -52,14 +52,15 @@ describe('forbidden-files', () => {
 });
 
 describe('debug-tags', () => {
+  // The client row also lists the file as changed, as a real PR would.
   const productCode = [
-    { path: 'client/src/App.tsx', line: 12, text: "console.log('[DEBUG-a1b2] state', s);" },
-    { path: 'e2e/support/debugger-page.ts', line: 3, text: "console.log('[DEBUG-c3d4]');" },
-    { path: 'instrumenter/src/lib.rs', line: 8, text: 'eprintln!("[DEBUG-e5f6] {x}");' },
+    { added: { path: 'client/src/App.tsx', line: 12, text: "console.log('[DEBUG-a1b2] state', s);" }, files: [{ status: 'M', path: 'client/src/App.tsx' }] },
+    { added: { path: 'e2e/support/debugger-page.ts', line: 3, text: "console.log('[DEBUG-c3d4]');" }, files: [] },
+    { added: { path: 'instrumenter/src/lib.rs', line: 8, text: 'eprintln!("[DEBUG-e5f6] {x}");' }, files: [] },
   ];
-  for (const added of productCode) {
+  for (const { added, files } of productCode) {
     it(`rejects a temporary [DEBUG-xxxx] line added to ${added.path}`, () => {
-      const result = checkPr(pr({ addedLines: [added] }));
+      const result = checkPr(pr({ files, addedLines: [added] }));
       assert.deepEqual(
         result.map((f) => `${f.rule} ${f.path}`),
         [`debug-tags ${added.path}`],
@@ -67,6 +68,16 @@ describe('debug-tags', () => {
       );
     });
   }
+
+  it('reports every file with the tag in a PR, not just the first', () => {
+    const addedLines = productCode.slice(1).map(({ added }) => added);
+    const result = checkPr(pr({ addedLines }));
+    assert.deepEqual(
+      result.map((f) => `${f.rule} ${f.path}`),
+      ['debug-tags e2e/support/debugger-page.ts', 'debug-tags instrumenter/src/lib.rs'],
+      `[DEBUG- lines added in e2e/support/debugger-page.ts and instrumenter/src/lib.rs in one PR should each hit debug-tags. Got findings: ${show(result)}`,
+    );
+  });
 
   it('ignores the tag outside client, e2e and instrumenter', () => {
     const result = checkPr(pr({ addedLines: [{ path: 'scripts/pr-rules.mjs', line: 1, text: '[DEBUG-' }] }));

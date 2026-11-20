@@ -87,15 +87,19 @@ describe('debugger-needs-test', () => {
     { what: 'e2e/tests/stepping.spec.ts changed', file: { status: 'M', path: 'e2e/tests/stepping.spec.ts' } },
     { what: 'e2e/programs/loop.c added', file: { status: 'A', path: 'e2e/programs/loop.c' } },
     { what: 'the Vitest test client/src/Services/debugger/wasm/recording.test.ts added', file: { status: 'A', path: 'client/src/Services/debugger/wasm/recording.test.ts' } },
-    { what: 'the Vitest test client/src/components/Frame.test.tsx changed', file: { status: 'M', path: 'client/src/components/Frame.test.tsx' } },
+    {
+      what: 'the Vitest test client/src/components/Frame.test.tsx changed',
+      change: { status: 'M', path: 'client/src/Services/debugger/wasmDebugger.ts' },
+      file: { status: 'M', path: 'client/src/components/Frame.test.tsx' },
+    },
     { what: 'the cargo test instrumenter/tests/instrument.rs changed', file: { status: 'M', path: 'instrumenter/tests/instrument.rs' } },
     { what: 'the cargo test fixture instrumenter/tests/fixtures/loop.wasm added', file: { status: 'A', path: 'instrumenter/tests/fixtures/loop.wasm' } },
     { what: 'a known-failures entry in e2e/known-failures/wasm.json (human-approved)', file: { status: 'M', path: 'e2e/known-failures/wasm.json' }, labels: ['human-approved'] },
     { what: 'no test change, but the no-test-needed label', labels: ['no-test-needed'] },
   ];
-  for (const { what, file, labels = [] } of testChanges) {
+  for (const { what, change = debuggerChange, file, labels = [] } of testChanges) {
     it(`accepts a debugger change that comes with ${what}`, () => {
-      expectClean([debuggerChange, ...(file ? [file] : [])], `instrumenter/src/lib.rs changed, with ${what},`, new Set(labels));
+      expectClean([change, ...(file ? [file] : [])], `${change.path} changed, with ${what},`, new Set(labels));
     });
   }
 

@@ -82,6 +82,7 @@ describe('createStandbyRunner', () => {
     name: string;
     end: (worker: FakeRunnerWorker, controller: AbortController) => Promise<void> | void;
     result: RecordResult;
+    stopsWithSignal?: boolean;
   }>([
     {
       name: 'the run timed out before the worker answered',
@@ -90,6 +91,8 @@ describe('createStandbyRunner', () => {
     },
     {
       name: 'the run was stopped before the worker answered',
+      // Only this run is given a signal to stop it.
+      stopsWithSignal: true,
       end: (_, controller) => controller.abort(),
       result: { stopped: true },
     },
@@ -107,28 +110,31 @@ describe('createStandbyRunner', () => {
       },
       result: { timedOut: true },
     },
-  ])('terminates and replaces a worker when $name', async ({ name, end, result }) => {
-    const { standby, created } = startStandby();
-    const controller = new AbortController();
+  ])(
+    'terminates and replaces a worker when $name',
+    async ({ name, end, result, stopsWithSignal }) => {
+      const { standby, created } = startStandby();
+      const controller = new AbortController();
 
-    const run = recordInWorker(
-      WASM,
-      { timeLimitMs: TIME_LIMIT, signal: controller.signal },
-      standby.take
-    );
-    expectSentToWorkerStartedAhead(created, 1, `recordInWorker(standby.take), before ${name}`);
-    await end(created[0], controller);
+      const run = recordInWorker(
+        WASM,
+        { timeLimitMs: TIME_LIMIT, ...(stopsWithSignal ? { signal: controller.signal } : {}) },
+        standby.take
+      );
+      expectSentToWorkerStartedAhead(created, 1, `recordInWorker(standby.take), before ${name}`);
+      await end(created[0], controller);
 
-    expect(await run, `recordInWorker(standby.take), ${name}: result`).toEqual(result);
-    expect(created[0].terminated, `${name}: is the run's worker terminated`).toBe(true);
-    expect(created.length, `${name}: workers started (the first plus a replacement)`).toBe(2);
-    expect(created[1].terminated, `${name}: is the replacement terminated`).toBe(false);
-    expect(
-      reachedBy(standby.take(), created),
-      `take() after ${name}: which worker (by start order) it hands out`
-    ).toBe(1);
-    expect(created.length, `take() after ${name}: workers started in all`).toBe(2);
-  });
+      expect(await run, `recordInWorker(standby.take), ${name}: result`).toEqual(result);
+      expect(created[0].terminated, `${name}: is the run's worker terminated`).toBe(true);
+      expect(created.length, `${name}: workers started (the first plus a replacement)`).toBe(2);
+      expect(created[1].terminated, `${name}: is the replacement terminated`).toBe(false);
+      expect(
+        reachedBy(standby.take(), created),
+        `take() after ${name}: which worker (by start order) it hands out`
+      ).toBe(1);
+      expect(created.length, `take() after ${name}: workers started in all`).toBe(2);
+    }
+  );
 
   it('drops an idle worker that fails, such as its script not loading, and the next take() starts a new one', () => {
     const { standby, created } = startStandby();

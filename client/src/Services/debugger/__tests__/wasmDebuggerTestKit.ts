@@ -151,11 +151,12 @@ export const flush = () =>
 export const startedDebugger = async (
   events: DebuggerEvents,
   recorder: Recorder,
-  name = 'hello.c'
+  name = 'hello.c',
+  code = HELLO_SOURCE
 ) => {
   const wasm = new WasmDebugger(compilerReturning(COMPILED), recorder);
   wasm.setEvents(events);
-  wasm.start({ name, code: HELLO_SOURCE });
+  wasm.start({ name, code });
   await flush();
   return wasm;
 };

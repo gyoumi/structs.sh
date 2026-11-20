@@ -33,6 +33,36 @@ describe('protected-paths', () => {
     });
   }
 
+  it('reports every protected file in a PR, not just the first: CI, lint config and the known-failures list', () => {
+    const files = [
+      { status: 'M', path: '.github/workflows/e2e.yml' },
+      { status: 'M', path: 'client/eslint.config.mjs' },
+      { status: 'M', path: 'e2e/known-failures/wasm.json' },
+    ];
+    const result = checkPr(pr({ files }));
+    assert.deepEqual(
+      result.map((f) => `${f.rule} ${f.path}`),
+      ['protected-paths .github/workflows/e2e.yml', 'protected-paths client/eslint.config.mjs', 'protected-paths e2e/known-failures/wasm.json'],
+      `one PR changing the CI, lint config and known-failures files: each should hit protected-paths. Got findings: ${show(result)}`,
+    );
+    for (const finding of result) {
+      assert.equal(finding.message, PROTECTED_PATHS_MESSAGE, `protected-paths for ${finding.path} should use the message, which no longer mentions the sandbox`);
+    }
+  });
+
+  it('reports every protected file in a PR, not just the first: both rule files', () => {
+    const files = [
+      { status: 'M', path: 'scripts/pr-rules.mjs' },
+      { status: 'M', path: 'scripts/check-pr.mjs' },
+    ];
+    const result = checkPr(pr({ files }));
+    assert.deepEqual(
+      result.map((f) => `${f.rule} ${f.path}`),
+      ['protected-paths scripts/pr-rules.mjs', 'protected-paths scripts/check-pr.mjs'],
+      `one PR changing scripts/pr-rules.mjs and scripts/check-pr.mjs: each should hit protected-paths. Got findings: ${show(result)}`,
+    );
+  });
+
   it('accepts them once a person adds the human-approved label', () => {
     const files = [{ status: 'M', path: '.github/workflows/e2e.yml' }];
     const result = checkPr(pr({ files, labels: new Set(['human-approved']) }));
@@ -54,25 +84,40 @@ describe('protected-paths', () => {
   });
 
   const manifestChanges = [
-    { what: 'the scripts in the root package.json changed', file: { status: 'M', path: 'package.json', scriptsChanged: true }, finding: 'package.json' },
-    { what: 'the scripts in client/package.json changed', file: { status: 'M', path: 'client/package.json', scriptsChanged: true }, finding: 'client/package.json' },
-    { what: 'client/package.json added', file: { status: 'A', path: 'client/package.json' }, finding: 'client/package.json' },
-    { what: 'client/package.json deleted', file: { status: 'D', path: 'client/package.json' }, finding: 'client/package.json' },
+    { what: 'the scripts in the root package.json changed', file: { status: 'M', path: 'package.json', scriptsChanged: true }, findings: ['package.json'] },
+    { what: 'the scripts in client/package.json changed', file: { status: 'M', path: 'client/package.json', scriptsChanged: true }, findings: ['client/package.json'] },
+    { what: 'client/package.json added', file: { status: 'A', path: 'client/package.json' }, findings: ['client/package.json'] },
+    { what: 'client/package.json deleted', file: { status: 'D', path: 'client/package.json' }, findings: ['client/package.json'] },
     {
       what: 'client/package.json renamed out of its place, to client/package.backup.json',
       file: { status: 'R', path: 'client/package.backup.json', oldPath: 'client/package.json' },
-      finding: 'client/package.json',
+      // A rename touches both its paths.
+      findings: ['client/package.backup.json', 'client/package.json'],
     },
   ];
-  for (const { what, file, finding } of manifestChanges) {
+  for (const { what, file, findings } of manifestChanges) {
     it(`protects a package.json whose scripts CI runs: ${what}`, () => {
       const result = checkPr(pr({ files: [file] }));
-      assert.ok(
-        result.some((f) => f.rule === 'protected-paths' && f.path === finding),
-        `${what} should hit protected-paths on ${finding}. Got findings: ${show(result)}`,
+      assert.deepEqual(
+        result.map((f) => `${f.rule} ${f.path}`),
+        findings.map((path) => `protected-paths ${path}`),
+        `${what} should hit protected-paths on ${findings.join(' and ')} only. Got findings: ${show(result)}`,
       );
     });
   }
+
+  it('reports every package.json whose scripts changed in a PR, and nothing else', () => {
+    const files = [
+      { status: 'M', path: 'package.json', scriptsChanged: true },
+      { status: 'M', path: 'client/package.json', scriptsChanged: true },
+    ];
+    const result = checkPr(pr({ files }));
+    assert.deepEqual(
+      result.map((f) => f.path),
+      ['package.json', 'client/package.json'],
+      `one PR changing the scripts in package.json and client/package.json: paths of all findings. Got findings: ${show(result)}`,
+    );
+  });
 
   it('allows dependency bumps that leave the scripts alone', () => {
     const files = [
@@ -104,6 +149,20 @@ describe('protected-paths', () => {
       );
     });
   }
+
+  it('reports both Cargo.toml and cargo config in a PR that changes them together', () => {
+    const files = [
+      { status: 'M', path: 'instrumenter/Cargo.toml' },
+      { status: 'A', path: 'instrumenter/.cargo/config.toml' },
+    ];
+    const addedLines = [{ path: 'instrumenter/Cargo.toml', line: 7, text: 'required-features = ["slow"]' }];
+    const result = checkPr(pr({ files, addedLines }));
+    assert.deepEqual(
+      result.filter((f) => f.rule === 'protected-paths').map((f) => f.path),
+      ['instrumenter/Cargo.toml', 'instrumenter/.cargo/config.toml'],
+      `one PR adding required-features = ["slow"] to instrumenter/Cargo.toml and adding instrumenter/.cargo/config.toml: paths with protected-paths. Got findings: ${show(result)}`,
+    );
+  });
 
   it('protects cargo config, another way cargo can skip the instrumenter tests', () => {
     const result = checkPr(pr({ files: [{ status: 'A', path: 'instrumenter/.cargo/config.toml' }] }));
