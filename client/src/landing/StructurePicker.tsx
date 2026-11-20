@@ -1,20 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Radio, RadioGroup } from '@ui-sdk/react/radio';
-import { ArrowIcon } from '@/ui/icons';
-import { debuggerDestination, topics } from '@/visualiser/topics';
-import StructureArt, { artHost } from '@/ui/StructureArt';
+import { ArrowRightIcon } from '@/ui/icons';
+import { debuggerDestination, Destination, topics } from '@/visualiser/topics';
+import StructureArt, { artHostClass } from '@/ui/StructureArt';
 import landing from './Landing.module.css';
 import styles from './StructurePicker.module.css';
 
-interface Choice {
-  key: string;
-  name: string;
-  description: string;
-  path: string;
-}
-
-const choices: Choice[] = [
+const destinations: Destination[] = [
   ...topics.map((topic) => ({
     key: topic.slug,
     name: topic.title,
@@ -24,21 +17,21 @@ const choices: Choice[] = [
   debuggerDestination,
 ];
 
-const Detail = ({ choice }: { choice: Choice }) => {
+const Detail = ({ destination }: { destination: Destination }) => {
   const [active, setActive] = useState(false);
   useEffect(() => {
     const frame = requestAnimationFrame(() => setActive(true));
     return () => cancelAnimationFrame(frame);
   }, []);
   return (
-    <div className={`${styles.detailBody} ${artHost}`} data-active={active ? '' : undefined}>
-      <StructureArt id={choice.key} className={styles.detailArt} />
+    <div className={`${styles.detailBody} ${artHostClass}`} data-active={active ? '' : undefined}>
+      <StructureArt id={destination.key} className={styles.detailArt} />
       <div>
-        <h3 className={styles.detailName}>{choice.name}</h3>
-        <p className={styles.detailText}>{choice.description}</p>
-        <Link to={choice.path} className={landing.primary}>
-          Open {choice.name}
-          <ArrowIcon size={18} />
+        <h3 className={styles.detailName}>{destination.name}</h3>
+        <p className={styles.detailText}>{destination.description}</p>
+        <Link to={destination.path} className={landing.primary}>
+          Open {destination.name}
+          <ArrowRightIcon size={18} />
         </Link>
       </div>
     </div>
@@ -47,7 +40,7 @@ const Detail = ({ choice }: { choice: Choice }) => {
 
 const StructurePicker = () => {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
-  const selected = choices.find((choice) => choice.key === selectedKey);
+  const selected = destinations.find((destination) => destination.key === selectedKey);
 
   return (
     <section id="structures" className={styles.pick} aria-labelledby="structures-title">
@@ -61,16 +54,20 @@ const StructurePicker = () => {
           value={selectedKey}
           onValueChange={(value: string | null) => setSelectedKey(value)}
         >
-          {choices.map((choice) => (
-            <Radio key={choice.key} value={choice.key} className={`${styles.tile} ${artHost}`}>
-              <StructureArt id={choice.key} className={styles.tileArt} />
-              <span className={styles.tileName}>{choice.name}</span>
+          {destinations.map((destination) => (
+            <Radio
+              key={destination.key}
+              value={destination.key}
+              className={`${styles.tile} ${artHostClass}`}
+            >
+              <StructureArt id={destination.key} className={styles.tileArt} />
+              <span className={styles.tileName}>{destination.name}</span>
             </Radio>
           ))}
         </RadioGroup>
         <div className={styles.detail} aria-live="polite">
           {selected ? (
-            <Detail key={selected.key} choice={selected} />
+            <Detail key={selected.key} destination={selected} />
           ) : (
             <p className={styles.empty}>Select a structure above to see what it does.</p>
           )}

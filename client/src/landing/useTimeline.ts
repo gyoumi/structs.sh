@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-const reducedMotion = () =>
+const reducedMotionQuery = () =>
   typeof window.matchMedia === 'function'
     ? window.matchMedia('(prefers-reduced-motion: reduce)')
     : undefined;
 
-const prefersReducedMotion = () => reducedMotion()?.matches ?? false;
+const prefersReducedMotion = () => reducedMotionQuery()?.matches ?? false;
 
 /**
  * Plays a `duration`-long animation once on mount and returns how far through it is, in milliseconds.
@@ -33,7 +33,7 @@ export const useTimeline = (duration: number) => {
 
   useEffect(() => {
     replay();
-    const motion = reducedMotion();
+    const motion = reducedMotionQuery();
     const onMotionChange = () => {
       if (!motion?.matches) return;
       cancelAnimationFrame(frame.current);

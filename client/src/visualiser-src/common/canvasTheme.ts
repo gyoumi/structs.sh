@@ -8,7 +8,7 @@ export interface CanvasTheme {
   pointer: string;
   currFill: string;
   currStroke: string;
-  pointerLabel: string;
+  pointerLabelColor: string;
   prevFill: string;
   prevStroke: string;
   codeBackground: string;
@@ -16,7 +16,7 @@ export interface CanvasTheme {
   fontFamily: string;
   sortBarScale: number;
   /** Labels the curr and prev pointers with text in `fontFamily` instead of the small built-in glyphs. */
-  pointerText: boolean;
+  textPointerLabels: boolean;
 }
 
 export const defaultCanvasTheme: Readonly<CanvasTheme> = {
@@ -29,14 +29,14 @@ export const defaultCanvasTheme: Readonly<CanvasTheme> = {
   pointer: '#36CBCC',
   currFill: '#5EEEC3',
   currStroke: '#46B49B',
-  pointerLabel: '#000000',
+  pointerLabelColor: '#000000',
   prevFill: '#EE5E78',
   prevStroke: '#E85A84',
   codeBackground: '#14113C',
   codeText: '#FFFFFF',
   fontFamily: 'CodeText',
   sortBarScale: 1,
-  pointerText: false,
+  textPointerLabels: false,
 };
 
 export const canvasTheme: CanvasTheme = { ...defaultCanvasTheme };

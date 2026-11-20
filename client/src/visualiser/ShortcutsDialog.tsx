@@ -10,7 +10,7 @@ import {
 } from '@ui-sdk/react/dialog';
 import { CloseIcon } from '@/ui/icons';
 
-export const shortcutList: { keys: string[]; action: string }[] = [
+export const SHORTCUTS: { keys: string[]; action: string }[] = [
   { keys: ['Space'], action: 'Play or pause' },
   { keys: ['←', '→'], action: 'Step backward or forward' },
   { keys: ['Home', 'End'], action: 'Jump to the start or the end' },
@@ -47,7 +47,7 @@ const ShortcutsDialog = ({
       <DialogTitle>{title}</DialogTitle>
       <DialogDescription>{description}</DialogDescription>
       <dl>
-        {shortcutList.map((item) => (
+        {SHORTCUTS.map((item) => (
           <div key={item.action}>
             <dt>
               {item.keys.map((key) => (

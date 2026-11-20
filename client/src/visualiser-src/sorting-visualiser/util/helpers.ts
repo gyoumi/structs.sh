@@ -9,10 +9,10 @@ export function getCx(index: number): number {
   return leftOffset + index * (boxWidth + whitespace) + boxWidth / 2;
 }
 
-export function barHeight(value: number): number {
+export function getBarHeight(value: number): number {
   return Math.sqrt(value * 90) * canvasTheme.sortBarScale;
 }
 
 export function getY(value: number): number {
-  return textCy - 10 - barHeight(value);
+  return textCy - 10 - getBarHeight(value);
 }

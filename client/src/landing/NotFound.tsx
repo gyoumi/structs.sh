@@ -1,7 +1,7 @@
 import { CSSProperties } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import logo from '@/assets/img/structs.png';
-import { ArrowIcon } from '@/ui/icons';
+import { ArrowRightIcon } from '@/ui/icons';
 import { ThemeToggle, useTheme } from '@/ui/theme';
 import landing from './Landing.module.css';
 import hero from './HeroSection.module.css';
@@ -33,7 +33,7 @@ const NotFound = () => {
           <div className={hero.actions}>
             <Link to="/" className={landing.primary}>
               Go to the home page
-              <ArrowIcon size={18} />
+              <ArrowRightIcon size={18} />
             </Link>
             <a href="/#structures" className={landing.secondary}>
               Pick a structure

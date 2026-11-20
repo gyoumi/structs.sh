@@ -6,12 +6,12 @@ import { ThemeMenuItem, ThemeToggle } from '@/ui/theme';
 import StructureNav from './StructureNav';
 import Shortcuts from './Shortcuts';
 import { useMediaQuery } from './useVisualiser';
-import { TopicInfo } from './topics';
+import { Topic } from './topics';
 import styles from './VisualiserHeader.module.css';
 
 const HEADER_COLLAPSE_QUERY = '(max-width: 560px)';
 
-const VisualiserHeader = ({ topic }: { topic: TopicInfo }) => {
+const VisualiserHeader = ({ topic }: { topic: Topic }) => {
   const collapsed = useMediaQuery(HEADER_COLLAPSE_QUERY);
 
   return (
@@ -31,7 +31,7 @@ const VisualiserHeader = ({ topic }: { topic: TopicInfo }) => {
           menuItem: styles.moreItem,
           menuSeparator: styles.moreSeparator,
         }}
-        menuExtra={
+        extraMenuItems={
           collapsed && (
             <ThemeMenuItem className={styles.moreItem} indicatorClassName={styles.moreCheck} />
           )
