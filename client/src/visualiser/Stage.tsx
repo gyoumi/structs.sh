@@ -161,6 +161,7 @@ const Stage = ({ label, className, style, children }: StageProps) => {
     return () => cancelAnimationFrame(id);
   }, [layoutVersion, fit]);
 
+  // Some runs move values outside the start's bounds, like merge sort's working row, so check each step.
   useEffect(() => {
     if (!userMoved.current) fit(true);
   }, [step, complete, fit]);

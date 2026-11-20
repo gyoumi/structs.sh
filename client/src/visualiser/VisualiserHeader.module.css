@@ -16,7 +16,7 @@
   font-weight: 400;
 }
 
-.more[data-popup-open] {
+.more[data-popup-open]:not(:active) {
   transform: translate(3px, 3px);
 }
 
