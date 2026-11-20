@@ -1,0 +1,99 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(35, 34, 94, 0.4);
+}
+
+.dialog {
+  position: fixed;
+  inset: 0;
+  width: min(460px, calc(100vw - 32px));
+  height: fit-content;
+  margin: auto;
+  padding: 26px 28px 24px;
+  border: 2px solid #23225e;
+  border-radius: 18px;
+  background: #fff;
+  color: #23225e;
+  font-family: 'Fredoka Variable', sans-serif;
+  box-shadow: 8px 8px 0 #23225e;
+}
+
+:global(html[data-structs-theme='dark']) .dialog {
+  border-color: #4d4ca6;
+  background: #1b1b42;
+  color: #eceeff;
+  box-shadow: 8px 8px 0 #05051a;
+}
+
+.dialog::backdrop {
+  background: transparent;
+}
+
+.dialog h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.dialog p {
+  margin: 4px 0 18px;
+  color: #565b84;
+}
+
+.dialog dl {
+  overflow: visible;
+  background: transparent;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin: 0;
+}
+
+.dialog dl div {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  align-items: center;
+  gap: 12px;
+}
+
+.dialog dt {
+  display: flex;
+  gap: 5px;
+}
+
+.dialog dd {
+  justify-self: start;
+  margin: 0;
+  text-align: left;
+}
+
+.dialog kbd {
+  padding: 1px 8px;
+  border: 2px solid #23225e;
+  border-radius: 6px;
+  background: #eef2f7;
+  box-shadow: 2px 2px 0 #23225e;
+  color: #23225e;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.dialogClose {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.dialogClose:hover {
+  background: #eef2f7;
+}

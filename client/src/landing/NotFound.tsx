@@ -4,6 +4,7 @@ import logo from '@/assets/img/structs.png';
 import { ArrowIcon } from '@/ui/icons';
 import { ThemeToggle, useTheme } from '@/ui/theme';
 import landing from './Landing.module.css';
+import hero from './HeroSection.module.css';
 import styles from './NotFound.module.css';
 
 const BARS = [34, 58, 22, 76];
@@ -15,21 +16,21 @@ const NotFound = () => {
   return (
     <div className={`${landing.page} ${landing.hero}`} data-theme={theme}>
       <title>Page not found | structs.sh</title>
-      <header className={landing.header}>
-        <Link to="/" className={landing.brand}>
+      <header className={hero.header}>
+        <Link to="/" className={hero.brand}>
           <img src={logo} alt="" width={36} height={36} />
           <span>structs.sh</span>
         </Link>
-        <ThemeToggle className={landing.themeToggle} />
+        <ThemeToggle className={hero.themeToggle} />
       </header>
-      <main className={landing.heroBody}>
+      <main className={hero.heroBody}>
         <div>
-          <h1 className={landing.wordmark}>404</h1>
-          <p className={landing.lede}>
+          <h1 className={hero.wordmark}>404</h1>
+          <p className={hero.lede}>
             There’s no page at <code className={styles.path}>{pathname}</code>. Check the address,
             or pick a structure to visualise.
           </p>
-          <div className={landing.actions}>
+          <div className={hero.actions}>
             <Link to="/" className={landing.primary}>
               Go to the home page
               <ArrowIcon size={18} />

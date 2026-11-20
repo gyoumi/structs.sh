@@ -1,0 +1,56 @@
+.utilities {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  max-width: calc(100% - 90px);
+}
+
+.utility {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  height: 38px;
+  padding: 0 12px;
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 3px 3px 0 var(--shadow);
+  color: var(--ink);
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  white-space: nowrap;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition:
+    transform 90ms ease,
+    box-shadow 90ms ease,
+    background-color 140ms ease;
+}
+
+.utility:active {
+  transform: translate(3px, 3px);
+  box-shadow: 0 0 0 var(--shadow);
+}
+
+@media (max-width: 560px) {
+  .utilityNoun {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .utility {
+    transition: none;
+    animation: none;
+  }
+}
