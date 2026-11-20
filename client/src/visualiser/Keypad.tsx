@@ -26,7 +26,7 @@ interface KeypadProps {
 
 const DIGITS = ['7', '8', '9', '4', '5', '6', '1', '2', '3'];
 
-const randomValues = () => [randomValue(), randomValue(), randomValue()].join(',');
+const randomValuesText = () => [randomValue(), randomValue(), randomValue()].join(',');
 
 const rangeHint = (max: number) => {
   if (max < 0) return 'Empty';
@@ -57,7 +57,7 @@ const Keypad = ({ command, runLabel, classes, maxIndex }: KeypadProps) => {
 
   const fillRandom = () => {
     args.forEach((arg, i) => {
-      if (arg === 'values') setValue(i, randomValues());
+      if (arg === 'values') setValue(i, randomValuesText());
       else if (arg === 'value') setValue(i, String(randomValue()));
     });
   };
