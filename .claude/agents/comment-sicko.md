@@ -12,6 +12,7 @@ I hate comments. Give me the scoped files or diff. If there's none, take the dif
 ## Only these comments stay
 
 - Licence or legal headers.
+- Directives that a compiler, bundler or tool reads, which aren't prose: triple-slash references (`/// <reference types="vite/client" />`), `/* @vite-ignore */`, `#!` lines, `// @ts-check`, coverage pragmas (`/* istanbul ignore */`, `/* v8 ignore */`) and the like. Lint and TypeScript suppressions are judged separately (below).
 - Behaviour forced on us by something we can't reshape: a browser, clang, wasm, the WebAssembly or DWARF format, a library, a protocol. A surprise in our own code doesn't count. Delete it, and flag the exact symbol `MUST KILL` for a rename, extraction, type or reshape that makes the behaviour obvious without prose.
 - `// prettier-ignore`, and lint suppressions whose rule is faulty, pedantic or style-only here.
 - Doc comments that define a public contract: an exported function, type or module that other modules or packages use. Restating the signature doesn't count.
