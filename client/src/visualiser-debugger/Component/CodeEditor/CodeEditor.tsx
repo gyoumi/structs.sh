@@ -35,9 +35,9 @@ const CodeEditor: React.FC = () => {
 
   const markers: IMarker[] = [
     {
-      startRow: currentProgramState.frame_info.line_num - 1,
+      startRow: currentProgramState.location.lineNumber - 1,
       startCol: 0,
-      endRow: currentProgramState.frame_info.line_num - 1,
+      endRow: currentProgramState.location.lineNumber - 1,
       endCol: 100,
       className: 'current-line-marker',
       type: 'fullLine',

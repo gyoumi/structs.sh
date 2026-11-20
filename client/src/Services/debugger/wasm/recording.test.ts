@@ -736,7 +736,7 @@ describe('recordRun', () => {
 
   describe('the heap', () => {
     /** The values of the list that starts at `head`, following `next`. */
-    const listFrom = (heap: Recording['steps'][number]['heap'], head: string) => {
+    const listFrom = (heap: Record<string, { value: unknown }>, head: string) => {
       const values = [];
       let at = head;
       while (at !== '0x0') {
@@ -756,15 +756,16 @@ describe('recordRun', () => {
         expect(listFrom(step.heap, step.variables.list.value as string)).toEqual(
           listFrom(gdbList.heap_data, gdbList.stack_data.list.value)
         );
-        // The same shape as GDB's entries, apart from the addresses.
+        // The same shape as GDB's entries, apart from the addresses. GDB's
+        // recording keeps the old server's field shape, { kind, value, addr: null };
+        // the debugger now names a field's type `typeName` and has no `addr`.
         const [gdbEntry] = Object.values(gdbList.heap_data);
         Object.values(step.heap).forEach((entry) => {
           expect(entry.typeName).toBe(gdbEntry.typeName);
           expect(Object.keys(entry.value as object)).toEqual(Object.keys(gdbEntry.value));
           expect((entry.value as Record<string, unknown>).value).toEqual({
-            kind: 'int',
+            typeName: gdbEntry.value.value.kind,
             value: expect.any(Number),
-            addr: null,
           });
         });
         expect(Object.keys(step.heap)).toHaveLength(3);
@@ -882,8 +883,8 @@ describe('recordRun', () => {
 
         expect(Object.values(last.heap).map((entry) => entry.value)).toEqual([
           {
-            value: { kind: 'int', value: 7, addr: null },
-            next: { kind: 'struct node *', value: '0x0', addr: null },
+            value: { typeName: 'int', value: 7 },
+            next: { typeName: 'struct node *', value: '0x0' },
           },
         ]);
       },

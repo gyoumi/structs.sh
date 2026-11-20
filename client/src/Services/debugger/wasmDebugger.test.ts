@@ -254,16 +254,21 @@ describe('WasmDebugger', () => {
 
     expect(await wasm.step()).toBe(true);
     expect(events.state).toHaveBeenLastCalledWith({
-      frame_info: { file: 'hello.c', line: '    puts("hi");', line_num: 2, function: 'main' },
-      stack_data: {},
-      heap_data: {},
+      location: {
+        fileName: 'hello.c',
+        lineText: '    puts("hi");',
+        lineNumber: 2,
+        function: 'main',
+      },
+      variables: {},
+      heap: {},
     });
     expect(events.output).not.toHaveBeenCalled();
 
     // puts has now run, so its output shows with the next line.
     expect(await wasm.step()).toBe(true);
     expect(vi.mocked(events.output).mock.calls).toEqual([['hi\n']]);
-    expect(vi.mocked(events.state).mock.lastCall?.[0].frame_info).toMatchObject({ line_num: 3 });
+    expect(vi.mocked(events.state).mock.lastCall?.[0].location).toMatchObject({ lineNumber: 3 });
     expect(events.sessionEnded).not.toHaveBeenCalled();
   });
 
@@ -281,8 +286,8 @@ describe('WasmDebugger', () => {
         addr: '0x11010',
         typeName: 'struct node',
         value: {
-          value: { kind: 'int', value: 1, addr: null },
-          next: { kind: 'struct node *', value: '0x0', addr: null },
+          value: { typeName: 'int', value: 1 },
+          next: { typeName: 'struct node *', value: '0x0' },
         },
       },
     };
@@ -299,8 +304,8 @@ describe('WasmDebugger', () => {
     await wasm.step();
 
     expect(events.typeDeclaration).toHaveBeenCalledExactlyOnceWith(expect.objectContaining(node));
-    expect(vi.mocked(events.state).mock.lastCall?.[0].stack_data).toEqual({ list });
-    expect(vi.mocked(events.state).mock.lastCall?.[0].heap_data).toEqual(heap);
+    expect(vi.mocked(events.state).mock.lastCall?.[0].variables).toEqual({ list });
+    expect(vi.mocked(events.state).mock.lastCall?.[0].heap).toEqual(heap);
     expect(vi.mocked(events.typeDeclaration).mock.invocationCallOrder[0]).toBeLessThan(
       vi.mocked(events.state).mock.invocationCallOrder[0]
     );
@@ -349,7 +354,7 @@ describe('WasmDebugger', () => {
       expect(inputs.at(-1)).toEqual({ text: '5\n', eof: false });
 
       expect(await wasm.step()).toBe(true);
-      expect(vi.mocked(events.state).mock.lastCall?.[0].frame_info.line_num).toBe(4);
+      expect(vi.mocked(events.state).mock.lastCall?.[0].location.lineNumber).toBe(4);
       expect(await wasm.step()).toBe(false);
       expect(events.sessionEnded).toHaveBeenCalledOnce();
       expect(vi.mocked(events.output).mock.calls.slice(0, 2)).toEqual([['hi\n'], ['Number: ']]);
@@ -438,7 +443,7 @@ describe('WasmDebugger', () => {
       const statesShown = () =>
         vi
           .mocked(events.state)
-          .mock.calls.map(([state]) => `${state.frame_info.function}:${state.frame_info.line_num}`);
+          .mock.calls.map(([state]) => `${state.location.function}:${state.location.lineNumber}`);
 
       // The page moves to a new state only when step() resolves true, so the
       // paused state counts as the next state once, but not as a recorded step.
@@ -462,7 +467,7 @@ describe('WasmDebugger', () => {
           'slot.c: states shown after stepping past the last step while waiting; the paused state main:7 (end.at) should follow slot:3'
         ).toEqual(['main:6', 'main:7', 'slot:3', 'main:7']);
         expect(
-          Object.keys(vi.mocked(events.state).mock.lastCall?.[0].stack_data ?? {}),
+          Object.keys(vi.mocked(events.state).mock.lastCall?.[0].variables ?? {}),
           "slot.c: variables in the paused state shown (end.at's)"
         ).toEqual(['values']);
 
@@ -637,7 +642,7 @@ describe('WasmDebugger', () => {
     await flush();
     await wasm.step();
 
-    expect(vi.mocked(events.state).mock.lastCall?.[0].frame_info.line_num).toBe(1);
+    expect(vi.mocked(events.state).mock.lastCall?.[0].location.lineNumber).toBe(1);
   });
 
   it('does not record a program that fails to compile', async () => {

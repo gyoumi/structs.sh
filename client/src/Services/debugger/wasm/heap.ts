@@ -13,7 +13,7 @@ import {
 } from './heapOverlap';
 import { formatAddress, readValue, Value } from './values';
 
-export type HeapField = { kind: string; value: Value; addr: null };
+export type HeapField = { typeName: string; value: Value };
 
 export type HeapEntry = { addr: string; typeName: string; value: Record<string, HeapField> };
 
@@ -146,7 +146,7 @@ export const readHeap = (
         value: Object.fromEntries(
           type.fields.map((field) => [
             field.name,
-            { kind: types[field.type].name, value: whole[field.name], addr: null },
+            { typeName: types[field.type].name, value: whole[field.name] },
           ])
         ),
       };

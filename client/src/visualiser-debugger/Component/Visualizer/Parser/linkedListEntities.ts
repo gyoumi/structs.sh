@@ -69,7 +69,7 @@ export function buildPointerLabels(
 ): PointerEntity[] {
   const pointers: PointerEntity[] = [];
 
-  Object.entries(programState.stack_data).forEach(([name, memoryValue]) => {
+  Object.entries(programState.variables).forEach(([name, memoryValue]) => {
     if (!isStackVariableLabelled(stackAnnotation, name, memoryValue.typeName)) return;
 
     const target = memoryValue.value;

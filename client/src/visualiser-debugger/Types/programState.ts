@@ -56,14 +56,14 @@ export type Stack = Record<Name, MemoryValue>;
 export type Heap = Record<Addr, MemoryValue>;
 
 export type ProgramState = {
-  frame_info: {
-    file: string;
-    line: string;
-    line_num: number;
+  location: {
+    fileName: string;
+    lineText: string;
+    lineNumber: number;
     function: string;
   };
-  stack_data: Stack;
-  heap_data: Heap;
+  variables: Stack;
+  heap: Heap;
 };
 
 export const isStructTypeName = (typeName: string): typeName is StructType['typeName'] =>
@@ -85,23 +85,23 @@ export const isNativeTypeName = (typeName: string): typeName is NativeTypeName =
   isArrayType(typeName);
 
 export const INITIAL_PROGRAM_STATE: ProgramState = {
-  frame_info: {
-    file: '',
-    line: '',
-    line_num: 0,
+  location: {
+    fileName: '',
+    lineText: '',
+    lineNumber: 0,
     function: '',
   },
-  stack_data: {},
-  heap_data: {},
+  variables: {},
+  heap: {},
 };
 
 export function isInitialProgramState(state: ProgramState): boolean {
   return (
-    state.frame_info.file === '' &&
-    state.frame_info.line === '' &&
-    state.frame_info.line_num === 0 &&
-    state.frame_info.function === '' &&
-    Object.keys(state.stack_data).length === 0 &&
-    Object.keys(state.heap_data).length === 0
+    state.location.fileName === '' &&
+    state.location.lineText === '' &&
+    state.location.lineNumber === 0 &&
+    state.location.function === '' &&
+    Object.keys(state.variables).length === 0 &&
+    Object.keys(state.heap).length === 0
   );
 }

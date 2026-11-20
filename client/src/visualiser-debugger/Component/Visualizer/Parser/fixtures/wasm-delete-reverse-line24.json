@@ -1,11 +1,11 @@
 {
-  "frame_info": {
-    "file": "delete.c",
-    "line": "        struct node *next = head->next;",
-    "line_num": 24,
+  "location": {
+    "fileName": "delete.c",
+    "lineText": "        struct node *next = head->next;",
+    "lineNumber": 24,
     "function": "reverse"
   },
-  "stack_data": {
+  "variables": {
     "next": {
       "addr": "0xffe4",
       "typeName": "struct node *",
@@ -22,20 +22,18 @@
       "value": "0x0"
     }
   },
-  "heap_data": {
+  "heap": {
     "0x102a0": {
       "addr": "0x102a0",
       "typeName": "struct node",
       "value": {
         "value": {
-          "kind": "int",
-          "value": 1,
-          "addr": null
+          "typeName": "int",
+          "value": 1
         },
         "next": {
-          "kind": "struct node *",
-          "value": "0x10290",
-          "addr": null
+          "typeName": "struct node *",
+          "value": "0x10290"
         }
       }
     },
@@ -44,14 +42,12 @@
       "typeName": "struct node",
       "value": {
         "value": {
-          "kind": "int",
-          "value": 2,
-          "addr": null
+          "typeName": "int",
+          "value": 2
         },
         "next": {
-          "kind": "struct node *",
-          "value": "0x10280",
-          "addr": null
+          "typeName": "struct node *",
+          "value": "0x10280"
         }
       }
     },
@@ -60,14 +56,12 @@
       "typeName": "struct node",
       "value": {
         "value": {
-          "kind": "int",
-          "value": 3,
-          "addr": null
+          "typeName": "int",
+          "value": 3
         },
         "next": {
-          "kind": "struct node *",
-          "value": "0x0",
-          "addr": null
+          "typeName": "struct node *",
+          "value": "0x0"
         }
       }
     }

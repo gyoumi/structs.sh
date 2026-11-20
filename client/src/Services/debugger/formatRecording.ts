@@ -24,12 +24,12 @@ export const describeFailure = (result: Exclude<RecordResult, { recording: Recor
 };
 
 export const toProgramState = (file: SourceFile, step: Step): ProgramState => ({
-  frame_info: {
-    file: file.name,
-    line: file.code.split('\n')[step.line - 1] ?? '',
-    line_num: step.line,
+  location: {
+    fileName: file.name,
+    lineText: file.code.split('\n')[step.line - 1] ?? '',
+    lineNumber: step.line,
     function: step.function,
   },
-  stack_data: step.variables,
-  heap_data: step.heap,
+  variables: step.variables,
+  heap: step.heap,
 });
