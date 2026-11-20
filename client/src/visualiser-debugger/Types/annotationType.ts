@@ -1,4 +1,12 @@
-import { StructType, Name, PointerType, MemoryValue, IntType, NativeTypeName } from './backendType';
+import {
+  StructType,
+  Name,
+  PointerType,
+  MemoryValue,
+  IntType,
+  NativeTypeName,
+  isPointerType,
+} from './backendType';
 
 /**
  * TODO: This file needs a deep rework, it's not generic enough
@@ -85,6 +93,22 @@ export interface UserAnnotation {
   stackAnnotation: StackAnnotation;
   typeAnnotation: { [name: Name]: DataStructureAnnotationConcrete };
 }
+
+/**
+ * Whether a stack variable is labelled beside the node it points at. A
+ * pointer is, unless the student turned it off (an annotation of null); any
+ * other variable only if the student turned it on.
+ */
+export const isStackVariableLabelled = (
+  stackAnnotation: StackAnnotation | undefined,
+  name: string,
+  typeName: string
+): boolean => {
+  if (stackAnnotation && Object.prototype.hasOwnProperty.call(stackAnnotation, name)) {
+    return stackAnnotation[name] !== null;
+  }
+  return isPointerType(typeName);
+};
 
 /**
  * Type guard to check if a memory value is a linked list node

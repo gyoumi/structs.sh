@@ -61,23 +61,22 @@ export const createPossibleLinkedListTypeDecl = (
 export const LinkedListNodeAnnotation: AnnotationComponent = ({ backendType }: AnnotationProp) => {
   const [possibleTypeDeclForLinkedList, setPossibleTypeDeclForLinkedList] =
     useState<PossibleLinkedListAnnotation | null>(createPossibleLinkedListTypeDecl(backendType));
-  const { updateUserAnnotation, visualizer } = useGlobalStore();
+  const updateUserAnnotation = useGlobalStore((state) => state.updateUserAnnotation);
   const [nodeAnnotation, setNodeAnnotation] = useState<LinkedListAnnotation | null>(null);
   const handleUpdateNodeAnnotation = useCallback(
     (newAnnotation: LinkedListAnnotation) => {
+      // The annotations as they are now, not as this last rendered, so a
+      // stack variable's role set since then isn't overwritten.
+      const { userAnnotation } = useGlobalStore.getState().visualizer;
       updateUserAnnotation({
-        stackAnnotation: visualizer.userAnnotation.stackAnnotation,
+        ...userAnnotation,
         typeAnnotation: {
-          ...visualizer.userAnnotation.typeAnnotation,
+          ...userAnnotation.typeAnnotation,
           [newAnnotation.typeName]: newAnnotation,
         },
       });
     },
-    [
-      updateUserAnnotation,
-      visualizer.userAnnotation.stackAnnotation,
-      visualizer.userAnnotation.typeAnnotation,
-    ]
+    [updateUserAnnotation]
   );
 
   const handleLinkedNodeAnnotation = useCallback(

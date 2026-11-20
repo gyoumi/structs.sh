@@ -298,12 +298,31 @@ export type Frame = { statement: number; frameBase: number };
 /** A live heap allocation. */
 export type Allocation = { start: number; size: number };
 
+/** Structs shown at earlier steps, to show again while they're live. */
+export type ShownStructs = {
+  /** Each struct shown before, as [type, address]. */
+  roots?: Iterable<[number, number]>;
+  /** Called with each struct shown, as its address and type. */
+  onShown?: (address: number, type: number) => void;
+  /**
+   * Called with a struct shown before, as its address and type, that overlaps
+   * a different struct the variables reach now, so it's left out and can be
+   * forgotten.
+   */
+  onOverlapped?: (address: number, type: number) => void;
+};
+
 /**
  * The structs on the heap that the variables of every frame reach, as GDB
  * shows the heap. Pointers are followed through struct fields, arrays and
  * tables of pointers, and a struct inside a heap struct is shown too. A
  * pointer is only followed into memory `allocationOf` says is live, so freed
- * memory and the stack aren't shown.
+ * memory and the stack aren't shown. The `roots` in `shown` are read too,
+ * after what the variables reach, along with what they reach, so a struct
+ * shown before stays shown while only, say, a function's return value holds
+ * it. What the variables reach wins: a struct found only that way that
+ * overlaps a struct they reach (memory reused as another struct) isn't shown
+ * or followed, unless it's that struct, or one is a field inside the other.
  */
 export const readHeap = (
   debug: DebugSection,
@@ -311,7 +330,8 @@ export const readHeap = (
   memory: DataView,
   allocationOf: (address: number) => Allocation | null,
   /** Called now and then during a long walk; it may throw to stop it. */
-  checkTime: () => void = () => {}
+  checkTime: () => void = () => {},
+  { roots = [], onShown, onOverlapped }: ShownStructs = {}
 ): Record<string, HeapEntry> => {
   const { types } = debug;
   const heap: Record<string, HeapEntry> = Object.create(null);
@@ -351,8 +371,77 @@ export const readHeap = (
     pending.push([index, address]);
   };
 
+  /**
+   * Whether a value of type `inner` is part of one of type `outer`, `offset`
+   * bytes in: the outer value itself, or a field or array element of it,
+   * however deeply nested.
+   */
+  const embeds = (outer: number, offset: number, inner: number): boolean => {
+    const resolved = resolveIndex(types, outer);
+    if (offset === 0 && resolved === resolveIndex(types, inner)) return true;
+    const type = types[resolved];
+    if (type.kind === 'struct') {
+      return type.fields.some(
+        (field) =>
+          field.bitSize === undefined &&
+          offset >= field.offset &&
+          offset < field.offset + types[field.type].size &&
+          embeds(field.type, offset - field.offset, inner)
+      );
+    }
+    if (type.kind === 'array') {
+      const { size } = types[type.of];
+      const element = size > 0 ? Math.floor(offset / size) : 0;
+      return element < type.count && embeds(type.of, offset - element * size, inner);
+    }
+    return false;
+  };
+
+  /** The heap structs the variables reach, as [start, end, type]. */
+  let fromVariables = true;
+  const reached: [number, number, number][] = [];
+  /** `reached` by start, with the furthest end of each and those before it. */
+  let byStart: { sorted: [number, number, number][]; furthestEnds: number[] } | null = null;
+  /**
+   * Whether a struct of `type` at [start, end) clashes with one the variables
+   * reach: they overlap, and neither is the other or a field inside it, so
+   * the memory now holds something else.
+   */
+  const clashesWithReached = (start: number, end: number, type: number) => {
+    if (!byStart) {
+      const sorted = [...reached].sort((a, b) => a[0] - b[0]);
+      const furthestEnds: number[] = [];
+      sorted.forEach(([, structEnd], i) =>
+        furthestEnds.push(Math.max(structEnd, furthestEnds[i - 1] ?? -Infinity))
+      );
+      byStart = { sorted, furthestEnds };
+    }
+    const { sorted, furthestEnds } = byStart;
+    // How many reached structs start before `end`.
+    let low = 0;
+    let high = sorted.length;
+    while (low < high) {
+      const middle = Math.floor((low + high) / 2);
+      if (sorted[middle][0] < end) low = middle + 1;
+      else high = middle;
+    }
+    // Back through those, while any of them could still end after `start`.
+    for (let i = low - 1; i >= 0 && furthestEnds[i] > start; i -= 1) {
+      const [otherStart, otherEnd, other] = sorted[i];
+      if (
+        otherEnd > start &&
+        !(start >= otherStart && embeds(other, start - otherStart, type)) &&
+        !(otherStart >= start && embeds(type, otherStart - start, other))
+      ) {
+        return true;
+      }
+    }
+    return false;
+  };
+
   const look = (index: number, address: number) => {
-    const type = types[resolveIndex(types, index)];
+    const resolved = resolveIndex(types, index);
+    const type = types[resolved];
     if (type.kind === 'pointer' && type.to !== null) {
       const target = memory.getUint32(address, true);
       const pointee = types[resolveIndex(types, type.to)];
@@ -374,7 +463,14 @@ export const readHeap = (
       }
     } else if (type.kind === 'struct') {
       const heapKey = hex(address);
-      if (!(heapKey in heap) && inAllocation(address, type.size)) {
+      const onHeap = inAllocation(address, type.size);
+      if (onHeap && fromVariables) {
+        reached.push([address, address + type.size, resolved]);
+      } else if (onHeap && clashesWithReached(address, address + type.size, resolved)) {
+        onOverlapped?.(address, index);
+        return;
+      }
+      if (!(heapKey in heap) && onHeap) {
         const whole = readValue(types, resolveIndex(types, index), memory, address) as Record<
           string,
           Value
@@ -391,6 +487,7 @@ export const readHeap = (
             ])
           ),
         };
+        onShown?.(address, index);
       }
       type.fields
         .filter((field) => field.bitSize === undefined && leadsSomewhere(field.type))
@@ -407,21 +504,30 @@ export const readHeap = (
     }
   };
 
+  const walk = () => {
+    while (pending.length > 0) {
+      tick();
+      const [type, address] = pending.pop()!;
+      try {
+        look(type, address);
+      } catch (error) {
+        // An address past the end of memory has nothing to follow. Anything
+        // else, such as checkTime stopping the walk, goes on up.
+        if (!(error instanceof RangeError)) throw error;
+      }
+    }
+  };
+
   frames.forEach(({ statement, frameBase }) =>
     (debug.statements[statement]?.variables ?? [])
       .filter(({ type }) => leadsSomewhere(type))
       .forEach(({ type, offset }) => visit(type, frameBase + offset))
   );
-  while (pending.length > 0) {
-    tick();
-    const [type, address] = pending.pop()!;
-    try {
-      look(type, address);
-    } catch (error) {
-      // An address past the end of memory has nothing to follow. Anything
-      // else, such as checkTime stopping the walk, goes on up.
-      if (!(error instanceof RangeError)) throw error;
-    }
-  }
+  walk();
+  fromVariables = false;
+  // Then the structs shown before, so the ones the variables reach keep
+  // their order. Reversed, as the last one queued is looked at first.
+  [...roots].reverse().forEach(([type, address]) => visit(type, address));
+  walk();
   return heap;
 };

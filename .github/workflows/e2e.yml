@@ -32,6 +32,8 @@ jobs:
       - name: Type-check e2e
         run: pnpm run e2e:typecheck
 
+      # Builds the client for production (type-checking it as `pnpm run
+      # build` does) and serves the build, so the tests see what students get.
       - name: Run e2e tests
         run: pnpm run e2e
 

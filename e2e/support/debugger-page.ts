@@ -4,6 +4,29 @@ import { readFileSync } from 'node:fs';
 /** What the page has shown of the compiler's download so far. */
 type CompilerDownload = { seen: boolean; finished: boolean; lastStatus: string };
 
+/** A pointer-name label and the value of the node it is drawn beside, or null if it is beside none. */
+export type PointerLabel = { name: string; node: string | null };
+
+/** One step's drawing: the highlighted line, every label, and the labels that are node values. */
+export type DrawnStep = { line: number | null; labels: string[]; nodes: string[] };
+
+/**
+ * Console errors that are not the app's fault and are ignored by
+ * consoleErrors(). Each is a development-only React warning: React prints it
+ * from its development build only. The suite runs against the production
+ * build by default, where neither is ever printed (checked by stepping
+ * linked_list.c and bst.c on it with no filter: no console errors at all), so
+ * these only matter when E2E_BASE_URL points at the dev server. They are kept
+ * so that a dev-server run still checks for real errors. Neither breaks what
+ * the student sees.
+ */
+const DEV_ONLY_WARNINGS: RegExp[] = [
+  // React 19 warns when a library (MUI here) reads element.ref.
+  /^Accessing element\.ref was removed in React 19\./,
+  // A component passes a non-DOM prop through to a DOM element.
+  /^React does not recognize the `[^`]+` prop on a DOM element\./,
+];
+
 /**
  * Drives the visual debugger page the way a user would.
  *
@@ -15,7 +38,23 @@ export class DebuggerPage {
   /** Every line the editor highlighted, in order, since the session started. */
   readonly visitedLines: number[] = [];
 
-  constructor(readonly page: Page) {}
+  /** Step buttons clicked so far (forward and back), and the line highlighted after each. */
+  private stepsTaken = 0;
+  private readonly lineAfterStep: (number | null)[] = [];
+  private readonly errors: { step: number; text: string }[] = [];
+
+  constructor(readonly page: Page) {
+    // Listening from the start catches errors on load and between steps too.
+    page.on('console', (message) => {
+      if (message.type() !== 'error') return;
+      const text = message.text();
+      if (DEV_ONLY_WARNINGS.some((warning) => warning.test(text))) return;
+      this.errors.push({ step: this.stepsTaken, text: `console.error: ${text}` });
+    });
+    page.on('pageerror', (error) => {
+      this.errors.push({ step: this.stepsTaken, text: `uncaught ${error.name}: ${error.message}` });
+    });
+  }
 
   // ---------------------------------------------------------------- locators
 
@@ -192,6 +231,7 @@ export class DebuggerPage {
 
   /** Clicks step forward once. Returns false once the client reports the session ended. */
   async stepForward(): Promise<boolean> {
+    this.stepsTaken++;
     try {
       await this.stepForwardButton.click({ timeout: 10_000 });
     } catch {
@@ -201,13 +241,17 @@ export class DebuggerPage {
       );
     }
     const active = await this.waitUntilIdle();
-    this.recordLine(await this.currentLine());
+    const line = await this.currentLine();
+    this.lineAfterStep[this.stepsTaken] = line;
+    this.recordLine(line);
     return active;
   }
 
   async stepBack(): Promise<void> {
+    this.stepsTaken++;
     await this.stepBackButton.click();
     await this.waitUntilIdle();
+    this.lineAfterStep[this.stepsTaken] = await this.currentLine();
   }
 
   /** Steps forward until the editor highlights `line`. */
@@ -318,16 +362,85 @@ export class DebuggerPage {
    * Steps forward until the session ends, reading the visible, settled drawing
    * after every step. Returns each step's highlighted line and labels, in order.
    */
-  async drawingAtEachStep(maxSteps = 60): Promise<{ line: number | null; labels: string[] }[]> {
-    const steps: { line: number | null; labels: string[] }[] = [];
+  async drawingAtEachStep(maxSteps = 60): Promise<DrawnStep[]> {
+    const steps: DrawnStep[] = [];
     for (let i = 0; i < maxSteps; i++) {
       const active = await this.stepForward();
-      steps.push({ line: await this.currentLine(), labels: await this.settledVisibleLabels() });
+      const labels = await this.settledVisibleLabels();
+      steps.push({ line: await this.currentLine(), labels, nodes: DebuggerPage.nodeValues(labels) });
       if (!active) return steps;
     }
     throw new Error(
       `session still running after ${maxSteps} steps; lines visited: [${this.visitedLines.join(', ')}]`,
     );
+  }
+
+  /**
+   * The pointer names drawn once the drawing has stopped moving, each with
+   * the node it points at, sorted by name. The visualiser draws a pointer as
+   * an arrow below its node with the name under it, so a name belongs to the
+   * node above it that is nearest horizontally. Names stacked for one node
+   * ("head," over "n") each count, without the comma.
+   */
+  async settledPointerLabels(stableMs = 500, timeoutMs = 10_000): Promise<PointerLabel[]> {
+    let previous: string | undefined;
+    let current: string | undefined;
+    try {
+      await expect
+        .poll(
+          async () => {
+            previous = current;
+            current = JSON.stringify(await this.labelsWithPlace());
+            return previous !== undefined && current === previous;
+          },
+          { intervals: [stableMs], timeout: timeoutMs },
+        )
+        .toBe(true);
+    } catch {
+      throw new Error(`the visualiser's drawing kept moving for ${timeoutMs}ms; last labels: ${current}`);
+    }
+    const visible = (JSON.parse(current ?? '[]') as { text: string; opacity: number; x: number; y: number }[]).filter(
+      ({ opacity }) => opacity >= 0.5,
+    );
+    const isNode = (text: string) => DebuggerPage.nodeValues([text]).length === 1;
+    const nodes = visible.filter(({ text }) => isNode(text));
+    return visible
+      .filter(({ text }) => !isNode(text) && text.trim() !== '')
+      .map((label) => {
+        const above = nodes
+          .filter((node) => node.y < label.y)
+          .sort((a, b) => Math.abs(a.x - label.x) - Math.abs(b.x - label.x) || b.y - a.y);
+        return { name: label.text.replace(/,$/, ''), node: above[0]?.text ?? null };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  /**
+   * The labels that are node values: a number, or "??" for a node whose value
+   * isn't set yet. The others are pointer names ("list", "head, n").
+   */
+  static nodeValues(labels: string[]): string[] {
+    return labels.filter((label) => /^(-?\d+|\?\?)$/.test(label));
+  }
+
+  /**
+   * Errors the page logged with console.error, and exceptions it didn't
+   * catch, since it was opened, each with the step it came after, as
+   * "after step 3 (line 9): console.error: ... (x2)". The same error repeated
+   * after one step is listed once with its count. Development-only React
+   * warnings are left out (see DEV_ONLY_WARNINGS).
+   */
+  consoleErrors(): string[] {
+    const counted = new Map<string, number>();
+    for (const { step, text } of this.errors) {
+      const when =
+        step === 0
+          ? 'before the first step'
+          : `after step ${step} (line ${this.lineAfterStep[step] ?? 'not read yet'})`;
+      const key = `${when}: ${text}`;
+      counted.set(key, (counted.get(key) ?? 0) + 1);
+    }
+    return [...counted].map(([key, count]) => (count > 1 ? `${key} (x${count})` : key));
   }
 
   // ----------------------------------------------------------------- helpers
@@ -378,6 +491,26 @@ export class DebuggerPage {
           opacity *= style.display === 'none' || style.visibility === 'hidden' ? 0 : Number(style.opacity);
         }
         return { text: label.textContent ?? '', opacity: Math.round(opacity * 100) / 100 };
+      }),
+    );
+  }
+
+  /** Each label with its opacity (as in labelsWithOpacity) and the centre of its box on screen, rounded to 1px. */
+  private async labelsWithPlace(): Promise<{ text: string; opacity: number; x: number; y: number }[]> {
+    return this.visualiser.locator('svg text').evaluateAll((labels) =>
+      labels.map((label) => {
+        let opacity = 1;
+        for (let el: Element | null = label; el; el = el.parentElement) {
+          const style = getComputedStyle(el);
+          opacity *= style.display === 'none' || style.visibility === 'hidden' ? 0 : Number(style.opacity);
+        }
+        const box = label.getBoundingClientRect();
+        return {
+          text: label.textContent ?? '',
+          opacity: Math.round(opacity * 100) / 100,
+          x: Math.round(box.x + box.width / 2),
+          y: Math.round(box.y + box.height / 2),
+        };
       }),
     );
   }

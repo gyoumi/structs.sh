@@ -21,8 +21,15 @@ From the repo root:
 pnpm install                             # the frontend and the e2e suite
 pnpm exec playwright install chromium
 pnpm run instrumenter                    # needs Rust; see instrumenter/README.md
-pnpm run e2e                             # starts the frontend if it isn't running
+pnpm run e2e                             # builds the frontend and serves the build
 ```
+
+`pnpm run e2e` tests the production build, which is what students get: it
+runs `pnpm run build` in `client/` and serves the result with `vite preview`
+on port 4173. The dev server behaves differently in places (React's
+StrictMode runs effects twice there), and a bug once showed only in
+production. A server already on port 4173 is reused, so stop it after
+changing the client, or the tests see the old build.
 
 To run only the visualiser tests:
 
@@ -32,7 +39,8 @@ pnpm run e2e landing not-found visualiser-navigation linked-list-operations \
 ```
 
 Set `E2E_BASE_URL` to test a frontend that is already running, e.g.
-`E2E_BASE_URL=http://localhost:3110 pnpm run e2e`.
+`E2E_BASE_URL=http://localhost:3110 pnpm run e2e`. To test the dev server
+(`pnpm --dir client start`), point `E2E_BASE_URL` at it.
 
 After each run, a per-feature summary is printed:
 

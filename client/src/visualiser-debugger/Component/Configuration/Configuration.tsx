@@ -1,8 +1,7 @@
 import { ChevronDownIcon } from '@radix-ui/react-icons';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import styles from '@/styles/Configuration.module.css';
 import { useGlobalStore } from '@/visualiser-debugger/Store/globalStateStore';
-import { cloneSimple } from '@/visualiser-debugger/Component/Visualizer/Util/util';
 import { MotionCollapse } from './MotionCollapse';
 import { TypeAnnotation } from './TypeAnnotation';
 import { StackVarAnnotation } from './StackVarDeclaration';
@@ -10,26 +9,8 @@ import { StackVarAnnotation } from './StackVarDeclaration';
 const Configuration = () => {
   const [isTypeAnnotationOpen, setIsAnnotationOpen] = useState(true);
   const [isVariableAnnotationOpen, setIsVariableAnnotationOpen] = useState(true);
-  const { typeDeclarations, userAnnotation } = useGlobalStore().visualizer;
+  const { typeDeclarations } = useGlobalStore().visualizer;
   const { currFrame } = useGlobalStore();
-
-  /**
-   * Logic to delete annotation that no longer valid in current state
-   */
-  useEffect(() => {
-    if (!currFrame) return;
-    const currStackAnnotations = cloneSimple(userAnnotation.stackAnnotation);
-    Object.keys(currStackAnnotations).forEach((key) => {
-      if (!currFrame.stack_data[key]) {
-        delete userAnnotation.stackAnnotation[key];
-      }
-    });
-
-    useGlobalStore.getState().updateUserAnnotation({
-      stackAnnotation: userAnnotation.stackAnnotation,
-      typeAnnotation: userAnnotation.typeAnnotation,
-    });
-  }, [currFrame, userAnnotation.stackAnnotation, userAnnotation.typeAnnotation]);
 
   return (
     <div
