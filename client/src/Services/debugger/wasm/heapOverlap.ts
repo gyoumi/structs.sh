@@ -1,0 +1,76 @@
+import { DebugType, resolveIndex } from './debugSection';
+
+/** A heap struct the variables reach, as [start, end, type]. */
+export type ReachedStruct = [number, number, number];
+
+/** The reached structs by start, with the furthest end of each and those before it. */
+export type ReachedByStart = { sorted: ReachedStruct[]; furthestEnds: number[] };
+
+export const sortByStart = (reached: ReachedStruct[]): ReachedByStart => {
+  const sorted = [...reached].sort((a, b) => a[0] - b[0]);
+  const furthestEnds: number[] = [];
+  sorted.forEach(([, structEnd], i) =>
+    furthestEnds.push(Math.max(structEnd, furthestEnds[i - 1] ?? -Infinity))
+  );
+  return { sorted, furthestEnds };
+};
+
+/**
+ * Whether a value of type `inner` is part of one of type `outer`, `offset`
+ * bytes in: the outer value itself, or a field or array element of it,
+ * however deeply nested.
+ */
+const embeds = (types: DebugType[], outer: number, offset: number, inner: number): boolean => {
+  const resolved = resolveIndex(types, outer);
+  if (offset === 0 && resolved === resolveIndex(types, inner)) return true;
+  const type = types[resolved];
+  if (type.kind === 'struct') {
+    return type.fields.some(
+      (field) =>
+        field.bitSize === undefined &&
+        offset >= field.offset &&
+        offset < field.offset + types[field.type].size &&
+        embeds(types, field.type, offset - field.offset, inner)
+    );
+  }
+  if (type.kind === 'array') {
+    const { size } = types[type.of];
+    const element = size > 0 ? Math.floor(offset / size) : 0;
+    return element < type.count && embeds(types, type.of, offset - element * size, inner);
+  }
+  return false;
+};
+
+/**
+ * Whether a struct of `type` at [start, end) clashes with one the variables
+ * reach: they overlap, and neither is the other or a field inside it, so
+ * the memory now holds something else.
+ */
+export const clashesWithReached = (
+  types: DebugType[],
+  { sorted, furthestEnds }: ReachedByStart,
+  start: number,
+  end: number,
+  type: number
+) => {
+  // How many reached structs start before `end`.
+  let low = 0;
+  let high = sorted.length;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (sorted[middle][0] < end) low = middle + 1;
+    else high = middle;
+  }
+  // Back through those, while any of them could still end after `start`.
+  for (let i = low - 1; i >= 0 && furthestEnds[i] > start; i -= 1) {
+    const [otherStart, otherEnd, other] = sorted[i];
+    if (
+      otherEnd > start &&
+      !(start >= otherStart && embeds(types, other, start - otherStart, type)) &&
+      !(otherStart >= start && embeds(types, type, otherStart - start, other))
+    ) {
+      return true;
+    }
+  }
+  return false;
+};

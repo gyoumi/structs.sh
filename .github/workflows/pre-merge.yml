@@ -80,6 +80,9 @@ jobs:
           cache: true
       - name: Tests for the repo scripts
         run: pnpm run test:scripts
+      # Test files join the check in a later PR.
+      - name: Debugger source files stay under their line limit
+        run: pnpm run check:file-sizes --only source
       # Squash merges use the PR title as the commit message, and the local
       # commit-msg hook can be skipped, so the title is checked here.
       - name: PR title is a conventional commit

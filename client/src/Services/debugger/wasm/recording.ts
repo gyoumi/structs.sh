@@ -1,7 +1,9 @@
+import { createAllocations } from './allocations';
+import { createHeapSharing } from './heapSharing';
 import { createOutputLimit } from './outputLimit';
+import { createRememberedStructs } from './rememberedStructs';
 import { runWasi, WAITING_FOR_INPUT } from './run';
 import {
-  Allocation,
   HeapEntry,
   readDebugSection,
   readHeap,
@@ -73,16 +75,6 @@ export type Recording = {
   types: TypeDeclaration[];
 };
 
-/** Roughly what a step's reference to a shared heap entry costs, in bytes. */
-const REFERENCE_SIZE = 16;
-
-/** JSON writes NaN and Infinity as null, and -0 as 0: keep them apart when comparing. */
-const keepSpecialNumbers = (_key: string, value: unknown) => {
-  if (typeof value !== 'number') return value;
-  if (Object.is(value, -0)) return '-0';
-  return Number.isFinite(value) ? value : String(value);
-};
-
 /** wasm passes pointers and sizes as signed 32-bit numbers. */
 const unsigned = (value: number) => (value < 0 ? value + 2 ** 32 : value);
 
@@ -92,6 +84,27 @@ class LimitReached extends Error {
     super();
   }
 }
+
+/** How far a call's steps have got. */
+type CallStage =
+  | { stage: 'noStep' }
+  /** `line` is its latest step's line, so a repeat of it isn't a new step. */
+  | { stage: 'stepped'; line: number }
+  /**
+   * A call it made has returned since its latest step (on `line`, if it has
+   * one), so that step may not show where it is.
+   */
+  | { stage: 'returnedTo'; line: number | null };
+
+type Call = {
+  function: string;
+  /** The statement it's on, once it has started one. */
+  at: { statement: number; line: number | null; frameBase: number } | null;
+  stage: CallStage;
+};
+
+/** The line of a call's latest step, if it has one. */
+const steppedLine = (stage: CallStage) => (stage.stage === 'noStep' ? null : stage.line);
 
 /**
  * Runs an instrumented program to the end and records its steps. A step is
@@ -121,17 +134,6 @@ export const recordRun = async (
 ): Promise<Recording> => {
   const debug = readDebugSection(await WebAssembly.compile(wasm));
   const steps: Step[] = [];
-  type Call = {
-    function: string;
-    /** The statement it's on, once it has started one. */
-    statement: number | null;
-    line: number | null;
-    frameBase: number;
-    /** The line of its latest step, so a repeat of it isn't a new step. */
-    steppedLine: number | null;
-    /** Whether a call it made has returned since its latest step. */
-    returnedTo: boolean;
-  };
   const calls: Call[] = [];
   let outputBeforeFirstStep = '';
   let statementsRun = 0;
@@ -142,103 +144,31 @@ export const recordRun = async (
     if (performance.now() > deadline) throw new LimitReached({ timeLimit: timeLimitMs });
   };
 
-  /** The heap blocks in use: their start, and size. */
-  const allocations = new Map<number, number>();
-  /** The blocks' starts in order, rebuilt after the blocks change. */
-  let starts: number[] | null = null;
-  const allocationOf = (address: number): Allocation | null => {
-    if (address < 1024) return null;
-    const exact = allocations.get(address);
-    if (exact !== undefined) return { start: address, size: exact };
-    starts ??= [...allocations.keys()].sort((a, b) => a - b);
-    // The last block starting at or before the address.
-    let low = 0;
-    let high = starts.length;
-    while (low < high) {
-      const middle = Math.floor((low + high) / 2);
-      if (starts[middle] <= address) low = middle + 1;
-      else high = middle;
-    }
-    if (low === 0) return null;
-    const start = starts[low - 1];
-    const size = allocations.get(start)!;
-    return address < start + size ? { start, size } : null;
-  };
-
-  /**
-   * The structs shown so far, as their address and type, by the start of the
-   * live allocation they're in. Each is shown at every step until it's freed,
-   * even when no variable reaches it any more (a node that's only a call's
-   * return value, or a leak).
-   */
-  const shown = new Map<number, Map<number, number>>();
-  const remember = (address: number, type: number) => {
-    const allocation = allocationOf(address);
-    if (allocation === null) return;
-    let structs = shown.get(allocation.start);
-    if (!structs) {
-      structs = new Map();
-      shown.set(allocation.start, structs);
-    }
-    structs.set(address, type);
-  };
-  /**
-   * Forgets a struct whose memory now holds a different one, but not another
-   * struct remembered at the same address since, such as the one there now.
-   */
-  const forget = (address: number, type: number) => {
-    const allocation = allocationOf(address);
-    const structs = allocation && shown.get(allocation.start);
-    if (structs?.get(address) === type) structs.delete(address);
-  };
-  const shownRoots = () =>
-    [...shown.values()].flatMap((structs) =>
-      [...structs].map(([address, type]): [number, number] => [type, address])
-    );
-
-  /** The last step's heap entries, as JSON, to share the ones that don't change. */
-  let previousHeap = new Map<string, { entry: HeapEntry; json: string }>();
+  const { allocationOf, ...allocations } = createAllocations();
+  const shown = createRememberedStructs(debug.types, allocationOf);
+  const shareUnchanged = createHeapSharing();
   let recordedSize = 0;
 
   /** What a call shows now, counted toward the size limit. */
   const readStep = (call: Call, memory: () => DataView): Step | null => {
-    if (call.statement === null || call.line === null) return null;
+    if (call.at === null || call.at.line === null) return null;
     const view = memory();
-    const variables = readVariables(debug, call.statement, call.frameBase, view);
-    const callFrames = calls.flatMap(({ statement, frameBase }) =>
-      statement === null ? [] : [{ statement, frameBase }]
-    );
-
-    let size = JSON.stringify(variables).length;
-    const heap: Record<string, HeapEntry> = Object.create(null);
-    const seen = new Map<string, { entry: HeapEntry; json: string }>();
-    Object.entries(
+    const variables = readVariables(debug, call.at.statement, call.at.frameBase, view);
+    const callFrames = calls.flatMap(({ at }) => (at === null ? [] : [at]));
+    const { heap, size: heapSize } = shareUnchanged(
       readHeap(debug, callFrames, view, allocationOf, checkTime, {
-        roots: shownRoots(),
-        onShown: remember,
-        onOverlapped: forget,
+        roots: shown.roots(),
+        onShown: shown.remember,
+        onOverlapped: shown.forget,
       })
-    ).forEach(([address, entry]) => {
-      const json = JSON.stringify(entry, keepSpecialNumbers);
-      // Every step holds a reference to each entry, shared or not.
-      size += address.length + REFERENCE_SIZE;
-      const before = previousHeap.get(address);
-      if (before?.json === json) {
-        heap[address] = before.entry;
-        seen.set(address, before);
-      } else {
-        heap[address] = entry;
-        seen.set(address, { entry, json });
-        size += json.length;
-      }
-    });
+    );
+    const size = JSON.stringify(variables).length + heapSize;
     if (recordedSize + size > sizeLimit) throw new LimitReached({ sizeLimit });
     recordedSize += size;
-    previousHeap = seen;
 
     return {
       function: call.function,
-      line: call.line,
+      line: call.at.line,
       depth: calls.indexOf(call),
       output: '',
       variables,
@@ -248,12 +178,11 @@ export const recordRun = async (
 
   /** `again` adds a step even on the line of the call's latest step. */
   const addStep = (call: Call, memory: () => DataView, again = false) => {
-    if (call.steppedLine === call.line && !again) return;
+    if (steppedLine(call.stage) === (call.at?.line ?? null) && !again) return;
     const step = readStep(call, memory);
     if (!step) return;
     steps.push(step);
-    call.steppedLine = call.line;
-    call.returnedTo = false;
+    call.stage = { stage: 'stepped', line: step.line };
   };
 
   /** Reads the program's memory, for what's shown once it has stopped. */
@@ -273,53 +202,35 @@ export const recordRun = async (
         latestMemory = memory;
         if (event.type === 'enter') {
           const name = debug.functions[event.function] ?? `function ${event.function}`;
-          calls.push({
-            function: name,
-            statement: null,
-            line: null,
-            frameBase: 0,
-            steppedLine: null,
-            returnedTo: false,
-          });
+          calls.push({ function: name, at: null, stage: { stage: 'noStep' } });
         } else if (event.type === 'line') {
           statementsRun += 1;
           if (statementsRun > stepLimit) throw new LimitReached({ stepLimit });
           checkTime();
           const call = calls.at(-1);
           if (!call) return;
-          call.statement = event.statement;
-          call.line = debug.statements[event.statement]?.line ?? null;
-          call.frameBase = event.frameBase;
+          call.at = {
+            statement: event.statement,
+            line: debug.statements[event.statement]?.line ?? null,
+            frameBase: event.frameBase,
+          };
           addStep(call, memory);
         } else if (event.type === 'exit') {
           calls.pop();
           const caller = calls.at(-1);
-          if (caller) caller.returnedTo = true;
+          if (caller) caller.stage = { stage: 'returnedTo', line: steppedLine(caller.stage) };
         } else if (event.type === 'allocated') {
-          if (event.pointer !== 0) allocations.set(unsigned(event.pointer), unsigned(event.size));
-          starts = null;
+          if (event.pointer !== 0) allocations.add(unsigned(event.pointer), unsigned(event.size));
         } else if (event.type === 'freed') {
-          allocations.delete(unsigned(event.pointer));
-          shown.delete(unsigned(event.pointer));
-          starts = null;
+          allocations.remove(unsigned(event.pointer));
+          shown.freed(unsigned(event.pointer));
         } else if (event.pointer !== 0) {
           const old = unsigned(event.old);
           const start = unsigned(event.pointer);
           const size = unsigned(event.size);
-          allocations.delete(old);
-          const structs = shown.get(old);
-          if (structs && start === old) {
-            // Resized in place: forget the structs no longer wholly inside it,
-            // so they aren't drawn from that memory once it's reused.
-            structs.forEach((type, address) => {
-              if (address + debug.types[type].size > start + size) structs.delete(address);
-            });
-          } else {
-            // Moved, its structs are now wherever the variables reach them.
-            shown.delete(old);
-          }
-          allocations.set(start, size);
-          starts = null;
+          allocations.remove(old);
+          shown.reallocated(old, start, size);
+          allocations.add(start, size);
         }
       },
     });
@@ -331,7 +242,7 @@ export const recordRun = async (
       // Paused in a call with no step since a call it made returned: say
       // where, without adding a step (see RunEnd).
       const call = calls.at(-1);
-      if (call?.returnedTo && latestMemory) {
+      if (call?.stage.stage === 'returnedTo' && latestMemory) {
         try {
           const at = readStep(call, latestMemory);
           if (at) end = { waitingForInput: true, at };
@@ -344,7 +255,7 @@ export const recordRun = async (
       // A crash in a call with no step since a call it made returned, such as
       // `a / zero()`, would otherwise show on the returned call's last line.
       const call = calls.at(-1);
-      if (call?.returnedTo && latestMemory) {
+      if (call?.stage.stage === 'returnedTo' && latestMemory) {
         try {
           addStep(call, latestMemory, true);
         } catch {

@@ -330,7 +330,7 @@ wasm (14/16).
 
 **Done in #20.** The instrumenter writes a `structs.debug` section with each
 statement's variables in scope, where they live, and their types, named the
-way GDB names them (`instrumenter/src/debug.rs`). The recorder reads them from
+way GDB names them (`instrumenter/src/debug/mod.rs`). The recorder reads them from
 memory at each step, in the format the GDB debugger sends
 (`client/src/Services/debugger/wasm/variables.ts`). A recording of GDB's
 states for the same program is checked in, and the tests compare against it.
@@ -563,6 +563,14 @@ Found while building checkpoint 1, and not needed for it:
   `inner = &outer->first; outer = NULL;`, only the inner struct is shown
   there from then on, though the outer one is still allocated. Remembering
   every struct at an address (or preferring the outer one) would fix it.
+- **The e2e test "landing page leads to the feedback form" is flaky.** It
+  failed once in CI (#40) and passed on a rerun. The screenshot showed the
+  page still on the landing page after the click: the GitHub card above the
+  footer loads late and moves the "Provide Feedback" link. The test came
+  from `dev` unchanged.
+- **The console caret's blink timer** in `useCursor.ts` is a plain `let`,
+  so it's recreated on every render and `clearTimeout` never cancels the
+  previous timer. This predates the rewrite.
 - **Offline, a run cut short breaks the next one.** Once the page has
   loaded, the debugger works offline, because runs reuse a runner Worker
   started while the network was on. A Worker stopped mid-run (past the time
