@@ -21,7 +21,6 @@ interface KeypadProps {
   command: string;
   runLabel: ReactNode;
   classes: KeypadClasses;
-  /** Largest index the operation accepts, so the index field can hint the real range. */
   indexMax?: number;
 }
 

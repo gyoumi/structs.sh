@@ -30,7 +30,6 @@ export const ThemeToggle = ({ className }: { className?: string }) => {
   );
 };
 
-/** The same switch as a row in a menu, for where the toggle doesn't fit. */
 export const ThemeMenuItem = ({
   className,
   indicatorClassName,

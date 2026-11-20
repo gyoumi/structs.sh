@@ -1,0 +1,61 @@
+.sponsors {
+  padding-block: clamp(3rem, 8vh, 4.5rem);
+  border-top: 2.5px solid var(--edge);
+  background: var(--sponsor-band);
+  color: #ffffff;
+  text-align: center;
+}
+
+.tier {
+  margin-top: 2rem;
+}
+
+.tier h3 {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #a9b4e8;
+}
+
+.tier ul {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem clamp(1.5rem, 5vw, 4rem);
+  margin-top: 1.25rem !important;
+}
+
+.tier a {
+  display: block;
+  transition: opacity 160ms ease-out;
+}
+
+.tier img {
+  display: block;
+  width: auto;
+  height: calc(var(--logo-height) * 1px);
+}
+
+.tier a[data-sponsor='atlassian'] img {
+  filter: brightness(0) invert(1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tier a:hover {
+    opacity: 0.75;
+  }
+}
+
+@media (max-width: 700px) {
+  .tier img {
+    height: calc(var(--logo-height) * 0.8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tier a {
+    transition-duration: 1ms;
+  }
+}

@@ -14,7 +14,6 @@ export interface CanvasTheme {
   codeBackground: string;
   codeText: string;
   fontFamily: string;
-  /** Multiplies the height of sorting bars. */
   sortBarScale: number;
   /** Labels the curr and prev pointers with text in `fontFamily` instead of the small built-in glyphs. */
   pointerText: boolean;
@@ -40,7 +39,6 @@ export const defaultCanvasTheme: Readonly<CanvasTheme> = {
   pointerText: false,
 };
 
-// Read at draw time, so a theme applies to anything drawn after it is set.
 export const canvasTheme: CanvasTheme = { ...defaultCanvasTheme };
 
 export const setCanvasTheme = (theme: Partial<CanvasTheme> = {}): void => {
