@@ -1,5 +1,5 @@
 import type { Documentation } from '@/visualiser-src/common/typedefs';
-import type { VisualiserSnapshot } from '@/visualiser/session';
+import type { VisualiserSession, VisualiserSnapshot } from '@/visualiser/session';
 
 export const linkedListDocs: Documentation = {
   append: { args: ['value'], description: 'Append a node' },
@@ -35,7 +35,30 @@ const initial: VisualiserSnapshot = {
 };
 
 /** Stands in for the engine-backed session, which needs a real SVG layout. */
-export class FakeSession {
+type SessionApi = Pick<
+  VisualiserSession,
+  | 'subscribe'
+  | 'getSnapshot'
+  | 'data'
+  | 'attach'
+  | 'run'
+  | 'play'
+  | 'pause'
+  | 'togglePlay'
+  | 'stepForward'
+  | 'stepBackward'
+  | 'rewind'
+  | 'finish'
+  | 'seekToPercent'
+  | 'seekToStep'
+  | 'generate'
+  | 'clear'
+  | 'retheme'
+  | 'setSpeed'
+  | 'dispose'
+>;
+
+export class FakeSession implements SessionApi {
   private snapshot = initial;
 
   private listeners = new Set<() => void>();
@@ -49,7 +72,7 @@ export class FakeSession {
 
   data = [10, 20, 30];
 
-  attach(topicTitle: string, _theme: unknown, data?: number[]) {
+  attach(topicTitle: string, _canvasTheme: unknown, data?: number[]) {
     if (data) this.data = data;
     this.update({ topicTitle, documentation: linkedListDocs });
   }
@@ -87,7 +110,7 @@ export class FakeSession {
 
   finish = this.record('finish');
 
-  seek = this.record('seek');
+  seekToPercent = this.record('seekToPercent');
 
   seekToStep = this.record('seekToStep');
 
