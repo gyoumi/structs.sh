@@ -199,7 +199,6 @@ export class VisualiserSession {
     this.resetTrace();
   };
 
-  /** Random starting data, from `makeData` when it has an opinion and the engine otherwise. */
   private fill(topicTitle: string | null): void {
     const data = topicTitle ? this.makeData?.(topicTitle) : undefined;
     if (data) this.controller.loadData(data);

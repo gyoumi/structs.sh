@@ -1,5 +1,3 @@
-/* A search down the list of real pages that runs off the end. */
-
 .path {
   padding: 0.05em 0.35em;
   border: 1px solid var(--line);

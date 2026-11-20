@@ -5,7 +5,6 @@ export type PlaybackState = 'idle' | 'playing' | 'paused' | 'done';
 
 export interface Narration {
   state: PlaybackState;
-  /** What ran, as a sentence, e.g. "Insert 42 at index 3" rather than "Insert at index 42, 3". */
   title: string;
 }
 

@@ -6,7 +6,6 @@ export interface TopicInfo {
   name: string;
   /** Lower-case noun for running text, e.g. "Add to the array". */
   noun: string;
-  /** One or two plain sentences for choosing a structure. */
   description: string;
   /** The label for each of the engine's commands. */
   operations: Record<string, string>;

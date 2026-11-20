@@ -3,8 +3,6 @@
   place-items: center;
 }
 
-/* The editor window the hero runs in, coloured by the landing page's tokens. */
-
 .editor {
   width: min(100%, 32rem);
   overflow: hidden;
