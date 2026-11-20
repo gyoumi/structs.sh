@@ -43,7 +43,7 @@ Test before asking: could the user answer without opening the code? If not, rewr
 
 ```text
 Bad:  Should the MI response handler propagate the error state to the store?
-Good: When the program doesn't compile, where should the student see the error?
+Good: When the program doesn't compile, where should the user see the error?
 Good option: In the console panel (Recommended). That is where other compile errors appear.
 ```
 
