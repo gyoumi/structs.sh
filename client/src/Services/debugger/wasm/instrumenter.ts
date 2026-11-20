@@ -1,5 +1,5 @@
-import { compileC } from './compile';
-import { CompileResult } from './compiler';
+import { compileC } from './clang';
+import { CompileResult } from './compilerTypes';
 
 const INSTRUMENTER_URL = new URL('./generated/instrumenter.wasm', import.meta.url);
 

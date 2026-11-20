@@ -1,15 +1,12 @@
 import { UseBoundStore, StoreApi, create } from 'zustand';
 import { devtools } from 'zustand/middleware';
+import type { TypeDeclaration } from '@/Services/debugger/wasm/debugSection';
 import { Parser } from '../Component/Visualizer/Parser/parser';
 import { parserFactory } from '../Component/Visualizer/Parser/parserFactory';
 import { VisualizerComponent } from '../Component/Visualizer/Visulizer/visualizer';
 import { visualizerFactory } from '../Component/Visualizer/Visulizer/visualizerFactory';
-import {
-  DataStructureAnnotationConcrete,
-  StackAnnotation,
-  UserAnnotation,
-} from '../Types/annotationType';
-import { BackendState, BackendTypeDeclaration, INITIAL_BACKEND_STATE } from '../Types/backendType';
+import { DataStructureAnnotation, StackAnnotation, UserAnnotation } from '../Types/annotationType';
+import { ProgramState, INITIAL_PROGRAM_STATE } from '../Types/programState';
 import { VisualizerType } from '../Types/visualizerType';
 
 export type UiState = {
@@ -20,19 +17,18 @@ export type UiState = {
   currFocusedTab: string;
 };
 
-export type VisualizerParam = {
+export type VisualizerConfig = {
   visualizerType: VisualizerType;
   userAnnotation: UserAnnotation;
   visComponent: VisualizerComponent;
   parser: Parser;
-  typeDeclarations: BackendTypeDeclaration[];
+  typeDeclarations: TypeDeclaration[];
 };
 
 export type GlobalStateStore = {
   uiState: UiState;
-  visualizer: VisualizerParam;
-  // Refactor to include backend data history
-  currFrame: BackendState;
+  visualizer: VisualizerConfig;
+  latestProgramState: ProgramState;
   consoleChunks: string[];
 };
 
@@ -54,7 +50,7 @@ export const DEFAULT_GLOBAL_STORE: GlobalStateStore = {
     parser: parserFactory(VisualizerType.LINKED_LIST),
     typeDeclarations: [],
   },
-  currFrame: INITIAL_BACKEND_STATE,
+  latestProgramState: INITIAL_PROGRAM_STATE,
   consoleChunks: [],
 };
 
@@ -68,9 +64,9 @@ type GlobalStoreActions = {
   updateCurrFocusedTab: (tab: string) => void;
   updateUserAnnotation: (annotation: UserAnnotation) => void;
   updateStackAnnotation: (annotation: StackAnnotation) => void;
-  updateTypeAnnotation: (annotation: DataStructureAnnotationConcrete) => void;
-  updateTypeDeclaration: (type: BackendTypeDeclaration) => void;
-  updateNextFrame: (backendState: BackendState) => void;
+  updateTypeAnnotation: (annotation: DataStructureAnnotation) => void;
+  addTypeDeclaration: (type: TypeDeclaration) => void;
+  setLatestProgramState: (programState: ProgramState) => void;
   clearTypeDeclarations: () => void;
   clearUserAnnotation: () => void;
   appendConsoleChunks: (chunk: string | string[]) => void;
@@ -161,7 +157,7 @@ export const useGlobalStore: UseBoundStore<StoreApi<GlobalStateStore & GlobalSto
           'updateTypeAnnotation'
         );
       },
-      updateTypeDeclaration: (type: BackendTypeDeclaration) => {
+      addTypeDeclaration: (type: TypeDeclaration) => {
         set(
           (state) => ({
             visualizer: {
@@ -170,11 +166,11 @@ export const useGlobalStore: UseBoundStore<StoreApi<GlobalStateStore & GlobalSto
             },
           }),
           false,
-          'updateTypeDeclaration'
+          'addTypeDeclaration'
         );
       },
-      updateNextFrame: (backendState: BackendState) => {
-        set({ currFrame: backendState }, false, 'updateNextFrame');
+      setLatestProgramState: (programState: ProgramState) => {
+        set({ latestProgramState: programState }, false, 'setLatestProgramState');
       },
       clearTypeDeclarations: () => {
         set(

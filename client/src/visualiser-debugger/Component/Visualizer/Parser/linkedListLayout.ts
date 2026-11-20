@@ -1,4 +1,4 @@
-import { Addr } from '../../../Types/backendType';
+import { Addr } from '../../../Types/programState';
 import { LinkedListNode } from './linkedListHeap';
 import { UnionFind } from './util/unionFind';
 

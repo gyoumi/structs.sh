@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { compileC, loadClang } from './compile';
+import { compileC, loadClang } from './clang';
 
 // Its own file, so clang hasn't been loaded by another test yet.
 describe('loadClang', () => {

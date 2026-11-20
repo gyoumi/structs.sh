@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DataStructureType, UserAnnotation } from '../../../Types/annotationType';
-import { BackendState } from '../../../Types/backendType';
+import { ProgramState } from '../../../Types/programState';
 import { LinkedListParser } from './linkedListParser';
 import gdbState from './fixtures/gdb-linked-list-state.json';
 import reverseLine24 from './fixtures/wasm-delete-reverse-line24.json';
@@ -9,11 +9,11 @@ import deleteFirstLine18 from './fixtures/wasm-delete-first-line18.json';
 // Recorded from the GDB debugger, stopped at line 20 of
 // e2e/programs/linked_list.c, after the list 1 -> 2 -> 3 has been built.
 //
-// This is what GDB really sends, and it doesn't match the BackendState type:
+// This is what GDB really sends, and it doesn't match the ProgramState type:
 // fields use `kind` instead of `typeName`, and frame_info has no `line`.
 // The wasm debugger has to produce the same shape, or the parser has to
 // change, so this test pins down what the parser accepts today.
-const state = gdbState as unknown as BackendState;
+const state = gdbState as unknown as ProgramState;
 
 const annotation: UserAnnotation = {
   typeAnnotation: {
@@ -76,8 +76,9 @@ describe('LinkedListParser', () => {
 //
 // Both states were recorded from the wasm debugger (recordRun in
 // Services/debugger/wasm/recording.ts, on e2e/programs/delete.c), converted
-// to the BackendState the page gets the way WasmDebugger's stateAt() does,
-// and checked against the source by hand:
+// to the ProgramState the page gets the way toProgramState() in
+// Services/debugger/formatRecording.ts does, and checked against the source
+// by hand:
 // - wasm-delete-reverse-line24.json: reverse(), first time round the loop,
 //   stopped on line 24 before `next` is assigned. The list is 1 -> 2 -> 3.
 //   head = 0x102a0 (node 1), prev = 0x0 (NULL, set on line 22), next =
@@ -93,7 +94,7 @@ describe('LinkedListParser with pointers that point at no drawn node', () => {
   });
 
   /** Parses, turning a throw into a message that says which program state it was. */
-  const parse = (input: BackendState, names: string[], where: string) => {
+  const parse = (input: ProgramState, names: string[], where: string) => {
     try {
       return new LinkedListParser().parseState(input, pointerAnnotation(...names));
     } catch (error) {
@@ -112,7 +113,7 @@ describe('LinkedListParser with pointers that point at no drawn node', () => {
 
   describe('delete.c reverse() line 24: head -> node 1, prev = NULL (0x0), next uninitialised (0xaaaaaaaa)', () => {
     const where = 'delete.c reverse() line 24 (head -> node 1, prev = 0x0, next = 0xaaaaaaaa)';
-    const input = reverseLine24 as unknown as BackendState;
+    const input = reverseLine24 as unknown as ProgramState;
 
     it('draws every node on the heap', () => {
       const graph = drawing(parse(input, ['head', 'prev', 'next'], where), where);
@@ -142,7 +143,7 @@ describe('LinkedListParser with pointers that point at no drawn node', () => {
 
   describe('delete.c delete_first() line 18: head -> freed node, rest -> node 2', () => {
     const where = 'delete.c delete_first() line 18 (head -> freed 0x10280, rest -> node 2)';
-    const input = deleteFirstLine18 as unknown as BackendState;
+    const input = deleteFirstLine18 as unknown as ProgramState;
 
     it('draws the nodes still on the heap and labels only the pointer to one of them', () => {
       const graph = drawing(parse(input, ['head', 'rest'], where), where);

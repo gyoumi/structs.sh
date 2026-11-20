@@ -3,29 +3,25 @@ import { createHeapSharing } from './heapSharing';
 import { createOutputLimit } from './outputLimit';
 import { createRememberedStructs } from './rememberedStructs';
 import { runWasi, WAITING_FOR_INPUT } from './run';
-import {
-  HeapEntry,
-  readDebugSection,
-  readHeap,
-  readVariables,
-  structDeclarations,
-  TypeDeclaration,
-  Variable,
-} from './variables';
+import { readDebugSection, structDeclarations, TypeDeclaration } from './debugSection';
+import { HeapEntry, readHeap } from './heap';
+import { readVariables, Variable } from './variables';
 
-export type { HeapEntry, TypeDeclaration, Variable } from './variables';
+export type { HeapEntry } from './heap';
+export type { TypeDeclaration } from './debugSection';
+export type { Variable } from './variables';
 
 /**
  * How many statements a program may run before it is stopped. Repeats that
  * don't become steps count too, so a loop that only repeats one line still
  * stops.
  */
-export const STEP_LIMIT = 100_000;
+export const STATEMENT_LIMIT = 100_000;
 
 export const TIME_LIMIT_MS = 10_000;
 
 /** Roughly how many bytes of snapshots a recording may hold, measured as JSON. */
-export const SIZE_LIMIT = 50_000_000;
+export const RECORDING_SIZE_LIMIT_BYTES = 50_000_000;
 
 export type Step = {
   /** The C name of the function it's in. */
@@ -38,8 +34,8 @@ export type Step = {
   /** The variables in scope as the statement starts, innermost first. */
   variables: Record<string, Variable>;
   /**
-   * The structs on the heap that any frame's variables reach, and those shown
-   * at an earlier step that aren't freed yet, by address. An entry that didn't
+   * The structs on the heap that any frame's variables reach, and those
+   * remembered from an earlier step that aren't freed yet, by address. An entry that didn't
    * change since the step before is the same object.
    */
   heap: Record<string, HeapEntry>;
@@ -77,9 +73,9 @@ class LimitReached extends Error {
 }
 
 type CallStage =
-  | { stage: 'noStep' }
+  | { stage: 'entered' }
   | { stage: 'stepped'; line: number }
-  | { stage: 'lastStepMayBeStale'; line: number | null };
+  | { stage: 'returnedFromCallee'; line: number | null };
 
 type Call = {
   function: string;
@@ -87,7 +83,7 @@ type Call = {
   stage: CallStage;
 };
 
-const steppedLine = (stage: CallStage) => (stage.stage === 'noStep' ? null : stage.line);
+const steppedLine = (stage: CallStage) => (stage.stage === 'entered' ? null : stage.line);
 
 /**
  * Runs an instrumented program to the end and records its steps. A step is
@@ -99,12 +95,12 @@ const steppedLine = (stage: CallStage) => (stage.stage === 'noStep' ? null : sta
 export const recordRun = async (
   wasm: Uint8Array<ArrayBuffer>,
   {
-    stepLimit = STEP_LIMIT,
+    statementLimit = STATEMENT_LIMIT,
     timeLimitMs = TIME_LIMIT_MS,
-    sizeLimit = SIZE_LIMIT,
+    sizeLimit = RECORDING_SIZE_LIMIT_BYTES,
     input = { text: '', eof: false },
   }: {
-    stepLimit?: number;
+    statementLimit?: number;
     timeLimitMs?: number;
     sizeLimit?: number;
     /** stdin: the text typed so far, and whether end-of-file was sent. */
@@ -124,20 +120,20 @@ export const recordRun = async (
   };
 
   const { allocationOf, ...allocations } = createAllocations();
-  const shown = createRememberedStructs(debug.types, allocationOf);
+  const remembered = createRememberedStructs(debug.types, allocationOf);
   const shareUnchanged = createHeapSharing();
   let recordedSize = 0;
 
-  const readStepWithinLimit = (call: Call, memory: () => DataView): Step | null => {
+  const captureStepWithinLimits = (call: Call, memory: () => DataView): Step | null => {
     if (call.at === null || call.at.line === null) return null;
     const view = memory();
     const variables = readVariables(debug, call.at.statement, call.at.frameBase, view);
     const callFrames = calls.flatMap(({ at }) => (at === null ? [] : [at]));
     const { heap, size: heapSize } = shareUnchanged(
       readHeap(debug, callFrames, view, allocationOf, checkTime, {
-        roots: shown.roots(),
-        onShown: shown.remember,
-        onOverlapped: shown.forget,
+        roots: remembered.roots(),
+        onRemembered: remembered.remember,
+        onOverlapped: remembered.forget,
       })
     );
     const size = JSON.stringify(variables).length + heapSize;
@@ -156,7 +152,7 @@ export const recordRun = async (
 
   const addStep = (call: Call, memory: () => DataView) => {
     if (steppedLine(call.stage) === (call.at?.line ?? null)) return;
-    const step = readStepWithinLimit(call, memory);
+    const step = captureStepWithinLimits(call, memory);
     if (!step) return;
     steps.push(step);
     call.stage = { stage: 'stepped', line: step.line };
@@ -164,11 +160,11 @@ export const recordRun = async (
 
   let latestMemory: (() => DataView) | null = null;
 
-  const readWhereStaleCallStopped = (): Step | null => {
+  const captureStepAfterReturn = (): Step | null => {
     const call = calls.at(-1);
-    if (call?.stage.stage !== 'lastStepMayBeStale' || !latestMemory) return null;
+    if (call?.stage.stage !== 'returnedFromCallee' || !latestMemory) return null;
     try {
-      return readStepWithinLimit(call, latestMemory);
+      return captureStepWithinLimits(call, latestMemory);
     } catch (error) {
       if (error instanceof LimitReached || error instanceof RangeError) return null;
       throw error;
@@ -189,10 +185,10 @@ export const recordRun = async (
         latestMemory = memory;
         if (event.type === 'enter') {
           const name = debug.functions[event.function] ?? `function ${event.function}`;
-          calls.push({ function: name, at: null, stage: { stage: 'noStep' } });
+          calls.push({ function: name, at: null, stage: { stage: 'entered' } });
         } else if (event.type === 'line') {
           statementsRun += 1;
-          if (statementsRun > stepLimit) throw new LimitReached({ stepLimit });
+          if (statementsRun > statementLimit) throw new LimitReached({ stepLimit: statementLimit });
           checkTime();
           const call = calls.at(-1);
           if (!call) return;
@@ -206,18 +202,18 @@ export const recordRun = async (
           calls.pop();
           const caller = calls.at(-1);
           if (caller)
-            caller.stage = { stage: 'lastStepMayBeStale', line: steppedLine(caller.stage) };
+            caller.stage = { stage: 'returnedFromCallee', line: steppedLine(caller.stage) };
         } else if (event.type === 'allocated') {
           if (event.pointer !== 0) allocations.add(unsigned(event.pointer), unsigned(event.size));
         } else if (event.type === 'freed') {
           allocations.remove(unsigned(event.pointer));
-          shown.freed(unsigned(event.pointer));
+          remembered.freed(unsigned(event.pointer));
         } else if (event.pointer !== 0) {
           const old = unsigned(event.old);
           const start = unsigned(event.pointer);
           const size = unsigned(event.size);
           allocations.remove(old);
-          shown.reallocated(old, start, size);
+          remembered.reallocated(old, start, size);
           allocations.add(start, size);
         }
       },
@@ -226,11 +222,11 @@ export const recordRun = async (
   } catch (error) {
     if (error instanceof LimitReached) end = error.end;
     else if (error === WAITING_FOR_INPUT) {
-      const at = readWhereStaleCallStopped();
+      const at = captureStepAfterReturn();
       end = at ? { waitingForInput: true, at } : { waitingForInput: true };
     } else {
       end = { crashed: error instanceof Error ? error.message : String(error) };
-      const at = readWhereStaleCallStopped();
+      const at = captureStepAfterReturn();
       if (at) steps.push(at);
     }
   }

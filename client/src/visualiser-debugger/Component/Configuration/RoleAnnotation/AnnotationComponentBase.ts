@@ -1,8 +1,8 @@
 import React from 'react';
-import { BackendTypeDeclaration } from '../../../Types/backendType';
+import type { TypeDeclaration } from '@/Services/debugger/wasm/debugSection';
 
 export interface AnnotationProp {
-  backendType: BackendTypeDeclaration;
+  typeDeclaration: TypeDeclaration;
 }
 
 export type AnnotationComponent = React.FC<AnnotationProp>;

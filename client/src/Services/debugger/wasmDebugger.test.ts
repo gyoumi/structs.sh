@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DebuggerEvents } from './types';
 import { WasmDebugger } from './wasmDebugger';
-import { CompileResult, Compiler, CompilerStatus } from './wasm/compiler';
+import { CompileResult, Compiler, CompilerStatus } from './wasm/compilerTypes';
 import type { Recording, RunEnd, Step } from './wasm/recording';
 import type { RunnerMessage, RunRequest } from './wasm/runRequest';
-import { createRunnerPool, recordInWorker } from './wasm/workerRunner';
+import { createStandbyRunner, recordInWorker } from './wasm/workerRunner';
 import type { RecordResult, RunnerWorker } from './wasm/workerRunner';
 import type { Recorder } from './wasmDebugger';
 
@@ -152,12 +152,12 @@ class FakeRunnerWorker implements RunnerWorker {
 }
 
 /**
- * A recorder like the page's: a real runner pool, with fake workers listed in
- * the order the pool started them.
+ * A recorder like the page's: a real standby runner, with fake workers listed in
+ * the order it started them.
  */
-const poolRecorder = () => {
+const standbyRecorder = () => {
   const workers: FakeRunnerWorker[] = [];
-  const pool = createRunnerPool(() => {
+  const standby = createStandbyRunner(() => {
     const worker = new FakeRunnerWorker();
     workers.push(worker);
     return worker;
@@ -166,8 +166,8 @@ const poolRecorder = () => {
     (
       wasm: Uint8Array<ArrayBuffer>,
       options: { signal: AbortSignal; input: { text: string; eof: boolean } }
-    ) => recordInWorker(wasm, { ...options, timeLimitMs: 60_000 }, pool.take),
-    { whenReady: pool.whenReady, dispose: pool.dispose }
+    ) => recordInWorker(wasm, { ...options, timeLimitMs: 60_000 }, standby.take),
+    { whenReady: standby.whenReady, dispose: standby.dispose }
   );
   return { recorder, workers };
 };
@@ -855,7 +855,7 @@ describe('WasmDebugger', () => {
       /** Compiler ready and fonts loaded, then a compile whose run takes the unloaded runner. */
       const startEarlyRun = async () => {
         const { compiler, report } = compilerReporting();
-        const { recorder, workers } = poolRecorder();
+        const { recorder, workers } = standbyRecorder();
         const wasm = createDebugger(compiler, recorder, async () => {});
         wasm.setEvents(events);
         report({ state: 'ready' });

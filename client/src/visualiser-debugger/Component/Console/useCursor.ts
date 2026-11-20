@@ -4,54 +4,54 @@ import { useFrontendStateStore } from '@/visualiser-debugger/Store/frontendState
 import { useGlobalStore } from '@/visualiser-debugger/Store/globalStateStore';
 
 function useCursor(content: string, clearInput: () => void, scrollToBottom: () => void) {
-  const debuggerClient = useDebuggerStore((state) => state.debuggerClient);
+  const activeDebugger = useDebuggerStore((state) => state.activeDebugger);
   const appendConsoleChunk = useGlobalStore((state) => state.appendConsoleChunks);
   const setActive = useFrontendStateStore((state) => state.setActive);
 
-  const [shifts, setShifts] = useState(0);
-  const [paused, setPaused] = useState(true);
+  const [cursorOffsetFromEnd, setCursorOffsetFromEnd] = useState(0);
+  const [isBlinkPaused, setIsBlinkPaused] = useState(true);
   const [isCtrlPressed, setIsCtrlPressed] = useState(false);
 
   let timeoutRef: NodeJS.Timeout;
 
   function pauseWithTimeout() {
-    setPaused(true);
+    setIsBlinkPaused(true);
 
     clearTimeout(timeoutRef);
 
     timeoutRef = setTimeout(() => {
-      setPaused(false);
+      setIsBlinkPaused(false);
     }, 500);
   }
 
-  function updateShifts(key: string) {
+  function handleKeyAction(key: string) {
     switch (key) {
       case 'ArrowLeft':
-        if (content.length > shifts) {
-          setShifts(shifts + 1);
+        if (content.length > cursorOffsetFromEnd) {
+          setCursorOffsetFromEnd(cursorOffsetFromEnd + 1);
         }
         break;
       case 'ArrowRight':
-        if (shifts > 0) {
-          setShifts(shifts - 1);
+        if (cursorOffsetFromEnd > 0) {
+          setCursorOffsetFromEnd(cursorOffsetFromEnd - 1);
         }
         break;
       case 'Delete':
-        if (content.length >= shifts) {
-          setShifts(shifts - 1);
+        if (content.length >= cursorOffsetFromEnd) {
+          setCursorOffsetFromEnd(cursorOffsetFromEnd - 1);
         }
         break;
       case 'Home':
       case 'ArrowUp':
-        setShifts(content.length);
+        setCursorOffsetFromEnd(content.length);
         break;
       case 'End':
       case 'ArrowDown':
-        setShifts(0);
+        setCursorOffsetFromEnd(0);
         break;
       case 'Enter':
-        if (!debuggerClient) return;
-        debuggerClient.sendStdin(content);
+        if (!activeDebugger) return;
+        activeDebugger.sendStdin(content);
         appendConsoleChunk(`${content}\n`);
         clearInput();
         scrollToBottom();
@@ -59,24 +59,24 @@ function useCursor(content: string, clearInput: () => void, scrollToBottom: () =
       default:
         break;
     }
-    if (!debuggerClient) return;
+    if (!activeDebugger) return;
 
     if (isCtrlPressed && key === 'd') {
-      debuggerClient.sendEOF();
+      activeDebugger.sendEOF();
     }
 
     if (isCtrlPressed && key === 'c') {
-      debuggerClient.interrupt();
+      activeDebugger.interrupt();
       setActive(false);
     }
   }
 
   function handleOnFocus() {
-    setPaused(false);
+    setIsBlinkPaused(false);
   }
 
   function handleOnBlur() {
-    setPaused(true);
+    setIsBlinkPaused(true);
   }
 
   function handleKeyDown(event: React.KeyboardEvent) {
@@ -84,7 +84,7 @@ function useCursor(content: string, clearInput: () => void, scrollToBottom: () =
     setIsCtrlPressed(ctrlKey);
     pauseWithTimeout();
 
-    updateShifts(key);
+    handleKeyAction(key);
   }
 
   function handleKeyUp(event: React.KeyboardEvent) {
@@ -98,8 +98,8 @@ function useCursor(content: string, clearInput: () => void, scrollToBottom: () =
     handleOnBlur,
     handleKeyDown,
     handleKeyUp,
-    shifts,
-    paused,
+    shifts: cursorOffsetFromEnd,
+    paused: isBlinkPaused,
   };
 }
 

@@ -6,7 +6,7 @@ import {
   NativeTypeName,
   RecordedValue,
   isPointerType,
-} from './backendType';
+} from './programState';
 
 export enum DataStructureType {
   LinkedList,
@@ -55,19 +55,19 @@ export interface BinaryTreeAnnotation extends DataStructureAnnotationBase {
   };
 }
 
-export type DataStructureAnnotationConcrete = LinkedListAnnotation | BinaryTreeAnnotation;
+export type DataStructureAnnotation = LinkedListAnnotation | BinaryTreeAnnotation;
 
-export interface LocalAnnotation {
+export interface StackVariableAnnotation {
   typeName: MemoryValue['typeName'];
 }
 
 export interface StackAnnotation {
-  [name: Name]: LocalAnnotation | null;
+  [name: Name]: StackVariableAnnotation | null;
 }
 
 export interface UserAnnotation {
   stackAnnotation: StackAnnotation;
-  typeAnnotation: { [name: Name]: DataStructureAnnotationConcrete };
+  typeAnnotation: { [name: Name]: DataStructureAnnotation };
 }
 
 /**
@@ -129,7 +129,7 @@ export type PossibleStructAnnotation = {
   };
 };
 
-export enum BackendTypeRole {
+export enum StructRole {
   LinkedList = 'Linked List Node',
   Empty = 'Not Visualized',
 }

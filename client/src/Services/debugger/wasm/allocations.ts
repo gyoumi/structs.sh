@@ -1,4 +1,4 @@
-import { countBefore } from './countBefore';
+import { partitionPoint } from './partitionPoint';
 import { type Allocation, LOWEST_VALID_ADDRESS } from './heap';
 
 export const createAllocations = () => {
@@ -10,7 +10,7 @@ export const createAllocations = () => {
     const exact = allocations.get(address);
     if (exact !== undefined) return { start: address, size: exact };
     starts ??= [...allocations.keys()].sort((a, b) => a - b);
-    const startsAtOrBefore = countBefore(starts, (start) => start <= address);
+    const startsAtOrBefore = partitionPoint(starts, (start) => start <= address);
     if (startsAtOrBefore === 0) return null;
     const start = starts[startsAtOrBefore - 1];
     const size = allocations.get(start)!;

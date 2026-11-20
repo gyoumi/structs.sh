@@ -1,4 +1,4 @@
-/** A type, named as GDB names it: `int`, `struct node *`, `int [3]`. */
+/** A type, named the way C writes a type on its own: `int`, `struct node *`, `int [3]`. */
 export type DebugType =
   | { kind: 'int'; name: string; size: number; signed: boolean }
   | { kind: 'float'; name: string; size: number }
@@ -45,23 +45,23 @@ export const readDebugSection = (module: WebAssembly.Module): DebugSection => {
 };
 
 /** The index of the type `index` is, seen through typedefs and qualifiers. */
-export const resolveIndex = (types: DebugType[], index: number): number => {
+export const resolveTypeIndex = (types: DebugType[], index: number): number => {
   const type = types[index];
   if ((type.kind === 'typedef' || type.kind === 'qualified') && type.to !== null) {
-    return resolveIndex(types, type.to);
+    return resolveTypeIndex(types, type.to);
   }
   return index;
 };
 
 /** The type `index` is, seen through typedefs and qualifiers. */
-export const resolve = (types: DebugType[], index: number): DebugType =>
-  types[resolveIndex(types, index)];
+export const resolveType = (types: DebugType[], index: number): DebugType =>
+  types[resolveTypeIndex(types, index)];
 
-export const isAnonymous = (struct: { name: string }) => struct.name.includes('{');
+export const isAnonymousStruct = (struct: { name: string }) => struct.name.includes('{');
 
-export const unqualified = (types: DebugType[], index: number): DebugType => {
+export const unqualifiedType = (types: DebugType[], index: number): DebugType => {
   const type = types[index];
-  return type.kind === 'qualified' && type.to !== null ? unqualified(types, type.to) : type;
+  return type.kind === 'qualified' && type.to !== null ? unqualifiedType(types, type.to) : type;
 };
 
 const structOf = (types: DebugType[], index: number | null): DebugType | null => {
@@ -83,7 +83,7 @@ export const structDeclarations = (debug: DebugSection): TypeDeclaration[] => {
     seen.add(index);
     const type = types[index];
     const struct = structOf(types, index);
-    const named = type.kind === 'typedef' || (type.kind === 'struct' && !isAnonymous(type));
+    const named = type.kind === 'typedef' || (type.kind === 'struct' && !isAnonymousStruct(type));
     if (struct?.kind === 'struct' && named) {
       declarations.push({
         typeName: type.name,

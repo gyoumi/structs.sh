@@ -1,14 +1,13 @@
-import { BackendTypeDeclaration } from '@/visualiser-debugger/Types/backendType';
 import { Debugger, DebuggerEvents, SourceFile } from './types';
 import { loadFonts as loadAllFonts } from './loadFonts';
-import { describeEnd, describeFailure, stateAt } from './showRecording';
-import { Compiler, CompilerStatus } from './wasm/compiler';
+import { describeEnd, describeFailure, toProgramState } from './formatRecording';
+import { Compiler, CompilerStatus } from './wasm/compilerTypes';
 import { createWorkerCompiler } from './wasm/workerCompiler';
 import { Step } from './wasm/recording';
 import { RecordResult } from './wasm/workerRunner';
-import { createWorkerRecorder, Input, Recorder } from './workerRecorder';
+import { createWorkerRecorder, Input, Recorder } from './wasm/workerRecorder';
 
-export type { Input, Recorder } from './workerRecorder';
+export type { Input, Recorder } from './wasm/workerRecorder';
 
 const NEARLY_READY: CompilerStatus = { state: 'loading', done: 99, total: 100 };
 
@@ -18,8 +17,8 @@ type Session = {
   input: Input;
   recording: Promise<RecordResult>;
   stopRecording: AbortController;
-  next: { stepNumber: number; growingOutputShown: number };
-  pausedShown: Step | null;
+  next: { stepNumber: number; outputLengthShown: number };
+  pausedStepEmitted: Step | null;
 };
 
 type DebuggerStage =
@@ -92,25 +91,25 @@ export class WasmDebugger implements Debugger {
         return;
       }
       this.events?.sessionStarted();
-      this.record(file, result.wasm);
+      this.startSession(file, result.wasm);
     });
   }
 
-  private record(file: SourceFile, wasm: Uint8Array<ArrayBuffer>) {
+  private startSession(file: SourceFile, wasm: Uint8Array<ArrayBuffer>) {
     const session: Session = {
       file,
       wasm,
       input: { text: '', eof: false },
       recording: Promise.resolve({ stopped: true }),
       stopRecording: new AbortController(),
-      next: { stepNumber: 0, growingOutputShown: 0 },
-      pausedShown: null,
+      next: { stepNumber: 0, outputLengthShown: 0 },
+      pausedStepEmitted: null,
     };
     this.stage = { stage: 'stepping', session };
-    this.rerecordKeepingStepNumber(session);
+    this.record(session);
   }
 
-  private rerecordKeepingStepNumber(session: Session) {
+  private record(session: Session) {
     session.stopRecording.abort();
     const stopRecording = new AbortController();
     const recording = this.recorder(session.wasm, {
@@ -147,38 +146,31 @@ export class WasmDebugger implements Debugger {
     const index = session.next.stepNumber;
 
     const output = (index === 0 ? outputBeforeFirstStep : steps[index - 1]?.output) ?? '';
-    if (output.length > session.next.growingOutputShown) {
-      this.events?.output(output.slice(session.next.growingOutputShown));
-      session.next.growingOutputShown = output.length;
+    if (output.length > session.next.outputLengthShown) {
+      this.events?.output(output.slice(session.next.outputLengthShown));
+      session.next.outputLengthShown = output.length;
     }
 
     if (index >= steps.length && 'waitingForInput' in end) {
-      return this.showPausedOnce(session, end.at);
+      return this.emitPausedStateOnce(session, end.at);
     }
 
-    session.next = { stepNumber: index + 1, growingOutputShown: 0 };
+    session.next = { stepNumber: index + 1, outputLengthShown: 0 };
     if (index < steps.length) {
       if (index === 0) {
-        result.recording.types.forEach((type) =>
-          this.events?.typeDeclaration({
-            ...type,
-            file: session.file.name,
-            line_num: '',
-            original_line: '',
-          } as BackendTypeDeclaration)
-        );
+        result.recording.types.forEach((type) => this.events?.typeDeclaration(type));
       }
-      this.events?.state(stateAt(session.file, steps[index]));
+      this.events?.state(toProgramState(session.file, steps[index]));
       return true;
     }
     this.finish(session, describeEnd(end));
     return false;
   }
 
-  private showPausedOnce(session: Session, at: Step | undefined) {
-    if (!at || at === session.pausedShown) return false;
-    session.pausedShown = at;
-    this.events?.state(stateAt(session.file, at));
+  private emitPausedStateOnce(session: Session, at: Step | undefined) {
+    if (!at || at === session.pausedStepEmitted) return false;
+    session.pausedStepEmitted = at;
+    this.events?.state(toProgramState(session.file, at));
     return true;
   }
 
@@ -199,14 +191,14 @@ export class WasmDebugger implements Debugger {
     const session = this.stepping;
     if (!session || session.input.eof) return;
     session.input.text += `${line}\n`;
-    this.rerecordKeepingStepNumber(session);
+    this.record(session);
   }
 
   sendEOF() {
     const session = this.stepping;
     if (!session || session.input.eof) return;
     session.input.eof = true;
-    this.rerecordKeepingStepNumber(session);
+    this.record(session);
   }
 
   interrupt() {

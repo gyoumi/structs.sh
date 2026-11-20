@@ -1,8 +1,8 @@
 import { create } from 'zustand';
-import type { CompilerStatus } from './wasm/compiler';
+import type { CompilerStatus } from './wasm/compilerTypes';
 
 interface CompilerStatusStore {
-  /** null until a debugger that downloads a compiler reports on it. */
+  /** null until the debugger first reports on loading the compiler. */
   status: CompilerStatus | null;
   setStatus: (status: CompilerStatus) => void;
   clear: () => void;

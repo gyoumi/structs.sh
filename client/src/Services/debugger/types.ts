@@ -1,5 +1,6 @@
-import { BackendState, BackendTypeDeclaration } from '@/visualiser-debugger/Types/backendType';
-import type { CompilerStatus } from './wasm/compiler';
+import { ProgramState } from '@/visualiser-debugger/Types/programState';
+import type { CompilerStatus } from './wasm/compilerTypes';
+import type { TypeDeclaration } from './wasm/debugSection';
 
 export type SourceFile = { name: string; code: string };
 
@@ -7,8 +8,8 @@ export type DebuggerEvents = {
   sessionStarted: () => void;
   compileError: (errors: string[]) => void;
   output: (text: string) => void;
-  state: (state: BackendState) => void;
-  typeDeclaration: (type: BackendTypeDeclaration) => void;
+  state: (state: ProgramState) => void;
+  typeDeclaration: (type: TypeDeclaration) => void;
   sessionEnded: () => void;
   compilerStatus: (status: CompilerStatus) => void;
 };

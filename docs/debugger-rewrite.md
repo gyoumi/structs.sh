@@ -568,6 +568,14 @@ Found while building checkpoint 1, and not needed for it:
   page still on the landing page after the click: the GitHub card above the
   footer loads late and moves the "Provide Feedback" link. The test came
   from `dev` unchanged.
+- **Names left from the old server debugger, in files with other work in
+  progress:** the misspelled `Component/Visualizer/Visulizer/` folder,
+  `VisualizerState` (it's a component's props), the `frontendStateStore.ts`
+  file and `useFrontendStateStore` (a step timeline), and the `useCursor.ts`
+  file and hook (it handles console input). The file tree's `IFileSystem`
+  names (`IFileFileNode`, `doesDirExists`) predate the rewrite. The console
+  also prints a made-up `gcc -g …` line, though programs are compiled with
+  clang.
 - **The console caret's blink timer** in `useCursor.ts` is a plain `let`,
   so it's recreated on every render and `clearTimeout` never cancels the
   previous timer. This predates the rewrite.

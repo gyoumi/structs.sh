@@ -1,5 +1,5 @@
 import { UserAnnotation } from '../../../Types/annotationType';
-import { Addr, BackendState } from '../../../Types/backendType';
+import { Addr, ProgramState } from '../../../Types/programState';
 import { FrontendLinkedListGraph, EntityConcrete } from '../../../Types/frontendType';
 import { Parser } from './parser';
 import { LinkedListNode, readLinkedListNodes } from './linkedListHeap';
@@ -7,17 +7,17 @@ import { layOutLinkedLists } from './linkedListLayout';
 import { buildNodesAndEdges, buildPointerLabels } from './linkedListEntities';
 
 export class LinkedListParser implements Parser {
-  parseHeapData(backendStructure: BackendState, annotation: UserAnnotation): LinkedListNode[] {
-    return readLinkedListNodes(backendStructure, annotation);
+  parseHeapData(programState: ProgramState, annotation: UserAnnotation): LinkedListNode[] {
+    return readLinkedListNodes(programState, annotation);
   }
 
   parseState(
-    backendStructure: BackendState,
+    programState: ProgramState,
     annotation: UserAnnotation
   ): FrontendLinkedListGraph | undefined {
     const cacheEntity: { [uid: string]: EntityConcrete } = {};
 
-    const linkedList: LinkedListNode[] = this.parseHeapData(backendStructure, annotation);
+    const linkedList: LinkedListNode[] = this.parseHeapData(programState, annotation);
 
     const nodesByUid: Map<Addr, LinkedListNode> = new Map();
     linkedList.forEach((node) => {
@@ -28,7 +28,7 @@ export class LinkedListParser implements Parser {
       const nodesPosition = layOutLinkedLists(linkedList, nodesByUid);
       const { nodes, edges } = buildNodesAndEdges(nodesByUid, nodesPosition, cacheEntity);
       const pointers = buildPointerLabels(
-        backendStructure,
+        programState,
         annotation.stackAnnotation,
         nodesByUid,
         cacheEntity

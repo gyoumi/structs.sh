@@ -2,7 +2,7 @@ import styles from '@/styles/Configuration.module.css';
 import { useState } from 'react';
 import Select from '@/components/Select';
 import { SelectItem } from '@/components/Select/Select';
-import { NativeTypeName, Name } from '../../Types/backendType';
+import { NativeTypeName, Name } from '../../Types/programState';
 
 const ConfigurationSelect = ({
   fields,
