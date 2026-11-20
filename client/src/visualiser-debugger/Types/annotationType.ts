@@ -4,7 +4,7 @@ import {
   PointerType,
   MemoryValue,
   NativeTypeName,
-  Value,
+  RecordedValue,
   isPointerType,
 } from './backendType';
 
@@ -87,7 +87,7 @@ export const isStackVariableLabelled = (
 };
 
 export type LinkedListNodeValue = MemoryValue & {
-  value: Record<Name, { value: Value }>;
+  value: Record<Name, { value: RecordedValue }>;
 };
 
 export const isLinkedListNode = (

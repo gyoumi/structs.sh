@@ -1,10 +1,10 @@
 import { UserAnnotation, DataStructureType, isLinkedListNode } from '../../../Types/annotationType';
-import { Addr, BackendState, Value } from '../../../Types/backendType';
+import { Addr, BackendState, RecordedValue } from '../../../Types/backendType';
 import { assertUnreachable } from '../Util/util';
 
 export type LinkedListNode = {
   uid: Addr;
-  data: Value;
+  data: RecordedValue;
   next: Addr;
 };
 
