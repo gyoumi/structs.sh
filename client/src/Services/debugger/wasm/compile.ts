@@ -28,11 +28,6 @@ export const loadClang = (onProgress: (done: number, total: number) => void = ()
   return clangLoad;
 };
 
-/**
- * Compiles one C file with clang, itself running as wasm, to a WASI program
- * with debug info. Runs anywhere: in a Web Worker in the browser, or in Node
- * for tests.
- */
 export const compileC = async (fileName: string, source: string): Promise<CompileResult> => {
   await loadClang();
   const decoder = new TextDecoder();

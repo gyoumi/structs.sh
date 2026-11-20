@@ -1,6 +1,3 @@
-//! The C types the debug info describes, as the `structs.debug` section
-//! lists them.
-
 pub(crate) enum Type {
     Int {
         name: String,
@@ -20,27 +17,25 @@ pub(crate) enum Type {
         size: u64,
         fields: Vec<Field>,
     },
-    /// Its size is worked out once every type is read: see `size_of`.
     Array {
         name: String,
         of: usize,
         count: u64,
     },
-    /// A typedef (no qualifier), or a type with `const` or `volatile`.
-    Alias {
+    Typedef {
         name: String,
         to: Option<usize>,
-        qualifier: Option<&'static str>,
     },
-    /// A function, which the debugger doesn't read, but whose name pointers
-    /// to it need.
+    Qualified {
+        name: String,
+        to: Option<usize>,
+        qualifier: &'static str,
+    },
     Function {
         name: String,
         returns: Option<usize>,
-        /// `int, char *`, `void`, or with `...` for a variadic function.
         parameters: String,
     },
-    /// Anything else the debugger doesn't read, such as a complex number.
     Other {
         name: String,
         size: u64,
@@ -66,7 +61,8 @@ impl Type {
             | Type::Pointer { name, .. }
             | Type::Struct { name, .. }
             | Type::Array { name, .. }
-            | Type::Alias { name, .. }
+            | Type::Typedef { name, .. }
+            | Type::Qualified { name, .. }
             | Type::Function { name, .. }
             | Type::Other { name, .. } => name,
         }
@@ -80,7 +76,9 @@ pub(super) fn size_of(types: &[Type], index: usize) -> u64 {
         Type::Int { size, .. } | Type::Float { size, .. } | Type::Struct { size, .. } => *size,
         Type::Pointer { .. } => POINTER_SIZE,
         Type::Array { of, count, .. } => size_of(types, *of) * count,
-        Type::Alias { to, .. } => to.map_or(0, |to| size_of(types, to)),
+        Type::Typedef { to, .. } | Type::Qualified { to, .. } => {
+            to.map_or(0, |to| size_of(types, to))
+        }
         Type::Function { .. } => 0,
         Type::Other { size, .. } => *size,
     }

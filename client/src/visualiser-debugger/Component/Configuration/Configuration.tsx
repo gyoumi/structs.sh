@@ -18,11 +18,9 @@ const Configuration = () => {
         display: 'flex',
         flexDirection: 'column',
         maxHeight: '500px',
-        // overflowY: 'auto',
         gap: '0.8rem',
       }}
     >
-      {/* For Type Annotations */}
       <div>
         <button
           onClick={() => setIsAnnotationOpen(!isTypeAnnotationOpen)}
@@ -56,7 +54,6 @@ const Configuration = () => {
         </MotionCollapse>
       </div>
 
-      {/* For Variable Annotations */}
       <div>
         <button
           onClick={() => setIsVariableAnnotationOpen(!isVariableAnnotationOpen)}

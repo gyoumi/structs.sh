@@ -1,4 +1,3 @@
-/** The most output one run keeps. More only slows the console down. */
 export const OUTPUT_LIMIT = 20_000;
 
 /**

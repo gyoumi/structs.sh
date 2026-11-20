@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState } from 'react';
 import styles from '@/styles/Configuration.module.css';
 import { ChevronDownIcon } from '@radix-ui/react-icons';
@@ -26,8 +25,6 @@ export const StackVarAnnotation: React.FC<StackVariableAnnotationProp> = ({
   );
   const updateStackAnnotation = useGlobalStore((state) => state.updateStackAnnotation);
   const { darkMode } = useTheme();
-  // A pointer is labelled unless the user turned it off (see
-  // isStackVariableLabelled), so the role shown comes from the same rule.
   const selectedRole = isStackVariableLabelled(stackAnnotation, name, memoryValue.typeName)
     ? StackVariableRole.LinkedListPointer
     : StackVariableRole.Empty;
@@ -62,7 +59,7 @@ export const StackVarAnnotation: React.FC<StackVariableAnnotationProp> = ({
             <ChevronDownIcon
               fontWeight="bold"
               style={{
-                transform: `rotate(${isDropdownOpen ? 180 : 0}deg)`, // This part may need to be adjusted with Radix's state
+                transform: `rotate(${isDropdownOpen ? 180 : 0}deg)`,
                 transition: 'transform 0.3s',
                 marginRight: '10px',
                 scale: '1.35',
@@ -79,7 +76,7 @@ export const StackVarAnnotation: React.FC<StackVariableAnnotationProp> = ({
                     type="button"
                     onClick={() => {
                       if (role[1] === StackVariableRole.LinkedListPointer) {
-                        updateStackAnnotation({ [name]: memoryValue.typeName });
+                        updateStackAnnotation({ [name]: { typeName: memoryValue.typeName } });
                       } else {
                         updateStackAnnotation({ [name]: null });
                       }

@@ -8,7 +8,8 @@ debug info, so it's left alone and stepping goes over it.
 
 It also writes a `structs.debug` section describing each statement's line,
 the variables in scope there and where they live, and their types, named the
-way GDB names them (`src/dwarf/`).
+way C writes a type on its own, such as `int [3]` or `struct node *`
+(`src/dwarf/`).
 `client/src/Services/debugger/wasm/recording.ts` turns the calls into the
 steps a user sees, and `variables.ts` next to it reads each step's
 variables from memory. `src/lib.rs` has the details.

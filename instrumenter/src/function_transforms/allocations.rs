@@ -1,59 +1,49 @@
-//! Reports the C library's allocations and frees to the runner.
-
 use walrus::ir::{self, BinaryOp, Instr, InstrSeqType};
 use walrus::{FunctionId, LocalId, Module, ValType};
 
 use super::{sequences, wrap_body::wrap_body};
 use crate::Imports;
 
-/// How one of the C library's allocation functions is reported.
-enum Allocation {
-    /// `malloc(size)`.
+enum AllocatorFn {
     Malloc,
-    /// `calloc(count, size)`.
     Calloc,
-    /// `realloc(pointer, size)`.
     Realloc,
-    /// `free(pointer)`.
     Free,
 }
 
-impl Allocation {
-    fn named(name: Option<&str>) -> Option<Allocation> {
+impl AllocatorFn {
+    fn named(name: Option<&str>) -> Option<AllocatorFn> {
         match name {
-            Some("malloc" | "dlmalloc") => Some(Allocation::Malloc),
-            Some("calloc" | "dlcalloc") => Some(Allocation::Calloc),
-            Some("realloc" | "dlrealloc") => Some(Allocation::Realloc),
-            Some("free" | "dlfree") => Some(Allocation::Free),
+            Some("malloc" | "dlmalloc") => Some(AllocatorFn::Malloc),
+            Some("calloc" | "dlcalloc") => Some(AllocatorFn::Calloc),
+            Some("realloc" | "dlrealloc") => Some(AllocatorFn::Realloc),
+            Some("free" | "dlfree") => Some(AllocatorFn::Free),
             _ => None,
         }
     }
 
-    /// The parameters and results the function must have to be wrapped.
     fn signature(&self) -> (&'static [ValType], &'static [ValType]) {
         match self {
-            Allocation::Malloc => (&[ValType::I32], &[ValType::I32]),
-            Allocation::Calloc | Allocation::Realloc => {
+            AllocatorFn::Malloc => (&[ValType::I32], &[ValType::I32]),
+            AllocatorFn::Calloc | AllocatorFn::Realloc => {
                 (&[ValType::I32, ValType::I32], &[ValType::I32])
             }
-            Allocation::Free => (&[ValType::I32], &[]),
+            AllocatorFn::Free => (&[ValType::I32], &[]),
         }
     }
 }
 
-/// Spare locals the wrapping keeps values in.
-struct Kept {
-    first: LocalId,
+struct SavedLocals {
+    old_ptr: LocalId,
     size: LocalId,
     result: LocalId,
 }
 
-/// Reports each allocation and free from the C library. `malloc` calls
-/// `dlmalloc`, and both are wrapped where present: the runner doesn't mind
-/// hearing of one allocation twice.
-pub(crate) fn track_allocations(module: &mut Module, code: &[FunctionId], imports: &Imports) {
-    for &id in code {
-        let Some(kind) = Allocation::named(module.funcs.get(id).name.as_deref()) else {
+/// `malloc` calls `dlmalloc`, and both are wrapped where present: the runner
+/// doesn't mind hearing of one allocation twice.
+pub(crate) fn track_allocations(module: &mut Module, functions: &[FunctionId], imports: &Imports) {
+    for &id in functions {
+        let Some(kind) = AllocatorFn::named(module.funcs.get(id).name.as_deref()) else {
             continue;
         };
         let ty = module.types.get(module.funcs.get(id).ty());
@@ -62,36 +52,35 @@ pub(crate) fn track_allocations(module: &mut Module, code: &[FunctionId], import
             continue;
         }
         let body_type = InstrSeqType::new(&mut module.types, &[], &results);
-        let kept = Kept {
-            first: module.locals.add(ValType::I32),
+        let saved = SavedLocals {
+            old_ptr: module.locals.add(ValType::I32),
             size: module.locals.add(ValType::I32),
             result: module.locals.add(ValType::I32),
         };
         let function = module.funcs.get_mut(id).kind.unwrap_local_mut();
-        let (before, after) = report(&kind, &function.args, &kept, imports);
+        let (before, after) = allocator_hooks(&kind, &function.args, &saved, imports);
         let sequences = sequences(function);
         wrap_body(function, &sequences, body_type, before, after);
     }
 }
 
-/// What runs before and after an allocation function to report it.
-fn report(
-    kind: &Allocation,
+fn allocator_hooks(
+    kind: &AllocatorFn,
     args: &[LocalId],
-    kept: &Kept,
+    saved: &SavedLocals,
     imports: &Imports,
 ) -> (Vec<Instr>, Vec<Instr>) {
-    let Kept {
-        first,
+    let SavedLocals {
+        old_ptr,
         size,
         result,
-    } = *kept;
+    } = *saved;
     let get = |local| Instr::LocalGet(ir::LocalGet { local });
     let set = |local| Instr::LocalSet(ir::LocalSet { local });
     let call = |func| Instr::Call(ir::Call { func });
     // The arguments are kept as they came in: the function may reuse them.
     match kind {
-        Allocation::Malloc => (
+        AllocatorFn::Malloc => (
             vec![get(args[0]), set(size)],
             vec![
                 set(result),
@@ -101,7 +90,7 @@ fn report(
                 get(result),
             ],
         ),
-        Allocation::Calloc => (
+        AllocatorFn::Calloc => (
             vec![
                 get(args[0]),
                 get(args[1]),
@@ -118,17 +107,17 @@ fn report(
                 get(result),
             ],
         ),
-        Allocation::Realloc => (
-            vec![get(args[0]), set(first), get(args[1]), set(size)],
+        AllocatorFn::Realloc => (
+            vec![get(args[0]), set(old_ptr), get(args[1]), set(size)],
             vec![
                 set(result),
-                get(first),
+                get(old_ptr),
                 get(result),
                 get(size),
                 call(imports.reallocated),
                 get(result),
             ],
         ),
-        Allocation::Free => (vec![get(args[0]), call(imports.freed)], Vec::new()),
+        AllocatorFn::Free => (vec![get(args[0]), call(imports.freed)], Vec::new()),
     }
 }

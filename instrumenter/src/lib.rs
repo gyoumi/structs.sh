@@ -11,8 +11,8 @@
 //! - `structs.exit()` when the function returns.
 //!
 //! Before each of those functions sets up its stack frame, it fills the frame
-//! with the byte 0xAA, so an uninitialised local shows garbage, as it does
-//! under GDB, rather than the zeros fresh wasm memory starts with.
+//! with the byte 0xAA, so an uninitialised local holds garbage, as it can in
+//! native C, rather than the zeros fresh wasm memory starts with.
 //!
 //! It also tells the runner about the heap and stops NULL dereferences:
 //!
@@ -30,10 +30,6 @@
 //!
 //! The program's own functions are the ones the line table covers. The C library
 //! has no debug info, so it gets no calls and stepping goes over it.
-//!
-//! The browser loads this crate as `wasm32-unknown-unknown`. Only bytes cross
-//! the boundary, so it needs no `wasm-bindgen`: see `ffi` below and
-//! `client/src/Services/debugger/wasm/instrumenter.ts`.
 
 mod dwarf;
 mod function_transforms;
@@ -41,7 +37,6 @@ mod parse;
 
 use walrus::{FunctionId, Module, RawCustomSection, ValType};
 
-/// The functions the runner provides, imported from `structs`.
 struct Imports {
     line: FunctionId,
     enter: FunctionId,
@@ -79,43 +74,65 @@ impl Imports {
     }
 }
 
-/// Instruments a compiled program, returning the rewritten module.
 pub fn instrument(wasm: &[u8]) -> Result<Vec<u8>, String> {
     let (mut module, indices) = parse::parse(wasm)?;
     let info = dwarf::read_debug_info(&module, parse::code_section_start(wasm)?)?;
-    if info.starts.is_empty() {
+    if info.statement_at_offset.is_empty() {
         return Ok(module.emit_wasm());
     }
 
     let imports = Imports::add(&mut module);
-    let code: Vec<FunctionId> = module.funcs.iter_local().map(|(id, _)| id).collect();
-    let memory = module.memories.iter().next().map(|memory| memory.id());
-
-    let mut names = Vec::new();
-    for &id in &code {
-        if let Some(name) = function_transforms::source_function::instrument_function(
-            &mut module,
-            id,
-            names.len(),
-            &info,
-            &indices,
-            &imports,
-            memory,
-        ) {
-            names.push(name);
-        }
-    }
-
-    // After the line calls, which place themselves by the original
-    // instructions' offsets: the instructions added here have none.
-    function_transforms::null_checks::check_addresses(&mut module, &code, imports.null);
-    function_transforms::allocations::track_allocations(&mut module, &code, &imports);
+    let compiled = instrument_source_functions(&mut module, &info, &indices, &imports);
+    check_nulls_and_track_allocations(&mut module, &compiled, &imports);
 
     module.customs.add(RawCustomSection {
         name: "structs.debug".to_string(),
-        data: dwarf::section_json(&names, &info).into_bytes(),
+        data: dwarf::debug_section_json(&compiled.source_function_names, &info).into_bytes(),
     });
     Ok(module.emit_wasm())
+}
+
+struct CompiledFunctions {
+    all_function_ids: Vec<FunctionId>,
+    source_function_names: Vec<String>,
+}
+
+fn instrument_source_functions(
+    module: &mut Module,
+    info: &dwarf::DebugInfo,
+    indices: &parse::WasmIndices,
+    imports: &Imports,
+) -> CompiledFunctions {
+    let all_function_ids: Vec<FunctionId> = module.funcs.iter_local().map(|(id, _)| id).collect();
+    let memory = module.memories.iter().next().map(|memory| memory.id());
+    let mut source_function_names = Vec::new();
+    for &id in &all_function_ids {
+        if let Some(name) = function_transforms::source_function::instrument(
+            module,
+            id,
+            source_function_names.len(),
+            info,
+            indices,
+            imports,
+            memory,
+        ) {
+            source_function_names.push(name);
+        }
+    }
+    CompiledFunctions {
+        all_function_ids,
+        source_function_names,
+    }
+}
+
+fn check_nulls_and_track_allocations(
+    module: &mut Module,
+    compiled: &CompiledFunctions,
+    imports: &Imports,
+) {
+    let functions = &compiled.all_function_ids;
+    function_transforms::null_checks::add_null_checks(module, functions, imports.null);
+    function_transforms::allocations::track_allocations(module, functions, imports);
 }
 
 /// The functions the browser calls. A call goes:

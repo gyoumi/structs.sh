@@ -10,83 +10,55 @@ import { createWorkerRecorder, Input, Recorder } from './workerRecorder';
 
 export type { Input, Recorder } from './workerRecorder';
 
-/**
- * What the page is told while the compiler is ready but the runner or fonts
- * aren't yet: nearly done.
- */
 const NEARLY_READY: CompilerStatus = { state: 'loading', done: 99, total: 100 };
 
-/** A compiled program being recorded, then stepped through. */
 type Session = {
   file: SourceFile;
   wasm: Uint8Array<ArrayBuffer>;
-  /** Typing more records the program again from the start, with it all. */
   input: Input;
   recording: Promise<RecordResult>;
   stopRecording: AbortController;
-  /**
-   * The step the next step() shows, and how much of the output before it was
-   * shown: a statement waiting for input can print more once it gets it.
-   */
-  next: { step: number; outputShown: number };
-  /** The paused state last shown (a recording's end.at), so it's shown once. */
+  next: { stepNumber: number; growingOutputShown: number };
   pausedShown: Step | null;
 };
 
-/**
- * Where the debugger is: with nothing started; compiling (each start has its
- * own stage, so only the latest compile's result is reported); stepping
- * through a session; or with the session ended and why it ended shown.
- */
 type DebuggerStage =
   | { stage: 'idle' }
   | { stage: 'compiling' }
   | { stage: 'stepping'; session: Session }
   | { stage: 'ended'; session: Session };
 
-/**
- * The debugger that runs entirely in the browser. Compiling records the whole
- * run of the program, and each step replays the next statement from it.
- * Stepping back is handled by the page, which keeps the states it was sent.
- */
 export class WasmDebugger implements Debugger {
   private events: DebuggerEvents | null = null;
 
   private stage: DebuggerStage = { stage: 'idle' };
 
-  /** The compiler's own latest news about its download. */
   private compilerReport: CompilerStatus | null = null;
 
-  /** Whether the runner and the fonts have loaded, or failed to. */
-  private othersSettled = false;
+  private runnerAndFontsSettled = false;
 
   constructor(
     private readonly compiler: Compiler = createWorkerCompiler(),
     private readonly recorder: Recorder = createWorkerRecorder(),
     loadFonts: () => Promise<unknown> = loadAllFonts
   ) {
-    // Start the download when the page opens, not when Compile is clicked.
     compiler.preload((status) => {
       this.compilerReport = status;
       this.reportStatus();
     });
-    // Likewise the runner and the fonts, so nothing is fetched mid-session,
-    // as when offline. The page says ready only once they have loaded too; one
-    // that fails doesn't hold it up, as the run or text then says why itself.
-    const others = [() => recorder.whenReady?.(), loadFonts].map((load) =>
+    const runnerAndFonts = [() => recorder.whenReady?.(), loadFonts].map((load) =>
       Promise.resolve().then(load)
     );
-    Promise.allSettled(others).then(() => {
-      this.othersSettled = true;
+    Promise.allSettled(runnerAndFonts).then(() => {
+      this.runnerAndFontsSettled = true;
       this.reportStatus();
     });
   }
 
-  /** The compiler's status, as loading until the others have settled. */
   private get compilerStatus(): CompilerStatus | null {
     const status = this.compilerReport;
     if (!status) return null;
-    return status.state === 'ready' && !this.othersSettled ? NEARLY_READY : status;
+    return status.state === 'ready' && !this.runnerAndFontsSettled ? NEARLY_READY : status;
   }
 
   private reportStatus() {
@@ -94,9 +66,12 @@ export class WasmDebugger implements Debugger {
     if (status) this.events?.compilerStatus(status);
   }
 
-  /** The session being stepped through, if there is one that hasn't ended. */
   private get stepping(): Session | null {
     return this.stage.stage === 'stepping' ? this.stage.session : null;
+  }
+
+  private isStillCurrent(compiling: DebuggerStage) {
+    return this.stage === compiling;
   }
 
   setEvents(events: DebuggerEvents) {
@@ -110,7 +85,7 @@ export class WasmDebugger implements Debugger {
     const compiling: DebuggerStage = { stage: 'compiling' };
     this.stage = compiling;
     this.compiler.compile(file.name, file.code).then((result) => {
-      if (this.stage !== compiling) return;
+      if (!this.isStillCurrent(compiling)) return;
       if (!result.ok) {
         this.stage = { stage: 'idle' };
         this.events?.compileError([result.errors]);
@@ -128,19 +103,14 @@ export class WasmDebugger implements Debugger {
       input: { text: '', eof: false },
       recording: Promise.resolve({ stopped: true }),
       stopRecording: new AbortController(),
-      next: { step: 0, outputShown: 0 },
+      next: { stepNumber: 0, growingOutputShown: 0 },
       pausedShown: null,
     };
     this.stage = { stage: 'stepping', session };
-    this.rerecord(session);
+    this.rerecordKeepingStepNumber(session);
   }
 
-  /**
-   * Records the session's program with all its input so far, replacing any
-   * recording still running. The program runs the same way up to where the
-   * last recording stopped, so stepping carries on from the same step.
-   */
-  private rerecord(session: Session) {
+  private rerecordKeepingStepNumber(session: Session) {
     session.stopRecording.abort();
     const stopRecording = new AbortController();
     const recording = this.recorder(session.wasm, {
@@ -148,7 +118,6 @@ export class WasmDebugger implements Debugger {
       input: { ...session.input },
     });
     Object.assign(session, { recording, stopRecording });
-    // Without a recording there is nothing to step through, so say why now.
     recording.then((result) => {
       const current = session === this.stepping && session.recording === recording;
       if (current && !('recording' in result)) {
@@ -157,7 +126,6 @@ export class WasmDebugger implements Debugger {
     });
   }
 
-  /** The session's latest recording, waiting again if input replaces it meanwhile. */
   private static async latestRecording(session: Session) {
     let recording: Promise<RecordResult>;
     let result: RecordResult;
@@ -176,30 +144,19 @@ export class WasmDebugger implements Debugger {
     if (session !== this.stepping || !('recording' in result)) return false;
 
     const { steps, outputBeforeFirstStep, end } = result.recording;
-    const index = session.next.step;
+    const index = session.next.stepNumber;
 
-    // What the statement just stepped over printed, each part once.
     const output = (index === 0 ? outputBeforeFirstStep : steps[index - 1]?.output) ?? '';
-    if (output.length > session.next.outputShown) {
-      this.events?.output(output.slice(session.next.outputShown));
-      session.next.outputShown = output.length;
+    if (output.length > session.next.growingOutputShown) {
+      this.events?.output(output.slice(session.next.growingOutputShown));
+      session.next.growingOutputShown = output.length;
     }
 
-    // The program is waiting for input: typing it records the program again.
     if (index >= steps.length && 'waitingForInput' in end) {
-      // Paused somewhere the last step doesn't show, so show it once, as a
-      // view rather than a step: the next step after more input is typed is
-      // still the one at session.next. A state was sent, so say so, as the
-      // page only moves on when step() resolves true.
-      if (end.at && end.at !== session.pausedShown) {
-        session.pausedShown = end.at;
-        this.events?.state(stateAt(session.file, end.at));
-        return true;
-      }
-      return false;
+      return this.showPausedOnce(session, end.at);
     }
 
-    session.next = { step: index + 1, outputShown: 0 };
+    session.next = { stepNumber: index + 1, growingOutputShown: 0 };
     if (index < steps.length) {
       if (index === 0) {
         result.recording.types.forEach((type) =>
@@ -218,14 +175,19 @@ export class WasmDebugger implements Debugger {
     return false;
   }
 
-  /** Ends the session with a message saying why. */
+  private showPausedOnce(session: Session, at: Step | undefined) {
+    if (!at || at === session.pausedShown) return false;
+    session.pausedShown = at;
+    this.events?.state(stateAt(session.file, at));
+    return true;
+  }
+
   private finish(session: Session, message: string) {
     this.stage = { stage: 'ended', session };
     this.events?.output(message);
     this.events?.sessionEnded();
   }
 
-  /** Forgets the current session, stopping its recording if it's running. */
   private endSession() {
     const { stage } = this;
     this.stage = { stage: 'idle' };
@@ -237,21 +199,18 @@ export class WasmDebugger implements Debugger {
     const session = this.stepping;
     if (!session || session.input.eof) return;
     session.input.text += `${line}\n`;
-    this.rerecord(session);
+    this.rerecordKeepingStepNumber(session);
   }
 
   sendEOF() {
     const session = this.stepping;
     if (!session || session.input.eof) return;
     session.input.eof = true;
-    this.rerecord(session);
+    this.rerecordKeepingStepNumber(session);
   }
 
   interrupt() {
-    // Also cancels a compile in progress, so its program doesn't start.
     if (this.stage.stage === 'compiling') this.stage = { stage: 'idle' };
-    // Ctrl+C ends the session, whether its recording is still running or
-    // the program is waiting for input, as the page does.
     const session = this.stepping;
     if (!session) return;
     this.finish(session, '\nThe program was stopped.\n');

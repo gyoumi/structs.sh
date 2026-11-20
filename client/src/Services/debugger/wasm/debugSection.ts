@@ -17,9 +17,7 @@ export type DebugType =
       }[];
     }
   | { kind: 'array'; name: string; size: number; of: number; count: number }
-  /** A typedef, or a type with `const` or `volatile`. */
   | { kind: 'typedef' | 'qualified'; name: string; size: number; to: number | null }
-  /** Something the debugger doesn't read, such as a function. */
   | { kind: 'other'; name: string; size: number };
 
 export type DebugSection = {
@@ -34,7 +32,6 @@ export type DebugSection = {
   types: DebugType[];
 };
 
-/** A struct type as the GDB debugger sends it in `sendTypeDeclaration`. */
 export type TypeDeclaration = {
   typeName: string;
   fields: { name: string; typeName: string }[];
@@ -42,7 +39,6 @@ export type TypeDeclaration = {
 
 const EMPTY: DebugSection = { functions: [], statements: [], types: [] };
 
-/** The `structs.debug` section of an instrumented program. */
 export const readDebugSection = (module: WebAssembly.Module): DebugSection => {
   const [section] = WebAssembly.Module.customSections(module, 'structs.debug');
   return section ? JSON.parse(new TextDecoder().decode(section)) : EMPTY;
@@ -61,13 +57,13 @@ export const resolveIndex = (types: DebugType[], index: number): number => {
 export const resolve = (types: DebugType[], index: number): DebugType =>
   types[resolveIndex(types, index)];
 
-/** The type without its const, volatile or restrict. */
+export const isAnonymous = (struct: { name: string }) => struct.name.includes('{');
+
 export const unqualified = (types: DebugType[], index: number): DebugType => {
   const type = types[index];
   return type.kind === 'qualified' && type.to !== null ? unqualified(types, type.to) : type;
 };
 
-/** The struct a type is, seen through typedefs and qualifiers, if any. */
 const structOf = (types: DebugType[], index: number | null): DebugType | null => {
   const type = index === null ? null : types[index];
   if (type?.kind === 'typedef' || type?.kind === 'qualified') return structOf(types, type.to);
@@ -76,7 +72,7 @@ const structOf = (types: DebugType[], index: number | null): DebugType | null =>
 
 /**
  * The named struct types, and typedefs of them, that the program's variables
- * use directly or through pointers, arrays and fields, as GDB lists them.
+ * use directly or through pointers, arrays and fields.
  */
 export const structDeclarations = (debug: DebugSection): TypeDeclaration[] => {
   const { types } = debug;
@@ -87,7 +83,7 @@ export const structDeclarations = (debug: DebugSection): TypeDeclaration[] => {
     seen.add(index);
     const type = types[index];
     const struct = structOf(types, index);
-    const named = type.kind === 'typedef' || (type.kind === 'struct' && !type.name.includes('{'));
+    const named = type.kind === 'typedef' || (type.kind === 'struct' && !isAnonymous(type));
     if (struct?.kind === 'struct' && named) {
       declarations.push({
         typeName: type.name,

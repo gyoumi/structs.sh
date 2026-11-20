@@ -3,14 +3,11 @@ import {
   Name,
   PointerType,
   MemoryValue,
-  IntType,
   NativeTypeName,
+  RecordedValue,
   isPointerType,
 } from './backendType';
 
-/**
- * TODO: This file needs a deep rework, it's not generic enough
- */
 export enum DataStructureType {
   LinkedList,
   BinaryTree,
@@ -60,33 +57,12 @@ export interface BinaryTreeAnnotation extends DataStructureAnnotationBase {
 
 export type DataStructureAnnotationConcrete = LinkedListAnnotation | BinaryTreeAnnotation;
 
-/**
- * Local element annotation. Used for stack data.
- */
-export interface LocalAnnotationBase {
-  typeName: NativeTypeName;
+export interface LocalAnnotation {
+  typeName: MemoryValue['typeName'];
 }
 
-export interface LinkedListNodePointer extends LocalAnnotationBase {
-  typeName: PointerType['typeName'];
-  /**
-   * name might be "curr", "next", "prev", etc
-   */
-}
-export interface ArrayElementPointer extends LocalAnnotationBase {
-  typeName: IntType['typeName'];
-  /**
-   * name might be "i", "j", etc
-   */
-}
-
-export type LocalAnnotationConcrete = ArrayElementPointer | LinkedListNodePointer;
-
-/**
- * Map from variable names to user annotations of that
- */
 export interface StackAnnotation {
-  [name: Name]: LocalAnnotationConcrete | null;
+  [name: Name]: LocalAnnotation | null;
 }
 
 export interface UserAnnotation {
@@ -110,16 +86,17 @@ export const isStackVariableLabelled = (
   return isPointerType(typeName);
 };
 
-/**
- * Type guard to check if a memory value is a linked list node
- */
+export type LinkedListNodeValue = MemoryValue & {
+  value: Record<Name, { value: RecordedValue }>;
+};
+
 export const isLinkedListNode = (
   memoryValue: MemoryValue,
   linkedListAnnotation: LinkedListAnnotation
-) => 'typeName' in memoryValue && memoryValue.typeName === linkedListAnnotation.typeName;
+): memoryValue is LinkedListNodeValue => memoryValue.typeName === linkedListAnnotation.typeName;
 
 export const isTreeNode = (memoryValue: MemoryValue, binaryTreeAnnotation: BinaryTreeAnnotation) =>
-  'typeName' in memoryValue && memoryValue.typeName === binaryTreeAnnotation.typeName;
+  memoryValue.typeName === binaryTreeAnnotation.typeName;
 
 export enum FieldType {
   RECURSIVE,

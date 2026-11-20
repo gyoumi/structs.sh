@@ -1,5 +1,3 @@
-//! Parses the compiled program with walrus, keeping what the debug info needs.
-
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
@@ -7,14 +5,13 @@ use walrus::{FunctionId, GlobalId, LocalId, Module, ModuleConfig};
 
 /// The wasm local and global indices walrus parsed, which the debug info uses.
 #[derive(Default)]
-pub(crate) struct Indices {
+pub(crate) struct WasmIndices {
     pub locals: HashMap<(FunctionId, u32), LocalId>,
     pub globals: HashMap<u32, GlobalId>,
 }
 
-/// Parses the module, and the wasm indices of its locals and globals.
-pub(crate) fn parse(wasm: &[u8]) -> Result<(Module, Indices), String> {
-    let indices = Arc::new(Mutex::new(Indices::default()));
+pub(crate) fn parse(wasm: &[u8]) -> Result<(Module, WasmIndices), String> {
+    let indices = Arc::new(Mutex::new(WasmIndices::default()));
     let mut config = ModuleConfig::new();
     let found = Arc::clone(&indices);
     config.on_parse(move |module, ids| {

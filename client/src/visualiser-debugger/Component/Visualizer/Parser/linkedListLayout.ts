@@ -6,45 +6,24 @@ export type Position = { x: number; y: number };
 
 const LINKED_LIST_GAP = 200;
 
-function convertToRootedTree(
+function buildRootedTree(
   linkedList: LinkedListNode[]
 ): [LinkedListNode, Map<Addr, LinkedListNode[]>] {
-  let root: LinkedListNode = null!;
+  const root = linkedList.findLast((node) => node.next === '0x0');
+  if (!root) throw new Error('This list has no node with a NULL next, so it has no end');
+
   const prevNodeMap: Map<Addr, LinkedListNode[]> = new Map();
   linkedList.forEach((node) => {
-    if (node.next !== '0x0') {
-      if (!prevNodeMap.has(node.next)) {
-        prevNodeMap.set(node.next, []);
-      }
-      prevNodeMap.get(node.next)!.push(node);
-    } else {
-      root = node;
+    if (node.next === '0x0') return;
+    if (!prevNodeMap.has(node.next)) {
+      prevNodeMap.set(node.next, []);
     }
+    prevNodeMap.get(node.next)!.push(node);
   });
-
-  linkedList.forEach((node) => {
-    if (node.next === '0x0') {
-      // @ts-ignore
-      node.next = null;
-    }
-  });
-
-  const stack: LinkedListNode[] = [root];
-  while (stack.length > 0) {
-    const node = stack.pop()!;
-    if (prevNodeMap.has(node.uid)) {
-      const prevNodes = prevNodeMap.get(node.uid)!;
-      prevNodes.forEach((prevNode) => {
-        prevNode.next = node.uid; // Point the previous nodes to the current node
-        stack.push(prevNode);
-      });
-    }
-  }
 
   return [root, prevNodeMap];
 }
 
-// Recursion algorithm
 function assignPositionsRecursion(
   currNode: LinkedListNode,
   prevNodeMap: Map<Addr, LinkedListNode[]>,
@@ -53,14 +32,12 @@ function assignPositionsRecursion(
   yRange: [number, number]
 ): Position {
   const prevNodes = prevNodeMap.get(currNode.uid);
-  // Base case: The currNode is the last node
   if (!prevNodes) {
     const currNodePosition = { x, y: (yRange[0] + 100) / 2 };
     posCache.set(currNode.uid, currNodePosition);
     return currNodePosition;
   }
 
-  // Recursive case
   const yRangePerNode = (yRange[1] - yRange[0]) / prevNodes.length;
   let currY = yRange[0];
   const positions: Position[] = [];
@@ -74,14 +51,12 @@ function assignPositionsRecursion(
     currY += yRangePerNode;
   });
 
-  // Choose the middle y value
   const y = positions.reduce((a, b) => a + b.y, 0) / positions.length;
   const currNodePosition = { x, y };
   posCache.set(currNode.uid, currNodePosition);
   return currNodePosition;
 }
 
-// TODO: Rewrite
 function assignPositions(
   currNode: LinkedListNode,
   prevNodeMap: Map<Addr, LinkedListNode[]>,
@@ -99,36 +74,21 @@ function assignPositions(
   return posCache;
 }
 
-function findMaxDepth(
-  cacheLinkedListNode: Map<Addr, LinkedListNode[]>,
-  linkedList: LinkedListNode[]
-): number {
-  // Reverase cache linkedList as we want trakck back
-  const cacheLinkedListNodeReverse: Map<Addr, LinkedListNode[]> = new Map();
-  cacheLinkedListNode.forEach((nodes) => {
-    nodes.forEach((node) => {
-      if (!cacheLinkedListNodeReverse.has(node.uid)) {
-        cacheLinkedListNodeReverse.set(node.uid, []);
-      }
-      cacheLinkedListNodeReverse.get(node.uid)!.push(node);
-    });
+function findMaxDepth(linkedList: LinkedListNode[]): number {
+  const nodesWithNextByUid: Map<Addr, LinkedListNode> = new Map();
+  linkedList.forEach((node) => {
+    if (node.next !== '0x0') nodesWithNextByUid.set(node.uid, node);
   });
 
-  // Utility function for DFS traversal
-  function dfs(node: LinkedListNode | null, visited: Set<Addr>): number {
-    if (!node) return 0; // base case: end of linked list
-    if (visited.has(node.uid)) return 0; // loop detected, end traversal
+  function dfs(node: LinkedListNode, visited: Set<Addr>): number {
+    if (visited.has(node.uid)) return 0;
 
     visited.add(node.uid);
 
-    const nextNodes = cacheLinkedListNodeReverse.get(node.next);
-    if (!nextNodes) return 1;
+    const nextNode = nodesWithNextByUid.get(node.next);
+    if (!nextNode) return 1;
 
-    let maxDepth = 0;
-    nextNodes.forEach((nextNode: LinkedListNode) => {
-      maxDepth = Math.max(maxDepth, dfs(nextNode, new Set(visited)));
-    });
-    return 1 + maxDepth;
+    return 1 + dfs(nextNode, visited);
   }
 
   let maximumDepth = 0;
@@ -138,7 +98,6 @@ function findMaxDepth(
   return maximumDepth + 1;
 }
 
-/** The nodes joined by next pointers (or a shared target), one group per list. */
 function groupLinkedLists(
   linkedList: LinkedListNode[],
   nodesByUid: Map<Addr, LinkedListNode>
@@ -152,7 +111,6 @@ function groupLinkedLists(
   });
   const unionFind = new UnionFind(unionNodes);
 
-  // Combine
   linkedList.forEach((node) => {
     if (node.next !== '0x0') {
       unionFind.union(node.uid, node.next);
@@ -171,10 +129,7 @@ function groupLinkedLists(
   return groups;
 }
 
-/**
- * Where each node is drawn, each group in its own band. Also turns each NULL
- * next pointer ('0x0') into null.
- */
+/** Where each node is drawn, each group in its own band. */
 export function layOutLinkedLists(
   linkedList: LinkedListNode[],
   nodesByUid: Map<Addr, LinkedListNode>
@@ -187,8 +142,8 @@ export function layOutLinkedLists(
       return;
     }
 
-    const [rootedTree, prevNodeMap] = convertToRootedTree(linkedListGroupNodes);
-    const maxDepth = findMaxDepth(prevNodeMap, linkedListGroupNodes);
+    const [rootedTree, prevNodeMap] = buildRootedTree(linkedListGroupNodes);
+    const maxDepth = findMaxDepth(linkedListGroupNodes);
     const positions = assignPositions(rootedTree, prevNodeMap, maxDepth, [
       600 * idx,
       900 + 600 * idx,

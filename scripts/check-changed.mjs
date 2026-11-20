@@ -1,13 +1,4 @@
 #!/usr/bin/env node
-// Fast checks for what this branch changed, before you push.
-//
-//   pnpm check:changed [--base <branch>]   (a `--` before it is fine too)
-//
-// Compares your branch and uncommitted work with the branch it will merge
-// into (--base, else its open PR's base branch, else origin/dev) and runs
-// only the checks for the areas you touched. CI still runs everything, including the
-// client build and the e2e suite. This is the quick local pass.
-
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -27,8 +18,6 @@ const { values: args } = parseArgs({
 });
 const target = findTargetBranch(args.base);
 const base = git('merge-base', 'HEAD', target).trim();
-// Deleted files still decide which areas to check (a deletion can break
-// imports elsewhere), but only files that still exist are passed to linters.
 // -z gives raw paths; git would otherwise quote names like client/src/é.ts.
 // --no-renames lists both sides of a move, so moving a file out of an area
 // still checks that area.
@@ -41,14 +30,10 @@ const present = (files) => files.filter((p) => existsSync(join(root, p)));
 const under = (prefix) => changed.filter((p) => p.startsWith(prefix));
 const client = under('client/');
 const e2e = under('e2e/');
-// The pinned Rust toolchain builds and checks the instrumenter too.
 const instrumenter = changed.filter((p) => p.startsWith('instrumenter/') || p === 'rust-toolchain.toml');
 const scripts = under('scripts/');
 const lintable = (files, prefix) => present(files).filter((p) => /\.(ts|tsx)$/.test(p)).map((p) => p.slice(prefix.length));
 
-// Root files that sit outside the folders above but change how they are checked.
-// A dependency change can break any workspace, and a config change can make
-// unchanged files fail, so these widen the checks to whole areas.
 const dependencies = changed.some((p) => ['package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml'].includes(p));
 const e2eLintConfig = changed.includes('eslint.config.mjs');
 const knipConfig = changed.includes('knip.jsonc');
@@ -71,7 +56,6 @@ if (scripts.length) {
 
 if (checkClient) {
   add('client: tsc', bin('client', 'tsc'), [], join(root, 'client'));
-  // A config or dependency change can affect every file, so lint them all.
   const onlySource = !dependencies && client.every((p) => p.startsWith('client/src/') && existsSync(join(root, p)));
   const files = onlySource ? lintable(client, 'client/') : ['./src/**/*.{tsx,ts}'];
   if (files.length) add('client: eslint', bin('client', 'eslint'), files, join(root, 'client'));
@@ -96,8 +80,6 @@ if (instrumenter.length) {
   } else skipped.push('instrumenter: fmt, clippy and tests (cargo is not installed)');
 }
 if (checkClient || instrumenter.length) {
-  // The client's unit tests load the built instrumenter, which git ignores,
-  // so build it when it changed or a fresh worktree doesn't have it yet.
   const built = existsSync(join(root, 'client/src/Services/debugger/wasm/generated/instrumenter.wasm'));
   const needsBuild = instrumenter.length > 0 || !built;
   if (needsBuild && cargo) {

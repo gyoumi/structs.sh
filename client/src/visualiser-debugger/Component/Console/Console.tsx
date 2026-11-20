@@ -133,7 +133,6 @@ const Console = ({ scrollToBottom }: ConsoleProp) => {
           clearInput={clearInput}
           scrollToBottom={scrollToBottom}
           inputRef={inputElement}
-          isCompiled={isCompiled}
         />
       </div>
     </div>

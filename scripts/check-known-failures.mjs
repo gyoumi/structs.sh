@@ -1,9 +1,4 @@
 #!/usr/bin/env node
-// Checks each debugger's list in e2e/known-failures/: every entry names a
-// real test and gives a reason. A test on the list that starts passing
-// already fails the e2e run (see e2e/support/test.ts), so this covers the
-// other ways a list can rot.
-
 import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -22,14 +17,14 @@ const report = JSON.parse(
   }),
 );
 
-// Same key as testKey() in e2e/support/test.ts: describe titles and the test
-// title, joined with " › ", without the file name.
+const e2eTestKey = (titlesBelowFile) => titlesBelowFile.join(' › ');
+
 const keys = new Set();
-const walk = (suite, titles) => {
-  for (const spec of suite.specs ?? []) keys.add([...titles, spec.title].join(' › '));
-  for (const child of suite.suites ?? []) walk(child, [...titles, child.title]);
+const addTestKeys = (suite, titlesBelowFile) => {
+  for (const spec of suite.specs ?? []) keys.add(e2eTestKey([...titlesBelowFile, spec.title]));
+  for (const child of suite.suites ?? []) addTestKeys(child, [...titlesBelowFile, child.title]);
 };
-for (const fileSuite of report.suites) walk(fileSuite, []);
+for (const fileSuite of report.suites) addTestKeys(fileSuite, []);
 
 const problems = [];
 for (const { name, entries } of lists) {

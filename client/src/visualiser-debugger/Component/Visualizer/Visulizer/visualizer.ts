@@ -2,7 +2,7 @@ import React from 'react';
 import { FrontendState } from '../../../Types/frontendType';
 
 export interface VisualizerState {
-  graphState: FrontendState;
+  graphState: FrontendState | undefined;
   dimension: {
     width: number;
     height: number;

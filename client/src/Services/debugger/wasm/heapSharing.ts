@@ -1,7 +1,6 @@
 import type { HeapEntry } from './heap';
 
-/** Roughly what a step's reference to a shared heap entry costs, in bytes. */
-const REFERENCE_SIZE = 16;
+const ESTIMATED_REFERENCE_BYTES = 16;
 
 /** JSON writes NaN and Infinity as null, and -0 as 0: keep them apart when comparing. */
 const keepSpecialNumbers = (_key: string, value: unknown) => {
@@ -16,7 +15,6 @@ const keepSpecialNumbers = (_key: string, value: unknown) => {
  * step's entry, along with roughly how many bytes it adds to the recording.
  */
 export const createHeapSharing = () => {
-  /** The last step's heap entries, as JSON, to share the ones that don't change. */
   let previousHeap = new Map<string, { entry: HeapEntry; json: string }>();
 
   return (read: Record<string, HeapEntry>) => {
@@ -25,8 +23,7 @@ export const createHeapSharing = () => {
     const seen = new Map<string, { entry: HeapEntry; json: string }>();
     Object.entries(read).forEach(([address, entry]) => {
       const json = JSON.stringify(entry, keepSpecialNumbers);
-      // Every step holds a reference to each entry, shared or not.
-      size += address.length + REFERENCE_SIZE;
+      size += address.length + ESTIMATED_REFERENCE_BYTES;
       const before = previousHeap.get(address);
       if (before?.json === json) {
         heap[address] = before.entry;

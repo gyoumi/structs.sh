@@ -11,13 +11,12 @@ export class LinkedListParser implements Parser {
     return readLinkedListNodes(backendStructure, annotation);
   }
 
-  /**
-   * Parser functionality
-   */
-  parseState(backendStructure: BackendState, annotation: UserAnnotation): FrontendLinkedListGraph {
+  parseState(
+    backendStructure: BackendState,
+    annotation: UserAnnotation
+  ): FrontendLinkedListGraph | undefined {
     const cacheEntity: { [uid: string]: EntityConcrete } = {};
 
-    // Later need to add an additional step to parse user defined struct into generic struct
     const linkedList: LinkedListNode[] = this.parseHeapData(backendStructure, annotation);
 
     const nodesByUid: Map<Addr, LinkedListNode> = new Map();
@@ -42,9 +41,7 @@ export class LinkedListParser implements Parser {
         pointers,
       };
     } catch (e: any) {
-      // Not silent fail
       console.error(e.message);
-      // @ts-ignore
       return undefined;
     }
   }

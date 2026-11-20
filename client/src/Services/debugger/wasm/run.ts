@@ -12,8 +12,7 @@ const FILETYPE_CHARACTER_DEVICE = 2;
 // The fd_read (bit 1) and fd_write (bit 6) rights, and not fd_seek or fd_tell.
 const STDIO_RIGHTS = 0x42n;
 
-// wasi_snapshot_preview1's clock ids. The process and thread CPU-time clocks
-// fall back to the monotonic clock.
+// wasi_snapshot_preview1's clock ids.
 const CLOCK_REALTIME = 0;
 
 const NEWLINE = 0x0a;
@@ -36,7 +35,6 @@ export type TraceEvent =
   | { type: 'freed'; pointer: number }
   | { type: 'reallocated'; old: number; pointer: number; size: number };
 
-/** What a program that dereferences NULL stops with. */
 export const NULL_DEREFERENCE = 'NULL pointer dereference';
 
 export type RunOptions = {
@@ -56,10 +54,8 @@ export type RunOptions = {
   input?: { text: string; eof: boolean };
 };
 
-/** Thrown when a program reads input that hasn't been typed yet. */
 export const WAITING_FOR_INPUT = new Error('The program is waiting for input.');
 
-/** Thrown by proc_exit to unwind out of the program. */
 class ProcExit {
   constructor(readonly code: number) {}
 }
@@ -68,9 +64,8 @@ const isStdio = (fd: number) => fd === STDIN || fd === STDOUT || fd === STDERR;
 
 /**
  * Runs a WASI program compiled by compileC to completion. stdout and stderr
- * stream through onOutput, stdin is empty, and there are no arguments,
- * environment variables or files. Rejects with a WebAssembly.RuntimeError if
- * the program traps.
+ * stream through onOutput, and there are no arguments, environment variables
+ * or files. Rejects with a WebAssembly.RuntimeError if the program traps.
  */
 export const runWasi = async (
   wasm: Uint8Array<ArrayBuffer>,
@@ -86,6 +81,10 @@ export const runWasi = async (
 
   const stdin = new TextEncoder().encode(input.text);
   let stdinRead = 0;
+  const endOfLineSoRerunsReadAlike = () => {
+    const newline = stdin.indexOf(NEWLINE, stdinRead);
+    return newline === -1 ? stdin.length : newline + 1;
+  };
 
   // One decoder per stream, so a character split across two writes still
   // decodes.
@@ -125,12 +124,8 @@ export const runWasi = async (
       if (fd !== STDIN) return BADF;
       let wanted = 0;
       for (let i = 0; i < iovsLength; i++) wanted += view().getUint32(iovs + i * 8 + 4, true);
-      // A read of no bytes returns at once, as on a terminal, without waiting.
       if (wanted > 0 && stdinRead === stdin.length && !input.eof) throw WAITING_FOR_INPUT;
-      // Like a terminal, one read gets one line at most, so a run re-recorded
-      // with more input reads the same lines at the same reads as before.
-      const newline = stdin.indexOf(NEWLINE, stdinRead);
-      const lineEnd = newline === -1 ? stdin.length : newline + 1;
+      const lineEnd = endOfLineSoRerunsReadAlike();
       let read = 0;
       for (let i = 0; i < iovsLength && stdinRead < lineEnd; i++) {
         const pointer = view().getUint32(iovs + i * 8, true);
@@ -202,7 +197,6 @@ export const runWasi = async (
     freed: (pointer: number) => onTrace?.({ type: 'freed', pointer }, view),
     reallocated: (old: number, pointer: number, size: number) =>
       onTrace?.({ type: 'reallocated', old, pointer, size }, view),
-    // The instrumenter calls this before a load or store below address 1024.
     null: () => {
       throw new Error(NULL_DEREFERENCE);
     },
@@ -219,9 +213,8 @@ export const runWasi = async (
     flushDecoders();
     return { exitCode: 0 };
   } catch (error) {
-    // A program waiting for input isn't finished: half a character written
-    // before the wait is kept back, as the rest may come after it.
-    if (error !== WAITING_FOR_INPUT) flushDecoders();
+    const holdBackPartialCharacter = error === WAITING_FOR_INPUT;
+    if (!holdBackPartialCharacter) flushDecoders();
     if (error instanceof ProcExit) return { exitCode: error.code };
     throw error;
   }

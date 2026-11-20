@@ -1,3 +1,4 @@
+import { countBefore } from './countBefore';
 import { DebugType, resolveIndex } from './debugSection';
 
 /** A heap struct the variables reach, as [start, end, type]. */
@@ -15,11 +16,6 @@ export const sortByStart = (reached: ReachedStruct[]): ReachedByStart => {
   return { sorted, furthestEnds };
 };
 
-/**
- * Whether a value of type `inner` is part of one of type `outer`, `offset`
- * bytes in: the outer value itself, or a field or array element of it,
- * however deeply nested.
- */
 const embeds = (types: DebugType[], outer: number, offset: number, inner: number): boolean => {
   const resolved = resolveIndex(types, outer);
   if (offset === 0 && resolved === resolveIndex(types, inner)) return true;
@@ -53,16 +49,8 @@ export const clashesWithReached = (
   end: number,
   type: number
 ) => {
-  // How many reached structs start before `end`.
-  let low = 0;
-  let high = sorted.length;
-  while (low < high) {
-    const middle = Math.floor((low + high) / 2);
-    if (sorted[middle][0] < end) low = middle + 1;
-    else high = middle;
-  }
-  // Back through those, while any of them could still end after `start`.
-  for (let i = low - 1; i >= 0 && furthestEnds[i] > start; i -= 1) {
+  const startingBeforeEnd = countBefore(sorted, ([otherStart]) => otherStart < end);
+  for (let i = startingBeforeEnd - 1; i >= 0 && furthestEnds[i] > start; i -= 1) {
     const [otherStart, otherEnd, other] = sorted[i];
     if (
       otherEnd > start &&

@@ -61,23 +61,8 @@ export const createPossibleLinkedListTypeDecl = (
 export const LinkedListNodeAnnotation: AnnotationComponent = ({ backendType }: AnnotationProp) => {
   const [possibleTypeDeclForLinkedList, setPossibleTypeDeclForLinkedList] =
     useState<PossibleLinkedListAnnotation | null>(createPossibleLinkedListTypeDecl(backendType));
-  const updateUserAnnotation = useGlobalStore((state) => state.updateUserAnnotation);
+  const updateTypeAnnotation = useGlobalStore((state) => state.updateTypeAnnotation);
   const [nodeAnnotation, setNodeAnnotation] = useState<LinkedListAnnotation | null>(null);
-  const handleUpdateNodeAnnotation = useCallback(
-    (newAnnotation: LinkedListAnnotation) => {
-      // The annotations as they are now, not as this last rendered, so a
-      // stack variable's role set since then isn't overwritten.
-      const { userAnnotation } = useGlobalStore.getState().visualizer;
-      updateUserAnnotation({
-        ...userAnnotation,
-        typeAnnotation: {
-          ...userAnnotation.typeAnnotation,
-          [newAnnotation.typeName]: newAnnotation,
-        },
-      });
-    },
-    [updateUserAnnotation]
-  );
 
   const handleLinkedNodeAnnotation = useCallback(
     (possibleTypeAnnotation: PossibleLinkedListAnnotation | null) => {
@@ -95,9 +80,9 @@ export const LinkedListNodeAnnotation: AnnotationComponent = ({ backendType }: A
         },
       };
       setNodeAnnotation(linkedNodeAnnotation);
-      handleUpdateNodeAnnotation(linkedNodeAnnotation);
+      updateTypeAnnotation(linkedNodeAnnotation);
     },
-    [backendType.typeName, handleUpdateNodeAnnotation]
+    [backendType.typeName, updateTypeAnnotation]
   );
 
   useEffect(() => {
@@ -118,7 +103,7 @@ export const LinkedListNodeAnnotation: AnnotationComponent = ({ backendType }: A
           typeName: newNodeDataType,
         },
       };
-      handleUpdateNodeAnnotation(newAnnotation);
+      updateTypeAnnotation(newAnnotation);
       setNodeAnnotation(newAnnotation);
     }
   };
@@ -136,7 +121,7 @@ export const LinkedListNodeAnnotation: AnnotationComponent = ({ backendType }: A
           typeName: newNodeNextType,
         },
       };
-      handleUpdateNodeAnnotation(newAnnotation);
+      updateTypeAnnotation(newAnnotation);
       setNodeAnnotation(newAnnotation);
     }
   };

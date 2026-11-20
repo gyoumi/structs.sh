@@ -5,7 +5,7 @@ import { BackendState, INITIAL_BACKEND_STATE } from '../Types/backendType';
 // Map BackendState and FrontendState one to one?? Good design??
 type MappedState = {
   backendState: BackendState;
-  frontendState: FrontendState;
+  frontendState: FrontendState | undefined;
 };
 
 type State = {
@@ -16,7 +16,10 @@ type State = {
 };
 
 type Action = {
-  appendFrontendNewState: (backendState: BackendState, newState: FrontendState) => void;
+  pushOrReplaceFrontendState: (
+    backendState: BackendState,
+    newState: FrontendState | undefined
+  ) => void;
   stepForward: () => void;
   stepBackward: () => void;
   jumpToState: (index: number) => void;
@@ -39,7 +42,7 @@ export const useFrontendStateStore: UseBoundStore<StoreApi<State & Action>> = cr
     }
     return useFrontendStateStore.getState().states[useFrontendStateStore.getState().currentIndex];
   },
-  appendFrontendNewState: (backendState: BackendState, newState: FrontendState) => {
+  pushOrReplaceFrontendState: (backendState: BackendState, newState: FrontendState | undefined) => {
     set((state) => {
       const lastState = state.states[state.states.length - 1];
       if (lastState && lastState.backendState === backendState) {

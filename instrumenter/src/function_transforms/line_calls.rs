@@ -1,5 +1,3 @@
-//! Calls `structs.line` at the start of each statement.
-
 use std::collections::{BTreeMap, HashMap};
 
 use walrus::ir::{self, Instr, InstrLocId, InstrSeqId};
@@ -26,8 +24,6 @@ pub(super) fn loop_statements(
     found
 }
 
-/// Calls `line` before each instruction that starts a statement, and first
-/// thing in a loop body whose statement starts on its `loop` instruction.
 pub(super) fn add_line_calls(
     function: &mut LocalFunction,
     seq: InstrSeqId,

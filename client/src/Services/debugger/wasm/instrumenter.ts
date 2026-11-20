@@ -1,8 +1,6 @@
 import { compileC } from './compile';
 import { CompileResult } from './compiler';
 
-// Built from instrumenter/ by `pnpm run instrumenter` (see the repo root's
-// package.json). It isn't committed.
 const INSTRUMENTER_URL = new URL('./generated/instrumenter.wasm', import.meta.url);
 
 /** What the instrumenter's wasm exports: see instrumenter/src/ffi.rs. */
@@ -17,7 +15,6 @@ type InstrumenterExports = {
 
 const readBytes = async (url: URL) => {
   if (url.protocol === 'file:') {
-    // Under Node, for tests.
     const { readFile } = await import('node:fs/promises');
     return new Uint8Array(await readFile(url));
   }
@@ -43,7 +40,6 @@ export const loadInstrumenter = () => {
   return instrumenterLoad;
 };
 
-/** Rewrites a compiled program so the debugger can record it. */
 export const instrumentProgram = async (
   wasm: Uint8Array<ArrayBuffer>
 ): Promise<Uint8Array<ArrayBuffer>> => {
@@ -64,7 +60,6 @@ export const instrumentProgram = async (
   return output;
 };
 
-/** Compiles a C file, then instruments the program if it compiled. */
 export const compileAndInstrument = async (
   fileName: string,
   source: string

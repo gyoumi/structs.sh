@@ -39,7 +39,6 @@ const DevelopmentModeContent = () => {
   const initialise = useDebuggerStore((state) => state.initialise);
   const close = useDebuggerStore((state) => state.close);
 
-  // Onboarding Code
   useEffect(() => {
     if (onboardingCurrFile) {
       if (onboardingStore.getState().stepIndex === OPEN_FILE_STEP) {
@@ -49,7 +48,6 @@ const DevelopmentModeContent = () => {
     }
   }, [onboardingCurrFile]);
 
-  // Create the debugger the URL asks for, and close it when the page closes
   useEffect(() => {
     initialise();
     return close;

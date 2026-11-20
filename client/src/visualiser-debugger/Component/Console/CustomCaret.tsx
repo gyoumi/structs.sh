@@ -7,7 +7,6 @@ type CustomCaretProps = {
   clearInput: () => void;
   scrollToBottom: () => void;
   inputRef: React.RefObject<HTMLInputElement>;
-  isCompiled: boolean;
 };
 
 const CustomCaret = ({
@@ -16,13 +15,11 @@ const CustomCaret = ({
   clearInput,
   scrollToBottom,
   inputRef,
-  isCompiled,
 }: CustomCaretProps) => {
   const { handleOnBlur, handleKeyDown, handleKeyUp, shifts, paused } = useCursor(
     input,
     clearInput,
-    scrollToBottom,
-    isCompiled
+    scrollToBottom
   );
 
   const cursorPosition = input.length - shifts;
