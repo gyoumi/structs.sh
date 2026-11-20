@@ -3,7 +3,7 @@ name = "structs-instrumenter"
 version = "0.1.0"
 edition = "2024"
 publish = false
-description = "Rewrites student programs compiled to wasm so the browser debugger can record them"
+description = "Rewrites C programs compiled to wasm so the browser debugger can record them"
 
 [lib]
 # cdylib is the .wasm the browser loads; rlib lets the tests call it directly.

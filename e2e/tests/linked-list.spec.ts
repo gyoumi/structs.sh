@@ -53,7 +53,7 @@ test.describe('linked list visualisation', () => {
 
   // Pointer names are drawn under the node they point at, for the pointer
   // variables of the function the step is in. They showed on the dev server
-  // but never in the production build students use.
+  // but never in the production build users use.
   test('the variable holding a list is labelled beside its first node', async ({ debuggerPage }) => {
     await debuggerPage.openProgram('linked_list.c');
     await debuggerPage.startSession();

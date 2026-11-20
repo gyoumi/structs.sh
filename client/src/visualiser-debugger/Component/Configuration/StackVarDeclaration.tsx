@@ -26,7 +26,7 @@ export const StackVarAnnotation: React.FC<StackVariableAnnotationProp> = ({
   );
   const updateStackAnnotation = useGlobalStore((state) => state.updateStackAnnotation);
   const { darkMode } = useTheme();
-  // A pointer is labelled unless the student turned it off (see
+  // A pointer is labelled unless the user turned it off (see
   // isStackVariableLabelled), so the role shown comes from the same rule.
   const selectedRole = isStackVariableLabelled(stackAnnotation, name, memoryValue.typeName)
     ? StackVariableRole.LinkedListPointer

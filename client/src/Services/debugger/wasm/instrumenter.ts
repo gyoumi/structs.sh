@@ -5,7 +5,7 @@ import { CompileResult } from './compiler';
 // package.json). It isn't committed.
 const INSTRUMENTER_URL = new URL('./generated/instrumenter.wasm', import.meta.url);
 
-/** What the instrumenter's wasm exports: see instrumenter/src/lib.rs. */
+/** What the instrumenter's wasm exports: see instrumenter/src/ffi.rs. */
 type InstrumenterExports = {
   memory: WebAssembly.Memory;
   alloc: (length: number) => number;

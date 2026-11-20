@@ -58,7 +58,7 @@ describe('LinkedListParser', () => {
 });
 
 // Pointer variables that point at no drawn node: NULL, uninitialised, or at a
-// node that was freed. The student saw the drawing go blank (or stay on the
+// node that was freed. The user saw the drawing go blank (or stay on the
 // previous step's picture) at every such step, with "Cannot read properties of
 // undefined (reading 'uid')" in the console.
 //

@@ -15,7 +15,7 @@ export type RecordInWorkerOptions = {
    * call.
    */
   timeLimitMs: number;
-  /** Stops the program early, for example when the student compiles again. */
+  /** Stops the program early, for example when the user compiles again. */
   signal?: AbortSignal;
   /** The input typed so far, and whether end-of-file was sent. */
   input?: { text: string; eof: boolean };
@@ -44,6 +44,22 @@ export type RunnerPool = {
 };
 
 /**
+ * The worker a pool holds for the next run: none, so the next run starts its
+ * own; one, with what settles whenReady() once it has loaded; or none ever
+ * again, once the pool is disposed.
+ */
+type PoolStage =
+  | { stage: 'empty' }
+  | { stage: 'holding'; worker: RunnerWorker; loaded: () => void }
+  | { stage: 'disposed' };
+
+/**
+ * A worker lent to a run: waiting for its answer, having answered (so it has
+ * loaded, and is idle once the run is over), or given back.
+ */
+type LoanStage = 'waiting' | 'answered' | 'returned';
+
+/**
  * Hands out runner workers without fetching anything at run time, so runs
  * keep working once the network is off: a new worker fetches its script
  * again. One worker is started ahead of the first run. A worker that has sent
@@ -52,11 +68,8 @@ export type RunnerPool = {
  * failed is really terminated, and a replacement starts straight away.
  */
 export const createRunnerPool = (createWorker = startRunnerWorker): RunnerPool => {
-  let ready: RunnerWorker | undefined;
+  let stage: PoolStage = { stage: 'empty' };
   let readyLoaded: Promise<void> = Promise.resolve();
-  /** Settles readyLoaded: kept with the held worker, so a run that takes it can too. */
-  let settleReady = () => {};
-  let disposed = false;
 
   /** Holds a worker for the next run; `loaded` settles once it has loaded. */
   const keepReady = (worker: RunnerWorker, loaded: () => void) => {
@@ -68,10 +81,9 @@ export const createRunnerPool = (createWorker = startRunnerWorker): RunnerPool =
     worker.onerror = () => {
       loaded();
       worker.terminate();
-      if (ready === worker) ready = undefined;
+      if (stage.stage === 'holding' && stage.worker === worker) stage = { stage: 'empty' };
     };
-    ready = worker;
-    settleReady = loaded;
+    stage = { stage: 'holding', worker, loaded };
   };
 
   const startReady = () => {
@@ -93,33 +105,33 @@ export const createRunnerPool = (createWorker = startRunnerWorker): RunnerPool =
       // A run can take the held worker before it has loaded, so the run
       // settles whenReady() instead: once the worker says anything (it has
       // loaded), fails, or is terminated (it's gone).
-      const loaded = ready ? settleReady : () => {};
-      const worker = ready ?? createWorker();
-      ready = undefined;
-      settleReady = () => {};
-      let answered = false;
-      let returned = false;
+      const held = stage.stage === 'holding' ? stage : null;
+      const loaded = held ? held.loaded : () => {};
+      const worker = held ? held.worker : createWorker();
+      if (held) stage = { stage: 'empty' };
+      let loan: LoanStage = 'waiting';
       const lent: RunnerWorker = {
         onmessage: null,
         onerror: null,
         postMessage: (request) => worker.postMessage(request),
         terminate() {
-          if (returned) return;
-          returned = true;
+          if (loan === 'returned') return;
+          const answered = loan === 'answered';
+          loan = 'returned';
           loaded();
           // Having answered a run, it has loaded.
-          if (answered && !ready && !disposed) {
+          if (answered && stage.stage === 'empty') {
             keepReady(worker, () => {});
             readyLoaded = Promise.resolve();
             return;
           }
           worker.terminate();
-          if (!ready && !disposed) startReady();
+          if (stage.stage === 'empty') startReady();
         },
       };
       worker.onmessage = (event) => {
         loaded();
-        if (event.data.type !== 'ready') answered = true;
+        if (event.data.type !== 'ready' && loan === 'waiting') loan = 'answered';
         lent.onmessage?.(event);
       };
       worker.onerror = (event) => {
@@ -130,9 +142,9 @@ export const createRunnerPool = (createWorker = startRunnerWorker): RunnerPool =
     },
     whenReady: () => readyLoaded,
     dispose() {
-      disposed = true;
-      ready?.terminate();
-      ready = undefined;
+      const held = stage;
+      stage = { stage: 'disposed' };
+      if (held.stage === 'holding') held.worker.terminate();
     },
   };
 };

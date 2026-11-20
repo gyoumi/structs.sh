@@ -19,6 +19,10 @@ import {
 } from '@/visualiser-debugger/Store/toastStateStore';
 
 const BUFFER_THRESHOLD = 30;
+
+/** The play button's buffering: off, asked for, or fetching states. */
+type BufferStage = 'off' | 'requested' | 'buffering';
+
 const Controls = () => {
   const { currFrame } = useGlobalStore();
   const { userAnnotation, parser } = useGlobalStore().visualizer;
@@ -26,11 +30,11 @@ const Controls = () => {
   const { states, currentIndex, stepForward, stepBackward, jumpToState, isActive } =
     useFrontendStateStore();
 
-  const [loading, setLoading] = useState<boolean>(false);
+  const [bufferStage, setBufferStage] = useState<BufferStage>('off');
+  const loading = bufferStage === 'buffering';
   /** Whether a step forward is waiting for the debugger's next state. */
   const [fetching, setFetching] = useState<boolean>(false);
   const atLatestState = currentIndex >= states.length - 1;
-  const [bufferMode, setBufferMode] = useState<boolean>(false);
 
   // Avoid race condition
   const bufferingRef = useRef<boolean>(false);
@@ -38,14 +42,17 @@ const Controls = () => {
   const compilerStatus = useCompilerStatusStore((state) => state.status);
 
   const playToggle = () => {
-    setBufferMode((mode) => !mode);
+    setBufferStage((stage) => {
+      if (stage === 'buffering') return stage;
+      return stage === 'off' ? 'requested' : 'off';
+    });
   };
 
   const startBuffering = useCallback(
     async (bufferSize: number) => {
       if (bufferingRef.current) return;
       bufferingRef.current = true;
-      setLoading(true);
+      setBufferStage('buffering');
 
       setMessage({
         content: 'Buffer started.',
@@ -61,8 +68,7 @@ const Controls = () => {
         durationMs: DEFAULT_MESSAGE_DURATION,
       });
 
-      setLoading(false);
-      setBufferMode(false);
+      setBufferStage('off');
       bufferingRef.current = false;
     },
     [bulkSendNextStates, setMessage]
@@ -70,13 +76,12 @@ const Controls = () => {
 
   useEffect(() => {
     if (!isActive) {
-      setBufferMode(false);
-      setLoading(false);
+      setBufferStage('off');
     }
   }, [isActive]);
 
   useEffect(() => {
-    if (!bufferMode || bufferingRef.current) return;
+    if (bufferStage !== 'requested' || bufferingRef.current) return;
     if (states.length - currentIndex < BUFFER_THRESHOLD) {
       startBuffering(BUFFER_THRESHOLD);
     } else {
@@ -87,9 +92,9 @@ const Controls = () => {
         durationMs: DEFAULT_MESSAGE_DURATION,
       });
 
-      setBufferMode(false);
+      setBufferStage('off');
     }
-  }, [bufferMode, currentIndex, setMessage, startBuffering, states.length]);
+  }, [bufferStage, currentIndex, setMessage, startBuffering, states.length]);
 
   // New states join the timeline as they arrive (see useDebugger). This parses
   // the latest one again when the annotations or the visualiser change.
@@ -117,8 +122,7 @@ const Controls = () => {
       <Button
         variant="primary"
         onClick={() => {
-          setBufferMode(false);
-          setLoading(false);
+          setBufferStage('off');
           sendCode();
           handleCompileClicked();
         }}

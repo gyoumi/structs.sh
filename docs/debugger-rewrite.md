@@ -2,7 +2,7 @@
 
 The visual debugger currently runs GDB on a server and talks to the browser
 over Socket.IO. The rewrite moves the whole debugger into the browser. Clang
-compiles the student's C to WebAssembly in a Web Worker. A Rust instrumenter
+compiles the user's C to WebAssembly in a Web Worker. A Rust instrumenter
 adds tracking calls to the compiled wasm. The program runs once and is
 recorded, and the existing UI replays the recording.
 
@@ -25,7 +25,7 @@ None of the decisions below are final. Change this document when they change.
 
 ## How progress is measured
 
-The Playwright suite in `e2e/` is the spec. It tests what a student sees, not
+The Playwright suite in `e2e/` is the spec. It tests what a user sees, not
 how the debugger works, so the same tests run against both debuggers. Each
 run ends with a summary like `11/15 behaviours working`.
 
@@ -120,7 +120,7 @@ works offline once the page has loaded (#34).
 
 See "The goal, step by step".
 
-Error messages for students, restoring a session after a refresh, and
+Error messages for users, restoring a session after a refresh, and
 shareable links come after the goal. They are new features, not things GDB
 already does.
 
@@ -139,7 +139,7 @@ nothing, and it never connects to the server.
 The e2e suite can run against either debugger, and CI runs it against both.
 
 **You'll know it's done when** GDB still shows 11/15, wasm shows 0/15, and
-both CI jobs are green. Nothing has changed for students.
+both CI jobs are green. Nothing has changed for users.
 
 **Done in #7.** The page talks to a `Debugger` interface
 (`client/src/Services/debugger/`), with `GdbDebugger` wrapping Socket.IO and
@@ -150,7 +150,7 @@ runs the suite against wasm, using `e2e/known-failures/wasm.json`.
 
 With the wasm debugger selected, clicking Compile compiles the program in the
 browser. If the code has errors, they appear in the console, naming the
-student's file. If it doesn't, the session starts. Nothing runs yet.
+user's file. If it doesn't, the session starts. Nothing runs yet.
 
 This is where the compiler's size is first felt, so measure how long it takes
 to load and how much memory it uses in Chrome, Firefox and Safari, and write
@@ -201,7 +201,7 @@ stepping, which comes in checkpoint 2.
 
 - **A step** is one statement. The instrumenter records an event at the start
   of each new statement in the line table, and replay skips repeats of the
-  same line in the same call. Stepping enters functions the student wrote.
+  same line in the same call. Stepping enters functions the user wrote.
   The C library gets no tracking calls, so a call like `printf` is stepped
   over.
 - **One recording** holds line events, output and how the program ended (its
@@ -241,15 +241,15 @@ image builds.
 ### 2b. Line trace
 
 The instrumenter reads the line table and inserts a call at the start of each
-new statement in the student's code. The runner records lines, output and the
+new statement in the program's code. The runner records lines, output and the
 end of the program in one stream, up to the step limit.
 
 **You'll know it's done when** unit tests show the recorded lines for each
-e2e program in the order a student would step through them.
+e2e program in the order a user would step through them.
 
 **Done in #17.** The instrumenter adds `structs.line(n)` before each
 statement, and `structs.enter` and `structs.exit` around each of the
-student's functions. `recordRun` (`client/src/Services/debugger/wasm/recording.ts`)
+program's functions. `recordRun` (`client/src/Services/debugger/wasm/recording.ts`)
 turns those calls into steps, each with its function, line, call depth and
 the output it printed.
 
@@ -296,12 +296,12 @@ passes 11/16, including a new test for stepping back after the end.
   from the variables of every frame. `malloc` and `free` are tracked
   underneath, so a pointer is only followed into memory that is really
   allocated. That also leaves room to flag leaks and use-after-free later.
-- **NULL dereferences crash** with a message on the student's line. In wasm,
+- **NULL dereferences crash** with a message on the user's line. In wasm,
   address 0 is ordinary memory, so the instrumenter checks every load and
   store, including those in the C library (so `strlen(NULL)` is caught). The
   program's data starts at address 1024, so any lower address is an error.
 - **Typed input re-records the program.** The recording stops where the
-  program waits for input. When the student types a line in the console, the
+  program waits for input. When the user types a line in the console, the
   program is recorded again with all the input so far, and stepping carries
   on from the same step. Ctrl+D sends end-of-file. GDB's server never
   implemented typed input, so this is new.
@@ -330,7 +330,7 @@ wasm (14/16).
 
 **Done in #20.** The instrumenter writes a `structs.debug` section with each
 statement's variables in scope, where they live, and their types, named the
-way GDB names them (`instrumenter/src/debug.rs`). The recorder reads them from
+way GDB names them (`instrumenter/src/dwarf/mod.rs`). The recorder reads them from
 memory at each step, in the format the GDB debugger sends
 (`client/src/Services/debugger/wasm/variables.ts`). A recording of GDB's
 states for the same program is checked in, and the tests compare against it.
@@ -464,7 +464,7 @@ checks pass, and the site runs from the client image alone.
 
 The rewrite works. Before it goes into `dev`, its code is made easy to read
 and change: no file too big, no state kept in loose flags, and no comments
-or tests that don't earn their place. Nothing a student sees changes, so the
+or tests that don't earn their place. Nothing a user sees changes, so the
 e2e suite and the GDB comparison must pass unchanged at every step.
 
 ### Decisions
@@ -492,7 +492,7 @@ e2e suite and the GDB comparison must pass unchanged at every step.
   becomes a better name, type or shape instead.
 - **Tests: prune and merge without losing coverage.** A test goes if
   another test already checks the same behaviour, or if it checks a private
-  detail rather than what a caller or student sees. Tests that repeat one
+  detail rather than what a caller or user sees. Tests that repeat one
   shape with different inputs become one table-driven test. Coverage of the
   scoped files is measured before and after, and must not drop. Each PR
   lists every test it removes and what still covers it.
@@ -563,6 +563,14 @@ Found while building checkpoint 1, and not needed for it:
   `inner = &outer->first; outer = NULL;`, only the inner struct is shown
   there from then on, though the outer one is still allocated. Remembering
   every struct at an address (or preferring the outer one) would fix it.
+- **The e2e test "landing page leads to the feedback form" is flaky.** It
+  failed once in CI (#40) and passed on a rerun. The screenshot showed the
+  page still on the landing page after the click: the GitHub card above the
+  footer loads late and moves the "Provide Feedback" link. The test came
+  from `dev` unchanged.
+- **The console caret's blink timer** in `useCursor.ts` is a plain `let`,
+  so it's recreated on every render and `clearTimeout` never cancels the
+  previous timer. This predates the rewrite.
 - **Offline, a run cut short breaks the next one.** Once the page has
   loaded, the debugger works offline, because runs reuse a runner Worker
   started while the network was on. A Worker stopped mid-run (past the time
@@ -578,7 +586,7 @@ Found while building checkpoint 1, and not needed for it:
 - **Exit codes** aren't masked to 0–255, so `exit(-1)` reports -1, where
   Linux reports 255.
 - **Crash messages** show the engine's raw text, for example "unreachable",
-  which isn't written for students.
+  which isn't written for users.
 - **Closing stdout** (`close(1)`) doesn't stop later writes.
 - **Firefox** hasn't been measured or tested.
 - **A program stuck in a C library call** for over 10 seconds (for example a
@@ -589,7 +597,7 @@ Found while building checkpoint 1, and not needed for it:
 - **A compile still running** when the session is reset or its file is
   deleted can still start a session. Checkpoint 2 reworks the session
   lifecycle.
-- **Pointers are 4 bytes** on wasm and 8 on the machines students use, so
+- **Pointers are 4 bytes** on wasm and 8 on the machines users run C on, so
   `sizeof(int *)` and addresses look different.
 - **A NULL dereference of a far field** isn't caught: the check tests the
   address plus the field's offset against 1024, so `p->value` with

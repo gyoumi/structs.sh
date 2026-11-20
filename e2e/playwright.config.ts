@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
-// The production build, served by `vite preview`, is what students get, so
+// The production build, served by `vite preview`, is what users get, so
 // that is what the suite tests by default. The dev server differs: React's
 // StrictMode runs effects twice there, which once hid a bug that only showed
 // in production.

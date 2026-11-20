@@ -1,16 +1,16 @@
 # Instrumenter
 
-Rewrites a student's program, after clang has compiled it to wasm in the
+Rewrites a user's program, after clang has compiled it to wasm in the
 browser, so the wasm debugger can record it as it runs. Using the DWARF line
-table, it adds calls at the start of each statement in the student's
+table, it adds calls at the start of each statement in the program's
 functions, and when each function starts and returns. The C library has no
 debug info, so it's left alone and stepping goes over it.
 
 It also writes a `structs.debug` section describing each statement's line,
 the variables in scope there and where they live, and their types, named the
-way GDB names them (`src/debug.rs`).
+way GDB names them (`src/dwarf/`).
 `client/src/Services/debugger/wasm/recording.ts` turns the calls into the
-steps a student sees, and `variables.ts` next to it reads each step's
+steps a user sees, and `variables.ts` next to it reads each step's
 variables from memory. `src/lib.rs` has the details.
 
 It's Rust, using [walrus](https://crates.io/crates/walrus) to rewrite wasm.
