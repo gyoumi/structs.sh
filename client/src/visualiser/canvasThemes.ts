@@ -4,7 +4,7 @@ import { Theme } from '@/ui/theme';
 const shared: Partial<CanvasTheme> = {
   fontFamily: "'Fredoka Variable', sans-serif",
   sortBarScale: 2.2,
-  pointerText: true,
+  textPointerLabels: true,
 };
 
 export const canvasThemes: Record<Theme, Partial<CanvasTheme>> = {
@@ -19,7 +19,7 @@ export const canvasThemes: Record<Theme, Partial<CanvasTheme>> = {
     pointer: '#127A9C',
     currFill: '#3E7CB1',
     currStroke: '#3E7CB1',
-    pointerLabel: '#23225E',
+    pointerLabelColor: '#23225E',
     prevFill: '#C53A3A',
     prevStroke: '#C53A3A',
   },
@@ -34,7 +34,7 @@ export const canvasThemes: Record<Theme, Partial<CanvasTheme>> = {
     pointer: '#8FC1DE',
     currFill: '#5B8DB8',
     currStroke: '#8FC1DE',
-    pointerLabel: '#ECEEFF',
+    pointerLabelColor: '#ECEEFF',
     prevFill: '#FF7A7A',
     prevStroke: '#FF7A7A',
   },

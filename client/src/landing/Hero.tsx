@@ -4,9 +4,9 @@ import { DEVSOC, DevsocGlyph, devsocInk } from './devsoc';
 import { easeInOut, useTimeline } from './useTimeline';
 import styles from './Hero.module.css';
 
-const UNIT = 40;
+const BLOCK_SIZE = 40;
 const DEPTH = 16;
-const PITCH = UNIT + 20;
+const COLUMN_SPACING = BLOCK_SIZE + 20;
 const HOLD_MS = 700;
 const FRAME_MS = 230;
 const MOVE_MS = 200;
@@ -127,22 +127,22 @@ const Block = ({
   faces: Faces;
   drawTopFace: boolean;
 }) => {
-  const y = bottom - UNIT;
+  const y = bottom - BLOCK_SIZE;
   return (
     <>
-      <rect x={0} y={y} width={UNIT} height={UNIT} fill={faces.front} />
+      <rect x={0} y={y} width={BLOCK_SIZE} height={BLOCK_SIZE} fill={faces.front} />
       <polygon
-        points={`${UNIT},${y} ${UNIT + DEPTH},${y - DEPTH} ${UNIT + DEPTH},${bottom - DEPTH} ${UNIT},${bottom}`}
+        points={`${BLOCK_SIZE},${y} ${BLOCK_SIZE + DEPTH},${y - DEPTH} ${BLOCK_SIZE + DEPTH},${bottom - DEPTH} ${BLOCK_SIZE},${bottom}`}
         fill={faces.side}
       />
       {drawTopFace && (
         <polygon
-          points={`0,${y} ${DEPTH},${y - DEPTH} ${UNIT + DEPTH},${y - DEPTH} ${UNIT},${y}`}
+          points={`0,${y} ${DEPTH},${y - DEPTH} ${BLOCK_SIZE + DEPTH},${y - DEPTH} ${BLOCK_SIZE},${y}`}
           fill={faces.top}
         />
       )}
       <path
-        d={`M0 ${bottom}h${UNIT}l${DEPTH} ${-DEPTH}`}
+        d={`M0 ${bottom}h${BLOCK_SIZE}l${DEPTH} ${-DEPTH}`}
         stroke="rgba(20, 18, 63, 0.22)"
         strokeWidth={2}
         fill="none"
@@ -165,7 +165,7 @@ const Hero = () => {
   const frame = frames.reduce((current, _, i) => (time >= startOf(i) ? i : current), 0);
   const { comparing, sortedRange, order } = frames[frame];
   const colours = palette[theme];
-  const paint = [...order].sort(
+  const paintOrder = [...order].sort(
     (a, b) => Number(comparing.includes(a)) - Number(comparing.includes(b))
   );
 
@@ -173,11 +173,11 @@ const Hero = () => {
     <div ref={ref} className={styles.wrap} onPointerEnter={replay}>
       <svg
         className={styles.sort}
-        viewBox={`-4 ${-(7 * UNIT + DEPTH + 6)} ${5 * PITCH + UNIT + DEPTH + 8} ${7 * UNIT + DEPTH + 10}`}
+        viewBox={`-4 ${-(7 * BLOCK_SIZE + DEPTH + 6)} ${5 * COLUMN_SPACING + BLOCK_SIZE + DEPTH + 8} ${7 * BLOCK_SIZE + DEPTH + 10}`}
         role="img"
         aria-label={`Blocks sorting themselves into DevSoc's <dev/> logo with ${name}`}
       >
-        {paint.map((stack) => {
+        {paintOrder.map((stack) => {
           const place = order.indexOf(stack);
           const state = comparing.includes(stack)
             ? 'comparing'
@@ -187,16 +187,19 @@ const Hero = () => {
           const char = DEVSOC[stack];
           const height = stackHeight(stack);
           return (
-            <g key={char} transform={`translate(${placeOf(frames, stack, frame, time) * PITCH} 0)`}>
+            <g
+              key={char}
+              transform={`translate(${placeOf(frames, stack, frame, time) * COLUMN_SPACING} 0)`}
+            >
               {Array.from({ length: height }, (_, level) => (
                 <Block
                   key={level}
-                  bottom={-level * UNIT}
+                  bottom={-level * BLOCK_SIZE}
                   faces={colours[state]}
                   drawTopFace={level === height - 1}
                 />
               ))}
-              <g transform={`translate(${UNIT / 2} ${-UNIT / 2})`}>
+              <g transform={`translate(${BLOCK_SIZE / 2} ${-BLOCK_SIZE / 2})`}>
                 <DevsocGlyph char={char} scale={0.72} fill={devsocInk(char, 'light')} />
               </g>
             </g>

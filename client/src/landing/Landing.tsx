@@ -1,6 +1,6 @@
 import '@fontsource-variable/fredoka';
 import { useTheme } from '@/ui/theme';
-import { contacts, FEEDBACK_FORM, GITHUB } from './content';
+import { contacts, FEEDBACK_FORM_URL, GITHUB_URL } from './content';
 import HeroSection from './HeroSection';
 import StructurePicker from './StructurePicker';
 import About from './About';
@@ -25,10 +25,10 @@ const Landing = () => {
         <div className={styles.wrap}>
           <span>© {new Date().getFullYear()} DevSoc UNSW</span>
           <nav aria-label="Project">
-            <a href={GITHUB} target="_blank" rel="noreferrer">
+            <a href={GITHUB_URL} target="_blank" rel="noreferrer">
               GitHub
             </a>
-            <a href={FEEDBACK_FORM} target="_blank" rel="noreferrer">
+            <a href={FEEDBACK_FORM_URL} target="_blank" rel="noreferrer">
               Feedback
             </a>
             {contacts.map((contact) => (
