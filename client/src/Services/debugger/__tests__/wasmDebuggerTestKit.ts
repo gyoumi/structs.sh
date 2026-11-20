@@ -24,9 +24,8 @@ export const statesShown = (events: DebuggerEvents) =>
     .mocked(events.state)
     .mock.calls.map(([state]) => `${state.location.function}:${state.location.lineNumber}`);
 
-/** Everything sent to the console, in order. */
-export const outputShown = (events: DebuggerEvents) =>
-  vi.mocked(events.output).mock.calls.map(([text]) => text);
+/** Every call to events.output, in order, with all its arguments. */
+export const outputCalls = (events: DebuggerEvents) => vi.mocked(events.output).mock.calls;
 
 export const compilerReturning = (result: CompileResult): Compiler => ({
   compile: vi.fn(async () => result),

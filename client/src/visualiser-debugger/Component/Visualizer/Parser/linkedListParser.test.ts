@@ -104,9 +104,13 @@ describe('LinkedListParser', () => {
       const node = graph.nodes.find((candidate) => candidate.uid === pointer.attachedUid);
       return `${pointer.label} -> ${node ? `node ${node.label}` : `no drawn node (${pointer.attachedUid})`}`;
     });
-    expect(pointers, `${where}: pointer labels drawn, and the node each is attached to`).toEqual([
-      'list -> node 1',
-    ]);
+    const drawn = `pointers drawn: [${pointers.join(', ')}]`;
+    expect(graph.pointers.length, `${where}: pointers drawn (${drawn})`).toBe(1);
+    expect(graph.pointers[0].label, `${where}: label of the one pointer (${drawn})`).toBe('list');
+    expect(
+      graph.pointers[0].attachedUid,
+      `${where}: the uid list is attached to, which should be node 1's (${drawn})`
+    ).toBe(nodeAt('1').uid);
   });
 });
 

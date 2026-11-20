@@ -6,7 +6,7 @@ import {
   createEvents,
   flush,
   HELLO,
-  outputShown,
+  outputCalls,
   startedDebugger,
   statesShown,
 } from './__tests__/wasmDebuggerTestKit';
@@ -55,7 +55,10 @@ describe('WasmDebugger input', () => {
     expect(await wasm.step(), `${what}, waiting: 3rd step() result`).toBe(false);
     expect(await wasm.step(), `${what}, waiting: 4th step() result`).toBe(false);
     expect(events.sessionEnded, `${what}, waiting: sessionEnded events`).not.toHaveBeenCalled();
-    expect(outputShown(events), `${what}, waiting: output sent`).toEqual(['hi\n', 'Number: ']);
+    expect(
+      outputCalls(events),
+      `${what}, waiting: output events, with all their arguments`
+    ).toEqual([['hi\n'], ['Number: ']]);
 
     wasm.sendStdin('5');
     expect(inputs.at(-1), `${what}, sendStdin('5'): input the recorder was given`).toEqual({
@@ -74,9 +77,9 @@ describe('WasmDebugger input', () => {
       `${what}, given "5", run to the end: sessionEnded events`
     ).toHaveBeenCalledOnce();
     expect(
-      outputShown(events).slice(0, 2),
-      `${what}, given "5": the first output sent, which shouldn't repeat after the re-recording`
-    ).toEqual(['hi\n', 'Number: ']);
+      outputCalls(events).slice(0, 2),
+      `${what}, given "5": the first two output events, with all their arguments, which shouldn't repeat after the re-recording`
+    ).toEqual([['hi\n'], ['Number: ']]);
   });
 
   it('shows output the waiting statement prints once its input arrives', async () => {
@@ -98,9 +101,9 @@ describe('WasmDebugger input', () => {
     expect(await wasm.step(), 'echo.c, given "a": next step() result').toBe(true);
 
     expect(
-      outputShown(events),
-      'echo.c, given "a": output sent, with the "a\\n" the waiting statement printed'
-    ).toEqual(['hi\n', 'a\n']);
+      outputCalls(events),
+      'echo.c, given "a": output events, with all their arguments, including the "a\\n" the waiting statement printed'
+    ).toEqual([['hi\n'], ['a\n']]);
   });
 
   it('ends the session on Ctrl+C while the program waits, and ignores input after', async () => {

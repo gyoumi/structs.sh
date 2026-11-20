@@ -12,7 +12,7 @@ import {
   flush,
   HELLO,
   HELLO_SOURCE,
-  outputShown,
+  outputCalls,
   recorderReturning,
   startedDebugger,
   statesShown,
@@ -140,9 +140,10 @@ describe('WasmDebugger', () => {
 
     // puts has now run, so its output shows with the next line.
     expect(await wasm.step(), 'hello.c: 2nd step() result').toBe(true);
-    expect(outputShown(events), 'hello.c, 2nd step(), after puts ran: output sent').toEqual([
-      'hi\n',
-    ]);
+    expect(
+      outputCalls(events),
+      'hello.c, 2nd step(), after puts ran: output events, with all their arguments'
+    ).toEqual([['hi\n']]);
     expect(
       vi.mocked(events.state).mock.lastCall?.[0].location,
       'hello.c, 2nd step(): location of the state sent'
@@ -232,9 +233,9 @@ describe('WasmDebugger', () => {
     await wasm.step();
 
     expect(
-      outputShown(events),
-      'hello.c with "early\\n" printed before the first statement, 1st step(): output sent'
-    ).toEqual(['early\n']);
+      outputCalls(events),
+      'hello.c with "early\\n" printed before the first statement, 1st step(): output events, with all their arguments'
+    ).toEqual([['early\n']]);
   });
 
   it.each([

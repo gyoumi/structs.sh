@@ -1,7 +1,7 @@
 import { expect, vi } from 'vitest';
 import type { Recording } from '../recording';
 import type { RunnerMessage, RunRequest } from '../runRequest';
-import { createStandbyRunner, RunnerWorker } from '../workerRunner';
+import { createStandbyRunner, RunnerWorker, StandbyRunner } from '../workerRunner';
 
 // Helpers for the tests of wasm/workerRunner.ts and of WasmDebugger with a real
 // standby runner.
@@ -59,6 +59,15 @@ export const startStandby = () => {
     return worker;
   });
   return { standby, created };
+};
+
+/**
+ * Calls the standby runner's whenReady() detached from it, as the page's
+ * recorder does (it copies the function onto the recorder).
+ */
+export const whenReadyOf = (standby: StandbyRunner) => {
+  const { whenReady } = standby;
+  return whenReady();
 };
 
 /** Which of the standby runner's workers, by start order, a message posted to `lent` reaches. */

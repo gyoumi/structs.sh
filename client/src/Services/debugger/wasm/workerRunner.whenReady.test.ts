@@ -6,6 +6,7 @@ import {
   startStandby,
   TIME_LIMIT,
   WASM,
+  whenReadyOf,
 } from './__tests__/runnerTestKit';
 import { createStandbyRunner, RecordResult, recordInWorker } from './workerRunner';
 
@@ -24,7 +25,7 @@ describe('createStandbyRunner, knowing when its worker has loaded', () => {
 
   it('whenReady() waits until the worker it started ahead says it has loaded', async () => {
     const { standby, created } = startStandby();
-    const ready = standby.whenReady();
+    const ready = whenReadyOf(standby);
 
     expect(
       await settledState(ready),
@@ -41,7 +42,7 @@ describe('createStandbyRunner, knowing when its worker has loaded', () => {
 
   it('whenReady() settles, rather than hanging, when the worker it holds fails to load', async () => {
     const { standby, created } = startStandby();
-    const ready = standby.whenReady();
+    const ready = whenReadyOf(standby);
 
     created[0].crash('Failed to fetch runner.worker.js');
 
@@ -59,7 +60,7 @@ describe('createStandbyRunner, knowing when its worker has loaded', () => {
     expect(
       ['resolved', 'rejected'],
       "createStandbyRunner() whose createWorker throws 'Workers are not supported': whenReady() should have settled"
-    ).toContain(await settledState(standby.whenReady()));
+    ).toContain(await settledState(whenReadyOf(standby)));
   });
 
   it('a run started before its worker has loaded waits, then gets its recording', async () => {
@@ -92,7 +93,7 @@ describe('createStandbyRunner, knowing when its worker has loaded', () => {
     await run;
     expect(created.length, 'run timed out: workers started (the first plus a replacement)').toBe(2);
 
-    const ready = standby.whenReady();
+    const ready = whenReadyOf(standby);
     expect(
       await settledState(ready),
       "replacement started after a timed-out run, not yet sent { type: 'ready' }: whenReady()"
@@ -107,7 +108,7 @@ describe('createStandbyRunner, knowing when its worker has loaded', () => {
   describe('a whenReady() promise taken before a run takes the worker that has not loaded yet', () => {
     it('settles when the worker says it has loaded during the run', async () => {
       const { standby, created } = startStandby();
-      const ready = standby.whenReady();
+      const ready = whenReadyOf(standby);
 
       const run = recordInWorker(WASM, { timeLimitMs: TIME_LIMIT }, standby.take);
       expectSentToWorkerStartedAhead(
@@ -130,7 +131,7 @@ describe('createStandbyRunner, knowing when its worker has loaded', () => {
 
     it('settles when the worker answers the run without having said it loaded', async () => {
       const { standby, created } = startStandby();
-      const ready = standby.whenReady();
+      const ready = whenReadyOf(standby);
 
       const run = recordInWorker(WASM, { timeLimitMs: TIME_LIMIT }, standby.take);
       expectSentToWorkerStartedAhead(
@@ -171,7 +172,7 @@ describe('createStandbyRunner, knowing when its worker has loaded', () => {
       'settles when $name before anything arrives and the worker is terminated',
       async ({ name, end, result, stopsWithSignal }) => {
         const { standby, created } = startStandby();
-        const ready = standby.whenReady();
+        const ready = whenReadyOf(standby);
         const controller = new AbortController();
 
         const run = recordInWorker(
@@ -211,7 +212,7 @@ describe('createStandbyRunner, knowing when its worker has loaded', () => {
 
     expect(created.length, 'run answered: workers started (the answered one is kept)').toBe(1);
     expect(
-      await settledState(standby.whenReady()),
+      await settledState(whenReadyOf(standby)),
       'whenReady() after a run whose worker answered and was kept'
     ).toBe('resolved');
   });
