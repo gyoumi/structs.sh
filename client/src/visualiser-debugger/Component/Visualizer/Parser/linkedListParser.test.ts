@@ -9,11 +9,43 @@ import deleteFirstLine18 from './fixtures/wasm-delete-first-line18.json';
 // Recorded from the GDB debugger, stopped at line 20 of
 // e2e/programs/linked_list.c, after the list 1 -> 2 -> 3 has been built.
 //
-// This is what GDB really sends, and it doesn't match the ProgramState type:
-// fields use `kind` instead of `typeName`, and frame_info has no `line`.
-// The wasm debugger has to produce the same shape, or the parser has to
-// change, so this test pins down what the parser accepts today.
-const state = gdbState as unknown as ProgramState;
+// The file is kept exactly as the old GDB server sent it: snake_case keys
+// (frame_info, stack_data, heap_data), heap fields as { kind, value, addr: null },
+// and no source text for the line. fromGdbState translates it to ProgramState,
+// with the same contents under the new names, so the parser is checked on what
+// GDB really showed.
+type GdbField = { kind: string; value: string | number; addr: null };
+type GdbState = {
+  frame_info: { file: string; function: string; line_num: number };
+  stack_data: ProgramState['variables'];
+  heap_data: Record<string, { addr: string; typeName: string; value: Record<string, GdbField> }>;
+};
+
+const fromGdbState = ({ frame_info, stack_data, heap_data }: GdbState): ProgramState => ({
+  location: {
+    fileName: frame_info.file,
+    lineText: '',
+    lineNumber: frame_info.line_num,
+    function: frame_info.function,
+  },
+  variables: stack_data,
+  heap: Object.fromEntries(
+    Object.entries(heap_data).map(([address, entry]) => [
+      address,
+      {
+        ...entry,
+        value: Object.fromEntries(
+          Object.entries(entry.value).map(([name, { kind, value }]) => [
+            name,
+            { typeName: kind, value },
+          ])
+        ),
+      },
+    ])
+  ),
+});
+
+const state = fromGdbState(gdbState as GdbState);
 
 const annotation: UserAnnotation = {
   typeAnnotation: {
@@ -78,7 +110,10 @@ describe('LinkedListParser', () => {
 // Services/debugger/wasm/recording.ts, on e2e/programs/delete.c), converted
 // to the ProgramState the page gets the way toProgramState() in
 // Services/debugger/formatRecording.ts does, and checked against the source
-// by hand:
+// by hand. When ProgramState's fields were renamed (frame_info -> location,
+// stack_data -> variables, heap_data -> heap, heap fields { kind, addr } ->
+// { typeName }), the files were rewritten to the new names with the same
+// values:
 // - wasm-delete-reverse-line24.json: reverse(), first time round the loop,
 //   stopped on line 24 before `next` is assigned. The list is 1 -> 2 -> 3.
 //   head = 0x102a0 (node 1), prev = 0x0 (NULL, set on line 22), next =

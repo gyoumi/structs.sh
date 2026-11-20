@@ -21,7 +21,7 @@ export function readLinkedListNodes(
         break;
       }
       case DataStructureType.LinkedList: {
-        Object.entries(programState.heap_data).forEach(([uid, heapValue]) => {
+        Object.entries(programState.heap).forEach(([uid, heapValue]) => {
           if (isLinkedListNode(heapValue, linkedListAnnotation)) {
             const fields = heapValue.value;
             const linkedListNode: LinkedListNode = {

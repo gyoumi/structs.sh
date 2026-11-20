@@ -79,7 +79,7 @@ const Configuration = () => {
         <MotionCollapse isOpen={isVariableAnnotationOpen}>
           {isVariableAnnotationOpen ? (
             <div className={styles.indentedAnnotationArea}>
-              {Object.entries(latestProgramState.stack_data).map(([name, memoryValue]) => (
+              {Object.entries(latestProgramState.variables).map(([name, memoryValue]) => (
                 <StackVarAnnotation key={name} name={name} memoryValue={memoryValue} />
               ))}
             </div>

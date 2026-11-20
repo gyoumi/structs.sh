@@ -127,7 +127,7 @@ export class TreeParser implements Parser {
     Object.entries(annotation.typeAnnotation).forEach(([_, binaryAnnotation]) => {
       switch (binaryAnnotation.type) {
         case DataStructureType.BinaryTree: {
-          Object.entries(programState.heap_data).forEach(([uid, memoryValue]) => {
+          Object.entries(programState.heap).forEach(([uid, memoryValue]) => {
             if (isTreeNode(memoryValue, binaryAnnotation)) {
               treeNodes.push({
                 uid: uid as Addr,
