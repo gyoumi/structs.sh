@@ -47,7 +47,7 @@ const initialSnapshot: VisualiserSnapshot = {
 };
 
 /** Picks the random data a topic starts with, or returns undefined to use the engine's own. */
-export type StarterData = (topicTitle: string) => number[] | undefined;
+export type InitialDataSource = (topicTitle: string) => number[] | undefined;
 
 const IDLE_FRAMES_BEFORE_SLEEP = 20;
 
@@ -64,7 +64,7 @@ export class VisualiserSession {
 
   private runCounter = 0;
 
-  private makeData?: StarterData;
+  private getInitialData?: InitialDataSource;
 
   constructor() {
     this.controller.setSpeed(defaultSpeed);
@@ -87,17 +87,17 @@ export class VisualiserSession {
 
   attach(
     topicTitle: string,
-    theme: Partial<CanvasTheme>,
+    canvasTheme: Partial<CanvasTheme>,
     data?: number[],
-    makeData?: StarterData
+    getInitialData?: InitialDataSource
   ): void {
-    setCanvasTheme(theme);
-    this.makeData = makeData;
+    setCanvasTheme(canvasTheme);
+    this.getInitialData = getInitialData;
     this.controller.applyTopicTitle(topicTitle);
     if (data) {
       this.controller.loadData(data);
     } else {
-      this.fill(topicTitle);
+      this.loadInitialValues(topicTitle);
     }
     this.update({
       ...initialSnapshot,
@@ -110,11 +110,11 @@ export class VisualiserSession {
   }
 
   /** Redraws the current values in another theme. Colours are fixed when drawn, so the last run's playback is dropped. */
-  retheme(theme: Partial<CanvasTheme>): void {
+  retheme(canvasTheme: Partial<CanvasTheme>): void {
     const { data } = this;
-    setCanvasTheme(theme);
+    setCanvasTheme(canvasTheme);
     this.controller.loadData(data);
-    this.resetTrace();
+    this.resetPlayback();
   }
 
   run(command: string, args: string[]): string {
@@ -176,7 +176,7 @@ export class VisualiserSession {
     this.wake();
   };
 
-  seek = (percent: number): void => {
+  seekToPercent = (percent: number): void => {
     this.controller.pause();
     this.controller.seekPercent(percent);
     this.wake();
@@ -186,7 +186,7 @@ export class VisualiserSession {
     const { stepTimes, duration } = this.snapshot;
     if (duration === 0) return;
     const target = step <= 0 ? 0 : stepTimes[Math.min(step, stepTimes.length) - 1];
-    this.seek((Math.min(target, duration) / duration) * 100);
+    this.seekToPercent((Math.min(target, duration) / duration) * 100);
   };
 
   setSpeed = (speed: number): void => {
@@ -195,19 +195,19 @@ export class VisualiserSession {
   };
 
   generate = (): void => {
-    this.fill(this.snapshot.topicTitle);
-    this.resetTrace();
+    this.loadInitialValues(this.snapshot.topicTitle);
+    this.resetPlayback();
   };
 
-  private fill(topicTitle: string | null): void {
-    const data = topicTitle ? this.makeData?.(topicTitle) : undefined;
+  private loadInitialValues(topicTitle: string | null): void {
+    const data = topicTitle ? this.getInitialData?.(topicTitle) : undefined;
     if (data) this.controller.loadData(data);
     else this.controller.generateDataStructure();
   }
 
   clear = (): void => {
     this.controller.resetDataStructure();
-    this.resetTrace();
+    this.resetPlayback();
   };
 
   dispose(): void {
@@ -215,7 +215,7 @@ export class VisualiserSession {
     this.controller.finish();
   }
 
-  private resetTrace(): void {
+  private resetPlayback(): void {
     this.update({
       ...initialSnapshot,
       speed: this.snapshot.speed,

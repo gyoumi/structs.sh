@@ -10,13 +10,13 @@ const friendlyError = (message: string): string => {
   return message;
 };
 
-export const indexMaxFor = (args: string[], size: number): number | undefined => {
+export const maxIndexFor = (args: string[], size: number): number | undefined => {
   if (!args.includes('index')) return undefined;
   return args.includes('value') ? size : size - 1;
 };
 
 const indexError = (args: string[], input: string[], size: number): string => {
-  const max = indexMaxFor(args, size);
+  const max = maxIndexFor(args, size);
   const index = input[args.indexOf('index')] ?? '';
   if (max === undefined || !/^\d+$/.test(index) || Number(index) <= max) return '';
   if (max < 0) return 'The list is empty, so there is nothing to remove.';

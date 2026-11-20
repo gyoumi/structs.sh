@@ -2,9 +2,8 @@
   --indigo: #2b2a7c;
   --indigo-deep: #23225e;
   --steel: #3e7cb1;
-  --sky: #5d5a8c;
-  --sand: #e9c98a;
-  --on-sand: #1a1638;
+  --accent: #e9c98a;
+  --on-accent: #1a1638;
   --highlight: #8a5c12;
   --ground: #f6f6fb;
   --muted: #5d5a8c;
@@ -52,16 +51,15 @@
   --dot: rgba(157, 155, 201, 0.16);
   --rule: #2e2b63;
   --faint: rgba(157, 155, 201, 0.5);
-  --stage-focus: var(--sky);
+  --stage-focus: #9d9bc9;
   --error-ink: #ff7a7a;
+  --highlight: #e9c98a;
 
   color-scheme: dark;
-  --highlight: #e9c98a;
-  --sky: #9d9bc9;
 }
 
 .page :focus-visible {
-  outline: 2px solid var(--sand);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 

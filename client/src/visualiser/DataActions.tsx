@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 import { Button } from '@ui-sdk/react/button';
 import { CheckIcon, ClearIcon, LinkIcon, ShuffleIcon } from '@/ui/icons';
 import { useSession } from './useVisualiser';
-import { shareLink, TopicInfo } from './topics';
+import { shareLink, Topic } from './topics';
 import styles from './DataActions.module.css';
 
 type CopyState = 'idle' | 'copied' | 'failed';
 
-const CopyLink = ({ topic }: { topic: TopicInfo }) => {
+const CopyLink = ({ topic }: { topic: Topic }) => {
   const session = useSession();
   const [state, setState] = useState<CopyState>('idle');
 
@@ -43,7 +43,7 @@ const CopyLink = ({ topic }: { topic: TopicInfo }) => {
   );
 };
 
-const DataActions = ({ topic }: { topic: TopicInfo }) => {
+const DataActions = ({ topic }: { topic: Topic }) => {
   const session = useSession();
   return (
     <div className={styles.utilities}>

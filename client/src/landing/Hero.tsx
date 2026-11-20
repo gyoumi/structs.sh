@@ -1,6 +1,6 @@
 import { ReactElement, useState } from 'react';
 import { DEVSOC, DevsocChar } from './devsoc';
-import { clamp01, progress, useTimeline } from './useTimeline';
+import { clamp01, easedProgress, useTimeline } from './useTimeline';
 import {
   Arrow,
   DROP_DISTANCE,
@@ -35,10 +35,10 @@ const RISE_MS = 500;
 
 const InsertStage = ({ time }: { time: number }) => {
   const [, made, linked, spliced] = INSERT_STEPS.map((step) => step.at);
-  const rise = progress(time, RISE_AT, RISE_MS);
+  const rise = easedProgress(time, RISE_AT, RISE_MS);
   const done = time >= RISE_AT;
-  const labels = 1 - rise;
-  const at: Record<DevsocChar, Point> = {
+  const labelOpacity = 1 - rise;
+  const positions: Record<DevsocChar, Point> = {
     '<': slot(0),
     d: slot(1),
     e: slot(2),
@@ -46,24 +46,35 @@ const InsertStage = ({ time }: { time: number }) => {
     '/': slot(4),
     '>': slot(5),
   };
-  const born = progress(time, made, 300);
-  const curr = progress(time, 150, 250) * labels;
+  const newNodeOpacity = easedProgress(time, made, 300);
+  const currLabelOpacity = easedProgress(time, 150, 250) * labelOpacity;
   return (
     <>
-      <Arrow from={at['<']} to={at.d} />
-      <Arrow from={at.d} to={at.e} />
-      <Arrow from={at.e} to={at['/']} opacity={1 - progress(time, spliced, 300)} />
-      <Arrow from={at.e} to={at.v} grow={progress(time, spliced + 150, 400)} />
-      <Arrow from={at.v} to={at['/']} grow={progress(time, linked, 400)} />
-      <Arrow from={at['/']} to={at['>']} />
+      <Arrow from={positions['<']} to={positions.d} />
+      <Arrow from={positions.d} to={positions.e} />
+      <Arrow
+        from={positions.e}
+        to={positions['/']}
+        opacity={1 - easedProgress(time, spliced, 300)}
+      />
+      <Arrow from={positions.e} to={positions.v} grow={easedProgress(time, spliced + 150, 400)} />
+      <Arrow from={positions.v} to={positions['/']} grow={easedProgress(time, linked, 400)} />
+      <Arrow from={positions['/']} to={positions['>']} />
       {DEVSOC.filter((char) => char !== 'v').map((char) => (
-        <Node key={char} char={char} at={at[char]} lit={char === 'e' && curr > 0.5} />
+        <Node
+          key={char}
+          char={char}
+          position={positions[char]}
+          lit={char === 'e' && currLabelOpacity > 0.5}
+        />
       ))}
-      {born > 0 && <Node char="v" at={at.v} lit={!done} opacity={born} />}
-      <Label at={at.e} opacity={curr}>
+      {newNodeOpacity > 0 && (
+        <Node char="v" position={positions.v} lit={!done} opacity={newNodeOpacity} />
+      )}
+      <Label position={positions.e} opacity={currLabelOpacity}>
         curr
       </Label>
-      <Label at={at.v} opacity={born * labels} below={34}>
+      <Label position={positions.v} opacity={newNodeOpacity * labelOpacity} below={34}>
         new_node
       </Label>
     </>
@@ -75,8 +86,8 @@ const DELETE_DONE = 4400;
 
 const DeleteStage = ({ time }: { time: number }) => {
   const [, targeted, unlinked, freed] = DELETE_STEPS.map((step) => step.at);
-  const labels = 1 - progress(time, DELETE_DONE, FADE_MS);
-  const at: Record<DevsocChar, Point> = {
+  const labelOpacity = 1 - easedProgress(time, DELETE_DONE, FADE_MS);
+  const positions: Record<DevsocChar, Point> = {
     '<': slot(0),
     d: slot(1),
     e: slot(2),
@@ -85,26 +96,31 @@ const DeleteStage = ({ time }: { time: number }) => {
     '>': slot(5),
   };
   const stray = { x: (slot(2).x + slot(3).x) / 2, y: ROW_Y + DROP_DISTANCE };
-  const alive = 1 - progress(time, freed, 400);
-  const prev = progress(time, 150, 250) * labels;
-  const target = progress(time, targeted, 300);
+  const strayNodeOpacity = 1 - easedProgress(time, freed, 400);
+  const prevLabelOpacity = easedProgress(time, 150, 250) * labelOpacity;
+  const targetOpacity = easedProgress(time, targeted, 300);
   return (
     <>
-      <Arrow from={at['<']} to={at.d} />
-      <Arrow from={at.d} to={at.e} />
-      <Arrow from={at.e} to={stray} opacity={1 - progress(time, unlinked, 300)} />
-      <Arrow from={at.e} to={at.v} grow={progress(time, unlinked + 150, 400)} />
-      <Arrow from={stray} to={at.v} opacity={alive} />
-      <Arrow from={at.v} to={at['/']} />
-      <Arrow from={at['/']} to={at['>']} />
+      <Arrow from={positions['<']} to={positions.d} />
+      <Arrow from={positions.d} to={positions.e} />
+      <Arrow from={positions.e} to={stray} opacity={1 - easedProgress(time, unlinked, 300)} />
+      <Arrow from={positions.e} to={positions.v} grow={easedProgress(time, unlinked + 150, 400)} />
+      <Arrow from={stray} to={positions.v} opacity={strayNodeOpacity} />
+      <Arrow from={positions.v} to={positions['/']} />
+      <Arrow from={positions['/']} to={positions['>']} />
       {DEVSOC.map((char) => (
-        <Node key={char} char={char} at={at[char]} lit={char === 'e' && prev > 0.5} />
+        <Node
+          key={char}
+          char={char}
+          position={positions[char]}
+          lit={char === 'e' && prevLabelOpacity > 0.5}
+        />
       ))}
-      <Node char="e" at={stray} lit={target > 0.5} opacity={alive} />
-      <Label at={at.e} opacity={prev}>
+      <Node char="e" position={stray} lit={targetOpacity > 0.5} opacity={strayNodeOpacity} />
+      <Label position={positions.e} opacity={prevLabelOpacity}>
         prev
       </Label>
-      <Label at={stray} opacity={target * alive} below={34}>
+      <Label position={stray} opacity={targetOpacity * strayNodeOpacity} below={34}>
         target
       </Label>
     </>
@@ -130,9 +146,9 @@ const SEARCH_STEPS = [
 const SEARCH_DONE = SEARCH_STEPS[SEARCH_STEPS.length - 1].at + SEARCH_STEP_MS;
 
 const SearchStage = ({ time }: { time: number }) => {
-  const labels = 1 - progress(time, SEARCH_DONE, FADE_MS);
-  const place = HOP_AT.reduce((sum, at) => sum + progress(time, at, SEARCH_MOVE_MS), 0);
-  const curr = progress(time, 150, 250) * labels;
+  const labelOpacity = 1 - easedProgress(time, SEARCH_DONE, FADE_MS);
+  const place = HOP_AT.reduce((sum, at) => sum + easedProgress(time, at, SEARCH_MOVE_MS), 0);
+  const currLabelOpacity = easedProgress(time, 150, 250) * labelOpacity;
   return (
     <>
       {DEVSOC.slice(1).map((char, i) => (
@@ -142,12 +158,15 @@ const SearchStage = ({ time }: { time: number }) => {
         <Node
           key={char}
           char={char}
-          at={slot(i)}
-          lit={curr > 0.5 && Math.round(place) === i}
+          position={slot(i)}
+          lit={currLabelOpacity > 0.5 && Math.round(place) === i}
           opacity={0.3 + 0.7 * clamp01(place - i + 1)}
         />
       ))}
-      <Label at={{ x: FIRST_NODE_X + place * NODE_SPACING, y: ROW_Y }} opacity={curr}>
+      <Label
+        position={{ x: FIRST_NODE_X + place * NODE_SPACING, y: ROW_Y }}
+        opacity={currLabelOpacity}
+      >
         curr
       </Label>
     </>

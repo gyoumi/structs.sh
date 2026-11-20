@@ -1,5 +1,5 @@
-import { ArrowIcon } from '@/ui/icons';
-import { features, GITHUB, OPEN_SOURCE } from './content';
+import { ArrowRightIcon } from '@/ui/icons';
+import { features, GITHUB_URL, OPEN_SOURCE } from './content';
 import landing from './Landing.module.css';
 import styles from './About.module.css';
 
@@ -17,9 +17,9 @@ const About = () => (
       <div>
         <h2 className={landing.sectionTitle}>Open source</h2>
         <p className={styles.aboutText}>{OPEN_SOURCE}</p>
-        <a href={GITHUB} target="_blank" rel="noreferrer" className={landing.secondary}>
+        <a href={GITHUB_URL} target="_blank" rel="noreferrer" className={landing.secondary}>
           View on GitHub
-          <ArrowIcon size={18} />
+          <ArrowRightIcon size={18} />
         </a>
       </div>
     </div>

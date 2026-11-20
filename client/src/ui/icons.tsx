@@ -47,7 +47,7 @@ export const StepForwardIcon = (props: IconProps) => (
   </Icon>
 );
 
-export const StepBackIcon = (props: IconProps) => (
+export const StepBackwardIcon = (props: IconProps) => (
   <Icon {...props}>
     <path d="M18 5v14l-9-7z" fill="currentColor" stroke="none" />
     <path d="M6 5v14" />
@@ -126,7 +126,7 @@ export const ChevronDownIcon = (props: IconProps) => (
   </Icon>
 );
 
-export const ArrowIcon = (props: IconProps) => (
+export const ArrowRightIcon = (props: IconProps) => (
   <Icon {...props}>
     <path d="M5 12h14m-6-6 6 6-6 6" />
   </Icon>

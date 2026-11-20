@@ -3,7 +3,7 @@ import './test/setup';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { cleanup, fireEvent, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { FEEDBACK_FORM } from '@/landing/content';
+import { FEEDBACK_FORM_URL } from '@/landing/content';
 import { calls } from '@/test/FakeSession';
 import { renderLanding, renderNotFound, renderVisualiser } from '@/test/render';
 
@@ -53,7 +53,7 @@ describe('landing page', () => {
         'mailto:structs@devsoc.app',
         'https://devsoc.app/',
         'https://www.facebook.com/devsocUNSW',
-        FEEDBACK_FORM,
+        FEEDBACK_FORM_URL,
       ])
     );
   });
