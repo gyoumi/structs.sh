@@ -44,8 +44,8 @@ The client had no unit tests. The e2e suite says whether a feature works, but
 not which part is broken, so Vitest came first.
 
 The first test covers the linked-list parser, using a state recorded from
-GDB. It shows that what GDB really sends doesn't match the `BackendState`
-type (fields use `kind` instead of `typeName`, and `frame_info` has no
+GDB. It shows that what GDB really sends doesn't match the `ProgramState`
+type, then called `BackendState` (fields use `kind` instead of `typeName`, and `frame_info` has no
 `line`). The wasm debugger has to send what the parser actually reads.
 
 ## Checkpoints
@@ -91,7 +91,7 @@ around the happy path:
 
 - local variables and struct types
 - tracked `malloc`/`free`, and following pointers
-- output in the existing `BackendState` format, so the linked-list
+- output in the existing `ProgramState` format, so the linked-list
   visualiser draws from it unchanged
 - stdin, by re-running the program with the input added, and end-of-file
 - NULL dereference checks
@@ -286,7 +286,7 @@ passes 11/16, including a new test for stepping back after the end.
 
 - **Each step keeps a snapshot** of what the page shows: the current
   function's variables and the heap structs reachable from every frame's
-  variables, in the `BackendState` format. Snapshots share heap objects that didn't change
+  variables, in the `ProgramState` format. Snapshots share heap objects that didn't change
   since the step before. A size budget sits alongside the step and time
   limits: a recording that outgrows it ends with a message, and everything
   before it can still be stepped through. Pausing the real program instead

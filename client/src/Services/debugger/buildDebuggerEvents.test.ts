@@ -46,7 +46,10 @@ describe('buildDebuggerEvents', () => {
     );
   });
 
-  it('records each type declaration as the debugger sends it', () => {
+  it('records each type declaration as the debugger sends it, even one named size_t', () => {
+    // A program can typedef a struct as size_t; the debugger sends that like
+    // any other struct typedef, so it must reach the page too.
+    const sizeT = { typeName: 'size_t', fields: [{ name: 'value', typeName: 'int' }] };
     const node = {
       typeName: 'struct node',
       fields: [
@@ -55,12 +58,14 @@ describe('buildDebuggerEvents', () => {
       ],
     };
 
+    events.typeDeclaration(sizeT);
     events.typeDeclaration(node);
 
     expect(
-      handlers.addTypeDeclaration,
-      'events.typeDeclaration({ typeName: "struct node", fields: value, next }): addTypeDeclaration calls'
-    ).toHaveBeenCalledExactlyOnceWith(node);
+      handlers.addTypeDeclaration.mock.calls,
+      'events.typeDeclaration({ typeName: "size_t", fields: value }) then ({ typeName: "struct node", fields: value, next }): ' +
+        'the arguments of each addTypeDeclaration call, in order'
+    ).toEqual([[sizeT], [node]]);
   });
 
   it('shows compile errors in the console and switches to it', () => {
