@@ -23,7 +23,7 @@ const MAX_RANDOM_BYTES = 65_536;
 
 /**
  * What an instrumented program reports as it runs (see instrumenter/src/lib.rs):
- * entering one of the student's functions, starting a statement, and
+ * entering one of the program's functions, starting a statement, and
  * returning. `function` and `statement` index the program's `structs.debug`
  * section, and `frameBase` is where the current call's variables are found.
  */

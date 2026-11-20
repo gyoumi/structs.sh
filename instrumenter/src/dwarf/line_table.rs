@@ -3,7 +3,7 @@
 use super::UnitReader;
 
 impl UnitReader<'_, '_> {
-    /// The is_stmt rows in the student's own file, not code from headers.
+    /// The is_stmt rows in the program's own file, not code from headers.
     pub(super) fn statement_rows(&self) -> gimli::Result<Vec<(u64, u32)>> {
         let mut found = Vec::new();
         let Some(program) = self.unit.line_program.clone() else {

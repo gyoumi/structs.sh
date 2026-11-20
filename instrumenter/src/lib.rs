@@ -1,7 +1,7 @@
-//! Rewrites a student's program, compiled to wasm by clang in the browser,
+//! Rewrites a user's program, compiled to wasm by clang in the browser,
 //! so the debugger can record it as it runs.
 //!
-//! For each of the student's functions, it adds calls to three functions the
+//! For each of the program's functions, it adds calls to three functions the
 //! runner provides (see `client/src/Services/debugger/wasm/run.ts`):
 //!
 //! - `structs.enter(function)` when the function starts.
@@ -28,16 +28,16 @@
 //! functions' C names (indexed by `enter`), each statement's line and the
 //! variables in scope there (indexed by `line`), and the variables' types.
 //!
-//! The student's functions are the ones the line table covers. The C library
+//! The program's own functions are the ones the line table covers. The C library
 //! has no debug info, so it gets no calls and stepping goes over it.
 //!
 //! The browser loads this crate as `wasm32-unknown-unknown`. Only bytes cross
 //! the boundary, so it needs no `wasm-bindgen`: see `ffi` below and
 //! `client/src/Services/debugger/wasm/instrumenter.ts`.
 
-mod debug;
+mod dwarf;
+mod function_transforms;
 mod parse;
-mod rewrite;
 
 use walrus::{FunctionId, Module, RawCustomSection, ValType};
 
@@ -82,7 +82,7 @@ impl Imports {
 /// Instruments a compiled program, returning the rewritten module.
 pub fn instrument(wasm: &[u8]) -> Result<Vec<u8>, String> {
     let (mut module, indices) = parse::parse(wasm)?;
-    let info = debug::read_debug_info(&module, parse::code_section_start(wasm)?)?;
+    let info = dwarf::read_debug_info(&module, parse::code_section_start(wasm)?)?;
     if info.starts.is_empty() {
         return Ok(module.emit_wasm());
     }
@@ -93,7 +93,7 @@ pub fn instrument(wasm: &[u8]) -> Result<Vec<u8>, String> {
 
     let mut names = Vec::new();
     for &id in &code {
-        if let Some(name) = rewrite::student::instrument_function(
+        if let Some(name) = function_transforms::source_function::instrument_function(
             &mut module,
             id,
             names.len(),
@@ -108,12 +108,12 @@ pub fn instrument(wasm: &[u8]) -> Result<Vec<u8>, String> {
 
     // After the line calls, which place themselves by the original
     // instructions' offsets: the instructions added here have none.
-    rewrite::null_checks::check_addresses(&mut module, &code, imports.null);
-    rewrite::allocations::track_allocations(&mut module, &code, &imports);
+    function_transforms::null_checks::check_addresses(&mut module, &code, imports.null);
+    function_transforms::allocations::track_allocations(&mut module, &code, &imports);
 
     module.customs.add(RawCustomSection {
         name: "structs.debug".to_string(),
-        data: debug::section_json(&names, &info).into_bytes(),
+        data: dwarf::section_json(&names, &info).into_bytes(),
     });
     Ok(module.emit_wasm())
 }

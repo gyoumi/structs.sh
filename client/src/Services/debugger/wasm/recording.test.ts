@@ -33,7 +33,7 @@ const record = async (
   return recordRun(compiled.wasm, options);
 };
 
-/** Steps as "function:line", the way a student would see them. */
+/** Steps as "function:line", the way a user would see them. */
 const stepsOf = (recording: Recording) =>
   recording.steps.map((step) => `${step.function}:${step.line}`);
 
@@ -92,7 +92,7 @@ describe('recordRun', () => {
   );
 
   it(
-    'steps into the student’s functions, and once one returns, on to the caller’s next line',
+    'steps into the program’s functions, and once one returns, on to the caller’s next line',
     async () => {
       const recording = await record('functions.c', program('functions.c'));
 

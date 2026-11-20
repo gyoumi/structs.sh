@@ -1,4 +1,4 @@
-//! Reads the types of the student's variables into the type table.
+//! Reads the types of the program's variables into the type table.
 
 use gimli::{AttributeValue, UnitOffset};
 

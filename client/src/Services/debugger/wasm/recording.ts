@@ -32,7 +32,7 @@ export const TIME_LIMIT_MS = 10_000;
  */
 export const SIZE_LIMIT = 50_000_000;
 
-/** One statement, in the order a student steps through them. */
+/** One statement, in the order a user steps through them. */
 export type Step = {
   /** The C name of the function it's in. */
   function: string;

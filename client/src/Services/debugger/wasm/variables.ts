@@ -1,6 +1,6 @@
 /**
  * Reads a program's variables from its memory, using the `structs.debug`
- * section the instrumenter writes (see instrumenter/src/debug/mod.rs). Values and
+ * section the instrumenter writes (see instrumenter/src/dwarf/mod.rs). Values and
  * type names come out the way the GDB debugger sends them, so the page shows
  * both the same way.
  */

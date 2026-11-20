@@ -5,7 +5,7 @@ import { RecordResult } from './wasm/workerRunner';
 
 const TOO_LONG = `The program was stopped because it ran for too long (over ${TIME_LIMIT_MS / 1000} seconds).`;
 
-/** What to tell the student once stepping reaches the end of a recording. */
+/** What to tell the user once stepping reaches the end of a recording. */
 export const describeEnd = (end: RunEnd) => {
   if ('exitCode' in end) return `\nThe program finished with exit code ${end.exitCode}.\n`;
   if ('crashed' in end) return `\nThe program crashed: ${end.crashed}\n`;
@@ -18,7 +18,7 @@ export const describeEnd = (end: RunEnd) => {
   return `\n${TOO_LONG}\n`;
 };
 
-/** What to tell the student when a program couldn't be recorded at all. */
+/** What to tell the user when a program couldn't be recorded at all. */
 export const describeFailure = (result: Exclude<RecordResult, { recording: Recording }>) => {
   if ('timedOut' in result) return `\n${TOO_LONG}\n`;
   if ('stopped' in result) return '\nThe program was stopped.\n';

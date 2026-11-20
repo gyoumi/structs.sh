@@ -1,6 +1,6 @@
 # End-to-end feature tests
 
-These tests use structs.sh the way a student would and check what the page
+These tests use structs.sh the way a user would and check what the page
 shows. They don't know how the app works inside, so the same tests apply when
 part of it is rewritten.
 
@@ -24,7 +24,7 @@ pnpm run instrumenter                    # needs Rust; see instrumenter/README.m
 pnpm run e2e                             # builds the frontend and serves the build
 ```
 
-`pnpm run e2e` tests the production build, which is what students get: it
+`pnpm run e2e` tests the production build, which is what users get: it
 runs `pnpm run build` in `client/` and serves the result with `vite preview`
 on port 4173. The dev server behaves differently in places (React's
 StrictMode runs effects twice there), and a bug once showed only in
@@ -74,7 +74,7 @@ gives a reason. CI runs it on every PR.
 ## Changing the debugger
 
 The suite was the spec for rewriting the debugger to run in the browser, and
-it still checks what a student sees. If the debugger works differently inside,
+it still checks what a user sees. If the debugger works differently inside,
 update `support/debugger-page.ts`. The test files themselves shouldn't need to
 change.
 

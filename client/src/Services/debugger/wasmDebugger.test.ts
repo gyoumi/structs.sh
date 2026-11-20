@@ -184,7 +184,7 @@ describe('WasmDebugger', () => {
     events = createEvents();
   });
 
-  it('compiles the student’s file', async () => {
+  it('compiles the user’s file', async () => {
     const compiler = compilerReturning({ ok: true, wasm: new Uint8Array() });
     const wasm = new WasmDebugger(compiler);
     wasm.setEvents(events);

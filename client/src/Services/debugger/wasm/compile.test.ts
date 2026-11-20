@@ -24,7 +24,7 @@ describe('compileC', () => {
   );
 
   it(
-    'reports compile errors against the student’s file',
+    'reports compile errors against the user’s file',
     async () => {
       const result = await compileC('compile_error.c', program('compile_error.c'));
 

@@ -1,5 +1,6 @@
-//! Instruments one of the student's functions: fills its frame, and adds the
-//! `enter`, `line` and `exit` calls.
+//! Instruments one function compiled from the program's own source, one the
+//! debug info describes rather than a C library function: fills its frame,
+//! and adds the `enter`, `line` and `exit` calls.
 
 use walrus::ir::{self, Instr, InstrSeqType};
 use walrus::{FunctionId, MemoryId, Module};
@@ -9,12 +10,12 @@ use super::line_calls::{add_line_calls, loop_statements};
 use super::wrap_body::wrap_body;
 use super::{const_i32, sequences};
 use crate::Imports;
-use crate::debug::{DebugInfo, FrameBase, Function};
+use crate::dwarf::{DebugInfo, FrameBase, Function};
 use crate::parse::Indices;
 
 /// Instruments function `id` if the line table covers it, as function
 /// number `number` for `enter`. Returns its C name, or None if it isn't
-/// the student's.
+/// one of the program's own functions.
 pub(crate) fn instrument_function(
     module: &mut Module,
     id: FunctionId,

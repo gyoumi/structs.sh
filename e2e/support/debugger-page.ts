@@ -18,7 +18,7 @@ export type DrawnStep = { line: number | null; labels: string[]; nodes: string[]
  * linked_list.c and bst.c on it with no filter: no console errors at all), so
  * these only matter when E2E_BASE_URL points at the dev server. They are kept
  * so that a dev-server run still checks for real errors. Neither breaks what
- * the student sees.
+ * the user sees.
  */
 const DEV_ONLY_WARNINGS: RegExp[] = [
   // React 19 warns when a library (MUI here) reads element.ref.
@@ -327,7 +327,7 @@ export class DebuggerPage {
   }
 
   /**
-   * The labels a student can see once the drawing has stopped changing. The
+   * The labels a user can see once the drawing has stopped changing. The
    * visualiser redraws a moment after a step and fades nodes in and out, and
    * a node it hides stays in the page at opacity 0, so this counts a label
    * only when it is at least half opaque. Settled means the same labels, at

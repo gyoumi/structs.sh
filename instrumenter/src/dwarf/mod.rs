@@ -1,6 +1,11 @@
-//! Reads what the debugger needs from the DWARF debug info: where each of the
-//! student's statements starts, the variables in scope there and where they
-//! live, and the types of those variables, named the way GDB names them.
+//! Reads the compiled program's DWARF debug info (line tables, scopes,
+//! variables and types) and writes the `structs.debug` section the client
+//! reads. It is about the C program being debugged, not this crate's own
+//! debugging.
+//!
+//! It reads where each of the program's statements starts, the variables in
+//! scope there and where they live, and the types of those variables, named
+//! the way GDB names them.
 
 mod line_table;
 mod scopes;

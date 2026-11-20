@@ -1,5 +1,5 @@
 //! The instrumenter adds calls to `structs.line`, `structs.enter` and
-//! `structs.exit` to the student's functions, and describes their statements,
+//! `structs.exit` to the program's functions, and describes their statements,
 //! variables and types in a `structs.debug` section. Whether the calls happen
 //! in the right places, and the variables read right, is tested by running
 //! programs: see client/src/Services/debugger/wasm/recording.test.ts.
@@ -87,7 +87,7 @@ fn debug_section(wasm: &[u8]) -> String {
 }
 
 #[test]
-fn the_students_functions_are_listed_by_their_c_names() {
+fn the_programs_functions_are_listed_by_their_c_names() {
     // clang compiles `int main(void)` as `__original_main`; the debug info
     // still calls it `main`.
     assert!(debug_section(FIXTURES[1].1).starts_with(r#"{"functions":["square","main"],"#));

@@ -96,8 +96,8 @@ export interface UserAnnotation {
 
 /**
  * Whether a stack variable is labelled beside the node it points at. A
- * pointer is, unless the student turned it off (an annotation of null); any
- * other variable only if the student turned it on.
+ * pointer is, unless the user turned it off (an annotation of null); any
+ * other variable only if the user turned it on.
  */
 export const isStackVariableLabelled = (
   stackAnnotation: StackAnnotation | undefined,

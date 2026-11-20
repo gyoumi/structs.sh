@@ -4,7 +4,7 @@ pub(crate) mod allocations;
 mod frame_fill;
 mod line_calls;
 pub(crate) mod null_checks;
-pub(crate) mod student;
+pub(crate) mod source_function;
 mod wrap_body;
 
 use walrus::LocalFunction;

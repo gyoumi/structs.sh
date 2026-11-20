@@ -3,7 +3,7 @@ import { test, expect } from '../support/test';
 // Once the debugger page has loaded and the compiler has downloaded, the
 // debugger runs in the browser, so it keeps working with the network off.
 // Each test opens a program, waits for the compiler, goes offline, and only
-// then does what a student would.
+// then does what a user would.
 //
 // Line numbers refer to e2e/programs/linked_list.c and e2e/programs/sum_input.c.
 

@@ -15,7 +15,7 @@ export type RecordInWorkerOptions = {
    * call.
    */
   timeLimitMs: number;
-  /** Stops the program early, for example when the student compiles again. */
+  /** Stops the program early, for example when the user compiles again. */
   signal?: AbortSignal;
   /** The input typed so far, and whether end-of-file was sent. */
   input?: { text: string; eof: boolean };
