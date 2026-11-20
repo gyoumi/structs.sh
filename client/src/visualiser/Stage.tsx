@@ -70,7 +70,6 @@ const visibleBounds = (svg: SVGSVGElement) => {
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 };
 
-/** Space kept clear of the drawing when fitting, set in CSS as `--fit-inset-top` and `--fit-inset-right` in px. */
 const insetOf = (element: Element, side: 'top' | 'right') =>
   parseFloat(getComputedStyle(element).getPropertyValue(`--fit-inset-${side}`)) || 0;
 
@@ -162,7 +161,6 @@ const Stage = ({ label, className, style, children }: StageProps) => {
     return () => cancelAnimationFrame(id);
   }, [layoutVersion, fit]);
 
-  // Some runs move values outside the start's bounds, like merge sort's working row, so check each step.
   useEffect(() => {
     if (!userMoved.current) fit(true);
   }, [step, complete, fit]);
@@ -251,8 +249,6 @@ const Stage = ({ label, className, style, children }: StageProps) => {
 
   return (
     <div className={[styles.frame, className].filter(Boolean).join(' ')} style={style}>
-      {/* The engine measures #visualiser-container and draws into #visualiser-canvas. */}
-      {/* Focusable so keyboard users can pan and zoom; the zoom buttons cover pointer-free use too. */}
       {/* eslint-disable jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex */}
       <div
         id="visualiser-container"

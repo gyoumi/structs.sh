@@ -18,7 +18,6 @@ export const Unbroken = ({ text }: { text: string }) => (
 
 const HANG = 4;
 
-/** The nearest ancestor that scrolls its own content, never the page itself. */
 const scrollParent = (element: HTMLElement): HTMLElement | null => {
   for (
     let node = element.parentElement;
@@ -40,8 +39,6 @@ interface CodeListingProps {
   emptyMessage: string;
   emptyClassName?: string;
 }
-
-/** Long lines wrap at spaces only, continuing a few columns past their own indent. */
 
 const CodeListing = ({
   className,
