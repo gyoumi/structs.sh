@@ -1,63 +1,14 @@
 import { expect, type Locator, type Page } from '@playwright/test';
-
-export type TopicSlug = 'linked-lists' | 'binary-search-trees' | 'avl-trees' | 'sorting-algorithms';
-
-export const topicTitles: Record<TopicSlug, string> = {
-  'linked-lists': 'Linked Lists',
-  'binary-search-trees': 'Binary Search Trees',
-  'avl-trees': 'AVL Trees',
-  'sorting-algorithms': 'Sorting Algorithms',
-};
-
-/** A value in the drawing, with its circle's computed colours. */
-interface DrawnNode {
-  value: number;
-  x: number;
-  y: number;
-  fill: string;
-  stroke: string;
-}
-
-/** Whether a computed colour such as "rgb(255, 0, 0)" has a red hue. A search marks the nodes it passes in red. */
-const isRed = (colour: string): boolean => {
-  const [r, g, b] = (colour.match(/\d+/g) ?? []).map(Number);
-  if (r <= Math.max(g, b)) return false;
-  const hue = (60 * (g - b)) / (r - Math.min(g, b));
-  return Math.abs(hue) < 20;
-};
-
-/** The label the UI shows for each engine command. */
-const operationLabels: Record<string, string> = {
-  append: 'Append',
-  prepend: 'Prepend',
-  insert: 'Insert at index',
-  search: 'Search',
-  delete: 'Delete at index',
-  rotateLeft: 'Rotate left',
-  rotateRight: 'Rotate right',
-  inorderTraversal: 'In-order',
-  preorderTraversal: 'Pre-order',
-  postorderTraversal: 'Post-order',
-  bubble: 'Bubble sort',
-  insertion: 'Insertion sort',
-  selection: 'Selection sort',
-  merge: 'Merge sort',
-  quick: 'Quick sort',
-};
-
-/** Labels that differ by structure: a tree's insert takes no index, and sorting adds whole lists. */
-const topicLabels: Partial<Record<TopicSlug, Record<string, string>>> = {
-  'binary-search-trees': { insert: 'Insert', delete: 'Delete' },
-  'avl-trees': { insert: 'Insert', delete: 'Delete' },
-  'sorting-algorithms': { append: 'Add values', delete: 'Remove values' },
-};
+import { isRed, readDrawing, type DrawnNode } from './drawing';
+import { operationLabels, topicLabels, topicTitles, type TopicSlug } from './topics';
 
 /**
  * Drives a data structure visualiser the way a user would.
  *
- * This is the only file that knows about the visualiser's markup. Tests name
- * operations by the engine's command ("append", "inorderTraversal"), and this
- * file maps them to the labels the UI shows.
+ * Together with `topics.ts` and `drawing.ts`, this is the only code that knows
+ * about the visualiser's markup. Tests name operations by the engine's command
+ * ("append", "inorderTraversal"), and `topics.ts` maps them to the labels the
+ * UI shows.
  *
  * The drawing itself is read from the engine's SVG (#visualiser-canvas), which
  * every version of the UI renders into.
@@ -275,12 +226,12 @@ export class VisualiserPage {
 
   /** The values in the drawing, left to right (in-order for a tree). */
   async values(): Promise<number[]> {
-    return (await this.drawnValues()).sort((a, b) => a.x - b.x || a.y - b.y).map((node) => node.value);
+    return (await readDrawing(this.page)).sort((a, b) => a.x - b.x || a.y - b.y).map((node) => node.value);
   }
 
   /** The value at the top of a tree. */
   async root(): Promise<number | undefined> {
-    return (await this.drawnValues()).sort((a, b) => a.y - b.y)[0]?.value;
+    return (await readDrawing(this.page)).sort((a, b) => a.y - b.y)[0]?.value;
   }
 
   /** Steps the running search to its end, and returns the values it marked as found. */
@@ -312,7 +263,7 @@ export class VisualiserPage {
       await this.stepForward();
       await expect.poll(() => this.progress()).not.toBe(before);
       await this.waitForProgressToSettle();
-      steps.push(await this.drawnValues());
+      steps.push(await readDrawing(this.page));
     }
     return steps;
   }
@@ -327,27 +278,5 @@ export class VisualiserPage {
         return still;
       }, { intervals: [150] })
       .toBe(true);
-  }
-
-  private drawnValues(): Promise<DrawnNode[]> {
-    return this.page.locator('#visualiser-canvas text').evaluateAll((texts) =>
-      texts
-        .filter((text) => /^\d+$/.test(text.textContent?.trim() ?? ''))
-        .filter((text) => {
-          // The engine hides removed nodes with opacity="0" rather than deleting them.
-          for (let el: Element | null = text; el; el = el.parentElement) {
-            const style = getComputedStyle(el);
-            if (Number(style.opacity) === 0 || style.visibility === 'hidden' || style.display === 'none') return false;
-          }
-          return true;
-        })
-        .map((text) => {
-          const box = text.getBoundingClientRect();
-          // The engine draws each node's circle just before its value.
-          const shape = getComputedStyle(text.previousElementSibling ?? text);
-          return { value: Number(text.textContent), x: box.x + box.width / 2, y: box.y, fill: shape.fill, stroke: shape.stroke };
-        })
-        .filter((node) => node.x !== 0 || node.y !== 0),
-    );
   }
 }
