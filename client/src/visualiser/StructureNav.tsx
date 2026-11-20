@@ -1,7 +1,7 @@
 import { ReactNode, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '@ui-sdk/react/menu';
-import { topics, TopicInfo, TopicSlug } from './topics';
+import { topics, Topic, TopicSlug } from './topics';
 
 export interface StructureNavClasses {
   root?: string;
@@ -15,13 +15,13 @@ export interface StructureNavClasses {
 interface StructureNavProps {
   current: TopicSlug;
   classes: StructureNavClasses;
-  renderLink?: (topic: TopicInfo) => ReactNode;
+  renderLink?: (topic: Topic) => ReactNode;
   moreLabel?: ReactNode;
 }
 
-const visibleTopics = (count: number, current: TopicSlug): TopicInfo[] => {
-  const shown = topics.slice(0, count);
-  if (count === 0 || shown.some((topic) => topic.slug === current)) return shown;
+const visibleTopics = (visibleCount: number, current: TopicSlug): Topic[] => {
+  const shown = topics.slice(0, visibleCount);
+  if (visibleCount === 0 || shown.some((topic) => topic.slug === current)) return shown;
   const active = topics.find((topic) => topic.slug === current);
   return active ? [...shown.slice(0, -1), active] : shown;
 };
@@ -34,7 +34,7 @@ const StructureNav = ({
 }: StructureNavProps) => {
   const rootRef = useRef<HTMLElement>(null);
   const measureRef = useRef<HTMLDivElement>(null);
-  const [count, setCount] = useState(topics.length);
+  const [visibleCount, setVisibleCount] = useState(topics.length);
 
   useLayoutEffect(() => {
     const root = rootRef.current;
@@ -63,12 +63,12 @@ const StructureNav = ({
       };
 
       if (fits(topics.length, false)) {
-        setCount(topics.length);
+        setVisibleCount(topics.length);
         return;
       }
       let n = topics.length - 1;
       while (n > 0 && !fits(n, true)) n -= 1;
-      setCount(n);
+      setVisibleCount(n);
     };
 
     update();
@@ -77,10 +77,10 @@ const StructureNav = ({
     return () => observer.disconnect();
   }, [current]);
 
-  const shown = visibleTopics(count, current);
+  const shown = visibleTopics(visibleCount, current);
   const hidden = topics.filter((topic) => !shown.includes(topic));
   const hiddenCurrent = hidden.find((topic) => topic.slug === current);
-  const moreStructures = `${hidden.length} more structures${hiddenCurrent ? `, current: ${hiddenCurrent.name}` : ''}`;
+  const moreStructuresLabel = `${hidden.length} more structures${hiddenCurrent ? `, current: ${hiddenCurrent.name}` : ''}`;
 
   return (
     <nav
@@ -102,7 +102,7 @@ const StructureNav = ({
         ))}
         {hidden.length > 0 && (
           <Menu>
-            <MenuTrigger className={classes.more} aria-label={moreStructures}>
+            <MenuTrigger className={classes.more} aria-label={moreStructuresLabel}>
               {moreLabel}
             </MenuTrigger>
             <MenuContent className={classes.menu} sideOffset={6} align="end">

@@ -1,7 +1,7 @@
 import { SVG, Text, Rect, Svg, Polygon } from '@svgdotjs/svg.js';
 import { VISUALISER_CANVAS } from '@/visualiser-src/common/constants';
 import { shapeAttributes, textAttributes, boxWidth, textCy } from '../util/constants';
-import { barHeight, getX } from '../util/helpers';
+import { getBarHeight, getX } from '../util/helpers';
 
 interface SVGData {
   boxTarget: Rect;
@@ -34,7 +34,11 @@ export default class GraphicalSortsElement {
 
   public static from(input: number) {
     const canvas = SVG(VISUALISER_CANVAS) as Svg;
-    const blockShape = canvas.rect().attr(shapeAttributes).width(boxWidth).height(barHeight(input));
+    const blockShape = canvas
+      .rect()
+      .attr(shapeAttributes)
+      .width(boxWidth)
+      .height(getBarHeight(input));
     const elementValue = canvas.text(String(input)).attr(textAttributes);
     return new GraphicalSortsElement({
       value: input,

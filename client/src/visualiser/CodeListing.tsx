@@ -16,7 +16,7 @@ export const Unbroken = ({ text }: { text: string }) => (
   </>
 );
 
-const HANG = 4;
+const HANGING_INDENT_CH = 4;
 
 const scrollParent = (element: HTMLElement): HTMLElement | null => {
   for (
@@ -85,7 +85,12 @@ const CodeListing = ({
             <span className={numberClassName} aria-hidden="true">
               {number}
             </span>
-            <code style={{ paddingInlineStart: `${indent + HANG}ch`, textIndent: `-${HANG}ch` }}>
+            <code
+              style={{
+                paddingInlineStart: `${indent + HANGING_INDENT_CH}ch`,
+                textIndent: `-${HANGING_INDENT_CH}ch`,
+              }}
+            >
               {body ? <Unbroken text={body} /> : ' '}
             </code>
           </li>

@@ -21,22 +21,22 @@ interface KeypadProps {
   command: string;
   runLabel: ReactNode;
   classes: KeypadClasses;
-  indexMax?: number;
+  maxIndex?: number;
 }
 
 const DIGITS = ['7', '8', '9', '4', '5', '6', '1', '2', '3'];
 
-const randomList = () => [randomValue(), randomValue(), randomValue()].join(',');
+const randomValues = () => [randomValue(), randomValue(), randomValue()].join(',');
 
 const rangeHint = (max: number) => {
   if (max < 0) return 'Empty';
   return max === 0 ? '0' : `0–${max}`;
 };
 
-const Keypad = ({ command, runLabel, classes, indexMax }: KeypadProps) => {
+const Keypad = ({ command, runLabel, classes, maxIndex }: KeypadProps) => {
   const { args, values, setValue, error, onSubmit } = useOperation(command);
-  const [active, setActive] = useState(0);
-  const target = Math.min(active, Math.max(0, args.length - 1));
+  const [activeField, setActiveField] = useState(0);
+  const target = Math.min(activeField, Math.max(0, args.length - 1));
   const hasArgs = args.length > 0;
   const takesList = args[target] === 'values';
 
@@ -49,15 +49,15 @@ const Keypad = ({ command, runLabel, classes, indexMax }: KeypadProps) => {
 
   const placeholderFor = (arg: string) => {
     if (arg === 'values') return '12, 40, 7';
-    if (arg === 'index' && indexMax !== undefined) return rangeHint(indexMax);
+    if (arg === 'index' && maxIndex !== undefined) return rangeHint(maxIndex);
     return '0–99';
   };
 
   const backspace = () => setValue(target, (values[target] ?? '').slice(0, -1));
 
-  const random = () => {
+  const fillRandom = () => {
     args.forEach((arg, i) => {
-      if (arg === 'values') setValue(i, randomList());
+      if (arg === 'values') setValue(i, randomValues());
       else if (arg === 'value') setValue(i, String(randomValue()));
     });
   };
@@ -73,7 +73,7 @@ const Keypad = ({ command, runLabel, classes, indexMax }: KeypadProps) => {
                 className={classes.input}
                 value={values[i] ?? ''}
                 onValueChange={(value: string) => setValue(i, value)}
-                onFocus={() => setActive(i)}
+                onFocus={() => setActiveField(i)}
                 data-active={(args.length > 1 && i === target) || undefined}
                 inputMode={arg === 'values' ? 'text' : 'numeric'}
                 autoComplete="off"
@@ -99,7 +99,7 @@ const Keypad = ({ command, runLabel, classes, indexMax }: KeypadProps) => {
             <Button
               className={classes.key}
               data-key="random"
-              onClick={random}
+              onClick={fillRandom}
               disabled={!args.includes('value')}
             >
               Random

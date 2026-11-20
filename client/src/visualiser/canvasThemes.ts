@@ -4,7 +4,7 @@ import { Theme } from '@/ui/theme';
 const shared: Partial<CanvasTheme> = {
   fontFamily: "'JetBrains Mono Variable', monospace",
   sortBarScale: 2.2,
-  pointerText: true,
+  textPointerLabels: true,
 };
 
 export const canvasThemes: Record<Theme, Partial<CanvasTheme>> = {
@@ -19,7 +19,7 @@ export const canvasThemes: Record<Theme, Partial<CanvasTheme>> = {
     pointer: '#93641B',
     currFill: '#E9C98A',
     currStroke: '#8A5C12',
-    pointerLabel: '#23225E',
+    pointerLabelColor: '#23225E',
     prevFill: '#C53A3A',
     prevStroke: '#C53A3A',
   },
@@ -34,7 +34,7 @@ export const canvasThemes: Record<Theme, Partial<CanvasTheme>> = {
     pointer: '#E9C98A',
     currFill: '#E9C98A',
     currStroke: '#C9A15E',
-    pointerLabel: '#ECEEFF',
+    pointerLabelColor: '#ECEEFF',
     prevFill: '#FF7A7A',
     prevStroke: '#FF7A7A',
   },

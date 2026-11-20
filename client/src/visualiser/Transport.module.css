@@ -45,9 +45,9 @@
   place-items: center;
   width: 44px;
   height: 38px;
-  background: var(--sand);
-  color: var(--on-sand);
-  border-color: var(--sand);
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
 }
 
 .tool:disabled,
@@ -80,7 +80,7 @@
 .sliderFill {
   height: 100%;
   border-radius: 0;
-  background: var(--sand);
+  background: var(--accent);
 }
 
 .sliderThumb {
@@ -89,7 +89,7 @@
   height: 12px;
   border: 0;
   border-radius: 2px;
-  background: var(--sand);
+  background: var(--accent);
   box-shadow: none;
   box-sizing: border-box;
   transform: none;
@@ -172,8 +172,8 @@
 }
 
 .speedItem[data-selected] {
-  background: var(--sand);
-  color: var(--on-sand);
+  background: var(--accent);
+  color: var(--on-accent);
 }
 
 .tooltip {
@@ -190,12 +190,12 @@
 }
 
 .speed[data-open] {
-  border-color: var(--sand);
+  border-color: var(--accent);
   color: var(--ink);
 }
 
 .speed:hover {
-  border-color: var(--sand);
+  border-color: var(--accent);
   color: var(--ink);
 }
 
@@ -218,7 +218,7 @@
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
       'tools speed'
-      'route route';
+      'scrubber scrubber';
     gap: 4px 12px;
   }
 
@@ -228,7 +228,7 @@
   }
 
   .slider {
-    grid-area: route;
+    grid-area: scrubber;
     padding: 0 12px;
   }
 

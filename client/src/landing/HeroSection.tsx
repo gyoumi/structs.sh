@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
 import logo from '@/assets/img/structs.png';
-import { ArrowIcon, ChevronDownIcon } from '@/ui/icons';
+import { ArrowRightIcon, ChevronDownIcon } from '@/ui/icons';
 import { ThemeToggle } from '@/ui/theme';
-import { DESCRIPTION, GITHUB } from './content';
+import { DESCRIPTION, GITHUB_URL } from './content';
 import Hero from './Hero';
 import landing from './Landing.module.css';
 import styles from './HeroSection.module.css';
@@ -17,7 +17,7 @@ const HeroSection = () => (
       <nav aria-label="Main" className={styles.nav}>
         <a href="#structures">Visualiser</a>
         <Link to="/debugger">Debugger</Link>
-        <a href={GITHUB} target="_blank" rel="noreferrer">
+        <a href={GITHUB_URL} target="_blank" rel="noreferrer">
           GitHub
         </a>
         <ThemeToggle className={styles.themeToggle} />
@@ -36,7 +36,7 @@ const HeroSection = () => (
           </a>
           <Link to="/debugger" className={landing.secondary}>
             Open the debugger
-            <ArrowIcon size={18} />
+            <ArrowRightIcon size={18} />
           </Link>
         </div>
       </div>
