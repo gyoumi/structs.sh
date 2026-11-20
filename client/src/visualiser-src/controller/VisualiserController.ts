@@ -103,10 +103,7 @@ class VisualiserController {
     });
     this.isStepMode = false;
     this.currentTimeline.speed(this.speed);
-    this.timestamps = [];
-    this.timelineDuration = 0;
-    this.segments = [];
-    this.operationCode = '';
+    this.clearRecording();
   }
 
   public play(): void {
@@ -157,7 +154,7 @@ class VisualiserController {
     this.currentTimeline.finish();
     this.currentTimeline.time(0);
     this.currentTimeline = new Timeline().persist(true);
-    this.clearTrace();
+    this.clearRecording();
   }
 
   private getErrorMessageIfInvalidInput(command: string, args: string[]): string {
@@ -235,7 +232,7 @@ class VisualiserController {
     this.currentTimeline.finish();
     this.currentTimeline.time(0);
     this.currentTimeline = new Timeline().persist(true);
-    this.clearTrace();
+    this.clearRecording();
   }
 
   public generateDataStructure(): void {
@@ -259,7 +256,7 @@ class VisualiserController {
     return Math.min(this.currentTimeline.time(), this.timelineDuration);
   }
 
-  private clearTrace(): void {
+  private clearRecording(): void {
     this.timestamps = [];
     this.timelineDuration = 0;
     this.segments = [];

@@ -1,5 +1,5 @@
 import { CSSProperties } from 'react';
-import { tiers } from './content';
+import { sponsorTiers } from './content';
 import landing from './Landing.module.css';
 import styles from './Sponsors.module.css';
 
@@ -9,7 +9,7 @@ const Sponsors = () => (
       <h2 id="sponsors-title" className={landing.sectionTitle}>
         Our sponsors
       </h2>
-      {tiers.map((tier) => (
+      {sponsorTiers.map((tier) => (
         <div key={tier.name} className={styles.tier}>
           <h3>{tier.name}</h3>
           <ul>

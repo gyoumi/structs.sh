@@ -67,10 +67,10 @@
   background: rgb(233 201 138 / 0.14);
   color: var(--highlight);
   transform: none;
-  border-color: var(--sand);
+  border-color: var(--accent);
 }
 
-.task {
+.operationForm {
   display: grid;
   gap: 10px;
   padding-top: 12px;
@@ -126,13 +126,13 @@
 .input[data-active] {
   background: var(--surface);
   box-shadow: none;
-  border-color: var(--sand);
+  border-color: var(--accent);
 }
 
 .input:focus-visible {
   background: var(--surface);
   box-shadow: none;
-  border-color: var(--sand);
+  border-color: var(--accent);
 }
 
 .keys {
@@ -164,7 +164,7 @@
 }
 
 .key:hover:not(:disabled) {
-  border-color: var(--sand);
+  border-color: var(--accent);
 }
 
 .key:disabled {
@@ -177,11 +177,11 @@
   align-items: center;
   justify-content: center;
   height: 46px;
-  background: var(--sand);
-  color: var(--on-sand);
+  background: var(--accent);
+  color: var(--on-accent);
   font-size: 14px;
   font-weight: 600;
-  border-color: var(--sand);
+  border-color: var(--accent);
 }
 
 .run:hover {
@@ -215,7 +215,7 @@
     gap: 7px;
   }
 
-  .task {
+  .operationForm {
     gap: 8px;
     padding-top: 10px;
   }

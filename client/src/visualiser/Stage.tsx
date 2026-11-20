@@ -14,7 +14,7 @@ import styles from './Stage.module.css';
 interface View {
   x: number;
   y: number;
-  k: number;
+  scale: number;
 }
 
 const MIN_SCALE = 0.3;
@@ -90,7 +90,7 @@ interface StageProps {
 const Stage = ({ label, className, style, children }: StageProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
-  const [view, setView] = useState<View>({ x: 0, y: 0, k: 1 });
+  const [view, setView] = useState<View>({ x: 0, y: 0, scale: 1 });
   const [smooth, setSmooth] = useState(false);
   const [dragging, setDragging] = useState(false);
   const userMoved = useRef(false);
@@ -104,9 +104,9 @@ const Stage = ({ label, className, style, children }: StageProps) => {
     userMoved.current = true;
     setSmooth(animate);
     setView((prev) => {
-      const k = clamp(prev.k * factor, Math.min(MIN_SCALE, prev.k), MAX_SCALE);
-      const ratio = k / prev.k;
-      return { k, x: cx - (cx - prev.x) * ratio, y: cy - (cy - prev.y) * ratio };
+      const scale = clamp(prev.scale * factor, Math.min(MIN_SCALE, prev.scale), MAX_SCALE);
+      const ratio = scale / prev.scale;
+      return { scale, x: cx - (cx - prev.x) * ratio, y: cy - (cy - prev.y) * ratio };
     });
   }, []);
 
@@ -130,26 +130,29 @@ const Stage = ({ label, className, style, children }: StageProps) => {
     const insetRight = insetOf(container, 'right');
     setView((prev) => {
       if (onlyIfOverflowing) {
-        const left = prev.x + box.x * prev.k;
-        const top = prev.y + box.y * prev.k;
-        const right = left + box.width * prev.k;
-        const bottom = top + box.height * prev.k;
+        const left = prev.x + box.x * prev.scale;
+        const top = prev.y + box.y * prev.scale;
+        const right = left + box.width * prev.scale;
+        const bottom = top + box.height * prev.scale;
         const inside =
           left >= 0 && top >= insetTop && right <= width - insetRight && bottom <= height;
         if (inside) return prev;
       }
       const padding = Math.min(FIT_PADDING, width * 0.05);
-      const roomX = width - insetRight;
-      const roomY = height - insetTop;
-      const k = clamp(
-        Math.min((roomX - padding * 2) / box.width, (roomY - padding * 2) / box.height),
+      const availableWidth = width - insetRight;
+      const availableHeight = height - insetTop;
+      const scale = clamp(
+        Math.min(
+          (availableWidth - padding * 2) / box.width,
+          (availableHeight - padding * 2) / box.height
+        ),
         MIN_FIT_SCALE,
         1.25
       );
       return {
-        k,
-        x: roomX / 2 - k * (box.x + box.width / 2),
-        y: insetTop + roomY / 2 - k * (box.y + box.height / 2),
+        scale,
+        x: availableWidth / 2 - scale * (box.x + box.width / 2),
+        y: insetTop + availableHeight / 2 - scale * (box.y + box.height / 2),
       };
     });
     setSmooth(true);
@@ -245,7 +248,7 @@ const Stage = ({ label, className, style, children }: StageProps) => {
     zoomIn: () => zoomFromCentre(1.2),
     zoomOut: () => zoomFromCentre(1 / 1.2),
     fit: () => fit(),
-    scale: view.k,
+    scale: view.scale,
   };
 
   return (
@@ -273,7 +276,7 @@ const Stage = ({ label, className, style, children }: StageProps) => {
           ref={svgRef}
           className={styles.canvas}
           data-smooth={smooth || undefined}
-          style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.k})` }}
+          style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }}
         />
       </div>
       <div id="code-container" className={styles.hiddenCode} aria-hidden="true">

@@ -39,7 +39,7 @@ const StepScrubber = ({ classes, label = 'Animation progress', thumb }: StepScru
       format={(value: number) => `${Math.round(value)}%`}
       onValueChange={(value, details) => {
         if (details.reason === 'imperative') return;
-        session.seek(Array.isArray(value) ? value[0] : value);
+        session.seekToPercent(Array.isArray(value) ? value[0] : value);
       }}
     >
       <SliderControl className={classes.control}>

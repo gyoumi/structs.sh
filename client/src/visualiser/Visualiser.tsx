@@ -10,12 +10,12 @@ import ZoomControls from './ZoomControls';
 import Transport from './Transport';
 import CodePanel from './CodePanel';
 import { TopicRoute, VisualiserProvider } from './VisualiserProvider';
-import { TopicInfo } from './topics';
+import { Topic } from './topics';
 import { canvasThemes } from './canvasThemes';
 import styles from './Visualiser.module.css';
 
 interface WorkspaceProps {
-  topic: TopicInfo;
+  topic: Topic;
   theme: Theme;
 }
 
@@ -56,7 +56,7 @@ const PHONE = '(max-width: 700px)';
 
 const phoneCounts: Record<string, number> = { 'Linked Lists': 5, 'Sorting Algorithms': 7 };
 
-const phoneFriendlyData = (topicTitle: string) => {
+const getPhoneInitialData = (topicTitle: string) => {
   const count = phoneCounts[topicTitle];
   if (!count || !window.matchMedia?.(PHONE).matches) return undefined;
   const values = new Set<number>();
@@ -72,8 +72,8 @@ const Visualiser = () => {
         <VisualiserProvider
           key={topic.slug}
           topic={topic}
-          theme={canvasThemes[theme]}
-          makeData={phoneFriendlyData}
+          canvasTheme={canvasThemes[theme]}
+          getInitialData={getPhoneInitialData}
         >
           <Workspace topic={topic} theme={theme} />
         </VisualiserProvider>

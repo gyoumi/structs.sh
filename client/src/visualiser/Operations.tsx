@@ -2,12 +2,12 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Radio, RadioGroup } from '@ui-sdk/react/radio';
 import Keypad from './Keypad';
-import { indexMaxFor } from './useOperation';
+import { maxIndexFor } from './useOperation';
 import { useSnapshot } from './useVisualiser';
-import { operationLabel, TopicInfo } from './topics';
+import { operationLabel, Topic } from './topics';
 import styles from './Operations.module.css';
 
-const Operations = ({ topic }: { topic: TopicInfo }) => {
+const Operations = ({ topic }: { topic: Topic }) => {
   const documentation = useSnapshot((s) => s.documentation);
   const size = useSnapshot((s) => s.size);
   const commands = Object.keys(documentation);
@@ -36,12 +36,12 @@ const Operations = ({ topic }: { topic: TopicInfo }) => {
       </RadioGroup>
 
       {command && (
-        <div className={styles.task}>
+        <div className={styles.operationForm}>
           <Keypad
             key={command}
             command={command}
             runLabel={`Run ${operationLabel(topic, command).toLowerCase()}`}
-            indexMax={indexMaxFor(documentation[command].args, size)}
+            maxIndex={maxIndexFor(documentation[command].args, size)}
             classes={{
               form: styles.form,
               fields: styles.fields,

@@ -7,9 +7,9 @@ import lyraLogo from '@/assets/img/sponsors/lyra.svg';
 import qrtLogo from '@/assets/img/sponsors/qrt.svg';
 import theTradeDeskLogo from '@/assets/img/sponsors/thetradedesk.png';
 
-export const GITHUB = 'https://github.com/devsoc-unsw/structs.sh';
+export const GITHUB_URL = 'https://github.com/devsoc-unsw/structs.sh';
 
-export const FEEDBACK_FORM =
+export const FEEDBACK_FORM_URL =
   'https://docs.google.com/forms/d/e/1FAIpQLScg9AuvsDcrgjzNX3D10l2r09UhQS0WaGiyX3OvyRn4BlwBSQ/viewform';
 
 export const contacts = [
@@ -37,7 +37,7 @@ interface Sponsor {
   logoHeight: number;
 }
 
-export const tiers: { name: string; sponsors: Sponsor[] }[] = [
+export const sponsorTiers: { name: string; sponsors: Sponsor[] }[] = [
   {
     name: 'Platinum',
     sponsors: [

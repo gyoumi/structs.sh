@@ -34,40 +34,42 @@ export const Arrow = ({
 }) => {
   if (grow <= 0 || opacity <= 0) return null;
   const angle = Math.atan2(to.y - from.y, to.x - from.x);
-  const ux = Math.cos(angle);
-  const uy = Math.sin(angle);
-  const sx = from.x + ux * (NODE_RADIUS + 3);
-  const sy = from.y + uy * (NODE_RADIUS + 3);
+  const unitX = Math.cos(angle);
+  const unitY = Math.sin(angle);
+  const startX = from.x + unitX * (NODE_RADIUS + 3);
+  const startY = from.y + unitY * (NODE_RADIUS + 3);
   const length = Math.hypot(to.x - from.x, to.y - from.y) - (NODE_RADIUS + 3) - (NODE_RADIUS + 5);
-  const ex = sx + ux * length * grow;
-  const ey = sy + uy * length * grow;
-  const hx = ex - ux * 7;
-  const hy = ey - uy * 7;
-  const px = -uy * 4.5;
-  const py = ux * 4.5;
+  const endX = startX + unitX * length * grow;
+  const endY = startY + unitY * length * grow;
+  const headX = endX - unitX * 7;
+  const headY = endY - unitY * 7;
+  const wingX = -unitY * 4.5;
+  const wingY = unitX * 4.5;
   return (
     <g className={styles.arrow} opacity={opacity}>
-      <line x1={sx} y1={sy} x2={hx} y2={hy} />
-      <polygon points={`${ex},${ey} ${hx + px},${hy + py} ${hx - px},${hy - py}`} />
+      <line x1={startX} y1={startY} x2={headX} y2={headY} />
+      <polygon
+        points={`${endX},${endY} ${headX + wingX},${headY + wingY} ${headX - wingX},${headY - wingY}`}
+      />
     </g>
   );
 };
 
 export const Node = ({
   char,
-  at,
+  position,
   lit,
   opacity = 1,
 }: {
   char: DevsocChar;
-  at: Point;
+  position: Point;
   lit: boolean;
   opacity?: number;
 }) => {
   const theme = useTheme();
   if (opacity <= 0) return null;
   return (
-    <g transform={`translate(${at.x} ${at.y})`} opacity={opacity}>
+    <g transform={`translate(${position.x} ${position.y})`} opacity={opacity}>
       <circle r={NODE_RADIUS} className={styles.node} data-lit={lit || undefined} />
       <DevsocGlyph char={char} scale={19 / 44} fill={devsocInk(char, theme)} />
     </g>
@@ -75,17 +77,17 @@ export const Node = ({
 };
 
 export const Label = ({
-  at,
+  position,
   opacity,
   below = 40,
   children,
 }: {
-  at: Point;
+  position: Point;
   opacity: number;
   below?: number;
   children: string;
 }) => (
-  <text x={at.x} y={at.y + below} className={styles.label} opacity={opacity}>
+  <text x={position.x} y={position.y + below} className={styles.label} opacity={opacity}>
     {children}
   </text>
 );
