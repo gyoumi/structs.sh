@@ -1,0 +1,168 @@
+.pick {
+  display: grid;
+  align-content: center;
+  min-height: 100svh;
+  padding-block: 3rem;
+  box-sizing: border-box;
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: clamp(0.5rem, 1.4vw, 1.125rem);
+  margin-top: clamp(1.25rem, 3vh, 2rem);
+  padding-bottom: 6px;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: clamp(0.875rem, 2.5vh, 1.5rem) 0.5rem 1rem;
+
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  box-shadow: none;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    transform 160ms ease-out,
+    box-shadow 160ms ease-out,
+    background-color 160ms ease-out;
+  --art-stroke: 2;
+}
+
+.tile[data-checked] {
+  --art-fill: var(--art-chosen-fill);
+  background: var(--raised);
+  color: var(--ink);
+  box-shadow: inset 0 -3px 0 var(--accent);
+}
+
+.tileArt {
+  width: min(7.5rem, 70%);
+  height: auto;
+  aspect-ratio: 3 / 2;
+}
+
+.tileName {
+  font-size: clamp(0.8125rem, 1.1vw, 0.9375rem);
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.detail {
+  display: grid;
+  min-height: clamp(11rem, 26vh, 14.5rem);
+  margin-top: clamp(0.75rem, 2vh, 1.25rem);
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+}
+
+.detail:has(.detailBody) {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: none;
+  --art-stroke: 2;
+}
+
+.empty {
+  place-self: center;
+  padding: 1rem;
+  font-weight: 500;
+  text-align: center;
+  color: var(--muted);
+}
+
+.detailBody {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  align-items: center;
+  gap: clamp(1rem, 4vw, 3rem);
+  padding: clamp(1rem, 3vh, 1.75rem) clamp(1rem, 4vw, 3rem);
+  animation: detail-in 240ms ease-out;
+}
+
+.detailArt {
+  justify-self: center;
+  width: min(13rem, 100%);
+  height: auto;
+  aspect-ratio: 3 / 2;
+}
+
+.detailName {
+  font-size: clamp(1.25rem, 2.2vw, 1.75rem);
+  font-weight: 600;
+  line-height: 1.1;
+  font-family: var(--display);
+  letter-spacing: -0.05em;
+}
+
+.detailText {
+  max-width: 34rem;
+  margin-block: 0.5rem 1rem;
+  color: var(--muted);
+}
+
+@keyframes detail-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tile:not([data-checked]):hover {
+    border-color: var(--muted);
+    background: var(--surface);
+    color: var(--ink);
+  }
+}
+
+@media (max-width: 700px) {
+  .tiles {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .tile {
+    grid-column: span 2;
+    padding: 0.75rem 0.25rem;
+    gap: 0.5rem;
+  }
+
+  /* Counted by type, because each tile is followed by its hidden form input. */
+
+  .tile:nth-of-type(n + 4) {
+    grid-column: span 3;
+  }
+
+  .tileArt {
+    width: min(5rem, 80%);
+  }
+
+  .detailBody {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.5rem;
+  }
+
+  .detailArt {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tile {
+    transition-duration: 1ms;
+  }
+
+  .detailBody {
+    animation: none;
+  }
+}

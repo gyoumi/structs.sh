@@ -7,7 +7,6 @@ import styles from './StructureArt.module.css';
  * hovered, focused, checked or marked `data-active`, and it eases back when that ends.
  */
 
-/** Add to whatever should switch its drawing on. */
 export const artHost = styles.host;
 
 const after = (ms: number): CSSProperties => ({ transitionDelay: `${ms}ms` });
@@ -28,7 +27,6 @@ interface NodeProps {
   x: number;
   y: number;
   r?: number;
-  /** Fills with the accent colour while the drawing is on, after this many milliseconds. */
   lit?: number;
   className?: string;
   style?: CSSProperties;
@@ -61,7 +59,6 @@ const Node = ({ x, y, r = 8, lit, className, style }: NodeProps) => (
 const shift = (dx: number, dy = 0, ms = 0) =>
   ({ '--dx': dx, '--dy': dy, ...after(ms) }) as CSSProperties;
 
-/** A node is appended to the end of the list. */
 const ListArt = ({ className }: ArtProps) => (
   <Frame className={className}>
     <g className={styles.shift} style={shift(-15)}>
@@ -75,7 +72,6 @@ const ListArt = ({ className }: ArtProps) => (
   </Frame>
 );
 
-/** A search walks one path down from the root. */
 const TreeArt = ({ className }: ArtProps) => (
   <Frame className={className}>
     <path d="M60 14 34 38M60 14l26 24M34 38 20 64M34 38l14 26M86 38l14 26" />
@@ -89,7 +85,6 @@ const TreeArt = ({ className }: ArtProps) => (
   </Frame>
 );
 
-/** A tree that stays balanced: the rotation arrow over its root traces as its right side settles. */
 const BalancedArt = ({ className }: ArtProps) => (
   <Frame className={className}>
     <path d="M56 18 32 42M56 18l24 24M32 42 20 66M32 42l12 24M80 42l12 24" />
@@ -112,7 +107,6 @@ const bars = [
   { height: 44, to: 3 },
 ];
 
-/** Bars slide into order, shortest first. */
 const SortArt = ({ className }: ArtProps) => (
   <Frame className={className}>
     {bars.map(({ height, to }, index) => (
@@ -137,7 +131,6 @@ const SortArt = ({ className }: ArtProps) => (
   </Frame>
 );
 
-/** The running line moves down the program, and the list it builds grows. */
 const DebuggerArt = ({ className }: ArtProps) => (
   <Frame className={className}>
     <rect className={styles.node} x={8} y={10} width={104} height={60} rx={6} />

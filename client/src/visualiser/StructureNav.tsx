@@ -125,7 +125,6 @@ const StructureNav = ({
         )}
       </div>
 
-      {/* Hidden copy used only to measure how many links fit. */}
       <div
         aria-hidden="true"
         style={{

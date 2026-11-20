@@ -7,8 +7,6 @@ import lyraLogo from '@/assets/img/sponsors/lyra.svg';
 import qrtLogo from '@/assets/img/sponsors/qrt.svg';
 import theTradeDeskLogo from '@/assets/img/sponsors/thetradedesk.png';
 
-/* The landing page words come from the current site. */
-
 export const GITHUB = 'https://github.com/devsoc-unsw/structs.sh';
 
 export const FEEDBACK_FORM =
@@ -36,8 +34,7 @@ interface Sponsor {
   name: string;
   logo: string;
   href: string;
-  /** Logo height in pixels, set per logo so the wordmarks look a similar size. */
-  height: number;
+  logoHeight: number;
 }
 
 export const tiers: { name: string; sponsors: Sponsor[] }[] = [
@@ -48,35 +45,45 @@ export const tiers: { name: string; sponsors: Sponsor[] }[] = [
         name: 'Hudson River Trading',
         logo: hrtLogo,
         href: 'https://www.hudsonrivertrading.com/',
-        height: 44,
+        logoHeight: 44,
       },
       {
         name: 'Jane Street',
         logo: janeStreetLogo,
         href: 'https://www.janestreet.com/',
-        height: 38,
+        logoHeight: 38,
       },
       {
         name: 'Lyra Technologies',
         logo: lyraLogo,
         href: 'https://www.lyratechnologies.com.au/',
-        height: 46,
+        logoHeight: 46,
       },
       {
         name: 'The Trade Desk',
         logo: theTradeDeskLogo,
         href: 'https://careers.thetradedesk.com/',
-        height: 30,
+        logoHeight: 30,
       },
     ],
   },
   {
     name: 'Gold',
     sponsors: [
-      { name: 'Airwallex', logo: airwallexLogo, href: 'https://www.airwallex.com/au', height: 36 },
-      { name: 'Arista', logo: aristaLogo, href: 'https://www.arista.com/en/', height: 26 },
-      { name: 'Atlassian', logo: atlassianLogo, href: 'https://www.atlassian.com/', height: 24 },
-      { name: 'QRT', logo: qrtLogo, href: 'https://www.qube-rt.com/', height: 34 },
+      {
+        name: 'Airwallex',
+        logo: airwallexLogo,
+        href: 'https://www.airwallex.com/au',
+        logoHeight: 36,
+      },
+      { name: 'Arista', logo: aristaLogo, href: 'https://www.arista.com/en/', logoHeight: 26 },
+      {
+        name: 'Atlassian',
+        logo: atlassianLogo,
+        href: 'https://www.atlassian.com/',
+        logoHeight: 24,
+      },
+      { name: 'QRT', logo: qrtLogo, href: 'https://www.qube-rt.com/', logoHeight: 34 },
     ],
   },
 ];
