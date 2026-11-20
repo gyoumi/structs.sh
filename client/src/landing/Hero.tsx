@@ -12,69 +12,81 @@ const FRAME_MS = 230;
 const MOVE_MS = 200;
 const SETTLE_MS = 200;
 
-/** Stacks in their starting order. A stack's id is its sorted place, and its height is two more than that. */
-const START = [3, 0, 4, 2, 5, 1];
+type SortedPlace = number;
+type PlaceRange = [start: number, endExclusive: number];
+
+const START_ORDER: SortedPlace[] = [3, 0, 4, 2, 5, 1];
+
+const SHORTEST_STACK = 2;
+const stackHeight = (stack: SortedPlace) => stack + SHORTEST_STACK;
+
+const inRange = (place: number, [start, endExclusive]: PlaceRange) =>
+  place >= start && place < endExclusive;
 
 interface Frame {
-  order: number[];
-  comparing: number[];
-  /** The places, from `[0]` up to but not including `[1]`, that are already in sorted order. */
-  sorted: [number, number];
+  order: SortedPlace[];
+  comparing: SortedPlace[];
+  sortedRange: PlaceRange;
 }
 
-const swap = (order: number[], a: number, b: number) => {
+const swap = (order: SortedPlace[], a: number, b: number) => {
   [order[a], order[b]] = [order[b], order[a]];
 };
 
-/** Every frame of a selection sort over `START`, as the order of the stacks. */
 const selectionSort = (): Frame[] => {
-  const order = [...START];
-  const frames: Frame[] = [{ order: [...order], comparing: [], sorted: [0, 0] }];
+  const order = [...START_ORDER];
+  const frames: Frame[] = [{ order: [...order], comparing: [], sortedRange: [0, 0] }];
   for (let i = 0; i < order.length - 1; i += 1) {
     let smallest = i;
     for (let j = i + 1; j < order.length; j += 1) {
-      frames.push({ order: [...order], comparing: [order[smallest], order[j]], sorted: [0, i] });
+      frames.push({
+        order: [...order],
+        comparing: [order[smallest], order[j]],
+        sortedRange: [0, i],
+      });
       if (order[j] < order[smallest]) smallest = j;
     }
     swap(order, i, smallest);
-    frames.push({ order: [...order], comparing: [order[i]], sorted: [0, i + 1] });
+    frames.push({ order: [...order], comparing: [order[i]], sortedRange: [0, i + 1] });
   }
-  frames.push({ order: [...order], comparing: [], sorted: [0, order.length] });
+  frames.push({ order: [...order], comparing: [], sortedRange: [0, order.length] });
   return frames;
 };
 
-/** Every frame of a bubble sort over `START`, which settles the tallest stacks at the end first. */
 const bubbleSort = (): Frame[] => {
-  const order = [...START];
+  const order = [...START_ORDER];
   const n = order.length;
-  const frames: Frame[] = [{ order: [...order], comparing: [], sorted: [n, n] }];
+  const frames: Frame[] = [{ order: [...order], comparing: [], sortedRange: [n, n] }];
   for (let pass = 0; pass < n - 1; pass += 1) {
-    const settled: [number, number] = [n - pass, n];
+    const settled: PlaceRange = [n - pass, n];
     for (let j = 0; j < n - 1 - pass; j += 1) {
-      frames.push({ order: [...order], comparing: [order[j], order[j + 1]], sorted: settled });
+      frames.push({ order: [...order], comparing: [order[j], order[j + 1]], sortedRange: settled });
       if (order[j] > order[j + 1]) {
         swap(order, j, j + 1);
-        frames.push({ order: [...order], comparing: [order[j], order[j + 1]], sorted: settled });
+        frames.push({
+          order: [...order],
+          comparing: [order[j], order[j + 1]],
+          sortedRange: settled,
+        });
       }
     }
   }
-  frames.push({ order: [...order], comparing: [], sorted: [0, n] });
+  frames.push({ order: [...order], comparing: [], sortedRange: [0, n] });
   return frames;
 };
 
-/** Every frame of an insertion sort over `START`, which swaps each stack left into the sorted front. */
 const insertionSort = (): Frame[] => {
-  const order = [...START];
-  const frames: Frame[] = [{ order: [...order], comparing: [], sorted: [0, 1] }];
+  const order = [...START_ORDER];
+  const frames: Frame[] = [{ order: [...order], comparing: [], sortedRange: [0, 1] }];
   for (let i = 1; i < order.length; i += 1) {
     for (let j = i; j > 0; j -= 1) {
-      frames.push({ order: [...order], comparing: [order[j - 1], order[j]], sorted: [0, i] });
+      frames.push({ order: [...order], comparing: [order[j - 1], order[j]], sortedRange: [0, i] });
       if (order[j - 1] < order[j]) break;
       swap(order, j - 1, j);
-      frames.push({ order: [...order], comparing: [order[j - 1]], sorted: [0, i] });
+      frames.push({ order: [...order], comparing: [order[j - 1]], sortedRange: [0, i] });
     }
   }
-  frames.push({ order: [...order], comparing: [], sorted: [0, order.length] });
+  frames.push({ order: [...order], comparing: [], sortedRange: [0, order.length] });
   return frames;
 };
 
@@ -106,8 +118,15 @@ const palette: Record<Theme, Record<'waiting' | 'comparing' | 'sorted', Faces>> 
   },
 };
 
-/** One block's front and side between `bottom` and `bottom - UNIT`, plus its top when it is the highest. */
-const Block = ({ bottom, faces, top }: { bottom: number; faces: Faces; top: boolean }) => {
+const Block = ({
+  bottom,
+  faces,
+  drawTopFace,
+}: {
+  bottom: number;
+  faces: Faces;
+  drawTopFace: boolean;
+}) => {
   const y = bottom - UNIT;
   return (
     <>
@@ -116,7 +135,7 @@ const Block = ({ bottom, faces, top }: { bottom: number; faces: Faces; top: bool
         points={`${UNIT},${y} ${UNIT + DEPTH},${y - DEPTH} ${UNIT + DEPTH},${bottom - DEPTH} ${UNIT},${bottom}`}
         fill={faces.side}
       />
-      {top && (
+      {drawTopFace && (
         <polygon
           points={`0,${y} ${DEPTH},${y - DEPTH} ${UNIT + DEPTH},${y - DEPTH} ${UNIT},${y}`}
           fill={faces.top}
@@ -132,24 +151,19 @@ const Block = ({ bottom, faces, top }: { bottom: number; faces: Faces; top: bool
   );
 };
 
-/** Where stack `id` is at `time`, sliding between frames. */
-const placeOf = (frames: Frame[], id: number, frame: number, time: number) => {
-  const now = frames[frame].order.indexOf(id);
+const placeOf = (frames: Frame[], stack: SortedPlace, frame: number, time: number) => {
+  const now = frames[frame].order.indexOf(stack);
   if (frame === 0) return now;
-  const before = frames[frame - 1].order.indexOf(id);
+  const before = frames[frame - 1].order.indexOf(stack);
   return before + (now - before) * easeInOut((time - startOf(frame)) / MOVE_MS);
 };
 
-/**
- * Stacks of blocks that sort themselves until the bottom row spells DevSoc's `<dev/>`. Each page
- * load picks one of `SORTS`, and replays on hover keep it.
- */
 const Hero = () => {
   const theme = useTheme();
   const [{ name, frames }] = useState(() => SORTS[Math.floor(Math.random() * SORTS.length)]);
   const { ref, time, replay } = useTimeline(durationOf(frames));
   const frame = frames.reduce((current, _, i) => (time >= startOf(i) ? i : current), 0);
-  const { comparing, sorted, order } = frames[frame];
+  const { comparing, sortedRange, order } = frames[frame];
   const colours = palette[theme];
   const paint = [...order].sort(
     (a, b) => Number(comparing.includes(a)) - Number(comparing.includes(b))
@@ -163,22 +177,23 @@ const Hero = () => {
         role="img"
         aria-label={`Blocks sorting themselves into DevSoc's <dev/> logo with ${name}`}
       >
-        {paint.map((id) => {
-          const place = order.indexOf(id);
-          const state = comparing.includes(id)
+        {paint.map((stack) => {
+          const place = order.indexOf(stack);
+          const state = comparing.includes(stack)
             ? 'comparing'
-            : place >= sorted[0] && place < sorted[1]
+            : inRange(place, sortedRange)
               ? 'sorted'
               : 'waiting';
-          const char = DEVSOC[id];
+          const char = DEVSOC[stack];
+          const height = stackHeight(stack);
           return (
-            <g key={char} transform={`translate(${placeOf(frames, id, frame, time) * PITCH} 0)`}>
-              {Array.from({ length: id + 2 }, (_, level) => (
+            <g key={char} transform={`translate(${placeOf(frames, stack, frame, time) * PITCH} 0)`}>
+              {Array.from({ length: height }, (_, level) => (
                 <Block
                   key={level}
                   bottom={-level * UNIT}
                   faces={colours[state]}
-                  top={level === id + 1}
+                  drawTopFace={level === height - 1}
                 />
               ))}
               <g transform={`translate(${UNIT / 2} ${-UNIT / 2})`}>
