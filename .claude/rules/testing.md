@@ -10,7 +10,7 @@ it. Pick the cheapest level that would catch the change breaking:
 | What changed | Test with | Where |
 |---|---|---|
 | Logic that runs without a page: parsers, stores, helpers, and the debugger rewrite's compiler, runner, recorder and adapter | Vitest | `client/src/**/*.test.ts`, next to the code |
-| What a student sees in the visual debugger | Playwright e2e | `e2e/tests/` (see `e2e/README.md`) |
+| What a user sees in the visual debugger | Playwright e2e | `e2e/tests/` (see `e2e/README.md`) |
 | The wasm debugger's Rust instrumenter | `cargo test` | `instrumenter/tests/`, with programs compiled by clang in `tests/fixtures/` |
 | Visualiser animation or layout | Screenshots, read and shown to the user | See the `ui-visual-test` skill. There is no baseline suite |
 
@@ -58,7 +58,7 @@ so the tests check the spec rather than the code written to pass them.
 
 ## Test behaviour, not implementation
 
-- Assert on what a caller or a student can observe, not on private details.
+- Assert on what a caller or a user can observe, not on private details.
 - In e2e tests, only the page objects in `e2e/support/` (such as
   `debugger-page.ts` and `visualiser-page.ts`) touch selectors or page
   internals.
@@ -93,7 +93,7 @@ so the tests check the spec rather than the code written to pass them.
   nothing is logged as a console error, must still pass.
 - When a change builds on an earlier decision (for example, drawing the heap
   from what variables reach builds on where the debugger stops), check again
-  what that earlier decision now looks like to a student.
+  what that earlier decision now looks like to a user.
 
 ## Never make a run green by weakening it
 
