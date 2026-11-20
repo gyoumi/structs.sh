@@ -321,8 +321,8 @@ export type ShownStructs = {
  * after what the variables reach, along with what they reach, so a struct
  * shown before stays shown while only, say, a function's return value holds
  * it. What the variables reach wins: a struct found only that way that
- * overlaps a different struct they reach (memory reused as another struct)
- * isn't shown or followed.
+ * overlaps a struct they reach (memory reused as another struct) isn't shown
+ * or followed, unless it's that struct, or one is a field inside the other.
  */
 export const readHeap = (
   debug: DebugSection,
@@ -371,32 +371,72 @@ export const readHeap = (
     pending.push([index, address]);
   };
 
-  /** The heap structs the variables reach: their extents, and `type@address`. */
+  /**
+   * Whether a value of type `inner` is part of one of type `outer`, `offset`
+   * bytes in: the outer value itself, or a field or array element of it,
+   * however deeply nested.
+   */
+  const embeds = (outer: number, offset: number, inner: number): boolean => {
+    const resolved = resolveIndex(types, outer);
+    if (offset === 0 && resolved === resolveIndex(types, inner)) return true;
+    const type = types[resolved];
+    if (type.kind === 'struct') {
+      return type.fields.some(
+        (field) =>
+          field.bitSize === undefined &&
+          offset >= field.offset &&
+          offset < field.offset + types[field.type].size &&
+          embeds(field.type, offset - field.offset, inner)
+      );
+    }
+    if (type.kind === 'array') {
+      const { size } = types[type.of];
+      const element = size > 0 ? Math.floor(offset / size) : 0;
+      return element < type.count && embeds(type.of, offset - element * size, inner);
+    }
+    return false;
+  };
+
+  /** The heap structs the variables reach, as [start, end, type]. */
   let fromVariables = true;
-  const reached: [number, number][] = [];
-  const reachedExactly = new Set<string>();
+  const reached: [number, number, number][] = [];
   /** `reached` by start, with the furthest end of each and those before it. */
-  let byStart: { starts: number[]; furthestEnds: number[] } | null = null;
-  /** Whether [start, end) overlaps a struct the variables reach that isn't this one. */
-  const overlapsReached = (start: number, end: number, type: number) => {
-    if (reachedExactly.has(`${type}@${start}`)) return false;
+  let byStart: { sorted: [number, number, number][]; furthestEnds: number[] } | null = null;
+  /**
+   * Whether a struct of `type` at [start, end) clashes with one the variables
+   * reach: they overlap, and neither is the other or a field inside it, so
+   * the memory now holds something else.
+   */
+  const clashesWithReached = (start: number, end: number, type: number) => {
     if (!byStart) {
       const sorted = [...reached].sort((a, b) => a[0] - b[0]);
       const furthestEnds: number[] = [];
       sorted.forEach(([, structEnd], i) =>
         furthestEnds.push(Math.max(structEnd, furthestEnds[i - 1] ?? -Infinity))
       );
-      byStart = { starts: sorted.map(([structStart]) => structStart), furthestEnds };
+      byStart = { sorted, furthestEnds };
     }
+    const { sorted, furthestEnds } = byStart;
     // How many reached structs start before `end`.
     let low = 0;
-    let high = byStart.starts.length;
+    let high = sorted.length;
     while (low < high) {
       const middle = Math.floor((low + high) / 2);
-      if (byStart.starts[middle] < end) low = middle + 1;
+      if (sorted[middle][0] < end) low = middle + 1;
       else high = middle;
     }
-    return low > 0 && byStart.furthestEnds[low - 1] > start;
+    // Back through those, while any of them could still end after `start`.
+    for (let i = low - 1; i >= 0 && furthestEnds[i] > start; i -= 1) {
+      const [otherStart, otherEnd, other] = sorted[i];
+      if (
+        otherEnd > start &&
+        !(start >= otherStart && embeds(other, start - otherStart, type)) &&
+        !(otherStart >= start && embeds(type, otherStart - start, other))
+      ) {
+        return true;
+      }
+    }
+    return false;
   };
 
   const look = (index: number, address: number) => {
@@ -425,9 +465,8 @@ export const readHeap = (
       const heapKey = hex(address);
       const onHeap = inAllocation(address, type.size);
       if (onHeap && fromVariables) {
-        reached.push([address, address + type.size]);
-        reachedExactly.add(`${resolved}@${address}`);
-      } else if (onHeap && overlapsReached(address, address + type.size, resolved)) {
+        reached.push([address, address + type.size, resolved]);
+      } else if (onHeap && clashesWithReached(address, address + type.size, resolved)) {
         onOverlapped?.(address, index);
         return;
       }

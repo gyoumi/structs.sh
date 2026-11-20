@@ -468,6 +468,15 @@ Found while building checkpoint 1, and not needed for it:
   the call returns (bst.c line 19): clang puts the branch's jump on that
   line. GDB goes straight to the next statement. It's on the wasm
   known-failures list.
+- **Memory reused as a different struct, reached only through remembered
+  structs,** can still be read with the old layout. The recorder keeps
+  showing a struct until it's freed, and what the variables reach wins when
+  memory is reused as another struct. But suppose a remembered struct's
+  field is changed, through a cast, to point at a struct that overlaps
+  another remembered node. Then neither is reached from a variable, so the
+  old node's pointer fields can still be followed and draw unrelated memory.
+  This needs casts between incompatible structs, which COMP2521 programs
+  rarely use.
 - **Offline, a run cut short breaks the next one.** Once the page has
   loaded, the debugger works offline, because runs reuse a runner Worker
   started while the network was on. A Worker stopped mid-run (past the time

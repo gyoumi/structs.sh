@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { compileAndInstrument } from './instrumenter';
-import { recordRun, Recording, Step, Variable } from './recording';
+import { HeapEntry, recordRun, Recording, Step, Variable } from './recording';
 import gdb from './fixtures/gdb-variables.json';
 // Recorded from the GDB debugger at line 20 of e2e/programs/linked_list.c.
 import gdbList from '../../../visualiser-debugger/Component/Visualizer/Parser/fixtures/gdb-linked-list-state.json';
@@ -1303,6 +1303,108 @@ describe('recordRun', () => {
       },
       CLANG_TIMEOUT
     );
+
+    describe('a struct embedded in another', () => {
+      /** The heap entry's fields as plain values, nested structs included. */
+      const valuesOf = (entry: HeapEntry) =>
+        Object.fromEntries(Object.entries(entry.value).map(([field, f]) => [field, f.value]));
+      const describeHeap = (step: Step) =>
+        Object.values(step.heap)
+          .map((entry) => `${entry.typeName} at ${entry.addr} ${JSON.stringify(valuesOf(entry))}`)
+          .join(', ') || 'nothing';
+
+      /**
+       * Each step from `from` to the end where the heap has no `typeName`
+       * at `address`, as "step N main:L: ...", saying what it holds instead.
+       */
+      const missingFrom = (steps: Step[], from: number, address: string, typeName: string) =>
+        steps
+          .slice(from)
+          .flatMap((step, offset) =>
+            step.heap[address]?.typeName === typeName
+              ? []
+              : [
+                  `step ${from + offset + 1} ${step.function}:${step.line}: no ${typeName} at ${address}; ` +
+                    `the whole heap holds ${describeHeap(step)}`,
+                ]
+          );
+
+      it(
+        'keeps showing a struct after the only pointer left points at a struct inside it',
+        async () => {
+          // fixtures/embedded_child.c: box = malloc(struct box) on line 14,
+          // filled with id 7 and child {70, 700} on lines 15-17. child =
+          // &box->child on line 18, box = NULL on line 19, then child->value
+          // = 71 on line 20. The box is never freed, so it stays shown, with
+          // the 71 in its child field.
+          const name = 'embedded_child.c';
+          const { steps } = await record(name, fixture(name));
+
+          // The situation the test needs: if this fails, the program no
+          // longer sets it up, rather than the recorder being wrong.
+          const shown = steps.findIndex((step) => step.line === 15);
+          const box = steps[shown]?.variables.box?.value as string;
+          expect(
+            steps[shown]?.heap[box]?.typeName,
+            `${name} line 15: box (${box}) points at a malloc'd struct box, shown on the heap`
+          ).toBe('struct box');
+
+          expect(
+            missingFrom(steps, shown, box, 'struct box'),
+            `${name}: from line 15 the struct box at ${box} should be shown at every step to the end: it's never ` +
+              `freed, and after box = NULL on line 19 child still points inside it (at its child field)`
+          ).toEqual([]);
+          expect(
+            steps.at(-1)?.heap[box] && valuesOf(steps.at(-1)!.heap[box]),
+            `${name} last step (line ${steps.at(-1)?.line}): the struct box at ${box}, with the change made ` +
+              `through child on line 20`
+          ).toEqual({ id: 7, child: { value: 71, weight: 700 } });
+        },
+        CLANG_TIMEOUT
+      );
+
+      it(
+        'keeps showing a struct after a struct around it is reached, and both after the pointers are dropped',
+        async () => {
+          // fixtures/embedded_parent.c: raw = malloc(struct box) on line 15.
+          // child points at its child field on line 16 (so a struct inner is
+          // shown), set to {70, 700} on lines 17-18, dropped on line 19. box
+          // points at the whole block on line 20, id = 7 on line 21, dropped
+          // on line 22. Nothing is freed. The struct inner shown first is the
+          // box's child field (same type, at that field's offset), so it
+          // doesn't conflict with the box.
+          const name = 'embedded_parent.c';
+          const { steps } = await record(name, fixture(name));
+
+          const innerShown = steps.findIndex((step) => step.line === 17);
+          const inner = steps[innerShown]?.variables.child?.value as string;
+          expect(
+            steps[innerShown]?.heap[inner]?.typeName,
+            `${name} line 17: child (${inner}) points at a struct inner, shown on the heap`
+          ).toBe('struct inner');
+          const boxShown = steps.findIndex((step) => step.line === 21);
+          const box = steps[boxShown]?.variables.box?.value as string;
+          expect(
+            steps[boxShown]?.heap[box]?.typeName,
+            `${name} line 21: box (${box}) points at the struct box around it, shown on the heap`
+          ).toBe('struct box');
+
+          expect(
+            [
+              ...missingFrom(steps, innerShown, inner, 'struct inner'),
+              ...missingFrom(steps, boxShown, box, 'struct box'),
+            ],
+            `${name}: the struct inner at ${inner} (from line 17) and the struct box around it at ${box} ` +
+              `(from line 21) should both be shown at every step to the end: neither is freed`
+          ).toEqual([]);
+          expect(
+            steps.at(-1)?.heap[box] && valuesOf(steps.at(-1)!.heap[box]),
+            `${name} last step (line ${steps.at(-1)?.line}): the struct box at ${box}`
+          ).toEqual({ id: 7, child: { value: 70, weight: 700 } });
+        },
+        CLANG_TIMEOUT
+      );
+    });
 
     it(
       'shares a heap entry between steps while it stays the same',

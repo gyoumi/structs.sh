@@ -21,3 +21,8 @@ nothing reaches as a struct.
 `pool_same_address.c` shows a `struct node` at the start of a malloc'd pool,
 then reaches the same address as a `struct pair` for one step only, while
 the pool stays allocated to the end.
+
+`embedded_child.c` shows a malloc'd `struct box`, then keeps only a pointer
+to the `struct inner` inside it. `embedded_parent.c` does the reverse: a
+`struct inner` is shown first, then the `struct box` around it is reached.
+Neither frees its block.
