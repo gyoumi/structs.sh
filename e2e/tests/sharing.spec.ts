@@ -1,5 +1,5 @@
 import { test, expect } from '../support/test';
-import type { TopicSlug } from '../support/visualiser-page';
+import type { TopicSlug } from '../support/topics';
 
 const shared: { topic: TopicSlug; data: number[]; drawn: number[] }[] = [
   { topic: 'linked-lists', data: [10, 20, 30], drawn: [10, 20, 30] },
