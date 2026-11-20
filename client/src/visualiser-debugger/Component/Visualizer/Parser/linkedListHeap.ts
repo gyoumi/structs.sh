@@ -1,5 +1,5 @@
 import { UserAnnotation, DataStructureType, isLinkedListNode } from '../../../Types/annotationType';
-import { Addr, BackendState, RecordedValue } from '../../../Types/backendType';
+import { Addr, ProgramState, RecordedValue } from '../../../Types/programState';
 import { assertUnreachable } from '../Util/util';
 
 export type LinkedListNode = {
@@ -10,7 +10,7 @@ export type LinkedListNode = {
 
 /** The list nodes on the heap, in heap order, for each linked list annotation. */
 export function readLinkedListNodes(
-  backendStructure: BackendState,
+  programState: ProgramState,
   annotation: UserAnnotation
 ): LinkedListNode[] {
   const linkedList: LinkedListNode[] = [];
@@ -21,7 +21,7 @@ export function readLinkedListNodes(
         break;
       }
       case DataStructureType.LinkedList: {
-        Object.entries(backendStructure.heap_data).forEach(([uid, heapValue]) => {
+        Object.entries(programState.heap_data).forEach(([uid, heapValue]) => {
           if (isLinkedListNode(heapValue, linkedListAnnotation)) {
             const fields = heapValue.value;
             const linkedListNode: LinkedListNode = {

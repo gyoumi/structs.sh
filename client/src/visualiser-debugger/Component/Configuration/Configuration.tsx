@@ -4,13 +4,13 @@ import styles from '@/styles/Configuration.module.css';
 import { useGlobalStore } from '@/visualiser-debugger/Store/globalStateStore';
 import { MotionCollapse } from './MotionCollapse';
 import { TypeAnnotation } from './TypeAnnotation';
-import { StackVarAnnotation } from './StackVarDeclaration';
+import { StackVarAnnotation } from './StackVarAnnotation';
 
 const Configuration = () => {
   const [isTypeAnnotationOpen, setIsAnnotationOpen] = useState(true);
   const [isVariableAnnotationOpen, setIsVariableAnnotationOpen] = useState(true);
   const { typeDeclarations } = useGlobalStore().visualizer;
-  const { currFrame } = useGlobalStore();
+  const { latestProgramState } = useGlobalStore();
 
   return (
     <div
@@ -79,7 +79,7 @@ const Configuration = () => {
         <MotionCollapse isOpen={isVariableAnnotationOpen}>
           {isVariableAnnotationOpen ? (
             <div className={styles.indentedAnnotationArea}>
-              {Object.entries(currFrame.stack_data).map(([name, memoryValue]) => (
+              {Object.entries(latestProgramState.stack_data).map(([name, memoryValue]) => (
                 <StackVarAnnotation key={name} name={name} memoryValue={memoryValue} />
               ))}
             </div>

@@ -1,5 +1,5 @@
 /** How many items lead `sorted` while `isBefore` holds, found by binary search. */
-export const countBefore = <T>(sorted: readonly T[], isBefore: (item: T) => boolean) => {
+export const partitionPoint = <T>(sorted: readonly T[], isBefore: (item: T) => boolean) => {
   let low = 0;
   let high = sorted.length;
   while (low < high) {

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { compileC } from './compile';
+import { compileC } from './clang';
 import { runWasi } from './run';
 
 // The same programs the e2e suite uses.

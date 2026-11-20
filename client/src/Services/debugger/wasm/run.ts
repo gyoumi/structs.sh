@@ -35,7 +35,7 @@ export type TraceEvent =
   | { type: 'freed'; pointer: number }
   | { type: 'reallocated'; old: number; pointer: number; size: number };
 
-export const NULL_DEREFERENCE = 'NULL pointer dereference';
+export const NULL_DEREFERENCE_MESSAGE = 'NULL pointer dereference';
 
 export type RunOptions = {
   /** Called with stdout and stderr text as the program writes it. */
@@ -198,7 +198,7 @@ export const runWasi = async (
     reallocated: (old: number, pointer: number, size: number) =>
       onTrace?.({ type: 'reallocated', old, pointer, size }, view),
     null: () => {
-      throw new Error(NULL_DEREFERENCE);
+      throw new Error(NULL_DEREFERENCE_MESSAGE);
     },
   };
 

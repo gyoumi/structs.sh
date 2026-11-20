@@ -1,5 +1,5 @@
 import { StackAnnotation, isStackVariableLabelled } from '../../../Types/annotationType';
-import { Addr, BackendState } from '../../../Types/backendType';
+import { Addr, ProgramState } from '../../../Types/programState';
 import { EntityType } from '../Entities/BaseEntity/baseEntity';
 import { EdgeEntity } from '../Entities/BaseEntity/edgeEntity';
 import { NodeEntity, DEFAULT_NODE_SIZE } from '../Entities/BaseEntity/nodeEntity';
@@ -62,14 +62,14 @@ export function buildNodesAndEdges(
 
 /** A label on each drawn node for the labelled stack variables pointing at it. */
 export function buildPointerLabels(
-  backendStructure: BackendState,
+  programState: ProgramState,
   stackAnnotation: StackAnnotation,
   nodesByUid: Map<Addr, LinkedListNode>,
   cacheEntity: { [uid: string]: EntityConcrete }
 ): PointerEntity[] {
   const pointers: PointerEntity[] = [];
 
-  Object.entries(backendStructure.stack_data).forEach(([name, memoryValue]) => {
+  Object.entries(programState.stack_data).forEach(([name, memoryValue]) => {
     if (!isStackVariableLabelled(stackAnnotation, name, memoryValue.typeName)) return;
 
     const target = memoryValue.value;

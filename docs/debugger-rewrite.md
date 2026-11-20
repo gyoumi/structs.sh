@@ -44,8 +44,8 @@ The client had no unit tests. The e2e suite says whether a feature works, but
 not which part is broken, so Vitest came first.
 
 The first test covers the linked-list parser, using a state recorded from
-GDB. It shows that what GDB really sends doesn't match the `BackendState`
-type (fields use `kind` instead of `typeName`, and `frame_info` has no
+GDB. It shows that what GDB really sends doesn't match the `ProgramState`
+type, then called `BackendState` (fields use `kind` instead of `typeName`, and `frame_info` has no
 `line`). The wasm debugger has to send what the parser actually reads.
 
 ## Checkpoints
@@ -91,7 +91,7 @@ around the happy path:
 
 - local variables and struct types
 - tracked `malloc`/`free`, and following pointers
-- output in the existing `BackendState` format, so the linked-list
+- output in the existing `ProgramState` format, so the linked-list
   visualiser draws from it unchanged
 - stdin, by re-running the program with the input added, and end-of-file
 - NULL dereference checks
@@ -286,7 +286,7 @@ passes 11/16, including a new test for stepping back after the end.
 
 - **Each step keeps a snapshot** of what the page shows: the current
   function's variables and the heap structs reachable from every frame's
-  variables, in the `BackendState` format. Snapshots share heap objects that didn't change
+  variables, in the `ProgramState` format. Snapshots share heap objects that didn't change
   since the step before. A size budget sits alongside the step and time
   limits: a recording that outgrows it ends with a message, and everything
   before it can still be stepped through. Pausing the real program instead
@@ -568,6 +568,14 @@ Found while building checkpoint 1, and not needed for it:
   page still on the landing page after the click: the GitHub card above the
   footer loads late and moves the "Provide Feedback" link. The test came
   from `dev` unchanged.
+- **Names left from the old server debugger, in files with other work in
+  progress:** the misspelled `Component/Visualizer/Visulizer/` folder,
+  `VisualizerState` (it's a component's props), the `frontendStateStore.ts`
+  file and `useFrontendStateStore` (a step timeline), and the `useCursor.ts`
+  file and hook (it handles console input). The file tree's `IFileSystem`
+  names (`IFileFileNode`, `doesDirExists`) predate the rewrite. The console
+  also prints a made-up `gcc -g …` line, though programs are compiled with
+  clang.
 - **The console caret's blink timer** in `useCursor.ts` is a plain `let`,
   so it's recreated on every render and `clearTimeout` never cancels the
   previous timer. This predates the rewrite.

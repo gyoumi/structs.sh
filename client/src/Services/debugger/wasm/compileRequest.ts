@@ -1,5 +1,5 @@
-import { loadClang } from './compile';
-import { CompileResult, CompilerStatus } from './compiler';
+import { loadClang } from './clang';
+import { CompileResult, CompilerStatus } from './compilerTypes';
 import { compileAndInstrument, loadInstrumenter } from './instrumenter';
 
 const loadCompiler = async (onProgress: (done: number, total: number) => void) => {

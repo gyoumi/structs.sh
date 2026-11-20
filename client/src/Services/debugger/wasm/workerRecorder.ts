@@ -1,5 +1,5 @@
-import { TIME_LIMIT_MS as RECORDER_TIME_LIMIT_MS } from './wasm/recording';
-import { createRunnerPool, RecordResult, recordInWorker } from './wasm/workerRunner';
+import { TIME_LIMIT_MS as RECORDER_TIME_LIMIT_MS } from './recording';
+import { createStandbyRunner, RecordResult, recordInWorker } from './workerRunner';
 
 const GRACE_FOR_RECORDER_TO_STOP_FIRST_MS = 2_000;
 const WORKER_TIME_LIMIT_MS = RECORDER_TIME_LIMIT_MS + GRACE_FOR_RECORDER_TO_STOP_FIRST_MS;
@@ -18,10 +18,10 @@ export type Recorder = ((
 };
 
 export const createWorkerRecorder = (): Recorder => {
-  const runners = createRunnerPool();
+  const standby = createStandbyRunner();
   const record: Recorder = (wasm, options) =>
-    recordInWorker(wasm, { ...options, timeLimitMs: WORKER_TIME_LIMIT_MS }, runners.take);
-  record.whenReady = runners.whenReady;
-  record.dispose = runners.dispose;
+    recordInWorker(wasm, { ...options, timeLimitMs: WORKER_TIME_LIMIT_MS }, standby.take);
+  record.whenReady = standby.whenReady;
+  record.dispose = standby.dispose;
   return record;
 };

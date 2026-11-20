@@ -1,4 +1,4 @@
-import { CompileResult, Compiler, CompilerStatus } from './compiler';
+import { CompileResult, Compiler, CompilerStatus } from './compilerTypes';
 import type { CompileRequest, CompileResponse, LoadRequest, StatusMessage } from './compileRequest';
 
 const startCompilerWorker = () =>

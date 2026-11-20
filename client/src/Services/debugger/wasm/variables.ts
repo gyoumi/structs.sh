@@ -1,12 +1,5 @@
-import { DebugSection } from './debugSection';
-import { hex, readValue, Value } from './values';
-
-export type { DebugSection, DebugType, TypeDeclaration } from './debugSection';
-export { readDebugSection, structDeclarations } from './debugSection';
-export type { Value } from './values';
-export { hex, readValue } from './values';
-export type { Allocation, Frame, HeapEntry, HeapField, ShownStructs } from './heap';
-export { readHeap } from './heap';
+import type { DebugSection } from './debugSection';
+import { formatAddress, readValue, Value } from './values';
 
 export type Variable = { addr: string; typeName: string; value: Value };
 
@@ -32,7 +25,7 @@ export const readVariables = (
     } catch {
       value = null;
     }
-    variables[name] = { addr: hex(address), typeName: debug.types[type].name, value };
+    variables[name] = { addr: formatAddress(address), typeName: debug.types[type].name, value };
   });
   return variables;
 };

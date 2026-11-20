@@ -1,5 +1,5 @@
-import { countBefore } from './countBefore';
-import { DebugType, resolveIndex } from './debugSection';
+import { partitionPoint } from './partitionPoint';
+import { DebugType, resolveTypeIndex } from './debugSection';
 
 /** A heap struct the variables reach, as [start, end, type]. */
 export type ReachedStruct = [number, number, number];
@@ -7,7 +7,7 @@ export type ReachedStruct = [number, number, number];
 /** The reached structs by start, with the furthest end of each and those before it. */
 export type ReachedByStart = { sorted: ReachedStruct[]; furthestEnds: number[] };
 
-export const sortByStart = (reached: ReachedStruct[]): ReachedByStart => {
+export const indexReachedByStart = (reached: ReachedStruct[]): ReachedByStart => {
   const sorted = [...reached].sort((a, b) => a[0] - b[0]);
   const furthestEnds: number[] = [];
   sorted.forEach(([, structEnd], i) =>
@@ -17,8 +17,8 @@ export const sortByStart = (reached: ReachedStruct[]): ReachedByStart => {
 };
 
 const embeds = (types: DebugType[], outer: number, offset: number, inner: number): boolean => {
-  const resolved = resolveIndex(types, outer);
-  if (offset === 0 && resolved === resolveIndex(types, inner)) return true;
+  const resolved = resolveTypeIndex(types, outer);
+  if (offset === 0 && resolved === resolveTypeIndex(types, inner)) return true;
   const type = types[resolved];
   if (type.kind === 'struct') {
     return type.fields.some(
@@ -49,7 +49,7 @@ export const clashesWithReached = (
   end: number,
   type: number
 ) => {
-  const startingBeforeEnd = countBefore(sorted, ([otherStart]) => otherStart < end);
+  const startingBeforeEnd = partitionPoint(sorted, ([otherStart]) => otherStart < end);
   for (let i = startingBeforeEnd - 1; i >= 0 && furthestEnds[i] > start; i -= 1) {
     const [otherStart, otherEnd, other] = sorted[i];
     if (

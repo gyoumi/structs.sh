@@ -29,14 +29,14 @@ export interface RunnerWorker {
 const startRunnerWorker = (): RunnerWorker =>
   new Worker(new URL('./runner.worker.ts', import.meta.url), { type: 'module' });
 
-export type RunnerPool = {
+export type StandbyRunner = {
   take: () => RunnerWorker;
   /** Settles once the worker held for the next run has loaded, or failed to. */
   whenReady: () => Promise<void>;
   dispose: () => void;
 };
 
-type PoolStage =
+type StandbyStage =
   | { stage: 'empty' }
   | { stage: 'holding'; worker: RunnerWorker; loaded: () => void }
   | { stage: 'disposed' };
@@ -48,8 +48,8 @@ type LoanStage = 'waiting' | 'answered' | 'returned';
  * worker fetches its script again, which fails once the network is off. One
  * worker is started ahead of the first run.
  */
-export const createRunnerPool = (createWorker = startRunnerWorker): RunnerPool => {
-  let stage: PoolStage = { stage: 'empty' };
+export const createStandbyRunner = (createWorker = startRunnerWorker): StandbyRunner => {
+  let stage: StandbyStage = { stage: 'empty' };
   let readyLoaded: Promise<void> = Promise.resolve();
 
   const keepReady = (worker: RunnerWorker, loaded: () => void) => {

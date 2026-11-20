@@ -1,14 +1,15 @@
-import { BackendState, BackendTypeDeclaration } from '@/visualiser-debugger/Types/backendType';
+import { ProgramState } from '@/visualiser-debugger/Types/programState';
 import { DEFAULT_MESSAGE_DURATION } from '@/visualiser-debugger/Store/toastStateStore';
 import { DebuggerEvents } from './types';
-import type { CompilerStatus } from './wasm/compiler';
+import type { CompilerStatus } from './wasm/compilerTypes';
+import type { TypeDeclaration } from './wasm/debugSection';
 
-type Page = {
+export type DebuggerEventHandlers = {
   setMessage: (msg: { content: string; colorTheme: string; durationMs: number }) => void;
   setActive: (active: boolean) => void;
-  updateNextFrame: (state: BackendState) => void;
-  addToTimeline: (state: BackendState) => void;
-  updateTypeDeclaration: (type: BackendTypeDeclaration) => void;
+  setLatestProgramState: (state: ProgramState) => void;
+  addToTimeline: (state: ProgramState) => void;
+  addTypeDeclaration: (type: TypeDeclaration) => void;
   appendConsoleChunks: (chunks: string[]) => void;
   updateCurrFocusedTab: (tab: string) => void;
   setCompilerStatus: (status: CompilerStatus) => void;
@@ -17,13 +18,13 @@ type Page = {
 export const buildDebuggerEvents = ({
   setMessage,
   setActive,
-  updateNextFrame,
+  setLatestProgramState,
   addToTimeline,
-  updateTypeDeclaration,
+  addTypeDeclaration,
   appendConsoleChunks,
   updateCurrFocusedTab,
   setCompilerStatus,
-}: Page): DebuggerEvents => ({
+}: DebuggerEventHandlers): DebuggerEvents => ({
   sessionStarted: () => {
     setMessage({
       content: 'Debug session started.',
@@ -42,16 +43,12 @@ export const buildDebuggerEvents = ({
     setActive(false);
   },
 
-  state: (state: BackendState) => {
-    updateNextFrame(state);
+  state: (state: ProgramState) => {
+    setLatestProgramState(state);
     addToTimeline(state);
   },
 
-  typeDeclaration: (type: BackendTypeDeclaration) => {
-    if (type.typeName !== 'size_t') {
-      updateTypeDeclaration(type);
-    }
-  },
+  typeDeclaration: addTypeDeclaration,
 
   output: (text: string) => {
     appendConsoleChunks([...text]);

@@ -1,4 +1,4 @@
-import { DebugType, resolve, resolveIndex } from './debugSection';
+import { DebugType, resolveType, resolveTypeIndex } from './debugSection';
 
 /**
  * A number for integers, characters and floats, a hex string for a pointer
@@ -9,7 +9,7 @@ export type Value = number | string | null | Value[] | { [field: string]: Value 
 
 const ARRAY_LIMIT = 200;
 
-export const hex = (address: number) => `0x${address.toString(16)}`;
+export const formatAddress = (address: number) => `0x${address.toString(16)}`;
 
 const CHAR_TYPES = ['char', 'signed char', 'unsigned char'];
 
@@ -91,21 +91,21 @@ export const readValue = (
     case 'float':
       return readNumber(memory, address, type);
     case 'pointer':
-      return hex(memory.getUint32(address, true));
+      return formatAddress(memory.getUint32(address, true));
     case 'struct':
       return Object.fromEntries(
         type.fields.map((field) => [
           field.name,
           field.bitSize === undefined || field.bitOffset === undefined
             ? readValue(types, field.type, memory, address + field.offset)
-            : readBits(types[resolveIndex(types, field.type)], memory, address, {
+            : readBits(types[resolveTypeIndex(types, field.type)], memory, address, {
                 bitOffset: field.bitOffset,
                 bitSize: field.bitSize,
               }),
         ])
       );
     case 'array': {
-      if (isChar(resolve(types, type.of))) return readString(memory, address, type.count);
+      if (isChar(resolveType(types, type.of))) return readString(memory, address, type.count);
       const { size } = types[type.of];
       return Array.from({ length: Math.min(type.count, ARRAY_LIMIT) }, (_, i) =>
         readValue(types, type.of, memory, address + i * size)

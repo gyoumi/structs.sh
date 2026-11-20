@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react';
-import { BackendState, INITIAL_BACKEND_STATE } from '../visualiser-debugger/Types/backendType';
+import { ProgramState, INITIAL_PROGRAM_STATE } from '../visualiser-debugger/Types/programState';
 import { useDebuggerStore } from './debugger/debuggerStore';
 import { buildDebuggerEvents } from './debugger/buildDebuggerEvents';
 import { useCompilerStatusStore } from './debugger/compilerStatusStore';
@@ -12,52 +12,52 @@ import {
 } from '../visualiser-debugger/Store/toastStateStore';
 import { useQueue } from './useQueue';
 
-const addToTimeline = (state: BackendState) => {
+const addToTimeline = (state: ProgramState) => {
   const { parser, userAnnotation } = useGlobalStore.getState().visualizer;
   useFrontendStateStore
     .getState()
-    .pushOrReplaceFrontendState(state, parser.parseState(state, userAnnotation));
+    .pushOrReplaceLatestStep(state, parser.parseState(state, userAnnotation));
 };
 
 export const useDebugger = () => {
   const {
     updateCurrFocusedTab,
-    updateNextFrame,
-    updateTypeDeclaration,
+    setLatestProgramState,
+    addTypeDeclaration,
     clearTypeDeclarations,
     clearUserAnnotation,
     resetConsoleChunks,
     appendConsoleChunks,
   } = useGlobalStore();
 
-  const { setActive, clearFrontendState } = useFrontendStateStore();
-  const debuggerClient = useDebuggerStore((state) => state.debuggerClient);
+  const { setActive, resetTimeline } = useFrontendStateStore();
+  const activeDebugger = useDebuggerStore((state) => state.activeDebugger);
   const { setToastMessage } = useToastStateStore();
   const setCompilerStatus = useCompilerStatusStore((state) => state.setStatus);
   const queue = useQueue();
 
   useEffect(() => {
-    if (!debuggerClient) {
+    if (!activeDebugger) {
       return;
     }
 
     const events = buildDebuggerEvents({
       setActive,
-      updateNextFrame,
+      setLatestProgramState,
       addToTimeline,
-      updateTypeDeclaration,
+      addTypeDeclaration,
       appendConsoleChunks,
       updateCurrFocusedTab,
       setMessage: setToastMessage,
       setCompilerStatus,
     });
 
-    debuggerClient.setEvents(events);
+    activeDebugger.setEvents(events);
   }, [
-    debuggerClient,
+    activeDebugger,
     setActive,
-    updateNextFrame,
-    updateTypeDeclaration,
+    setLatestProgramState,
+    addTypeDeclaration,
     appendConsoleChunks,
     updateCurrFocusedTab,
     setToastMessage,
@@ -65,23 +65,23 @@ export const useDebugger = () => {
   ]);
 
   const resetDebugSession = useCallback(() => {
-    updateNextFrame(INITIAL_BACKEND_STATE);
-    clearFrontendState();
+    setLatestProgramState(INITIAL_PROGRAM_STATE);
+    resetTimeline();
     setActive(false);
     clearTypeDeclarations();
     clearUserAnnotation();
     resetConsoleChunks();
   }, [
-    updateNextFrame,
-    clearFrontendState,
+    setLatestProgramState,
+    resetTimeline,
     setActive,
     clearTypeDeclarations,
     clearUserAnnotation,
     resetConsoleChunks,
   ]);
 
-  const sendCode = useCallback(() => {
-    if (!debuggerClient) return;
+  const startDebugging = useCallback(() => {
+    if (!activeDebugger) return;
 
     resetDebugSession();
 
@@ -97,29 +97,29 @@ export const useDebugger = () => {
       return;
     }
 
-    debuggerClient.start({ name: file.name, code: file.data });
-  }, [debuggerClient, resetDebugSession, setToastMessage]);
+    activeDebugger.start({ name: file.name, code: file.data });
+  }, [activeDebugger, resetDebugSession, setToastMessage]);
 
-  const queueStep = useCallback(() => {
-    if (!debuggerClient) return Promise.resolve(false);
+  const requestNextStep = useCallback(() => {
+    if (!activeDebugger) return Promise.resolve(false);
 
-    return queue(() => debuggerClient.step());
-  }, [debuggerClient, queue]);
+    return queue(() => activeDebugger.step());
+  }, [activeDebugger, queue]);
 
-  const bulkSendNextStates = useCallback(
+  const requestSteps = useCallback(
     async (count: number) => {
-      const results = await Promise.all(Array.from({ length: count }, () => queueStep()));
+      const results = await Promise.all(Array.from({ length: count }, () => requestNextStep()));
       return results.filter(Boolean).length;
     },
-    [queueStep]
+    [requestNextStep]
   );
 
   return {
     resetConsoleChunks,
     appendConsoleChunks,
-    sendCode,
-    getNextState: queueStep,
-    bulkSendNextStates,
+    startDebugging,
+    requestNextStep,
+    requestSteps,
     resetDebugSession,
   };
 };

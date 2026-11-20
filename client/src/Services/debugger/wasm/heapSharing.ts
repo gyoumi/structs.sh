@@ -1,6 +1,6 @@
 import type { HeapEntry } from './heap';
 
-const ESTIMATED_REFERENCE_BYTES = 16;
+const ESTIMATED_ENTRY_OVERHEAD_BYTES = 16;
 
 /** JSON writes NaN and Infinity as null, and -0 as 0: keep them apart when comparing. */
 const keepSpecialNumbers = (_key: string, value: unknown) => {
@@ -23,7 +23,7 @@ export const createHeapSharing = () => {
     const seen = new Map<string, { entry: HeapEntry; json: string }>();
     Object.entries(read).forEach(([address, entry]) => {
       const json = JSON.stringify(entry, keepSpecialNumbers);
-      size += address.length + ESTIMATED_REFERENCE_BYTES;
+      size += address.length + ESTIMATED_ENTRY_OVERHEAD_BYTES;
       const before = previousHeap.get(address);
       if (before?.json === json) {
         heap[address] = before.entry;

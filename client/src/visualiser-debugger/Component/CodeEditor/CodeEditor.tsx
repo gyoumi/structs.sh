@@ -15,7 +15,7 @@ import { useTheme } from '@/visualiser-debugger/Contexts/ThemeContexts';
 const AceEditor = (ReactAce as { default?: typeof ReactAce }).default ?? ReactAce;
 
 const CodeEditor: React.FC = () => {
-  const currBackendState = useFrontendStateStore((store) => store.currState().backendState);
+  const currentProgramState = useFrontendStateStore((store) => store.getCurrentStep().programState);
   const { fileSystem, currFocusFilePath } = useUserFsStateStore();
   const { setOnboardingCurrFile } = onboardingStore();
   const [currFile, setCurrFile] = useState<IFileFileNode | undefined>(undefined);
@@ -35,9 +35,9 @@ const CodeEditor: React.FC = () => {
 
   const markers: IMarker[] = [
     {
-      startRow: currBackendState.frame_info.line_num - 1,
+      startRow: currentProgramState.frame_info.line_num - 1,
       startCol: 0,
-      endRow: currBackendState.frame_info.line_num - 1,
+      endRow: currentProgramState.frame_info.line_num - 1,
       endCol: 100,
       className: 'current-line-marker',
       type: 'fullLine',

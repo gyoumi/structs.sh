@@ -1,35 +1,46 @@
-import { DebugSection, DebugType, isAnonymous, resolveIndex, unqualified } from './debugSection';
-import { clashesWithReached, ReachedByStart, ReachedStruct, sortByStart } from './heapOverlap';
-import { hex, readValue, Value } from './values';
+import {
+  DebugSection,
+  DebugType,
+  isAnonymousStruct,
+  resolveTypeIndex,
+  unqualifiedType,
+} from './debugSection';
+import {
+  clashesWithReached,
+  ReachedByStart,
+  ReachedStruct,
+  indexReachedByStart,
+} from './heapOverlap';
+import { formatAddress, readValue, Value } from './values';
 
 export type HeapField = { kind: string; value: Value; addr: null };
 
 export type HeapEntry = { addr: string; typeName: string; value: Record<string, HeapField> };
 
-export type Frame = { statement: number; frameBase: number };
+export type CallFrame = { statement: number; frameBase: number };
 
 export type Allocation = { start: number; size: number };
 
 export const LOWEST_VALID_ADDRESS = 1024;
 
-export type ShownStructs = {
-  /** Each struct shown before, as [type, address]. */
+export type RememberedStructsOptions = {
+  /** Each struct remembered from earlier steps, as [type, address]. */
   roots?: Iterable<[number, number]>;
-  onShown?: (address: number, type: number) => void;
+  onRemembered?: (address: number, type: number) => void;
   /**
-   * Called with a struct shown before, as its address and type, that overlaps
-   * a different struct the variables reach now, so it's left out and can be
-   * forgotten.
+   * Called with a struct remembered from earlier steps, as its address and
+   * type, that overlaps a different struct the variables reach now, so it's
+   * left out and can be forgotten.
    */
   onOverlapped?: (address: number, type: number) => void;
 };
 
 type WalkStage =
   | { from: 'variables'; reached: ReachedStruct[] }
-  | { from: 'shown'; reached: ReachedStruct[]; byStart: ReachedByStart | null };
+  | { from: 'remembered'; reached: ReachedStruct[]; byStart: ReachedByStart | null };
 
-const reachedByStart = (stage: Extract<WalkStage, { from: 'shown' }>) => {
-  stage.byStart ??= sortByStart(stage.reached);
+const reachedByStart = (stage: Extract<WalkStage, { from: 'remembered' }>) => {
+  stage.byStart ??= indexReachedByStart(stage.reached);
   return stage.byStart;
 };
 
@@ -39,20 +50,20 @@ type ArrayType = Extract<DebugType, { kind: 'array' }>;
 /**
  * The structs on the heap that the variables of every frame reach, following
  * pointers through struct fields, arrays and tables of pointers. A pointer is
- * only followed into memory `allocationOf` says is live. The `roots` in
- * `shown` are read too, after what the variables reach, along with what they
+ * only followed into memory `allocationOf` says is live. The remembered
+ * `roots` are read too, after what the variables reach, along with what they
  * reach. What the variables reach wins: a struct found only from `roots` that
- * overlaps a struct they reach isn't shown or followed, unless it's that
+ * overlaps a struct they reach isn't recorded or followed, unless it's that
  * struct, or one is a field inside the other.
  */
 export const readHeap = (
   debug: DebugSection,
-  frames: Frame[],
+  frames: CallFrame[],
   memory: DataView,
   allocationOf: (address: number) => Allocation | null,
   /** Called now and then during a long walk; it may throw to stop it. */
   checkTime: () => void = () => {},
-  { roots = [], onShown, onOverlapped }: ShownStructs = {}
+  { roots = [], onRemembered, onOverlapped }: RememberedStructsOptions = {}
 ): Record<string, HeapEntry> => {
   const { types } = debug;
   const heap: Record<string, HeapEntry> = Object.create(null);
@@ -60,8 +71,8 @@ export const readHeap = (
     const allocation = allocationOf(address);
     return allocation !== null && address + size <= allocation.start + allocation.size;
   };
-  const leadsSomewhere = (index: number) => {
-    const { kind } = types[resolveIndex(types, index)];
+  const mayContainPointers = (index: number) => {
+    const { kind } = types[resolveTypeIndex(types, index)];
     return kind === 'pointer' || kind === 'struct' || kind === 'array';
   };
 
@@ -103,7 +114,7 @@ export const readHeap = (
 
   const followPointer = (to: number, address: number) => {
     const target = memory.getUint32(address, true);
-    const pointee = types[resolveIndex(types, to)];
+    const pointee = types[resolveTypeIndex(types, to)];
     if (pointee.kind === 'struct' || pointee.kind === 'array') {
       if (inAllocation(target, pointee.size)) visit(to, target);
     } else if (pointee.kind === 'pointer') {
@@ -111,27 +122,27 @@ export const readHeap = (
     }
   };
 
-  const showStruct = (index: number, resolved: number, type: StructType, address: number) => {
-    const heapKey = hex(address);
+  const recordHeapStruct = (index: number, resolved: number, type: StructType, address: number) => {
+    const heapKey = formatAddress(address);
     const onHeap = inAllocation(address, type.size);
     if (onHeap && stage.from === 'variables') {
       stage.reached.push([address, address + type.size, resolved]);
     } else if (
       onHeap &&
-      stage.from === 'shown' &&
+      stage.from === 'remembered' &&
       clashesWithReached(types, reachedByStart(stage), address, address + type.size, resolved)
     ) {
       onOverlapped?.(address, index);
       return;
     }
     if (!(heapKey in heap) && onHeap) {
-      const whole = readValue(types, resolveIndex(types, index), memory, address) as Record<
+      const whole = readValue(types, resolveTypeIndex(types, index), memory, address) as Record<
         string,
         Value
       >;
       heap[heapKey] = {
         addr: heapKey,
-        typeName: isAnonymous(type) ? unqualified(types, index).name : type.name,
+        typeName: isAnonymousStruct(type) ? unqualifiedType(types, index).name : type.name,
         value: Object.fromEntries(
           type.fields.map((field) => [
             field.name,
@@ -139,16 +150,16 @@ export const readHeap = (
           ])
         ),
       };
-      onShown?.(address, index);
+      onRemembered?.(address, index);
     }
     type.fields
-      .filter((field) => field.bitSize === undefined && leadsSomewhere(field.type))
+      .filter((field) => field.bitSize === undefined && mayContainPointers(field.type))
       .forEach((field) => visit(field.type, address + field.offset));
   };
 
   const followArray = (type: ArrayType, address: number) => {
     const { size } = types[type.of];
-    const pointers = types[resolveIndex(types, type.of)].kind === 'pointer';
+    const pointers = types[resolveTypeIndex(types, type.of)].kind === 'pointer';
     for (let i = 0; i < type.count; i += 1) {
       tick();
       const at = address + i * size;
@@ -156,12 +167,12 @@ export const readHeap = (
     }
   };
 
-  const look = (index: number, address: number) => {
-    const resolved = resolveIndex(types, index);
+  const inspect = (index: number, address: number) => {
+    const resolved = resolveTypeIndex(types, index);
     const type = types[resolved];
     if (type.kind === 'pointer' && type.to !== null) followPointer(type.to, address);
-    else if (type.kind === 'struct') showStruct(index, resolved, type, address);
-    else if (type.kind === 'array' && leadsSomewhere(type.of)) followArray(type, address);
+    else if (type.kind === 'struct') recordHeapStruct(index, resolved, type, address);
+    else if (type.kind === 'array' && mayContainPointers(type.of)) followArray(type, address);
   };
 
   const walk = () => {
@@ -169,7 +180,7 @@ export const readHeap = (
       tick();
       const [type, address] = pendingStack.pop()!;
       try {
-        look(type, address);
+        inspect(type, address);
       } catch (error) {
         // An address past the end of memory has nothing to follow. Anything
         // else, such as checkTime stopping the walk, goes on up.
@@ -180,11 +191,11 @@ export const readHeap = (
 
   frames.forEach(({ statement, frameBase }) =>
     (debug.statements[statement]?.variables ?? [])
-      .filter(({ type }) => leadsSomewhere(type))
+      .filter(({ type }) => mayContainPointers(type))
       .forEach(({ type, offset }) => visit(type, frameBase + offset))
   );
   walk();
-  stage = { from: 'shown', reached: stage.reached, byStart: null };
+  stage = { from: 'remembered', reached: stage.reached, byStart: null };
   visitInGivenOrder(roots);
   walk();
   return heap;

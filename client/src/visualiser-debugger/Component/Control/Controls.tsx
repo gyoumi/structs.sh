@@ -12,7 +12,7 @@ import { useFrontendStateStore } from '@/visualiser-debugger/Store/frontendState
 import { Button } from '@/components/Button';
 import Slider from '@/components/Timeline/Slider';
 import { useGlobalStore } from '@/visualiser-debugger/Store/globalStateStore';
-import { isInitialBackendState } from '@/visualiser-debugger/Types/backendType';
+import { isInitialProgramState } from '@/visualiser-debugger/Types/programState';
 import {
   DEFAULT_MESSAGE_DURATION,
   useToastStateStore,
@@ -23,14 +23,14 @@ const BUFFER_THRESHOLD = 30;
 type BufferStage = 'off' | 'requested' | 'buffering';
 
 const Controls = () => {
-  const { currFrame } = useGlobalStore();
+  const { latestProgramState } = useGlobalStore();
   const { userAnnotation, parser } = useGlobalStore().visualizer;
-  const { sendCode, bulkSendNextStates, getNextState } = useDebugger();
+  const { startDebugging, requestSteps, requestNextStep } = useDebugger();
   const { states, currentIndex, stepForward, stepBackward, jumpToState, isActive } =
     useFrontendStateStore();
 
   const [bufferStage, setBufferStage] = useState<BufferStage>('off');
-  const loading = bufferStage === 'buffering';
+  const isBuffering = bufferStage === 'buffering';
   const [awaitingNextState, setAwaitingNextState] = useState<boolean>(false);
   const atLatestState = currentIndex >= states.length - 1;
 
@@ -38,7 +38,7 @@ const Controls = () => {
   const { setToastMessage: setMessage } = useToastStateStore();
   const compilerStatus = useCompilerStatusStore((state) => state.status);
 
-  const playToggle = () => {
+  const toggleBuffering = () => {
     setBufferStage((stage) => {
       if (stage === 'buffering') return stage;
       return stage === 'off' ? 'requested' : 'off';
@@ -57,7 +57,7 @@ const Controls = () => {
         durationMs: DEFAULT_MESSAGE_DURATION,
       });
 
-      await bulkSendNextStates(bufferSize);
+      await requestSteps(bufferSize);
 
       setMessage({
         content: 'Buffer completed.',
@@ -68,7 +68,7 @@ const Controls = () => {
       setBufferStage('off');
       bufferingRef.current = false;
     },
-    [bulkSendNextStates, setMessage]
+    [requestSteps, setMessage]
   );
 
   useEffect(() => {
@@ -93,23 +93,23 @@ const Controls = () => {
   }, [bufferStage, currentIndex, setMessage, startBuffering, states.length]);
 
   useEffect(() => {
-    if (isInitialBackendState(currFrame)) {
+    if (isInitialProgramState(latestProgramState)) {
       return;
     }
 
-    if (currFrame && userAnnotation) {
-      const newParsedState = parser.parseState(currFrame, userAnnotation);
-      useFrontendStateStore.getState().pushOrReplaceFrontendState(currFrame, newParsedState);
+    if (latestProgramState && userAnnotation) {
+      const newParsedState = parser.parseState(latestProgramState, userAnnotation);
+      useFrontendStateStore.getState().pushOrReplaceLatestStep(latestProgramState, newParsedState);
     } else {
       let issue = 'something';
-      if (!currFrame) {
-        issue = 'backendState';
+      if (!latestProgramState) {
+        issue = 'latestProgramState';
       } else if (!userAnnotation) {
         issue = 'localsAnnotations';
       }
-      console.error(`Unable to parse backend state: ${issue} is undefined`);
+      console.error(`Unable to parse program state: ${issue} is undefined`);
     }
-  }, [currFrame, userAnnotation, parser]);
+  }, [latestProgramState, userAnnotation, parser]);
 
   return (
     <div className={styles.timeline}>
@@ -117,7 +117,7 @@ const Controls = () => {
         variant="primary"
         onClick={() => {
           setBufferStage('off');
-          sendCode();
+          startDebugging();
           handleCompileClicked();
         }}
         className="Onboarding-compileButton"
@@ -129,13 +129,13 @@ const Controls = () => {
           Loading compiler {Math.floor((100 * compilerStatus.done) / compilerStatus.total)}%
         </span>
       )}
-      <Button disabled={!isActive} onClick={playToggle} className="Onboarding-playButton">
-        {loading ? (
-          <Fade in={loading} timeout={500}>
+      <Button disabled={!isActive} onClick={toggleBuffering} className="Onboarding-playButton">
+        {isBuffering ? (
+          <Fade in={isBuffering} timeout={500}>
             <CircularProgress size={24} />
           </Fade>
         ) : (
-          <Fade in={!loading} timeout={500}>
+          <Fade in={!isBuffering} timeout={500}>
             <PlayArrowIcon />
           </Fade>
         )}
@@ -158,7 +158,7 @@ const Controls = () => {
             return;
           }
           setAwaitingNextState(true);
-          const gotState = await getNextState();
+          const gotState = await requestNextStep();
           setAwaitingNextState(false);
           if (gotState) stepForward();
         }}
@@ -173,7 +173,7 @@ const Controls = () => {
 
           jumpToState(value as number);
         }}
-        loading={loading}
+        loading={isBuffering}
       />
     </div>
   );

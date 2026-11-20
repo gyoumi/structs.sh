@@ -6,7 +6,7 @@ import { github, dark } from 'react-syntax-highlighter/dist/esm/styles/hljs';
 import { MotionCollapse } from './MotionCollapse';
 import './typeAnnotation.css';
 import { StackVariableRole, isStackVariableLabelled } from '../../Types/annotationType';
-import { MemoryValue, isPointerType } from '../../Types/backendType';
+import { MemoryValue, isPointerType } from '../../Types/programState';
 import { useGlobalStore } from '../../Store/globalStateStore';
 import { useTheme } from '../../Contexts/ThemeContexts';
 

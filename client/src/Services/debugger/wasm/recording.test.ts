@@ -394,7 +394,7 @@ describe('recordRun', () => {
     async () => {
       const source = 'int main(void) {\n    int i = 0;\n    while (1) {\n        i++;\n    }\n}\n';
 
-      const recording = await record('loop.c', source, { stepLimit: 50 });
+      const recording = await record('loop.c', source, { statementLimit: 50 });
 
       expect(stepsOf(recording).slice(0, 6)).toEqual([
         'main:2',
@@ -415,7 +415,10 @@ describe('recordRun', () => {
     async () => {
       const source = 'int main(void) {\n    int i = 0;\n    while (1) {\n        i++;\n    }\n}\n';
 
-      const recording = await record('slow.c', source, { stepLimit: Infinity, timeLimitMs: 50 });
+      const recording = await record('slow.c', source, {
+        statementLimit: Infinity,
+        timeLimitMs: 50,
+      });
 
       expect(stepsOf(recording).slice(0, 3)).toEqual(['main:2', 'main:4', 'main:3']);
       expect(recording.end).toEqual({ timeLimit: 50 });
@@ -430,7 +433,7 @@ describe('recordRun', () => {
       // towards the limit.
       const source = 'int main(void) {\n    while (1) {}\n}\n';
 
-      const recording = await record('spin.c', source, { stepLimit: 50 });
+      const recording = await record('spin.c', source, { statementLimit: 50 });
 
       expect(stepsOf(recording)).toEqual(['main:2']);
       expect(recording.end).toEqual({ stepLimit: 50 });
@@ -1078,7 +1081,7 @@ describe('recordRun', () => {
         ].join('\n');
 
         const recording = await record('boxes.c', source, {
-          stepLimit: Infinity,
+          statementLimit: Infinity,
           timeLimitMs: 4000,
         });
 

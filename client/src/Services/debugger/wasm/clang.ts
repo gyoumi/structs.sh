@@ -1,5 +1,5 @@
 import { commands, Exit } from '@yowasp/clang';
-import { CompileResult } from './compiler';
+import { CompileResult } from './compilerTypes';
 
 const OUTPUT = 'program.wasm';
 

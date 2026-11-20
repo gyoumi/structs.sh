@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { compileC } from './compile';
+import { compileC } from './clang';
 
 // The same programs the e2e suite uses.
 const program = (name: string) =>

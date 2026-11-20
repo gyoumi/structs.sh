@@ -1,4 +1,4 @@
-import { BackendState } from '@/visualiser-debugger/Types/backendType';
+import { ProgramState } from '@/visualiser-debugger/Types/programState';
 import { SourceFile } from './types';
 import { Recording, RunEnd, Step, TIME_LIMIT_MS } from './wasm/recording';
 import { RecordResult } from './wasm/workerRunner';
@@ -23,7 +23,7 @@ export const describeFailure = (result: Exclude<RecordResult, { recording: Recor
   return `\nThe program could not be run: ${result.error}\n`;
 };
 
-export const stateAt = (file: SourceFile, step: Step): BackendState => ({
+export const toProgramState = (file: SourceFile, step: Step): ProgramState => ({
   frame_info: {
     file: file.name,
     line: file.code.split('\n')[step.line - 1] ?? '',

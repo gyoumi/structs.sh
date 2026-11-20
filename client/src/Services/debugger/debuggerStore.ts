@@ -4,21 +4,21 @@ import { Debugger } from './types';
 import { WasmDebugger } from './wasmDebugger';
 
 interface DebuggerStore {
-  debuggerClient: Debugger | null;
+  activeDebugger: Debugger | null;
   initialise: () => void;
   close: () => void;
 }
 
 export const useDebuggerStore = create<DebuggerStore>((set, get) => ({
-  debuggerClient: null,
+  activeDebugger: null,
   initialise: () => {
-    if (!get().debuggerClient) {
-      set({ debuggerClient: new WasmDebugger() });
+    if (!get().activeDebugger) {
+      set({ activeDebugger: new WasmDebugger() });
     }
   },
   close: () => {
-    get().debuggerClient?.close();
-    set({ debuggerClient: null });
+    get().activeDebugger?.close();
+    set({ activeDebugger: null });
     useCompilerStatusStore.getState().clear();
   },
 }));

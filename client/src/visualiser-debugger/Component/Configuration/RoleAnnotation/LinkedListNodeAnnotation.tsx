@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import * as RadioGroup from '@radix-ui/react-radio-group';
 import styles from '@/styles/Configuration.module.css';
+import type { TypeDeclaration } from '@/Services/debugger/wasm/debugSection';
 import { AnnotationComponent, AnnotationProp } from './AnnotationComponentBase';
 import {
   DataStructureType,
@@ -8,16 +9,11 @@ import {
   PossibleLinkedListAnnotation,
 } from '../../../Types/annotationType';
 import { useGlobalStore } from '../../../Store/globalStateStore';
-import {
-  BackendTypeDeclaration,
-  isNativeTypeName,
-  isPointerType,
-  isStructTypeName,
-} from '../../../Types/backendType';
+import { isNativeTypeName, isPointerType, isStructTypeName } from '../../../Types/programState';
 import ConfigurationSelect from '../ConfigurationSelect';
 
-export const createPossibleLinkedListTypeDecl = (
-  typeDecl: BackendTypeDeclaration
+export const findLinkedListFieldCandidates = (
+  typeDecl: TypeDeclaration
 ): PossibleLinkedListAnnotation | null => {
   if (!typeDecl.fields) {
     return null;
@@ -58,9 +54,11 @@ export const createPossibleLinkedListTypeDecl = (
   return null;
 };
 
-export const LinkedListNodeAnnotation: AnnotationComponent = ({ backendType }: AnnotationProp) => {
+export const LinkedListNodeAnnotation: AnnotationComponent = ({
+  typeDeclaration,
+}: AnnotationProp) => {
   const [possibleTypeDeclForLinkedList, setPossibleTypeDeclForLinkedList] =
-    useState<PossibleLinkedListAnnotation | null>(createPossibleLinkedListTypeDecl(backendType));
+    useState<PossibleLinkedListAnnotation | null>(findLinkedListFieldCandidates(typeDeclaration));
   const updateTypeAnnotation = useGlobalStore((state) => state.updateTypeAnnotation);
   const [nodeAnnotation, setNodeAnnotation] = useState<LinkedListAnnotation | null>(null);
 
@@ -68,7 +66,7 @@ export const LinkedListNodeAnnotation: AnnotationComponent = ({ backendType }: A
     (possibleTypeAnnotation: PossibleLinkedListAnnotation | null) => {
       if (possibleTypeAnnotation === null) return;
       const linkedNodeAnnotation: LinkedListAnnotation = {
-        typeName: backendType.typeName as `struct ${string}`,
+        typeName: typeDeclaration.typeName as `struct ${string}`,
         type: DataStructureType.LinkedList,
         value: {
           name: possibleTypeAnnotation.possibleValues[0].name,
@@ -82,7 +80,7 @@ export const LinkedListNodeAnnotation: AnnotationComponent = ({ backendType }: A
       setNodeAnnotation(linkedNodeAnnotation);
       updateTypeAnnotation(linkedNodeAnnotation);
     },
-    [backendType.typeName, updateTypeAnnotation]
+    [typeDeclaration.typeName, updateTypeAnnotation]
   );
 
   useEffect(() => {
@@ -90,9 +88,9 @@ export const LinkedListNodeAnnotation: AnnotationComponent = ({ backendType }: A
   }, [possibleTypeDeclForLinkedList, handleLinkedNodeAnnotation]);
 
   useEffect(() => {
-    const possibleTypeDecls = createPossibleLinkedListTypeDecl(backendType);
+    const possibleTypeDecls = findLinkedListFieldCandidates(typeDeclaration);
     setPossibleTypeDeclForLinkedList(possibleTypeDecls);
-  }, [backendType]);
+  }, [typeDeclaration]);
 
   const handleUpdateNodeData = (newNodeData: string, newNodeDataType: string) => {
     if (nodeAnnotation && isNativeTypeName(newNodeDataType)) {
