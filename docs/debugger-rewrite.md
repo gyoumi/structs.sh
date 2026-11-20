@@ -456,6 +456,85 @@ labels as 4c, since `dev`'s rules still expect the GDB files.
 **You'll know it's done when** `dev` has no server code, its required
 checks pass, and the site runs from the client image alone.
 
+## Checkpoint 5: tidy, before going into dev
+
+```
+5a. Structure ──► 5b. Comments ──► 5c. Tests ──► then #35 into dev
+```
+
+The rewrite works. Before it goes into `dev`, its code is made easy to read
+and change: no file too big, no state kept in loose flags, and no comments
+or tests that don't earn their place. Nothing a student sees changes, so the
+e2e suite and the GDB comparison must pass unchanged at every step.
+
+### Decisions
+
+- **Scope: the code the rewrite added or changed.** That's
+  `client/src/Services/debugger/`, `client/src/Services/useDebugger.ts`,
+  `instrumenter/`, `e2e/`, the PR scripts in `scripts/`, and the visualiser
+  files the rewrite changed (the linked-list parser, the annotation
+  types, the Configuration panel, `Controls.tsx`, `DevelopmentMode.tsx`,
+  `useCursor.ts`). Files the rewrite barely touched, such as
+  `IFileSystem.ts` (two lines), stay out, as does the rest of the client.
+- **Size limits, enforced in CI:** at most 300 lines for a source file and
+  500 for a test file (`*.test.ts`, `*.spec.ts`, `scripts/*.test.mjs`,
+  `instrumenter/tests/`, and the e2e page objects). Fixtures and recordings
+  (`.c`, `.json`) don't count. A script in the repo checks runs it over the
+  scope above.
+- **No implicit state machines.** When a thing moves through stages (a
+  runner Worker, a debug session, a call being recorded), its stage is one
+  value with a named type, not several booleans that have to agree.
+- **Comments: the no-comments skill**, adapted from
+  [cursor/plugins' pstack](https://github.com/cursor/plugins/blob/main/pstack/skills/no-comments/SKILL.md)
+  and installed in this repo (`.claude/`, in a PR of its own). It keeps
+  public API docs, license headers and notes about things we can't change
+  (a browser, clang or wasm quirk). Anything that explains our own code
+  becomes a better name, type or shape instead.
+- **Tests: prune and merge without losing coverage.** A test goes if
+  another test already checks the same behaviour, or if it checks a private
+  detail rather than what a caller or student sees. Tests that repeat one
+  shape with different inputs become one table-driven test. Coverage of the
+  scoped files is measured before and after, and must not drop. Each PR
+  lists every test it removes and what still covers it.
+- **Three PRs, in order:** 5a structure, 5b comments, 5c tests, so each is
+  reviewed on its own. 5a and 5b change no tests (they're refactors, and
+  the existing tests must still pass). 5c changes only tests.
+
+### 5a. Structure
+
+Split the source files over 300 lines (today `instrumenter/src/debug.rs`,
+`instrumenter/src/lib.rs`, `wasm/variables.ts`, `wasm/recording.ts`,
+`wasmDebugger.ts`, `linkedListParser.ts`) along the lines of what each part
+does. Replace the loose flags with named stages: the runner pool's
+`ready`/`answered`/`returned`/`disposed`/`ended`, the debugger session's
+fields, and the recorder's per-call flags. Add the size check to CI for
+source files. Modules keep their public exports, so no test changes.
+
+**You'll know it's done when** no source file in scope is over 300 lines,
+CI checks it, each of those things has one stage value, and every test and
+the e2e suite pass unchanged.
+
+### 5b. Comments
+
+Run the no-comments skill over the scope. Comments that explain our own
+code are deleted, and the code is renamed or reshaped where it was unclear
+without them.
+
+**You'll know it's done when** the remaining comments are API docs,
+licence headers or notes about outside constraints, and every test passes
+unchanged.
+
+### 5c. Tests
+
+Remove duplicate tests and tests of private details, merge repeated shapes
+into table-driven tests, and split test files over 500 lines. Add the size
+check for test files. Coverage of the scope doesn't drop, and the GDB
+comparison and every-step e2e tests stay as they are.
+
+**You'll know it's done when** no test file in scope is over 500 lines, CI
+checks it, coverage is the same or higher, and the PR lists every removed
+test with what still covers it.
+
 ## Follow-ups
 
 Found while building checkpoint 1, and not needed for it:
