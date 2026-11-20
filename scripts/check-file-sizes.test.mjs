@@ -446,54 +446,37 @@ describe('CLI in a temporary git repo', () => {
 
 // --- CLI against this repo -------------------------------------------------------
 
+// No particular file has to be oversized here: the run must agree with the line
+// counts of the files git lists, using the script's own inScope and kindOf
+// (tested above). The temp-repo tests guarantee failures are reported.
 describe('CLI against this repo', () => {
   const countLines = (path) => {
     const text = readFileSync(join(repoRoot, path), 'utf8');
-    if (text === '') return 0;
-    return text.split('\n').length - (text.endsWith('\n') ? 1 : 0);
+    return text === '' ? 0 : text.split('\n').length - (text.endsWith('\n') ? 1 : 0);
   };
 
-  // Test files over 500 lines when check-file-sizes was written. Each one
-  // still over the limit must be reported with its current line count.
-  const bigTestFiles = [
-    'client/src/Services/debugger/wasm/recording.test.ts',
-    'client/src/Services/debugger/wasmDebugger.test.ts',
-    'client/src/Services/debugger/wasm/workerRunner.test.ts',
-    'e2e/support/debugger-page.ts',
-    'scripts/pr-rules.test.mjs',
-  ];
-
-  it('with --only test, reports the big test files and exits 1', () => {
-    assert.ok(existsSync(scriptPath), `scripts/check-file-sizes.mjs does not exist, so the CLI can't be run (looked for ${scriptPath})`);
-    const run = runCli(repoRoot, ['--only', 'test']);
-    const what = describeRun(`the real repo at ${repoRoot}`, ['--only', 'test'], run);
-    const recording = 'client/src/Services/debugger/wasm/recording.test.ts';
-    const recordingLines = countLines(recording);
-    assert.ok(recordingLines > 500, `precondition: ${recording} should still be over 500 lines; it has ${recordingLines}`);
-    assert.equal(run.status, 1, `exit code should be 1: ${recording} has ${recordingLines} lines\n${what}`);
-    const reported = reportLines(run);
-    for (const path of bigTestFiles) {
-      let lines;
-      try {
-        lines = countLines(path);
-      } catch {
-        continue; // split or removed since; nothing to report
-      }
-      if (lines <= 500) continue;
-      const expected = overLine(path, lines, 500, 'test');
-      assert.ok(reported.includes(expected), `expected the line ${fmt(expected)} (${path} has ${lines} lines)\n${what}`);
-    }
-    const nonTest = reported.filter((line) => !line.endsWith('for test files'));
-    same(nonTest, [], `--only test should report no source files (instrumenter/src/debug.rs, for one, is a big source file)\n${what}`);
-  });
-
-  it('with --only source, reports no test files', () => {
-    assert.ok(existsSync(scriptPath), `scripts/check-file-sizes.mjs does not exist, so the CLI can't be run (looked for ${scriptPath})`);
-    const run = runCli(repoRoot, ['--only', 'source']);
-    const what = describeRun(`the real repo at ${repoRoot}`, ['--only', 'source'], run);
-    assert.ok(run.status === 0 || run.status === 1, `exit code should be 0 or 1\n${what}`);
-    if (run.status === 1) assert.ok(reportLines(run).length > 0, `exit code 1 should come with at least one over-limit line\n${what}`);
-    const tests = reportLines(run).filter((line) => !line.endsWith('for source files'));
-    same(tests, [], `--only source should report no test files (client/src/Services/debugger/wasm/recording.test.ts is a big test file)\n${what}`);
-  });
+  for (const kind of ['test', 'source']) {
+    it(`with --only ${kind}, reports exactly the ${kind} files over their limit, and exits 1 only if there are any`, () => {
+      assert.ok(existsSync(scriptPath), `scripts/check-file-sizes.mjs does not exist, so the CLI can't be run (looked for ${scriptPath})`);
+      const inScope = exported('inScope');
+      const kindOf = exported('kindOf');
+      const limit = kind === 'test' ? 500 : 300;
+      const tracked = execFileSync('git', ['ls-files'], { cwd: repoRoot, encoding: 'utf8' }).split('\n').filter(Boolean);
+      const expected = tracked
+        .filter((path) => existsSync(join(repoRoot, path)) && inScope(path) && kindOf(path) === kind)
+        .map((path) => ({ path, lines: countLines(path) }))
+        .filter((f) => f.lines > limit)
+        .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
+        .map((f) => overLine(f.path, f.lines, limit, kind));
+      const run = runCli(repoRoot, ['--only', kind]);
+      const what = describeRun(`the real repo at ${repoRoot}`, ['--only', kind], run);
+      same(
+        reportLines(run),
+        expected,
+        `the over-limit lines should be every git-tracked file with inScope true and kindOf '${kind}' over ${limit} lines (counted from the working tree), sorted by path, and nothing else\n${what}`,
+      );
+      const code = expected.length ? 1 : 0;
+      assert.equal(run.status, code, `exit code should be ${code}: ${expected.length} ${kind} files are over ${limit} lines\n${what}`);
+    });
+  }
 });
