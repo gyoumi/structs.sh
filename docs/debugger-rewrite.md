@@ -478,9 +478,9 @@ e2e suite and the GDB comparison must pass unchanged at every step.
   `IFileSystem.ts` (two lines), stay out, as does the rest of the client.
 - **Size limits, enforced in CI:** at most 300 lines for a source file and
   500 for a test file (`*.test.ts`, `*.spec.ts`, `scripts/*.test.mjs`,
-  `instrumenter/tests/`, and the e2e page objects). Fixtures and recordings
-  (`.c`, `.json`) don't count. A script in the repo checks runs it over the
-  scope above.
+  `instrumenter/tests/`, and everything in `e2e/`). Fixtures and recordings
+  (`.c`, `.json`) don't count. The repo checks in CI run a script
+  over the scope above.
 - **No implicit state machines.** When a thing moves through stages (a
   runner Worker, a debug session, a call being recorded), its stage is one
   value with a named type, not several booleans that have to agree.
@@ -497,8 +497,10 @@ e2e suite and the GDB comparison must pass unchanged at every step.
   scoped files is measured before and after, and must not drop. Each PR
   lists every test it removes and what still covers it.
 - **Three PRs, in order:** 5a structure, 5b comments, 5c tests, so each is
-  reviewed on its own. 5a and 5b change no tests (they're refactors, and
-  the existing tests must still pass). 5c changes only tests.
+  reviewed on its own. 5a and 5b change no existing tests (they're refactors,
+  and the existing tests must still pass); 5a adds only the tests for the
+  new size-check script. 5c changes tests, plus the one line that turns
+  the size check on for test files.
 
 ### 5a. Structure
 
