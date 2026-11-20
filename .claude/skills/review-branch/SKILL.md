@@ -45,9 +45,9 @@ For a wide diff, you may hand separate areas (for example `client/` and `instrum
 | 3 | Redundancy | No duplicated logic, and no dead code or parameters the tools miss. |
 | 4 | Structure | Logic sits in the right place: React components in `client/src/components` or the visualiser folders, animation logic in `visualiser-src/*/animation-producer`. |
 | 5 | Consistency | Naming, imports, and error handling match the surrounding code and the rest of the branch. Flag two files that solve the same concern in different ways. |
-| 6 | Tests | Follows `.claude/rules/testing.md`. The new or changed test would fail without the change, and checks what a student sees. User-visible debugger behaviour changes have an e2e test, or an entry with a reason in that debugger's `e2e/known-failures/*.json` list. CI accepts a Vitest or `cargo test` alone, so whether an e2e test is needed is on the reviewer. |
+| 6 | Tests | Follows `.claude/rules/testing.md`. The new or changed test would fail without the change, and checks what a user sees. User-visible debugger behaviour changes have an e2e test, or an entry with a reason in that debugger's `e2e/known-failures/*.json` list. CI accepts a Vitest or `cargo test` alone, so whether an e2e test is needed is on the reviewer. |
 | 7 | Hardcoded values | No new hardcoded colours outside the theme or palette (the lint rule only warns for now), no magic numbers that belong in a `constants.ts`, no secrets. |
-| 8 | Security | Nothing user-controlled reaches a shell, `eval`, or raw HTML without escaping. Student programs run only in the runner's Web Worker. |
+| 8 | Security | Nothing user-controlled reaches a shell, `eval`, or raw HTML without escaping. User programs run only in the runner's Web Worker. |
 | 9 | Docs | READMEs, `docs/`, and `e2e/README.md` still describe the code. Outdated docs are a finding. |
 | 10 | Scope | Every change relates to the branch's purpose. Flag drive-by edits. |
 
