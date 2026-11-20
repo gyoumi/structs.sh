@@ -30,11 +30,18 @@ export type ShownStructs = {
 
 /**
  * What the walk is reading: first what the variables reach, noting each heap
- * struct found, then the structs shown before, checked against those.
+ * struct found, then the structs shown before, checked against those. The
+ * structs reached are sorted by start only once a check first needs it.
  */
 type WalkStage =
   | { from: 'variables'; reached: ReachedStruct[] }
-  | { from: 'shown'; reached: ReachedByStart };
+  | { from: 'shown'; reached: ReachedStruct[]; byStart: ReachedByStart | null };
+
+/** The structs the variables reach, by start, sorted on first use. */
+const reachedByStart = (stage: Extract<WalkStage, { from: 'shown' }>) => {
+  stage.byStart ??= sortByStart(stage.reached);
+  return stage.byStart;
+};
 
 type StructType = Extract<DebugType, { kind: 'struct' }>;
 type ArrayType = Extract<DebugType, { kind: 'array' }>;
@@ -129,7 +136,7 @@ export const readHeap = (
     } else if (
       onHeap &&
       stage.from === 'shown' &&
-      clashesWithReached(types, stage.reached, address, address + type.size, resolved)
+      clashesWithReached(types, reachedByStart(stage), address, address + type.size, resolved)
     ) {
       onOverlapped?.(address, index);
       return;
@@ -197,7 +204,7 @@ export const readHeap = (
       .forEach(({ type, offset }) => visit(type, frameBase + offset))
   );
   walk();
-  stage = { from: 'shown', reached: sortByStart(stage.reached) };
+  stage = { from: 'shown', reached: stage.reached, byStart: null };
   // Then the structs shown before, so the ones the variables reach keep
   // their order. Reversed, as the last one queued is looked at first.
   [...roots].reverse().forEach(([type, address]) => visit(type, address));
