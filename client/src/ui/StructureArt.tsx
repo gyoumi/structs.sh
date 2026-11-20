@@ -3,11 +3,11 @@ import styles from './StructureArt.module.css';
 
 /*
  * A small line drawing for each structure that plays a few frames of what it does.
- * It has no state of its own: an ancestor with the `artHost` class switches it on when
+ * It has no state of its own: an ancestor with `artHostClass` switches it on when
  * hovered, focused, checked or marked `data-active`, and it eases back when that ends.
  */
 
-export const artHost = styles.host;
+export const artHostClass = styles.host;
 
 const after = (ms: number): CSSProperties => ({ transitionDelay: `${ms}ms` });
 
@@ -27,12 +27,12 @@ interface NodeProps {
   x: number;
   y: number;
   r?: number;
-  lit?: number;
+  highlightDelay?: number;
   className?: string;
   style?: CSSProperties;
 }
 
-const Node = ({ x, y, r = 8, lit, className, style }: NodeProps) => (
+const Node = ({ x, y, r = 8, highlightDelay, className, style }: NodeProps) => (
   <g className={className} style={style}>
     <rect
       className={cx(styles.node, styles.round)}
@@ -42,7 +42,7 @@ const Node = ({ x, y, r = 8, lit, className, style }: NodeProps) => (
       height={r * 2}
       rx={3}
     />
-    {lit !== undefined && (
+    {highlightDelay !== undefined && (
       <rect
         className={cx(styles.node, styles.round, styles.lit)}
         x={x - r}
@@ -50,7 +50,7 @@ const Node = ({ x, y, r = 8, lit, className, style }: NodeProps) => (
         width={r * 2}
         height={r * 2}
         rx={3}
-        style={after(lit)}
+        style={after(highlightDelay)}
       />
     )}
   </g>
@@ -68,7 +68,7 @@ const ListArt = ({ className }: ArtProps) => (
       <Node x={94} y={40} r={9} />
     </g>
     <path className={styles.appear} d="M89 40h10m-4-4 4 4-4 4" style={after(160)} />
-    <Node x={109} y={40} r={9} lit={160} className={styles.pop} style={after(160)} />
+    <Node x={109} y={40} r={9} highlightDelay={160} className={styles.pop} style={after(160)} />
   </Frame>
 );
 
@@ -76,26 +76,26 @@ const TreeArt = ({ className }: ArtProps) => (
   <Frame className={className}>
     <path d="M60 14 34 38M60 14l26 24M34 38 20 64M34 38l14 26M86 38l14 26" />
     <path className={styles.trace} d="M60 14 34 38l14 26" pathLength={1} />
-    <Node x={60} y={14} lit={0} />
-    <Node x={34} y={38} lit={180} />
+    <Node x={60} y={14} highlightDelay={0} />
+    <Node x={34} y={38} highlightDelay={180} />
     <Node x={86} y={38} />
     <Node x={20} y={64} r={7} />
-    <Node x={48} y={64} r={7} lit={360} />
+    <Node x={48} y={64} r={7} highlightDelay={360} />
     <Node x={100} y={64} r={7} />
   </Frame>
 );
 
-const BalancedArt = ({ className }: ArtProps) => (
+const AvlTreeArt = ({ className }: ArtProps) => (
   <Frame className={className}>
     <path d="M56 18 32 42M56 18l24 24M32 42 20 66M32 42l12 24M80 42l12 24" />
     <path d="M69.2 13.2A14 14 0 0 0 42.8 13.2M47 10.4l-4.2 2.8-1.4-4.8" />
     <path className={styles.trace} d="M69.2 13.2A14 14 0 0 0 42.8 13.2" pathLength={1} />
-    <Node x={56} y={18} lit={0} />
+    <Node x={56} y={18} highlightDelay={0} />
     <Node x={32} y={42} />
-    <Node x={80} y={42} lit={160} />
+    <Node x={80} y={42} highlightDelay={160} />
     <Node x={20} y={66} r={7} />
     <Node x={44} y={66} r={7} />
-    <Node x={92} y={66} r={7} lit={320} />
+    <Node x={92} y={66} r={7} highlightDelay={320} />
   </Frame>
 );
 
@@ -147,21 +147,21 @@ const DebuggerArt = ({ className }: ArtProps) => (
     <path d="M18 26h30M24 36h26M24 46h18M18 56h34" />
     <Node x={80} y={40} r={6} />
     <path className={styles.appear} d="M86 40h6m-3-3 3 3-3 3" style={after(260)} />
-    <Node x={99} y={40} r={6} lit={260} className={styles.pop} style={after(260)} />
+    <Node x={99} y={40} r={6} highlightDelay={260} className={styles.pop} style={after(260)} />
   </Frame>
 );
 
-const byKey: Record<string, (props: ArtProps) => JSX.Element> = {
+const artById: Record<string, (props: ArtProps) => JSX.Element> = {
   'linked-lists': ListArt,
   'binary-search-trees': TreeArt,
-  'avl-trees': BalancedArt,
+  'avl-trees': AvlTreeArt,
   'sorting-algorithms': SortArt,
   debugger: DebuggerArt,
 };
 
 /** `id` is a topic's slug, or `debugger`. */
 const StructureArt = ({ id, className }: ArtProps & { id: string }) => {
-  const Art = byKey[id] ?? ListArt;
+  const Art = artById[id] ?? ListArt;
   return <Art className={className} />;
 };
 

@@ -1,5 +1,5 @@
 import { useSnapshot } from './useVisualiser';
-import { operationLabel, TopicInfo } from './topics';
+import { operationLabel, Topic } from './topics';
 
 export type PlaybackState = 'idle' | 'playing' | 'paused' | 'done';
 
@@ -10,7 +10,7 @@ export interface Narration {
 
 const AT_INDEX = ' at index';
 
-export const useNarration = (topic: TopicInfo): Narration => {
+export const useNarration = (topic: Topic): Narration => {
   const lastRun = useSnapshot((s) => s.lastRun);
   const playing = useSnapshot((s) => s.playing);
   const complete = useSnapshot((s) => s.complete);

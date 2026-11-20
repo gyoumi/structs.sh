@@ -9,8 +9,8 @@ import {
 } from 'react';
 import { useShortcut } from '@ui-sdk/react/shortcuts';
 import { CanvasTheme } from '@/visualiser-src/common/canvasTheme';
-import { StarterData, VisualiserSession, VisualiserSnapshot } from './session';
-import { TopicInfo } from './topics';
+import { InitialDataSource, VisualiserSession, VisualiserSnapshot } from './session';
+import { Topic } from './topics';
 
 export const SessionContext = createContext<VisualiserSession | null>(null);
 
@@ -26,27 +26,27 @@ export function useSnapshot<T>(selector: (snapshot: VisualiserSnapshot) => T): T
 }
 
 export const useCreateSession = (
-  topic: TopicInfo,
-  theme: Partial<CanvasTheme>,
+  topic: Topic,
+  canvasTheme: Partial<CanvasTheme>,
   data?: number[],
-  makeData?: StarterData
+  getInitialData?: InitialDataSource
 ): VisualiserSession => {
   const [session] = useState(() => new VisualiserSession());
   const dataKey = data ? `data:${data.join(',')}` : 'random';
-  const drawnTheme = useRef(theme);
+  const drawnTheme = useRef(canvasTheme);
 
   const attach = useEffectEvent(() => {
-    drawnTheme.current = theme;
-    session.attach(topic.title, theme, data, makeData);
+    drawnTheme.current = canvasTheme;
+    session.attach(topic.title, canvasTheme, data, getInitialData);
   });
 
   useEffect(() => attach(), [session, topic.title, dataKey]);
 
   useEffect(() => {
-    if (drawnTheme.current === theme) return;
-    drawnTheme.current = theme;
-    session.retheme(theme);
-  }, [session, theme]);
+    if (drawnTheme.current === canvasTheme) return;
+    drawnTheme.current = canvasTheme;
+    session.retheme(canvasTheme);
+  }, [session, canvasTheme]);
 
   useEffect(() => () => session.dispose(), [session]);
 

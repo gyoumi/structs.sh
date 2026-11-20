@@ -1,6 +1,6 @@
 export type TopicSlug = 'linked-lists' | 'binary-search-trees' | 'avl-trees' | 'sorting-algorithms';
 
-export interface TopicInfo {
+export interface Topic {
   slug: TopicSlug;
   title: string;
   name: string;
@@ -11,7 +11,7 @@ export interface TopicInfo {
   operations: Record<string, string>;
 }
 
-export const topics: TopicInfo[] = [
+export const topics: Topic[] = [
   {
     slug: 'linked-lists',
     title: 'Linked Lists',
@@ -82,9 +82,10 @@ export interface Destination {
   key: string;
   name: string;
   description: string;
+  path: string;
 }
 
-export const debuggerDestination: Destination & { path: string } = {
+export const debuggerDestination: Destination = {
   key: 'debugger',
   name: 'Debugger',
   description:
@@ -93,10 +94,10 @@ export const debuggerDestination: Destination & { path: string } = {
 };
 
 /** Old links can have capitals in the topic, so it is matched case-insensitively. */
-export const findTopic = (slug: string | undefined): TopicInfo | undefined =>
+export const findTopic = (slug: string | undefined): Topic | undefined =>
   topics.find((topic) => topic.slug === slug?.toLowerCase());
 
-export const operationLabel = (topic: TopicInfo, command: string): string =>
+export const operationLabel = (topic: Topic, command: string): string =>
   topic.operations[command] ?? command;
 
 export const argLabel = (arg: string): string => {

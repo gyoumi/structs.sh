@@ -1,9 +1,9 @@
 import CodeListing from './CodeListing';
 import { useNarration } from './useNarration';
-import { TopicInfo } from './topics';
+import { Topic } from './topics';
 import styles from './CodePanel.module.css';
 
-const CodePanel = ({ topic }: { topic: TopicInfo }) => {
+const CodePanel = ({ topic }: { topic: Topic }) => {
   const narration = useNarration(topic);
   return (
     <aside className={styles.code} aria-labelledby="code-title">
@@ -13,7 +13,7 @@ const CodePanel = ({ topic }: { topic: TopicInfo }) => {
       <div className={styles.live} aria-live="polite">
         {narration.state !== 'idle' && (
           <div className={styles.narration} data-state={narration.state}>
-            <p className={styles.narrationHead}>{narration.title}</p>
+            <p className={styles.narrationTitle}>{narration.title}</p>
             {narration.state === 'done' && (
               <p className={styles.narrationBody}>
                 Finished. Replay it, step back through it, or run another.
