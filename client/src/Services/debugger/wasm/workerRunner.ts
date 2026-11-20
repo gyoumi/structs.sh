@@ -8,6 +8,11 @@ export type RecordResult =
   | { error: string };
 
 export type RecordInWorkerOptions = {
+  /**
+   * A backstop: the recorder stops a program at its own, shorter time limit
+   * and keeps its steps, so this only catches a program stuck where the
+   * recorder can't see it, such as in a long C library call.
+   */
   timeLimitMs: number;
   signal?: AbortSignal;
   /** The input typed so far, and whether end-of-file was sent. */

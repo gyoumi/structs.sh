@@ -125,10 +125,6 @@ export const useGlobalStore: UseBoundStore<StoreApi<GlobalStateStore & GlobalSto
           'updateUserAnnotation'
         );
       },
-      // A separate reducer for updating stack annotation.
-      // Using updateUserAnnotation and using userAnnotation state
-      // doesn't correctly update the state if used in useEffect for multiple children components
-      // because the value from the "set" callback is more recent
       updateStackAnnotation: (stackAnnotation) => {
         set(
           (state) => ({

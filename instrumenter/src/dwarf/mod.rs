@@ -22,7 +22,7 @@ type Entry<'a, 'u> = gimli::DebuggingInformationEntry<'a, 'u, EndianSlice<'a, Li
 /// Offsets are positions in the original file, as walrus's `InstrLocId`s are.
 #[derive(Default)]
 pub(crate) struct DebugInfo {
-    /// Where each statement statement_at_offset, as an index into `statements`.
+    /// Values are indexes into `statements`.
     pub statement_at_offset: BTreeMap<u32, usize>,
     pub statements: Vec<Statement>,
     pub functions: Vec<Function>,
