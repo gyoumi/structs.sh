@@ -504,6 +504,9 @@ e2e suite and the GDB comparison must pass unchanged at every step.
 
 ### 5a. Structure
 
+**Done in #41,** with the instrumenter's folders named in #41 and the
+TypeScript names in #44.
+
 Split the source files over 300 lines (today `instrumenter/src/debug.rs`,
 `instrumenter/src/lib.rs`, `wasm/variables.ts`, `wasm/recording.ts`,
 `wasmDebugger.ts`, `linkedListParser.ts`) along the lines of what each part
@@ -518,6 +521,8 @@ the e2e suite pass unchanged.
 
 ### 5b. Comments
 
+**Done in #43,** with the no-comments skill from #40.
+
 Run the no-comments skill over the scope. Comments that explain our own
 code are deleted, and the code is renamed or reshaped where it was unclear
 without them.
@@ -527,6 +532,10 @@ licence headers or notes about outside constraints, and every test passes
 unchanged.
 
 ### 5c. Tests
+
+**Done in #45 and #48.** #45 renamed the program state's fields from the
+old GDB server's JSON. #48 split, merged and pruned the tests; coverage
+of the debugger's source is the same, statement for statement.
 
 Remove duplicate tests and tests of private details, merge repeated shapes
 into table-driven tests, and split test files over 500 lines. Add the size
