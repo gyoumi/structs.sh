@@ -1,5 +1,5 @@
 import { test, expect } from '../support/test';
-import { topicTitles, type TopicSlug } from '../support/visualiser-page';
+import { topicTitles, type TopicSlug } from '../support/topics';
 
 const FEEDBACK_FORM = 'docs.google.com/forms/d/e/1FAIpQLScg9AuvsDcrgjzNX3D10l2r09UhQS0WaGiyX3OvyRn4BlwBSQ';
 

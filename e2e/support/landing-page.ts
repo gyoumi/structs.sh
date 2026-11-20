@@ -1,5 +1,5 @@
 import { expect, type Page } from '@playwright/test';
-import { topicTitles, type TopicSlug } from './visualiser-page';
+import { topicTitles, type TopicSlug } from './topics';
 
 /**
  * Drives the landing page, the 404 page and the feedback form.

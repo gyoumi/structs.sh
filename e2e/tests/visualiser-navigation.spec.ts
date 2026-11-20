@@ -1,5 +1,5 @@
 import { test, expect } from '../support/test';
-import type { TopicSlug } from '../support/visualiser-page';
+import type { TopicSlug } from '../support/topics';
 
 const operations: Record<TopicSlug, string[]> = {
   'linked-lists': ['append', 'prepend', 'insert', 'search', 'delete'],
