@@ -317,7 +317,7 @@ export class DailyPage {
    */
   async stepToEnd(
     maxSteps: number,
-    onStep: (reading: StepReading) => void,
+    onStep: (reading: StepReading) => void | Promise<void>,
   ): Promise<{ steps: number; counter: number; atEnd: boolean }> {
     let previousCounter = await this.counter();
     let atEnd = (await this.progress()) === 100;
@@ -325,7 +325,7 @@ export class DailyPage {
     while (!atEnd && steps < maxSteps) {
       steps += 1;
       const settled = await this.stepForwardAndSettle();
-      onStep({ step: steps, before: previousCounter, after: settled.counter, progress: settled.progress });
+      await onStep({ step: steps, before: previousCounter, after: settled.counter, progress: settled.progress });
       previousCounter = settled.counter;
       atEnd = settled.atEnd;
     }
@@ -375,9 +375,10 @@ export class DailyPage {
     return { counter, progress, steps: maxSteps };
   }
 
-  /** Clicks Share, grants clipboard permissions, and returns the copied share text. */
+  /** Grants clipboard permissions, clears the clipboard, clicks Share, and returns the copied share text. */
   async shareText(): Promise<string> {
     await this.page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+    await this.page.evaluate(() => navigator.clipboard.writeText(''));
     await this.shareButton.click();
     let copied = '';
     await expect

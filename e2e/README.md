@@ -107,7 +107,8 @@ rest of the e2e tests drive `/daily` only through ARIA roles and accessible
 names:
 
 - **Rules:** `region` named `Puzzle rules`. Its text says the goal is to make
-  quicksort do as many comparisons as possible.
+  quicksort do as many comparisons as possible, with the goal and the word
+  `comparisons` in one sentence.
 - **Puzzle array:** `group` named `Puzzle array`, containing one `button` per
   slot in left-to-right order.
   - Each slot button's text starts with its numeric value (for example `8`).

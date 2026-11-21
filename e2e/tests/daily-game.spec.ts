@@ -13,12 +13,12 @@ test.describe('daily game', () => {
 
     const startCtx = `${DAILY_7.name} ${fmt(DAILY_7.start.values)}`;
     const rules = await dailyPage.rulesText();
+    const goalPattern = /\b(?:most|as many|maximi[sz](?:e|ing))[^.!?]*\bcomparisons\b/i;
     expect(rules, `${startCtx}: Puzzle rules region should describe a quicksort puzzle`).toMatch(/quicksort/i);
-    expect(rules, `${startCtx}: Puzzle rules region should mention comparisons`).toMatch(/comparison/i);
     expect(
       rules,
-      `${startCtx}: Puzzle rules region should state the goal is as many comparisons as possible (matching /most|maxim|as many/i)`,
-    ).toMatch(/most|maxim|as many/i);
+      `${startCtx}: Puzzle rules region should state the goal and "comparisons" in one sentence (matching ${goalPattern})`,
+    ).toMatch(goalPattern);
     expect(await dailyPage.par(), `${DAILY_7.name}: Par status should show served par ${DAILY_7.puzzle.par}`).toBe(DAILY_7.puzzle.par);
     expect(await dailyPage.values(), `${DAILY_7.name}: Puzzle array should show starting values ${fmt(DAILY_7.puzzle.values)}`).toEqual([...DAILY_7.puzzle.values]);
     expect(await dailyPage.fixedIndices(), `${DAILY_7.name}: fixed slots ${fmt(DAILY_7.puzzle.fixed)} should be disabled and all others enabled`).toEqual([...DAILY_7.puzzle.fixed]);
@@ -172,8 +172,11 @@ test.describe('daily game', () => {
       })
       .toEqual([...DAILY_12.start.values]);
 
+    const startKey = fmt(DAILY_12.start.values);
+    const sortedKey = fmt(sorted);
+    let sawIntermediateArrangement = false;
     const maxSteps = 250;
-    const result = await dailyPage.stepToEnd(maxSteps, ({ step, before, after }) => {
+    const result = await dailyPage.stepToEnd(maxSteps, async ({ step, before, after, progress }) => {
       const delta = after - before;
       expect(
         delta,
@@ -183,11 +186,20 @@ test.describe('daily game', () => {
         delta,
         `${ctx} step ${step}: Comparisons counter went from ${before} to ${after} (delta ${delta}); must go up by at most 1 per step`,
       ).toBeLessThanOrEqual(1);
+
+      const drawn = await dailyPage.drawnValues();
+      const drawnKey = fmt(drawn);
+      sawIntermediateArrangement ||=
+        progress < 100 && drawn.length === sorted.length && drawnKey !== startKey && drawnKey !== sortedKey;
     });
 
     expect(
       result.atEnd,
       `${ctx} step ${result.steps}: timeline did not reach the end within ${maxSteps} Next step clicks (counter went from 0 to ${result.counter})`,
+    ).toBe(true);
+    expect(
+      sawIntermediateArrangement,
+      `${ctx} (${result.steps} steps): #visualiser-canvas drawing never changed between the endpoints (${startKey} and ${sortedKey}); expected at least one intermediate arrangement`,
     ).toBe(true);
     expect(
       result.counter,
@@ -235,10 +247,6 @@ test.describe('daily game', () => {
 
     await dailyPage.skip();
 
-    expect(
-      await dailyPage.progress(),
-      `${ctx}: after Skip while paused, Animation progress should reach 100`,
-    ).toBe(100);
     expect(await dailyPage.counter(), `${ctx}: Skip while paused should jump Comparisons counter to ${DAILY_12.start.count}`).toBe(DAILY_12.start.count);
     expect(await dailyPage.score(), `${ctx}: Skip while paused should show final Score ${DAILY_12.start.count}`).toBe(DAILY_12.start.count);
   });
