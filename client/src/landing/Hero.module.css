@@ -5,6 +5,7 @@
 
 .editor {
   width: min(100%, 32rem);
+  container-type: inline-size;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -79,7 +80,7 @@
   padding: 0.5rem 0;
   list-style: none;
   counter-reset: line;
-  font-size: clamp(0.6875rem, 1.05vw, 0.8125rem);
+  font-size: min(clamp(0.6875rem, 1.05vw, 0.8125rem), 2.9cqi);
   line-height: 1.75;
   white-space: pre;
   overflow: hidden;

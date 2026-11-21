@@ -13,13 +13,22 @@ export const useTheme = (): Theme => {
   return resolved === 'dark' ? 'dark' : 'light';
 };
 
+const setDark = (dark: boolean) => {
+  const root = document.documentElement;
+  root.setAttribute('data-theme-switching', '');
+  colorScheme.set(dark ? 'dark' : 'light');
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => root.removeAttribute('data-theme-switching'))
+  );
+};
+
 export const ThemeToggle = ({ className }: { className?: string }) => {
   const theme = useTheme();
   return (
     <Toggle
       className={className}
       pressed={theme === 'dark'}
-      onPressedChange={(dark: boolean) => colorScheme.set(dark ? 'dark' : 'light')}
+      onPressedChange={setDark}
       aria-label="Dark mode"
     >
       {theme === 'dark' ? <MoonIcon size={18} /> : <SunIcon size={18} />}

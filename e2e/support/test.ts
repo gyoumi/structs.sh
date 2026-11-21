@@ -2,7 +2,7 @@ import { test as base, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { DebuggerPage } from './debugger-page';
 import { LandingPage } from './landing-page';
-import { VisualiserPage } from './visualiser-page';
+import { DetailedVisualiserPage } from './visualiser-details';
 
 /**
  * Tests listed in known-failures/wasm.json are expected to fail, with a
@@ -21,7 +21,7 @@ export const testKey = (titlePath: string[]) => titlePath.slice(1).join(' › ')
 export const test = base.extend<{
   debuggerPage: DebuggerPage;
   landingPage: LandingPage;
-  visualiser: VisualiserPage;
+  visualiser: DetailedVisualiserPage;
   knownFailure: void;
 }>({
   knownFailure: [
@@ -39,7 +39,7 @@ export const test = base.extend<{
     await use(new LandingPage(page));
   },
   visualiser: async ({ page }, use) => {
-    await use(new VisualiserPage(page));
+    await use(new DetailedVisualiserPage(page));
   },
 });
 

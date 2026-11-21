@@ -83,9 +83,8 @@ export const usePlaybackShortcuts = (session: VisualiserSession): void => {
   useShortcut('end', session.finish, { description: 'Skip to the end' });
 };
 
-export const usePrefersReducedMotion = (): boolean => {
-  const query = '(prefers-reduced-motion: reduce)';
-  return useSyncExternalStore(
+export const useMediaQuery = (query: string): boolean =>
+  useSyncExternalStore(
     (onChange) => {
       const media = window.matchMedia(query);
       media.addEventListener('change', onChange);
@@ -94,4 +93,6 @@ export const usePrefersReducedMotion = (): boolean => {
     () => window.matchMedia(query).matches,
     () => false
   );
-};
+
+export const usePrefersReducedMotion = (): boolean =>
+  useMediaQuery('(prefers-reduced-motion: reduce)');
