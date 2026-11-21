@@ -83,8 +83,8 @@ which returns:
   "template": "quicksort-most-comparisons",
   "values": [8, 1, 6, 3, 2, 7, 4, 5],
   "fixed": [1, 4, 6],
-  "par": 39,
-  "best": 42
+  "par": 34,
+  "best": 36
 }
 ```
 
@@ -93,15 +93,21 @@ locked slots. The page shows what the file says and never computes `par` or
 `best`.
 
 A comparison is every evaluation of a comparison between two array values in
-`client/src/visualiser-src/sorting-visualiser/algorithms/quick.ts`, including
-the value check that ends each `while` loop and the two value checks after each
-partition (`elements[j].data.value > v` and `elements[i].data.value < v`).
-Index-only checks (`i < j`, `hi <= lo`) do not count.
+the C code shown beside the animation
+(`client/src/visualiser-src/sorting-visualiser/util/codeSnippets.ts`): each
+evaluation of `a[i] <= v` in the first `while` loop (including the one that
+ends it), each evaluation of `v < a[j]` in the second (including the one that
+ends it), and `a[i] < v` once after each partition. The C code shown beside the
+animation contains every counted comparison; `quick.ts` also checks
+`elements[j].data.value > v` only to choose a highlight, and that check does
+not count. Index-only checks (`i < j`, `hi <= lo`) do not count.
 
-The e2e tests drive `/daily` only through ARIA roles and accessible names:
+The sorting visualiser draws into `#visualiser-canvas` as it does today. The
+rest of the e2e tests drive `/daily` only through ARIA roles and accessible
+names:
 
-- **Rules:** `region` named `Puzzle rules`. Its text explains the puzzle goal
-  (mentioning quicksort and comparisons).
+- **Rules:** `region` named `Puzzle rules`. Its text says the goal is to make
+  quicksort do as many comparisons as possible.
 - **Puzzle array:** `group` named `Puzzle array`, containing one `button` per
   slot in left-to-right order.
   - Each slot button's text starts with its numeric value (for example `8`).
@@ -123,10 +129,11 @@ The e2e tests drive `/daily` only through ARIA roles and accessible names:
   - After a try finishes, the array stays in the arrangement the player ran, so
     the next try starts from there.
 - **Action buttons (exact names):**
-  - `button` `Run`: starts a try on the current arrangement. Disabled while a
-    run animates, and disabled or hidden once the puzzle ends.
-  - `button` `Skip`: jumps the running animation straight to the final
-    comparison count and completes the try.
+  - `button` `Run`: starts a try on the current arrangement and starts playback
+    by itself. Disabled while a run animates, and disabled or hidden once the
+    puzzle ends.
+  - `button` `Skip`: jumps the animation straight to the final comparison count
+    and completes the try, whether playback is playing or paused.
   - `button` `Share`: visible and enabled once the puzzle ends; copies the share
     text to the clipboard via `navigator.clipboard.writeText`.
 - **Playback controls:** the visualiser's controls (`toolbar` `Playback` with
@@ -163,9 +170,9 @@ The share text copied by `Share` uses one line per try, with ` ⭐` at or above
 
 ```text
 structs.sh daily #12 · Quicksort
-35 / 42
-39 / 42 ⭐
-42 / 42 🏆
+30 / 36
+34 / 36 ⭐
+36 / 36 🏆
 structs.sh/daily
 ```
 

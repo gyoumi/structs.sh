@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import type { DailyPuzzle } from './daily-fixtures';
+import { readDrawing } from './visualiser-drawing';
 
 export interface SlotBounds {
   index: number;
@@ -141,6 +142,20 @@ export class DailyPage {
     return selected;
   }
 
+  /** 0-based index of the focused slot in Puzzle array, or null if no slot has focus. */
+  async focusedSlotIndex(): Promise<number | null> {
+    const count = await this.slots.count();
+    for (let i = 0; i < count; i += 1) {
+      if (await this.slot(i).evaluate((el) => el === document.activeElement)) return i;
+    }
+    return null;
+  }
+
+  /** The values drawn in the sorting visualiser's #visualiser-canvas SVG, left to right. */
+  async drawnValues(): Promise<number[]> {
+    return (await readDrawing(this.page)).sort((a, b) => a.x - b.x || a.y - b.y).map((node) => node.value);
+  }
+
   async par(): Promise<number> {
     return this.readNumber(this.status('Par'), 'Par status');
   }
@@ -182,7 +197,7 @@ export class DailyPage {
   }
 
   async progress(): Promise<number> {
-    return Math.round(Number(await this.timeline.inputValue()));
+    return Number(await this.timeline.inputValue());
   }
 
   // --------------------------------------------------------------- editing
@@ -196,6 +211,10 @@ export class DailyPage {
     await this.slot(second).click();
   }
 
+  async tapSlot(index: number): Promise<void> {
+    await this.slot(index).tap();
+  }
+
   /** Swaps two slots using touch tap events (for mobile viewports). */
   async tapSwap(first: number, second: number): Promise<void> {
     await this.slot(first).tap();
@@ -204,21 +223,34 @@ export class DailyPage {
 
   /** Clicks the center of a slot by coordinates so disabled/fixed slots can be clicked like a user would. */
   async trySelectFixed(index: number): Promise<void> {
-    const box = await this.slot(index).boundingBox();
+    const target = this.slot(index);
+    await target.scrollIntoViewIfNeeded();
+    const box = await target.boundingBox();
     if (!box) throw new Error(`Slot ${index} has no bounding box`);
     await this.page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   }
 
   /** Taps the center of a slot by coordinates so disabled/fixed slots can be tapped on touch viewports. */
   async tryTapFixed(index: number): Promise<void> {
-    const box = await this.slot(index).boundingBox();
+    const target = this.slot(index);
+    await target.scrollIntoViewIfNeeded();
+    const box = await target.boundingBox();
     if (!box) throw new Error(`Slot ${index} has no bounding box`);
     await this.page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
   }
 
-  /** Focuses a free slot and selects it from the keyboard with Enter. */
-  async keyboardSelect(index: number): Promise<void> {
-    await this.slot(index).focus();
+  /** Reaches a free slot by pressing Tab from the page, then selects it with Enter. */
+  async keyboardSelectByTab(index: number, context: string, maxTabs = 50): Promise<void> {
+    let tabs = 0;
+    while ((await this.focusedSlotIndex()) !== index && tabs < maxTabs) {
+      await this.page.keyboard.press('Tab');
+      tabs += 1;
+    }
+    const active = await this.describeActiveElement();
+    expect(
+      await this.focusedSlotIndex(),
+      `${context}: expected Tab to reach free slot ${index} within ${maxTabs} presses (pressed Tab ${tabs} time(s); focus is on ${active})`,
+    ).toBe(index);
     await this.page.keyboard.press('Enter');
   }
 
@@ -250,7 +282,7 @@ export class DailyPage {
   async rewind(): Promise<void> {
     await this.playback.getByRole('button', { name: 'Back to the start' }).click();
     await expect
-      .poll(() => this.rawProgress(), { message: 'Back to the start should move Animation progress to 0' })
+      .poll(() => this.progress(), { message: 'Back to the start should move Animation progress to 0' })
       .toBe(0);
     await this.waitTwoFrames();
   }
@@ -260,38 +292,27 @@ export class DailyPage {
   }
 
   /**
-   * Clicks Next step, waits for playback to pause and for both Animation progress
-   * and Comparisons counter to settle, then returns the readings.
+   * Clicks Next step, waits for Animation progress to move (unless already at 100),
+   * then waits for playback to pause and for both Animation progress and
+   * Comparisons counter to settle.
    */
   async stepForwardAndSettle(): Promise<{ counter: number; progress: number; atEnd: boolean }> {
-    const pauseButton = this.playback.getByRole('button', { name: 'Pause' });
+    const before = await this.progress();
     await this.stepForward();
-    await this.waitTwoFrames();
-    await expect(pauseButton, 'Next step should pause again after finishing a step').toBeHidden();
-    let prevProgress = await this.rawProgress();
-    let prevCounter = await this.counter();
-    await expect
-      .poll(
-        async () => {
-          await this.waitTwoFrames();
-          const playing = await pauseButton.isVisible();
-          const progress = await this.rawProgress();
-          const counter = await this.counter();
-          const settled = !playing && progress === prevProgress && counter === prevCounter;
-          prevProgress = progress;
-          prevCounter = counter;
-          return settled;
-        },
-        { intervals: [50], message: 'Animation progress and Comparisons counter should settle after Next step' },
-      )
-      .toBe(true);
-    const atEnd =
-      prevProgress >= 100 || (await this.playback.getByRole('button', { name: 'Replay' }).isVisible());
-    return { counter: prevCounter, progress: prevProgress, atEnd };
+    if (before < 100) {
+      await expect
+        .poll(() => this.progress(), {
+          intervals: [50],
+          message: `Next step should move Animation progress from ${before}`,
+        })
+        .not.toBe(before);
+    }
+    const settled = await this.waitForStepToSettle('Next step');
+    return { ...settled, atEnd: settled.progress === 100 };
   }
 
   /**
-   * Presses Next step repeatedly until the timeline reaches the end or `maxSteps` is hit,
+   * Presses Next step repeatedly until the timeline reaches 100 or `maxSteps` is hit,
    * waiting for the timeline and counter to settle after each step and invoking `onStep`.
    */
   async stepToEnd(
@@ -299,7 +320,7 @@ export class DailyPage {
     onStep: (reading: StepReading) => void,
   ): Promise<{ steps: number; counter: number; atEnd: boolean }> {
     let previousCounter = await this.counter();
-    let atEnd = false;
+    let atEnd = (await this.progress()) === 100;
     let steps = 0;
     while (!atEnd && steps < maxSteps) {
       steps += 1;
@@ -316,6 +337,26 @@ export class DailyPage {
   }
 
   /**
+   * Clicks Previous step, waits for Animation progress to move (unless already at 0),
+   * then waits for playback to pause and for both Animation progress and
+   * Comparisons counter to settle.
+   */
+  async stepBackAndSettle(): Promise<{ counter: number; progress: number; atStart: boolean }> {
+    const before = await this.progress();
+    await this.stepBack();
+    if (before > 0) {
+      await expect
+        .poll(() => this.progress(), {
+          intervals: [50],
+          message: `Previous step should move Animation progress from ${before}`,
+        })
+        .not.toBe(before);
+    }
+    const settled = await this.waitForStepToSettle('Previous step');
+    return { ...settled, atStart: settled.progress === 0 };
+  }
+
+  /**
    * Clicks Previous step until the comparison counter drops below `from` (up to `maxSteps` times,
    * to step past any trailing non-comparison frames such as the final swap or solved highlight).
    */
@@ -326,11 +367,10 @@ export class DailyPage {
     let counter = await this.counter();
     let progress = await this.progress();
     for (let steps = 1; steps <= maxSteps; steps += 1) {
-      await this.stepBack();
-      await this.waitTwoFrames();
-      counter = await this.counter();
-      progress = await this.progress();
-      if (counter < from) return { counter, progress, steps };
+      const settled = await this.stepBackAndSettle();
+      counter = settled.counter;
+      progress = settled.progress;
+      if (counter < from || settled.atStart) return { counter, progress, steps };
     }
     return { counter, progress, steps: maxSteps };
   }
@@ -354,8 +394,42 @@ export class DailyPage {
 
   // --------------------------------------------------------------- helpers
 
-  private async rawProgress(): Promise<number> {
-    return Number(await this.timeline.inputValue());
+  private async waitForStepToSettle(action: string): Promise<{ counter: number; progress: number }> {
+    const pauseButton = this.playback.getByRole('button', { name: 'Pause' });
+    let prevProgress = await this.progress();
+    let prevCounter = await this.counter();
+    await expect
+      .poll(
+        async () => {
+          await this.waitTwoFrames();
+          const playing = await pauseButton.isVisible();
+          const progress = await this.progress();
+          const counter = await this.counter();
+          const settled = !playing && progress === prevProgress && counter === prevCounter;
+          prevProgress = progress;
+          prevCounter = counter;
+          return settled;
+        },
+        { intervals: [50], message: `Animation progress and Comparisons counter should settle after ${action}` },
+      )
+      .toBe(true);
+    return { counter: prevCounter, progress: prevProgress };
+  }
+
+  private async describeActiveElement(): Promise<string> {
+    return this.page.evaluate(() => {
+      const el = document.activeElement;
+      if (!el) return 'none';
+      const tag = el.tagName.toLowerCase();
+      const role = el.getAttribute('role');
+      const label = el.getAttribute('aria-label');
+      const text = (el.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 40);
+      const parts = [tag];
+      if (role) parts.push(`role="${role}"`);
+      if (label) parts.push(`aria-label="${label}"`);
+      if (text) parts.push(`"${text}"`);
+      return parts.join(' ');
+    });
   }
 
   private async readNumber(locator: Locator, label: string): Promise<number> {
