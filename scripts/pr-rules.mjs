@@ -24,10 +24,10 @@ const PROTECTED = [
 ];
 const MANIFEST = /^(client\/)?package\.json$/;
 // Cargo.toml settings that change which instrumenter tests cargo runs,
-// matched anywhere in an added line, since TOML can also write them as
-// dotted keys (lib.test), inline tables or quoted keys. `path` can point a
-// test at another file. Quoted keys can spell a setting with TOML's \uXXXX and
-// \UXXXXXXXX escapes, so those are decoded first.
+// matched anywhere in an added or removed line, since TOML can also write
+// them as dotted keys (lib.test), inline tables or quoted keys. `path` can
+// point a test at another file. Quoted keys can spell a setting with TOML's
+// \uXXXX and \UXXXXXXXX escapes, so those are decoded first.
 const CARGO_MANIFEST = /^instrumenter\/Cargo\.toml$/;
 const CARGO_TEST_SETTING = /\b(autotests|autobenches|test|harness|doctest|required-features|path)\b/;
 const CARGO_LINT_SETTING = /\blints\b|["'](allow|warn|deny|forbid)["']/;
@@ -123,12 +123,12 @@ function largeRemoval({ files, labels }) {
   return findings;
 }
 
-function protectedPaths({ files, addedLines, labels }) {
+function protectedPaths({ files, addedLines, removedLines = [], labels }) {
   if (labels.has(LABELS.humanApproved)) return [];
   const manifestScripts = changedPaths(
     files.filter((f) => (MANIFEST.test(f.path) || MANIFEST.test(f.oldPath ?? '')) && (f.status !== 'M' || f.scriptsChanged)),
   );
-  const cargoGuardedLines = addedLines
+  const cargoGuardedLines = [...addedLines, ...removedLines]
     .filter((l) => CARGO_MANIFEST.test(l.path) && [CARGO_TEST_SETTING, CARGO_LINT_SETTING].some((setting) => setting.test(decodeTomlEscapes(l.text))))
     .map((l) => l.path);
   return [...new Set(changedPaths(files))]
@@ -145,6 +145,7 @@ const RULES = [forbiddenFiles, debugTags, agentConfigAlone, debuggerNeedsTest, l
  *   files: { status: 'A' | 'M' | 'D' | 'R', path: string, oldPath?: string, oldLines?: number, newLines?: number, scriptsChanged?: boolean }[],
  *   tracked: string[],
  *   addedLines: { path: string, line: number, text: string }[],
+ *   removedLines?: { path: string, line: number, text: string }[],
  *   labels: Set<string>,
  * }} pr
  * @returns {{ rule: string, path?: string, line?: number, message: string }[]}

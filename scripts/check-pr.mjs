@@ -92,22 +92,31 @@ const unquote = (raw) => {
 };
 
 const addedLines = [];
+const removedLines = [];
 let current;
+let previous;
 let lineNo = 0;
-// "+++ " names the file only in the header before the first hunk. Inside a
-// hunk it is an added line that starts with "++", such as "++ counter;".
+let oldLineNo = 0;
+// "+++ " and "--- " name the files only in the header before the first hunk.
+// Inside a hunk they are lines that start with "++" or "--", such as "++ counter;".
 let inHeader = false;
 for (const row of git('diff', '-U0', '--no-color', '--no-ext-diff', '-M', ...range).split('\n')) {
   if (row.startsWith('diff --git ')) {
     inHeader = true;
     current = undefined;
+    previous = undefined;
+  } else if (inHeader && row.startsWith('--- ')) {
+    previous = unquote(row.slice(4)).replace(/^a\//, '');
   } else if (inHeader && row.startsWith('+++ ')) {
     current = unquote(row.slice(4)).replace(/^b\//, '');
   } else if (row.startsWith('@@')) {
     inHeader = false;
     lineNo = Number(/\+(\d+)/.exec(row)[1]);
+    oldLineNo = Number(/^@@ -(\d+)/.exec(row)[1]);
   } else if (!inHeader && row.startsWith('+') && current) {
     addedLines.push({ path: current, line: lineNo++, text: row.slice(1) });
+  } else if (!inHeader && row.startsWith('-') && previous) {
+    removedLines.push({ path: previous, line: oldLineNo++, text: row.slice(1) });
   }
 }
 for (const path of untracked) {
@@ -121,7 +130,7 @@ for (const path of untracked) {
 const tracked = head ? nulList(git('ls-tree', '-z', '-r', '--name-only', head)) : [...nulList(git('ls-files', '-z')), ...untracked];
 const labels = new Set(JSON.parse(process.env.PR_LABELS || '[]'));
 
-const findings = checkPr({ files, tracked, addedLines, labels });
+const findings = checkPr({ files, tracked, addedLines, removedLines, labels });
 const failures = args.local ? findings.filter((f) => !WAIVABLE.has(f.rule)) : findings;
 const notes = findings.filter((f) => !failures.includes(f));
 
