@@ -25,7 +25,7 @@ None of the decisions below are final. Change this document when they change.
 ## How progress is measured
 
 As with the debugger, the Playwright suite is the spec. The game's tests are
-written before checkpoint 1, from what a player sees. They all start on a
+written first, in step 1a, from what a player sees. They all start on a
 known-failures list (`e2e/known-failures/game.json`), which shrinks as the
 features land. Each run ends with a summary such as `6/20 behaviours
 working`.
@@ -122,14 +122,27 @@ See "The goal, step by step".
 ## Checkpoint 1, step by step
 
 ```
-1a. Puzzle crate ──► 1b. Game page ──► 1c. Playtest
+1a. Tests ──┬─► 1b. Rust scores quicksort ──► 1c. Wasm in the client ──► 1d. Parity ──┐
+            └─► 1e. Puzzle page ─────────────────────────────────────────────────────┴─► 1f. Run and score ──► 1g. Playtest
 ```
+
+1b to 1d and 1e don't depend on each other, so they can be built at the
+same time. 1f needs both.
 
 ### Decisions
 
 - **The first template is "Quicksort: the most comparisons".** Its input is
   an array with some values fixed, which the sorting visualiser already
   draws, and its checks passed (see `puzzle-ideas.md`).
+- **A comparison is any comparison of two values in the code the page
+  shows**, including the one that ends a loop and the two after each
+  partition. Today the quicksort animation shows a pointer moving but not
+  every comparison, so it gains a step for each one, and the page shows a
+  counter that goes up on each.
+- **The player taps two free values to swap them.** It works on phones and
+  from the keyboard (select a value, then use the arrow keys), and it can't
+  put a value on a fixed slot. The sorting visualiser has no way to move
+  values by hand today, so this is new.
 - **The puzzle comes from a file in the client** until checkpoint 3. These
   are test puzzles. Scheduled puzzles never go in the public repo.
 - **The page lives at `/daily`**, and nothing links to it until the goal.
@@ -137,28 +150,63 @@ See "The goal, step by step".
   ([#10](https://github.com/gyoumi/structs.sh/pull/10)) is in `dev`, so
   `/daily` is built with its layout, fonts and sorting visualiser.
 
-### 1a. Puzzle crate
+### 1a. Tests
+
+A different agent from the one writing the code writes all 20 game tests
+and adds them to `e2e/known-failures/game.json`. It starts from the table
+in "How progress is measured" and the comparison rule above.
+
+**You'll know it's done when** the tests run in CI, all 20 are listed as
+known failures, and CI is green.
+
+### 1b. Rust scores quicksort
 
 A `crates/` Cargo workspace with `structs-puzzles` in it. It holds the
 `Template` trait, the instance, input and step log types, and the quicksort
-template's `run`, `score` and `rules`. It's built for
-`wasm32-unknown-unknown` the same way as the instrumenter, in CI and in the
-Docker image, and one root script runs both builds at the same time.
+template's `run`, `score` and `rules`. This step only builds it for the
+computer it runs on. CI gains a job like the instrumenter's: `cargo fmt`,
+`clippy` and `cargo test`.
 
-**You'll know it's done when** `cargo test` passes in CI, the Docker image
-builds, and the parity test shows the same comparison count from Rust and
-from the TypeScript quicksort on every fixed input.
+**You'll know it's done when** `cargo test` passes in CI, including inputs
+whose comparisons were counted by hand.
 
-### 1b. Game page
+### 1c. Wasm in the client
+
+`structs-puzzles` is built for `wasm32-unknown-unknown`, and its exports
+follow the instrumenter's (`alloc`, `result_ptr` and the rest, without
+`wasm-bindgen`). The client gains a loader like `instrumenter.ts`. One root
+script runs both wasm builds at the same time, and the client's Dockerfile
+gains a stage for it.
+
+**You'll know it's done when** a Vitest test scores a fixed input through
+the wasm build, and the Docker image builds.
+
+### 1d. Parity
+
+The TypeScript quicksort reports how many comparisons it made. A Vitest
+test runs it and the wasm build on the same inputs, fixed ones and random
+ones, and checks the counts match.
+
+**You'll know it's done when** the parity test passes in CI.
+
+### 1e. Puzzle page
 
 `/daily` loads the puzzle file and shows the rules, par and the array, with
-fixed values locked. Run animates the sort with the existing visualiser,
-then shows the score from the wasm build next to par. A finished puzzle
-offers share text, with the score and par but not the input.
+fixed values locked. The player can swap free values.
+
+**You'll know it's done when** 2/20 game tests pass: the puzzle shows its
+rules, par and fixed values, and fixed values can't be moved but free ones
+can.
+
+### 1f. Run and score
+
+Run animates the sort with the comparison counter, then shows the score from
+the wasm build next to par. Matching or beating par is announced. A
+finished puzzle offers share text, with the score and par but not the input.
 
 **You'll know it's done when** 6/20 game tests pass.
 
-### 1c. Playtest
+### 1g. Playtest
 
 Three people who haven't seen the game play the puzzle with no help. Write
 down where each one got stuck and what they tried, then fix the page before
