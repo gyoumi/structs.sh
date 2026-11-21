@@ -613,6 +613,15 @@ Found while building checkpoint 1, and not needed for it:
   runs) is thrown away, and its replacement can't fetch its script offline,
   so the next run fails until the network is back. Caching the script, for
   example with a service worker, would fix it.
+- **Refreshing or opening the page offline isn't checked.** The offline e2e
+  tests turn the network off only after the page has loaded. Nothing yet
+  checks what happens when a user who has visited before reloads the
+  debugger, or opens it again, with the network off: whether the page
+  loads, whether the compiler comes from the browser's cache, and whether a
+  program then compiles and steps. There's no service worker, so the page
+  itself may not load. Check this by hand first, then add an e2e test for
+  whatever should work, and fix it together with the item above if a
+  service worker is the answer.
 - **Private windows** download the largest compiler file again on each visit,
   because the browser caps how big a single cached file can be there. A Cache
   Storage fallback would fix it.
