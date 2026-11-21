@@ -17,6 +17,11 @@ export interface DataStructureAnnotationBase {
   type: DataStructureType;
 }
 
+type SelfReferenceField = {
+  typeName: PointerType['typeName'];
+  name: Name;
+};
+
 /**
  * Mapping from standard linked list node structure to the user's own defined linked list node struct
  *
@@ -29,11 +34,7 @@ export interface LinkedListAnnotation extends DataStructureAnnotationBase {
     typeName: NativeTypeName;
     name: Name;
   };
-  next: {
-    // Condition: Must be self-referencing
-    typeName: PointerType['typeName'];
-    name: Name;
-  };
+  next: SelfReferenceField;
 }
 
 export interface BinaryTreeAnnotation extends DataStructureAnnotationBase {
@@ -43,16 +44,8 @@ export interface BinaryTreeAnnotation extends DataStructureAnnotationBase {
     typeName: NativeTypeName;
     name: Name;
   };
-  left: {
-    // Condition: Must be self-referencing
-    typeName: PointerType['typeName'];
-    name: Name;
-  };
-  right: {
-    // Condition: Must be self-referencing
-    typeName: PointerType['typeName'];
-    name: Name;
-  };
+  left: SelfReferenceField;
+  right: SelfReferenceField;
 }
 
 export type DataStructureAnnotation = LinkedListAnnotation | BinaryTreeAnnotation;

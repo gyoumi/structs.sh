@@ -107,7 +107,6 @@ function main(args) {
     try {
       text = readFileSync(join(repoRoot, path), 'utf8');
     } catch (error) {
-      // Tracked but deleted from the working tree: nothing to measure.
       if (error.code === 'ENOENT') continue;
       throw error;
     }

@@ -74,6 +74,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The checkout is shallow by default, and the comment report diffs
+          # from the merge base of the PR's base and head.
+          fetch-depth: 0
       - uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
         with:
           runtime: node@22
@@ -82,6 +86,11 @@ jobs:
         run: pnpm run test:scripts
       - name: Debugger files stay under their line limits
         run: pnpm run check:file-sizes
+      - name: New comments in the debugger's code
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/report-new-comments.mjs --base "$BASE_SHA" --head "$HEAD_SHA"
       # Squash merges use the PR title as the commit message, and the local
       # commit-msg hook can be skipped, so the title is checked here.
       - name: PR title is a conventional commit
