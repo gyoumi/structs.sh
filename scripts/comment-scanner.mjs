@@ -10,6 +10,17 @@ export function languageOf(path) {
   return ['.ts', '.tsx', '.mjs', '.js'].some((ext) => path.endsWith(ext)) ? LANGUAGES.js : undefined;
 }
 
+/**
+ * Whether a comment, from its opening `//` or `/*`, is a plain comment: not an
+ * API doc and not a lint or tool directive.
+ */
+export function isPlainComment(comment, language) {
+  const docs = comment.startsWith('//') ? language.lineDocs : language.blockDocs;
+  if (docs.some((doc) => comment.startsWith(doc))) return false;
+  const body = comment.slice(2).trimStart();
+  return !DIRECTIVES.some((directive) => body.startsWith(directive));
+}
+
 const REGEX_AFTER_CHAR = /[(,=:[!&|?{};+\-*%<>~^]/;
 const REGEX_AFTER_WORD = new Set(['return', 'typeof', 'case', 'in', 'of', 'void', 'yield', 'await', 'delete', 'throw', 'new', 'else', 'do']);
 const RUST_CHAR = /'(?:\\u\{[0-9a-fA-F]+\}|\\.|[^\\'])'/y;
@@ -45,13 +56,6 @@ export function commentStartLines(text, language, { startInBlock = false } = {})
   const found = new Set();
   let i = 0;
   let lastCodeIndex = -1;
-
-  const isPlain = (docs, blank) => {
-    if (docs.some((doc) => text.startsWith(doc, i))) return false;
-    let body = i + 2;
-    while (body < text.length && blank.test(text[body])) body++;
-    return !DIRECTIVES.some((directive) => text.startsWith(directive, body));
-  };
 
   const skipBlock = () => {
     let depth = 1;
@@ -136,14 +140,15 @@ export function commentStartLines(text, language, { startInBlock = false } = {})
   scanCode = (untilBrace) => {
     let braces = 0;
     while (i < text.length) {
+      const start = i;
       if (text.startsWith('//', i)) {
-        if (isPlain(language.lineDocs, /[ \t]/)) found.add(lineAt(lineStarts, i));
         const end = text.indexOf('\n', i);
         i = end === -1 ? text.length : end;
+        if (isPlainComment(text.slice(start, i), language)) found.add(lineAt(lineStarts, start));
       } else if (text.startsWith('/*', i)) {
-        if (isPlain(language.blockDocs, /\s/)) found.add(lineAt(lineStarts, i));
         i += 2;
         skipBlock();
+        if (isPlainComment(text.slice(start, i), language)) found.add(lineAt(lineStarts, start));
       } else if (untilBrace && text[i] === '{') {
         braces++;
         lastCodeIndex = i++;

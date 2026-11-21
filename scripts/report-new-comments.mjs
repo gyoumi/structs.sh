@@ -4,7 +4,8 @@ import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { inScope, kindOf } from './check-file-sizes.mjs';
-import { commentStartLines, languageOf } from './comment-scanner.mjs';
+import { parser } from 'typescript-eslint';
+import { commentStartLines, isPlainComment, languageOf } from './comment-scanner.mjs';
 import { findTargetBranch } from './target-branch.mjs';
 
 const MESSAGE =
@@ -41,6 +42,27 @@ export function findNewComments(addedLines) {
   });
 }
 
+function parsedCommentStartLines(text, path, language) {
+  const { ast } = parser.parseForESLint(text, {
+    jsx: /\.[jt]sx$/.test(path),
+    comment: true,
+    loc: true,
+    range: true,
+    warnOnUnsupportedTypeScriptVersion: false,
+  });
+  const plain = ast.comments.filter((comment) => isPlainComment(text.slice(...comment.range), language));
+  return new Set(plain.map((comment) => comment.loc.start.line));
+}
+
+function fileCommentStartLines(text, path, language) {
+  if (path.endsWith('.rs')) return commentStartLines(text, language);
+  try {
+    return parsedCommentStartLines(text, path, language);
+  } catch {
+    return commentStartLines(text, language);
+  }
+}
+
 /**
  * @param {{ path: string, line: number, text: string }[]} addedLines
  * @param {(path: string) => string} contentOf the file's content after the change
@@ -48,7 +70,7 @@ export function findNewComments(addedLines) {
 function findNewCommentsInFiles(addedLines, contentOf) {
   const startsByPath = new Map();
   const startsIn = (path, language) => {
-    if (!startsByPath.has(path)) startsByPath.set(path, commentStartLines(contentOf(path), language));
+    if (!startsByPath.has(path)) startsByPath.set(path, fileCommentStartLines(contentOf(path), path, language));
     return startsByPath.get(path);
   };
   return addedLines

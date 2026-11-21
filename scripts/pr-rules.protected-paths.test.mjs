@@ -233,4 +233,62 @@ describe('protected-paths', () => {
       );
     }
   });
+
+  // Lint settings and the lint and size-check scripts: changing them can turn
+  // a check off, like changing the lint config.
+  const lintFiles = [
+    { path: 'instrumenter/clippy.toml', what: "clippy's settings for the instrumenter" },
+    { path: 'instrumenter/src/clippy.toml', what: 'a clippy.toml in a subfolder (clippy reads the nearest one)' },
+    { path: '.clippy.toml', what: 'a .clippy.toml at the repo root' },
+    { path: 'instrumenter/.clippy.toml', what: 'a .clippy.toml next to Cargo.toml' },
+    { path: 'scripts/lint-one-stage-value.mjs', what: 'the one-stage-value ESLint rule' },
+    { path: 'scripts/retired-names.mjs', what: 'the retired-names list the lint config uses' },
+    { path: 'scripts/check-file-sizes.mjs', what: 'the file-size check and the scope the lint rules use' },
+  ];
+  for (const { path, what } of lintFiles) {
+    for (const status of ['M', 'A']) {
+      it(`protects it without human approval: ${path} (${what}), status ${status}`, () => {
+        const result = checkPr(pr({ files: [{ status, path }] }));
+        assert.deepEqual(
+          result.map((f) => `${f.rule} ${f.path}`),
+          [`protected-paths ${path}`],
+          `${path} (${what}) with status ${status} should hit protected-paths on ${path} only. Got findings: ${show(result)}`,
+        );
+        assert.equal(result[0].message, PROTECTED_PATHS_MESSAGE, `${path}: protected-paths should use the usual message`);
+      });
+    }
+  }
+
+  // Cargo.toml lines that set a lint level or a lint table.
+  const cargoLintSettings = [
+    '[lints.clippy]',
+    'struct_excessive_bools = "allow"',
+    'fn_params_excessive_bools = { level = "warn", priority = 1 }',
+    '[lints]',
+    'lints.workspace = true',
+  ];
+  for (const text of cargoLintSettings) {
+    it(`protects a Cargo.toml line that sets a lint level or lint table: ${text}`, () => {
+      const files = [{ status: 'M', path: 'instrumenter/Cargo.toml' }];
+      const result = checkPr(pr({ files, addedLines: [{ path: 'instrumenter/Cargo.toml', line: 12, text }] }));
+      assert.deepEqual(
+        result.map((f) => `${f.rule} ${f.path}`),
+        ['protected-paths instrumenter/Cargo.toml'],
+        `added line ${text} in instrumenter/Cargo.toml (a lint setting) should hit protected-paths on instrumenter/Cargo.toml only. Got findings: ${show(result)}`,
+      );
+    });
+  }
+
+  it('accepts lint settings and lint scripts once a person adds the human-approved label', () => {
+    const labels = new Set(['human-approved']);
+    for (const { path } of lintFiles) {
+      const result = checkPr(pr({ files: [{ status: 'M', path }], labels }));
+      assert.deepEqual(result, [], `${path} changed with the human-approved label should hit no rule. Got findings: ${show(result)}`);
+    }
+    for (const text of cargoLintSettings) {
+      const files = [{ status: 'M', path: 'instrumenter/Cargo.toml' }];
+      const result = checkPr(pr({ files, labels, addedLines: [{ path: 'instrumenter/Cargo.toml', line: 12, text }] }));
+      assert.deepEqual(result, [], `added line ${text} in instrumenter/Cargo.toml with the human-approved label should hit no rule. Got findings: ${show(result)}`);
+    }
+  });
 });

@@ -8,7 +8,8 @@ const PROTECTED = [
   /^\.github\//,
   /^\.claude\//,
   /^skills-lock\.json$/,
-  /^scripts\/(pr-rules|check-pr|check-known-failures|check-changed|target-branch)\.mjs$/,
+  /^scripts\/(pr-rules|check-pr|check-known-failures|check-changed|target-branch|check-file-sizes|lint-one-stage-value|retired-names)\.mjs$/,
+  /(^|\/)\.?clippy\.toml$/,
   /^(client\/)?eslint\.config\.mjs$/,
   /^commitlint\.config\.js$/,
   /^knip\.jsonc$/,
@@ -29,6 +30,7 @@ const MANIFEST = /^(client\/)?package\.json$/;
 // \UXXXXXXXX escapes, so those are decoded first.
 const CARGO_MANIFEST = /^instrumenter\/Cargo\.toml$/;
 const CARGO_TEST_SETTING = /\b(autotests|autobenches|test|harness|doctest|required-features|path)\b/;
+const CARGO_LINT_SETTING = /\blints\b|["'](allow|warn|deny|forbid)["']/;
 const decodeTomlEscapes = (text) =>
   text.replace(/\\u([0-9a-fA-F]{4})|\\U([0-9a-fA-F]{8})/g, (escape, short, long) => {
     const code = parseInt(short ?? long, 16);
@@ -126,9 +128,11 @@ function protectedPaths({ files, addedLines, labels }) {
   const manifestScripts = changedPaths(
     files.filter((f) => (MANIFEST.test(f.path) || MANIFEST.test(f.oldPath ?? '')) && (f.status !== 'M' || f.scriptsChanged)),
   );
-  const cargoTestSettings = addedLines.filter((l) => CARGO_MANIFEST.test(l.path) && CARGO_TEST_SETTING.test(decodeTomlEscapes(l.text))).map((l) => l.path);
+  const cargoGuardedLines = addedLines
+    .filter((l) => CARGO_MANIFEST.test(l.path) && [CARGO_TEST_SETTING, CARGO_LINT_SETTING].some((setting) => setting.test(decodeTomlEscapes(l.text))))
+    .map((l) => l.path);
   return [...new Set(changedPaths(files))]
-    .filter((path) => PROTECTED.some((re) => re.test(path)) || manifestScripts.includes(path) || cargoTestSettings.includes(path))
+    .filter((path) => PROTECTED.some((re) => re.test(path)) || manifestScripts.includes(path) || cargoGuardedLines.includes(path))
     .map((path) =>
       finding('protected-paths', path, `Changes to CI, lint config, the package.json scripts CI runs, agent config or known failures need a person to add the "${LABELS.humanApproved}" label.`),
     );
