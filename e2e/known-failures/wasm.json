@@ -1,5 +1,3 @@
 {
-  "playback › rewind moves the timeline to the start": "VisualiserController only updates the slider when the time is truthy, so seeking to 0 leaves it at the end.",
-  "sharing › a copied link reopens the same data": "Create Link is behind the inDev flag in globalStore, which is always false, so the button never shows.",
   "matches the GDB debugger › stops on the same lines as GDB through bst.c": "After insert(root->left, value) on line 18 returns, the wasm debugger stops once on line 19 (`} else {`) before line 22; GDB goes straight to line 22. clang puts the if-branch's jump past the else on line 19's row of the line table. Follow-up: skip that row when stepping."
 }

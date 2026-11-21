@@ -1,4 +1,5 @@
 // src/store/toastStateStore.ts
+import type { JSX } from 'react';
 import create from 'zustand';
 
 interface Message {

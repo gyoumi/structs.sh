@@ -1,0 +1,89 @@
+import airwallexLogo from '@/assets/img/sponsors/airwallex.avif';
+import aristaLogo from '@/assets/img/sponsors/arista.png';
+import atlassianLogo from '@/assets/img/sponsors/atlassian.png';
+import hrtLogo from '@/assets/img/sponsors/hrt.png';
+import janeStreetLogo from '@/assets/img/sponsors/jane_street.svg';
+import lyraLogo from '@/assets/img/sponsors/lyra.svg';
+import qrtLogo from '@/assets/img/sponsors/qrt.svg';
+import theTradeDeskLogo from '@/assets/img/sponsors/thetradedesk.png';
+
+export const GITHUB_URL = 'https://github.com/devsoc-unsw/structs.sh';
+
+export const FEEDBACK_FORM_URL =
+  'https://docs.google.com/forms/d/e/1FAIpQLScg9AuvsDcrgjzNX3D10l2r09UhQS0WaGiyX3OvyRn4BlwBSQ/viewform';
+
+export const contacts = [
+  { label: 'Email us', href: 'mailto:structs@devsoc.app' },
+  { label: 'DevSoc', href: 'https://devsoc.app/' },
+  { label: 'Facebook', href: 'https://www.facebook.com/devsocUNSW' },
+];
+
+export const DESCRIPTION =
+  'An interactive learning platform for computer science, tailored to UNSW CSE students.';
+
+export const OPEN_SOURCE =
+  'Developed and maintained by passionate CS and engineering students at UNSW.';
+
+export const features = [
+  'Visualise algorithms for fundamental operations on classic data structures such as linked lists, binary search trees and graphs.',
+  'Granular animation control with play/pause, stepping, slider and speed control',
+  'Control the visualiser through a simple menu',
+];
+
+interface Sponsor {
+  name: string;
+  logo: string;
+  href: string;
+  logoHeight: number;
+}
+
+export const sponsorTiers: { name: string; sponsors: Sponsor[] }[] = [
+  {
+    name: 'Platinum',
+    sponsors: [
+      {
+        name: 'Hudson River Trading',
+        logo: hrtLogo,
+        href: 'https://www.hudsonrivertrading.com/',
+        logoHeight: 44,
+      },
+      {
+        name: 'Jane Street',
+        logo: janeStreetLogo,
+        href: 'https://www.janestreet.com/',
+        logoHeight: 38,
+      },
+      {
+        name: 'Lyra Technologies',
+        logo: lyraLogo,
+        href: 'https://www.lyratechnologies.com.au/',
+        logoHeight: 46,
+      },
+      {
+        name: 'The Trade Desk',
+        logo: theTradeDeskLogo,
+        href: 'https://careers.thetradedesk.com/',
+        logoHeight: 30,
+      },
+    ],
+  },
+  {
+    name: 'Gold',
+    sponsors: [
+      {
+        name: 'Airwallex',
+        logo: airwallexLogo,
+        href: 'https://www.airwallex.com/au',
+        logoHeight: 36,
+      },
+      { name: 'Arista', logo: aristaLogo, href: 'https://www.arista.com/en/', logoHeight: 26 },
+      {
+        name: 'Atlassian',
+        logo: atlassianLogo,
+        href: 'https://www.atlassian.com/',
+        logoHeight: 24,
+      },
+      { name: 'QRT', logo: qrtLogo, href: 'https://www.qube-rt.com/', logoHeight: 34 },
+    ],
+  },
+];

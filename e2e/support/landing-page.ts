@@ -1,5 +1,5 @@
 import { expect, type Page } from '@playwright/test';
-import { topicTitles, type TopicSlug } from './visualiser-page';
+import { topicTitles, type TopicSlug } from './topics';
 
 /**
  * Drives the landing page, the 404 page and the feedback form.
@@ -15,11 +15,12 @@ export class LandingPage {
   }
 
   async openTopic(topic: TopicSlug): Promise<void> {
-    await this.page.getByRole('button', { name: topicTitles[topic], exact: true }).click();
+    await this.page.getByRole('radio', { name: topicTitles[topic] }).click();
+    await this.page.getByRole('link', { name: `Open ${topicTitles[topic]}` }).click();
   }
 
   async openDebugger(): Promise<void> {
-    await this.page.getByRole('link', { name: 'Debugger', exact: true }).first().click();
+    await this.page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Debugger' }).click();
   }
 
   /** Every external link on the page. */
@@ -30,12 +31,9 @@ export class LandingPage {
     return [...new Set(hrefs)];
   }
 
-  /** Follows the feedback link and returns the address of the feedback form. */
+  /** The address of the feedback form that the footer's Feedback link opens. */
   async feedbackFormUrl(): Promise<string> {
-    await this.page.getByRole('link', { name: /feedback/i }).click();
-    const form = this.page.getByTitle('Structs.sh feedback form');
-    await expect(form).toBeAttached();
-    return (await form.getAttribute('src')) ?? '';
+    return (await this.page.getByRole('link', { name: 'Feedback' }).getAttribute('href')) ?? '';
   }
 
   /** Opens /feedback and returns the address of the feedback form it loads, without contacting Google. */
@@ -48,12 +46,12 @@ export class LandingPage {
 
   /** The heading and message of the page shown for an unknown address. */
   async notFoundMessage(): Promise<string> {
-    const message = this.page.getByText(/Couldn.t find a page/);
-    await expect(message).toBeVisible();
-    return (await this.page.locator('body').innerText()).replace(/\s+/g, ' ');
+    const heading = this.page.getByRole('heading', { level: 1 });
+    await expect(heading).toBeVisible();
+    return (await this.page.getByRole('main').innerText()).replace(/\s+/g, ' ');
   }
 
   async leaveNotFoundPage(): Promise<void> {
-    await this.page.getByRole('link', { name: /Structs\.sh/ }).click();
+    await this.page.getByRole('main').getByRole('link', { name: /home|landing|structs\.sh/i }).first().click();
   }
 }

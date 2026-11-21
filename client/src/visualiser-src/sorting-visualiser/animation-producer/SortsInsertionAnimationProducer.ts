@@ -1,6 +1,7 @@
 import { insertionCodeSnippet } from '../util/codeSnippets';
 import GraphicalSortsElement from '../data-structure/GraphicalSortsElement';
 import SortsAnimationProducer from './SortsAnimationProducer';
+import { canvasTheme } from '../../common/canvasTheme';
 
 export default class SortsInsertionAnimationProducer extends SortsAnimationProducer {
   public renderInsertionCode() {
@@ -16,8 +17,8 @@ export default class SortsInsertionAnimationProducer extends SortsAnimationProdu
     this.swap(from, fromIndex, to, toIndex);
 
     this.addSequenceAnimation(
-      from.boxTarget.animate(1).attr({ stroke: '#39AF8E', fill: '#39AF8E' })
+      from.boxTarget.animate(1).attr({ stroke: canvasTheme.accent, fill: canvasTheme.accent })
     );
-    this.addSequenceAnimation(from.numberTarget.animate(1).attr({ fill: '#39AF8E' }));
+    this.addSequenceAnimation(from.numberTarget.animate(1).attr({ fill: canvasTheme.accent }));
   }
 }

@@ -3,6 +3,7 @@ import GraphicalBSTNode from '../data-structure/GraphicalBSTNode';
 import { lineDiffY } from '../../common/settings';
 import { getPointerStartEndCoordinates } from '../../common/helpers';
 import { insertCodeSnippet } from '../util/codeSnippets';
+import { canvasTheme } from '../../common/canvasTheme';
 
 export default class BSTInsertAnimationProducer extends BSTAnimationProducer {
   public renderInsertCode(): void {
@@ -66,15 +67,15 @@ export default class BSTInsertAnimationProducer extends BSTAnimationProducer {
       this.addSequenceAnimation(
         node.nodeTarget.animate(400).attr({
           opacity: 1,
-          fill: '#39AF8E',
-          stroke: '#39AF8E',
+          fill: canvasTheme.accent,
+          stroke: canvasTheme.accent,
         })
       );
 
       this.addSequenceAnimation(
         node.textTarget.animate(400).attr({
           opacity: 1,
-          fill: '#ffffff',
+          fill: canvasTheme.onAccent,
         })
       );
     } else {

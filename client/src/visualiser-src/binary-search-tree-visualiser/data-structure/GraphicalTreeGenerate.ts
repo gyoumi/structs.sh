@@ -3,6 +3,12 @@ import BSTCreateAnimationProducer from '@/visualiser-src/binary-search-tree-visu
 import updateNodePositions from '@/visualiser-src/binary-search-tree-visualiser/util/helpers';
 import GraphicalBSTNode from './GraphicalBSTNode';
 
+interface Shape {
+  value: number;
+  left: Shape | null;
+  right: Shape | null;
+}
+
 export default class GraphicalTreeGenerate {
   // given a sorted array arr, inserts elements to num such that its linear insertion order
   // will lead to a reasonably balanced BST
@@ -40,17 +46,67 @@ export default class GraphicalTreeGenerate {
     return root;
   }
 
-  // Loads Tree from Data
+  // Loads Tree from Data: the values are inserted in order, duplicates ignored. Inserting a valid
+  // pre-order listing rebuilds exactly the tree it lists, so its pre-order equals the input.
   public static loadTree<T extends GraphicalBSTNode>(
     createNode: (arg0: number) => T,
-    data: number[]
+    data: number[],
+    balanced = false
   ): T | null {
-    const size = data.length;
-    const root = GraphicalTreeGenerate.constructTreeUtil(createNode, data, 0, size - 1);
+    const unique = [...new Set(data)];
+    const shape = GraphicalTreeGenerate.insertAll(unique);
+    let root: T | null;
+    if (balanced && GraphicalTreeGenerate.balancedHeight(shape) === -1) {
+      const sorted = unique.sort((a, b) => a - b);
+      root = GraphicalTreeGenerate.recurseArrInsert(sorted, 0, sorted.length, createNode);
+    } else {
+      const order = GraphicalTreeGenerate.preOrder(shape);
+      root = GraphicalTreeGenerate.constructTreeUtil(createNode, order, 0, order.length - 1);
+    }
 
     updateNodePositions(root);
     GraphicalTreeGenerate.create(root);
     return root;
+  }
+
+  private static insertAll(values: number[]): Shape | null {
+    let root: Shape | null = null;
+    values.forEach((value) => {
+      const node: Shape = { value, left: null, right: null };
+      if (root === null) {
+        root = node;
+        return;
+      }
+      let parent: Shape = root;
+      for (;;) {
+        const side = value < parent.value ? 'left' : 'right';
+        const child: Shape | null = parent[side];
+        if (child === null) {
+          parent[side] = node;
+          return;
+        }
+        parent = child;
+      }
+    });
+    return root;
+  }
+
+  private static preOrder(node: Shape | null): number[] {
+    if (node === null) return [];
+    return [
+      node.value,
+      ...GraphicalTreeGenerate.preOrder(node.left),
+      ...GraphicalTreeGenerate.preOrder(node.right),
+    ];
+  }
+
+  // Height of the tree, or -1 when some node's subtrees differ in height by more than 1
+  private static balancedHeight(node: Shape | null): number {
+    if (node === null) return 0;
+    const left = GraphicalTreeGenerate.balancedHeight(node.left);
+    const right = GraphicalTreeGenerate.balancedHeight(node.right);
+    if (left === -1 || right === -1 || Math.abs(left - right) > 1) return -1;
+    return Math.max(left, right) + 1;
   }
 
   // Construct tree from pre order

@@ -1,10 +1,12 @@
 import { SVG, Runner } from '@svgdotjs/svg.js';
 import { CodeLine } from './typedefs';
 import { showLineNumbers, CODE_CANVAS, CODE_CONTAINER } from './constants';
+import { canvasTheme } from './canvasTheme';
 
 interface RunnerInfo {
   runners: Runner[];
   isTimestamped: boolean;
+  line: number | null;
 }
 export default abstract class AnimationProducer {
   private _allRunners: RunnerInfo[] = [];
@@ -18,6 +20,14 @@ export default abstract class AnimationProducer {
   private _codeTargets: CodeLine[] = [];
 
   private _highlightedLines: number[] = [];
+
+  private _code: string = '';
+
+  private _currentLine: number | null = null;
+
+  public get code() {
+    return this._code;
+  }
 
   public get allRunners() {
     return this._allRunners;
@@ -46,6 +56,8 @@ export default abstract class AnimationProducer {
   public renderCode(code: string): void {
     // clear the canvas
     SVG(CODE_CANVAS).clear();
+    this._code = code;
+    this._currentLine = null;
     this.highlightedLines = [];
     this.codeTargets = [];
 
@@ -57,12 +69,12 @@ export default abstract class AnimationProducer {
         rectTarget: SVG()
           .rect(450, 18)
           .move(-5, 18 * i)
-          .fill('#14113C')
+          .fill(canvasTheme.codeBackground)
           .addTo(CODE_CANVAS),
         textTarget: SVG()
           .text(showLineNumbers ? String(i + 1).padEnd(4, ' ') + line : line.trim())
-          .font({ family: 'CodeText', size: 10 })
-          .fill('#FFFFFF')
+          .font({ family: canvasTheme.fontFamily, size: 10 })
+          .fill(canvasTheme.codeText)
           .attr('style', 'white-space: pre-wrap')
           .move(0, 18 * i + 2)
           .x(showLineNumbers ? 0 : line.search(/\S/) * 5)
@@ -83,13 +95,14 @@ export default abstract class AnimationProducer {
 
     this.addSequenceAnimation(
       this.codeTargets[line - 1].rectTarget.animate(1).attr({
-        fill: '#39AF8E',
+        fill: canvasTheme.accent,
         rx: '10',
         ry: '10',
       })
     );
 
     this.highlightedLines = [line];
+    this._currentLine = line;
   }
 
   // these 2 functions are used to "decorate" animation function so each animation function doesn't
@@ -129,14 +142,14 @@ export default abstract class AnimationProducer {
     this.highlightedLines.forEach((line) => {
       this.addSequenceAnimation(
         this.codeTargets[line - 1].rectTarget.animate(1).attr({
-          fill: '#14113C',
+          fill: canvasTheme.codeBackground,
         })
       );
     });
   }
 
   public addSingleAnimation(animation: Runner): void {
-    this._allRunners.push({ runners: [animation], isTimestamped: true });
+    this._allRunners.push({ runners: [animation], isTimestamped: true, line: this._currentLine });
   }
 
   public addSequenceAnimation(animation: Runner): void {
@@ -145,7 +158,11 @@ export default abstract class AnimationProducer {
 
   public finishSequence(isTimestamped: boolean = true): void {
     if (this.currentSequence.length > 0) {
-      this.allRunners.push({ runners: this.currentSequence, isTimestamped });
+      this.allRunners.push({
+        runners: this.currentSequence,
+        isTimestamped,
+        line: this._currentLine,
+      });
     }
 
     this._currentSequence = [];

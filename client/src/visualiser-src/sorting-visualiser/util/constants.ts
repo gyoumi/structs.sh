@@ -1,4 +1,5 @@
 import { strokeWidth } from '../../common/constants';
+import { canvasTheme } from '../../common/canvasTheme';
 
 export const whitespace = 10;
 export const topOffset = 60;
@@ -6,19 +7,16 @@ export const boxWidth = 50;
 export const textCy = 230;
 export const leftOffset = 70;
 
-export const defaultColour = '#000000';
-export const sortedColour = '#39AF8E';
-export const checkingColour = '#FFBC53';
-export const comparingColor = '#FFBC53';
-export const selectedColor = '#33cccc';
-export const redColour = '#E22B4F';
-
 export const CANVAS = '#canvas';
 
 export const shapeAttributes = {
   'stroke-width': strokeWidth,
-  stroke: 'black',
-  fill: 'black',
+  get stroke() {
+    return canvasTheme.ink;
+  },
+  get fill() {
+    return canvasTheme.ink;
+  },
   opacity: 0,
 };
 
@@ -28,6 +26,11 @@ export const textAttributes = {
   'dominant-baseline': 'middle',
   'text-anchor': 'middle',
   'stroke-width': 0,
-  'font-family': 'CodeText',
+  get 'font-family'() {
+    return canvasTheme.fontFamily;
+  },
+  get fill() {
+    return canvasTheme.ink;
+  },
   opacity: 0,
 };

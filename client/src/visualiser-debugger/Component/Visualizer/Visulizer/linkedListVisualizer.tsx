@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, type JSX } from 'react';
 import { AnimatePresence, useAnimation } from 'framer-motion';
 import LinkedNode from '../Entities/DrawableEntities/drawableNode';
 import Edge from '../Entities/DrawableEntities/drawableEdge';
@@ -64,7 +64,6 @@ const LinkedList: VisualizerComponent = ({ graphState }: VisualizerState) => {
             <LinkedNode
               ref={(ref) => {
                 if (nodeRefs.current[entity.uid] === undefined) nodeRefs.current[entity.uid] = ref;
-                return nodeRefs.current[entity.uid];
               }}
               key={entity.uid}
               entity={entity}
@@ -78,7 +77,6 @@ const LinkedList: VisualizerComponent = ({ graphState }: VisualizerState) => {
             <Edge
               ref={(ref) => {
                 if (nodeRefs.current[entity.uid] === undefined) nodeRefs.current[entity.uid] = ref;
-                return nodeRefs.current[entity.uid];
               }}
               key={entity.uid}
               entity={entity}
@@ -97,7 +95,6 @@ const LinkedList: VisualizerComponent = ({ graphState }: VisualizerState) => {
                 ref={(ref) => {
                   if (nodeRefs.current[entity.uid] === undefined)
                     nodeRefs.current[entity.uid] = ref;
-                  return nodeRefs.current[entity.uid];
                 }}
                 key={entity.uid}
                 entity={entity}

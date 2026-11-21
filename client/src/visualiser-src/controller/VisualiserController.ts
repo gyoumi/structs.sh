@@ -9,6 +9,11 @@ interface TimeEvent extends Event {
   detail?: number;
 }
 
+export interface TimelineSegment {
+  start: number;
+  line: number | null;
+}
+
 class VisualiserController {
   private dataStructure?: GraphicalDataStructure;
 
@@ -23,6 +28,10 @@ class VisualiserController {
   private speed: number = 1;
 
   private isStepMode: boolean = false;
+
+  private segments: TimelineSegment[] = [];
+
+  private operationCode: string = '';
 
   public constructor(topicTitle?: string) {
     this.setSpeed(defaultSpeed);
@@ -56,11 +65,13 @@ class VisualiserController {
     updateSlider: (val: number) => void
   ): void {
     this.resetTimeline(updateSlider);
+    this.operationCode = animationProducer.code;
 
     if (animationProducer.allRunners.length === 0) return;
 
     animationProducer.allRunners.forEach((runnerInfo) => {
       if (runnerInfo.runners.length === 0) return;
+      this.segments.push({ start: this.timelineDuration + 25, line: runnerInfo.line });
       runnerInfo.runners.forEach((runner) => {
         this.currentTimeline.schedule(runner, this.timelineDuration + 25, 'absolute');
       });
@@ -92,8 +103,7 @@ class VisualiserController {
     });
     this.isStepMode = false;
     this.currentTimeline.speed(this.speed);
-    this.timestamps = [];
-    this.timelineDuration = 0;
+    this.clearRecording();
   }
 
   public play(): void {
@@ -144,6 +154,7 @@ class VisualiserController {
     this.currentTimeline.finish();
     this.currentTimeline.time(0);
     this.currentTimeline = new Timeline().persist(true);
+    this.clearRecording();
   }
 
   private getErrorMessageIfInvalidInput(command: string, args: string[]): string {
@@ -221,6 +232,7 @@ class VisualiserController {
     this.currentTimeline.finish();
     this.currentTimeline.time(0);
     this.currentTimeline = new Timeline().persist(true);
+    this.clearRecording();
   }
 
   public generateDataStructure(): void {
@@ -242,6 +254,45 @@ class VisualiserController {
 
   private get currentTime() {
     return Math.min(this.currentTimeline.time(), this.timelineDuration);
+  }
+
+  private clearRecording(): void {
+    this.timestamps = [];
+    this.timelineDuration = 0;
+    this.segments = [];
+    this.operationCode = '';
+  }
+
+  public get duration(): number {
+    return this.timelineDuration;
+  }
+
+  public get time(): number {
+    return this.currentTime;
+  }
+
+  public get isPaused(): boolean {
+    return (this.currentTimeline as unknown as { _paused: boolean })._paused;
+  }
+
+  public get code(): string {
+    return this.operationCode;
+  }
+
+  // Times the timeline pauses at when stepping, ending with the full duration.
+  public get stepTimes(): number[] {
+    return [...this.timestamps]
+      .sort((a, b) => a - b)
+      .filter((t, i, sorted) => i === 0 || t - sorted[i - 1] > 2);
+  }
+
+  public get currentLine(): number | null {
+    const now = this.currentTimeline.time();
+    let line: number | null = null;
+    this.segments.forEach((segment) => {
+      if (segment.start <= now && segment.line !== null) line = segment.line;
+    });
+    return line;
   }
 }
 
