@@ -119,10 +119,6 @@
   font-weight: 600;
 }
 
-.input[aria-invalid='true'] {
-  border-color: #d64545;
-}
-
 .input[data-active] {
   background: var(--surface);
   box-shadow: none;
@@ -133,6 +129,10 @@
   background: var(--surface);
   box-shadow: none;
   border-color: var(--accent);
+}
+
+.input[aria-invalid='true'] {
+  border-color: #d64545;
 }
 
 .keys {
