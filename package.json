@@ -19,6 +19,7 @@
     "check:pr": "node scripts/check-pr.mjs --local",
     "check:known-failures": "node scripts/check-known-failures.mjs",
     "check:file-sizes": "node scripts/check-file-sizes.mjs",
+    "report:comments": "node scripts/report-new-comments.mjs",
     "test:scripts": "node --test scripts/*.test.mjs",
     "e2e:lint": "eslint e2e",
     "knip": "knip --include files,unlisted,unresolved,binaries"

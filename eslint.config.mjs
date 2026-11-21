@@ -4,6 +4,7 @@
 // into errors, so a broken convention fails CI instead of relying on review.
 import playwright from 'eslint-plugin-playwright';
 import tseslint from 'typescript-eslint';
+import { retiredNames, studentFreeIdentifier } from './scripts/retired-names.mjs';
 
 const pageInternals = ['locator', 'evaluate', '$', '$$', '$eval', '$$eval', 'getByTestId'];
 
@@ -33,6 +34,8 @@ export default tseslint.config(
         'error',
         { assertFunctionNames: ['startSession', 'stepUntilLine', 'runToEnd'] },
       ],
+      'id-denylist': ['error', ...retiredNames],
+      'id-match': ['error', studentFreeIdentifier, { properties: true, classFields: true }],
     },
   },
   {

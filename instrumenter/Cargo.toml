@@ -15,6 +15,10 @@ gimli = "0.32"
 walrus = "0.28"
 wasmparser = "0.245"
 
+# Clippy reads the thresholds from clippy.toml, not from here.
+[lints.clippy]
+struct_excessive_bools = "warn"
+fn_params_excessive_bools = "warn"
 
 [profile.release]
 opt-level = "s"

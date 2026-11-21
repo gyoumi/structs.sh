@@ -501,6 +501,23 @@ e2e suite and the GDB comparison must pass unchanged at every step.
   and the existing tests must still pass); 5a adds only the tests for the
   new size-check script. 5c changes tests, plus the one line that turns
   the size check on for test files.
+- **What CI checks now, so the code stays tidy:**
+  - Stages: clippy fails a Rust struct or function with more than one
+    `bool` (`instrumenter/clippy.toml`). The `structs/one-stage-value` ESLint
+    rule fails an interface, type, class or block in the scope's TypeScript
+    that has two or more boolean fields or `let`s.
+  - Comments: `scripts/report-new-comments.mjs` adds a warning to the PR for
+    each new plain comment in the scope's source files. It doesn't fail,
+    because only a reviewer can tell an outside constraint from an
+    explanation.
+  - Names: ESLint's `id-denylist` and `id-match` fail the names the renames
+    retired, and any name containing `student`, where our code declares
+    them (variables, functions, parameters, properties and types) in the
+    TypeScript in `client/src` and `e2e/` (`scripts/retired-names.mjs`).
+    They don't look at calls on other objects.
+  - Tests: the Vitest ESLint plugin fails a scope test file with a loop of
+    tests instead of `it.each` (`prefer-each`), two tests with the same
+    title, or a test that asserts nothing.
 
 ### 5a. Structure
 

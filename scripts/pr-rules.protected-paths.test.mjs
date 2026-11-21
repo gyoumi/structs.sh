@@ -233,4 +233,112 @@ describe('protected-paths', () => {
       );
     }
   });
+
+  // Lint settings and the lint and size-check scripts: changing them can turn
+  // a check off, like changing the lint config.
+  const lintFiles = [
+    { path: 'instrumenter/clippy.toml', what: "clippy's settings for the instrumenter" },
+    { path: 'instrumenter/src/clippy.toml', what: 'a clippy.toml in a subfolder (clippy reads the nearest one)' },
+    { path: '.clippy.toml', what: 'a .clippy.toml at the repo root' },
+    { path: 'instrumenter/.clippy.toml', what: 'a .clippy.toml next to Cargo.toml' },
+    { path: 'scripts/lint-one-stage-value.mjs', what: 'the one-stage-value ESLint rule' },
+    { path: 'scripts/retired-names.mjs', what: 'the retired-names list the lint config uses' },
+    { path: 'scripts/check-file-sizes.mjs', what: 'the file-size check and the scope the lint rules use' },
+  ];
+  for (const { path, what } of lintFiles) {
+    for (const status of ['M', 'A']) {
+      it(`protects it without human approval: ${path} (${what}), status ${status}`, () => {
+        const result = checkPr(pr({ files: [{ status, path }] }));
+        assert.deepEqual(
+          result.map((f) => `${f.rule} ${f.path}`),
+          [`protected-paths ${path}`],
+          `${path} (${what}) with status ${status} should hit protected-paths on ${path} only. Got findings: ${show(result)}`,
+        );
+        assert.equal(result[0].message, PROTECTED_PATHS_MESSAGE, `${path}: protected-paths should use the usual message`);
+      });
+    }
+  }
+
+  // Cargo.toml lines that set a lint level or a lint table.
+  const cargoLintSettings = [
+    '[lints.clippy]',
+    'struct_excessive_bools = "allow"',
+    'fn_params_excessive_bools = { level = "warn", priority = 1 }',
+    '[lints]',
+    'lints.workspace = true',
+  ];
+  for (const text of cargoLintSettings) {
+    it(`protects a Cargo.toml line that sets a lint level or lint table: ${text}`, () => {
+      const files = [{ status: 'M', path: 'instrumenter/Cargo.toml' }];
+      const result = checkPr(pr({ files, addedLines: [{ path: 'instrumenter/Cargo.toml', line: 12, text }] }));
+      assert.deepEqual(
+        result.map((f) => `${f.rule} ${f.path}`),
+        ['protected-paths instrumenter/Cargo.toml'],
+        `added line ${text} in instrumenter/Cargo.toml (a lint setting) should hit protected-paths on instrumenter/Cargo.toml only. Got findings: ${show(result)}`,
+      );
+    });
+  }
+
+  it('accepts lint settings and lint scripts once a person adds the human-approved label', () => {
+    const labels = new Set(['human-approved']);
+    for (const { path } of lintFiles) {
+      const result = checkPr(pr({ files: [{ status: 'M', path }], labels }));
+      assert.deepEqual(result, [], `${path} changed with the human-approved label should hit no rule. Got findings: ${show(result)}`);
+    }
+    for (const text of cargoLintSettings) {
+      const files = [{ status: 'M', path: 'instrumenter/Cargo.toml' }];
+      const result = checkPr(pr({ files, labels, addedLines: [{ path: 'instrumenter/Cargo.toml', line: 12, text }] }));
+      assert.deepEqual(result, [], `added line ${text} in instrumenter/Cargo.toml with the human-approved label should hit no rule. Got findings: ${show(result)}`);
+    }
+  });
+
+  // Removing a lint or test setting from Cargo.toml turns a check off as surely
+  // as adding one, so removed lines (line numbers in the base file) count too.
+  const CARGO = 'instrumenter/Cargo.toml';
+  const removed = (texts, start = 20) => texts.map((text, i) => ({ path: CARGO, line: start + i, text }));
+  const cargoPolicy = ['[lints.clippy]', 'struct_excessive_bools = "warn"', 'fn_params_excessive_bools = "warn"'];
+
+  for (const text of [...cargoPolicy, 'harness = false']) {
+    it(`protects a removed Cargo.toml lint or test setting: ${text}`, () => {
+      const result = checkPr(pr({ files: [{ status: 'M', path: CARGO }], removedLines: removed([text]) }));
+      assert.deepEqual(
+        result.map((f) => `${f.rule} ${f.path}`),
+        [`protected-paths ${CARGO}`],
+        `removed line ${text} from ${CARGO} (no added lines) should hit protected-paths on ${CARGO} only. Got findings: ${show(result)}`,
+      );
+      assert.equal(result[0].message, PROTECTED_PATHS_MESSAGE, `removed line ${text}: protected-paths should use the usual message`);
+    });
+  }
+
+  it('protects a deletion-only change that removes the whole [lints.clippy] table from Cargo.toml', () => {
+    const removedLines = removed(cargoPolicy);
+    const result = checkPr(pr({ files: [{ status: 'M', path: CARGO }], addedLines: [], removedLines }));
+    const what = `removing ${cargoPolicy.join(' / ')} (lines 20-22) from ${CARGO}, with no added lines`;
+    assert.ok(result.length > 0, `${what} should hit protected-paths. Got findings: ${show(result)}`);
+    assert.deepEqual(
+      [...new Set(result.map((f) => `${f.rule} ${f.path}`))],
+      [`protected-paths ${CARGO}`],
+      `${what}: every finding should be protected-paths on ${CARGO}. Got findings: ${show(result)}`,
+    );
+  });
+
+  it('accepts removed Cargo.toml lint and test settings once a person adds the human-approved label', () => {
+    const labels = new Set(['human-approved']);
+    for (const texts of [cargoPolicy, ['harness = false']]) {
+      const result = checkPr(pr({ files: [{ status: 'M', path: CARGO }], removedLines: removed(texts), labels }));
+      assert.deepEqual(result, [], `removing ${texts.join(' / ')} from ${CARGO} with the human-approved label should hit no rule. Got findings: ${show(result)}`);
+    }
+  });
+
+  it('does not protect a removed dependency line in Cargo.toml, alone or as a version bump', () => {
+    const files = [{ status: 'M', path: CARGO }];
+    const cases = [
+      ['removing walrus = "0.28"', { removedLines: removed(['walrus = "0.28"']) }],
+      ['bumping walrus = "0.28" to walrus = "0.29"', { removedLines: removed(['walrus = "0.28"']), addedLines: [{ path: CARGO, line: 20, text: 'walrus = "0.29"' }] }],
+    ];
+    for (const [what, lines] of cases) {
+      const result = checkPr(pr({ files, ...lines }));
+      assert.deepEqual(result, [], `${what} in ${CARGO} should hit no rule. Got findings: ${show(result)}`);
+    }
+  });
 });
