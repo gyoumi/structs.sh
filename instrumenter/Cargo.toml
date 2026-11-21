@@ -1,0 +1,28 @@
+[package]
+name = "structs-instrumenter"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Rewrites C programs compiled to wasm so the browser debugger can record them"
+
+[lib]
+# cdylib is the .wasm the browser loads; rlib lets the tests call it directly.
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# The versions walrus 0.28 itself uses, so there's one copy of each.
+gimli = "0.32"
+walrus = "0.28"
+wasmparser = "0.245"
+
+# Clippy reads the thresholds from clippy.toml, not from here.
+[lints.clippy]
+struct_excessive_bools = "warn"
+fn_params_excessive_bools = "warn"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

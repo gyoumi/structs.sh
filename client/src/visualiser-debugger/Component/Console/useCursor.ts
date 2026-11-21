@@ -1,106 +1,82 @@
 import { useState } from 'react';
-import useSocketClientStore from '@/Services/socketClient';
+import { useDebuggerStore } from '@/Services/debugger/debuggerStore';
 import { useFrontendStateStore } from '@/visualiser-debugger/Store/frontendStateStore';
 import { useGlobalStore } from '@/visualiser-debugger/Store/globalStateStore';
 
-function useCursor(
-  content: string,
-  clearInput: () => void,
-  scrollToBottom: () => void,
-  // TODO: Remove this after clarification on the TODO below
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  isCompiled: boolean
-) {
-  const socketClient = useSocketClientStore((state) => state.socketClient); // i dont understand whats happening and need to clarify
+function useCursor(content: string, clearInput: () => void, scrollToBottom: () => void) {
+  const activeDebugger = useDebuggerStore((state) => state.activeDebugger);
   const appendConsoleChunk = useGlobalStore((state) => state.appendConsoleChunks);
   const setActive = useFrontendStateStore((state) => state.setActive);
 
-  const [shifts, setShifts] = useState(0);
-  const [paused, setPaused] = useState(true);
+  const [cursorOffsetFromEnd, setCursorOffsetFromEnd] = useState(0);
+  const [isBlinkPaused, setIsBlinkPaused] = useState(true);
   const [isCtrlPressed, setIsCtrlPressed] = useState(false);
-
-  // const removeStructsPrefix = (currInput: string) => {
-  //   return currInput.split(' ').slice(2).join(' ');
-  // };
 
   let timeoutRef: NodeJS.Timeout;
 
   function pauseWithTimeout() {
-    setPaused(true);
+    setIsBlinkPaused(true);
 
     clearTimeout(timeoutRef);
 
     timeoutRef = setTimeout(() => {
-      setPaused(false);
+      setIsBlinkPaused(false);
     }, 500);
   }
 
-  function updateShifts(key: string) {
+  function handleKeyAction(key: string) {
     switch (key) {
       case 'ArrowLeft':
-        if (content.length > shifts) {
-          setShifts(shifts + 1);
+        if (content.length > cursorOffsetFromEnd) {
+          setCursorOffsetFromEnd(cursorOffsetFromEnd + 1);
         }
         break;
       case 'ArrowRight':
-        if (shifts > 0) {
-          setShifts(shifts - 1);
+        if (cursorOffsetFromEnd > 0) {
+          setCursorOffsetFromEnd(cursorOffsetFromEnd - 1);
         }
         break;
       case 'Delete':
-        if (content.length >= shifts) {
-          setShifts(shifts - 1);
+        if (content.length >= cursorOffsetFromEnd) {
+          setCursorOffsetFromEnd(cursorOffsetFromEnd - 1);
         }
         break;
       case 'Home':
       case 'ArrowUp':
-        setShifts(content.length);
+        setCursorOffsetFromEnd(content.length);
         break;
       case 'End':
       case 'ArrowDown':
-        setShifts(0);
+        setCursorOffsetFromEnd(0);
         break;
       case 'Enter':
-        // TODO: Ensure that it's okay to send the PREFIX to the backend
-        // because if we remove the PREFIX, we can't tell which command
-        // is input while the program is running and while the program is not running
-        if (!socketClient) return;
-        socketClient.serverAction.sendStdin(content);
+        if (!activeDebugger) return;
+        activeDebugger.sendStdin(content);
         appendConsoleChunk(`${content}\n`);
         clearInput();
         scrollToBottom();
-
-        // const removedPrefixInput = removeStructsPrefix(content);
-        // if (removedPrefixInput.length > 0) {
-        //   socket.serverAction.sendStdin(removedPrefixInput);
-        //   appendConsoleChunk(`${removedPrefixInput}\n`);
-        //   clearInput();
-        //   scrollToBottom();
-        // }
-
         break;
       default:
         break;
     }
-    if (!socketClient) return;
+    if (!activeDebugger) return;
 
     if (isCtrlPressed && key === 'd') {
-      socketClient.serverAction.sendEOF();
-      setActive(false);
+      activeDebugger.sendEOF();
     }
 
     if (isCtrlPressed && key === 'c') {
-      socketClient.serverAction.sendSIGINT();
+      activeDebugger.interrupt();
       setActive(false);
     }
   }
 
   function handleOnFocus() {
-    setPaused(false);
+    setIsBlinkPaused(false);
   }
 
   function handleOnBlur() {
-    setPaused(true);
+    setIsBlinkPaused(true);
   }
 
   function handleKeyDown(event: React.KeyboardEvent) {
@@ -108,7 +84,7 @@ function useCursor(
     setIsCtrlPressed(ctrlKey);
     pauseWithTimeout();
 
-    updateShifts(key);
+    handleKeyAction(key);
   }
 
   function handleKeyUp(event: React.KeyboardEvent) {
@@ -122,8 +98,8 @@ function useCursor(
     handleOnBlur,
     handleKeyDown,
     handleKeyUp,
-    shifts,
-    paused,
+    shifts: cursorOffsetFromEnd,
+    paused: isBlinkPaused,
   };
 }
 

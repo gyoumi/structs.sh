@@ -5,14 +5,15 @@ import { LandingPage } from './landing-page';
 import { VisualiserPage } from './visualiser-page';
 
 /**
- * Tests listed in known-failures.json are expected to fail, with a reason.
+ * Tests listed in known-failures/wasm.json are expected to fail, with a
+ * reason.
  * Playwright reports them as passing while they fail, and as FAILING once
  * they start passing, so a fixed feature can't stay silently on the list.
  *
  * Set E2E_STRICT=1 to ignore the list and see raw results.
  */
 const knownFailures: Record<string, string> = JSON.parse(
-  readFileSync(new URL('../known-failures.json', import.meta.url), 'utf8'),
+  readFileSync(new URL('../known-failures/wasm.json', import.meta.url), 'utf8'),
 );
 
 export const testKey = (titlePath: string[]) => titlePath.slice(1).join(' › ');

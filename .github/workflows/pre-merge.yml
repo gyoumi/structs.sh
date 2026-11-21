@@ -8,40 +8,51 @@ on:
 jobs:
   sanity-client:
     runs-on: ubuntu-latest
+    # A program in a unit test that never stops can't be interrupted, so cap
+    # the job instead of waiting for GitHub's six-hour default.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
         with:
           runtime: node@22
           cache: true
+      # The client's tests and build load the instrumenter's .wasm. rustup is
+      # on the runner and installs the version in rust-toolchain.toml.
+      - name: Build instrumenter
+        run: |
+          rustup toolchain install
+          pnpm run instrumenter
       - name: TypeScript
         working-directory: ./client
         run: pnpm run tsc
       - name: Lint
         working-directory: ./client
         run: pnpm run lint
+      - name: Unit tests
+        working-directory: ./client
+        run: pnpm run test
       - name: Build
         working-directory: ./client
         run: pnpm run build
 
-  sanity-debugger:
+  sanity-instrumenter:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: instrumenter
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Install uv
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-        with:
-          working-directory: debugger
-      - name: Install debugger dependencies
-        working-directory: debugger
-        run: uv sync --locked --all-extras --dev
-      # Security rules only for now; see [tool.ruff.lint] in pyproject.toml.
-      - name: Ruff
-        working-directory: debugger
-        run: uv run ruff check src
-      - name: Mypy
-        working-directory: debugger
-        run: uv run mypy src/
+      - name: Install Rust
+        run: rustup toolchain install
+      - name: Format
+        run: cargo fmt --check
+      - name: Clippy
+        run: |
+          cargo clippy --all-targets -- -D warnings
+          cargo clippy --release --target wasm32-unknown-unknown -- -D warnings
+      - name: Tests
+        run: cargo test
 
   sanity-e2e:
     runs-on: ubuntu-latest
@@ -63,12 +74,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The checkout is shallow by default, and the comment report diffs
+          # from the merge base of the PR's base and head.
+          fetch-depth: 0
       - uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
         with:
           runtime: node@22
           cache: true
       - name: Tests for the repo scripts
         run: pnpm run test:scripts
+      - name: Debugger files stay under their line limits
+        run: pnpm run check:file-sizes
+      - name: New comments in the debugger's code
+        continue-on-error: true
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/report-new-comments.mjs --base "$BASE_SHA" --head "$HEAD_SHA"
       # Squash merges use the PR title as the commit message, and the local
       # commit-msg hook can be skipped, so the title is checked here.
       - name: PR title is a conventional commit

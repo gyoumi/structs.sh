@@ -1,8 +1,13 @@
-import { StructType, Name, PointerType, MemoryValue, IntType, NativeTypeName } from './backendType';
+import {
+  StructType,
+  Name,
+  PointerType,
+  MemoryValue,
+  NativeTypeName,
+  RecordedValue,
+  isPointerType,
+} from './programState';
 
-/**
- * TODO: This file needs a deep rework, it's not generic enough
- */
 export enum DataStructureType {
   LinkedList,
   BinaryTree,
@@ -11,6 +16,11 @@ export interface DataStructureAnnotationBase {
   typeName: NativeTypeName;
   type: DataStructureType;
 }
+
+type SelfReferenceField = {
+  typeName: PointerType['typeName'];
+  name: Name;
+};
 
 /**
  * Mapping from standard linked list node structure to the user's own defined linked list node struct
@@ -24,11 +34,7 @@ export interface LinkedListAnnotation extends DataStructureAnnotationBase {
     typeName: NativeTypeName;
     name: Name;
   };
-  next: {
-    // Condition: Must be self-referencing
-    typeName: PointerType['typeName'];
-    name: Name;
-  };
+  next: SelfReferenceField;
 }
 
 export interface BinaryTreeAnnotation extends DataStructureAnnotationBase {
@@ -38,64 +44,52 @@ export interface BinaryTreeAnnotation extends DataStructureAnnotationBase {
     typeName: NativeTypeName;
     name: Name;
   };
-  left: {
-    // Condition: Must be self-referencing
-    typeName: PointerType['typeName'];
-    name: Name;
-  };
-  right: {
-    // Condition: Must be self-referencing
-    typeName: PointerType['typeName'];
-    name: Name;
-  };
+  left: SelfReferenceField;
+  right: SelfReferenceField;
 }
 
-export type DataStructureAnnotationConcrete = LinkedListAnnotation | BinaryTreeAnnotation;
+export type DataStructureAnnotation = LinkedListAnnotation | BinaryTreeAnnotation;
 
-/**
- * Local element annotation. Used for stack data.
- */
-export interface LocalAnnotationBase {
-  typeName: NativeTypeName;
+export interface StackVariableAnnotation {
+  typeName: MemoryValue['typeName'];
 }
 
-export interface LinkedListNodePointer extends LocalAnnotationBase {
-  typeName: PointerType['typeName'];
-  /**
-   * name might be "curr", "next", "prev", etc
-   */
-}
-export interface ArrayElementPointer extends LocalAnnotationBase {
-  typeName: IntType['typeName'];
-  /**
-   * name might be "i", "j", etc
-   */
-}
-
-export type LocalAnnotationConcrete = ArrayElementPointer | LinkedListNodePointer;
-
-/**
- * Map from variable names to user annotations of that
- */
 export interface StackAnnotation {
-  [name: Name]: LocalAnnotationConcrete | null;
+  [name: Name]: StackVariableAnnotation | null;
 }
 
 export interface UserAnnotation {
   stackAnnotation: StackAnnotation;
-  typeAnnotation: { [name: Name]: DataStructureAnnotationConcrete };
+  typeAnnotation: { [name: Name]: DataStructureAnnotation };
 }
 
 /**
- * Type guard to check if a memory value is a linked list node
+ * Whether a stack variable is labelled beside the node it points at. A
+ * pointer is, unless the user turned it off (an annotation of null); any
+ * other variable only if the user turned it on.
  */
+export const isStackVariableLabelled = (
+  stackAnnotation: StackAnnotation | undefined,
+  name: string,
+  typeName: string
+): boolean => {
+  if (stackAnnotation && Object.prototype.hasOwnProperty.call(stackAnnotation, name)) {
+    return stackAnnotation[name] !== null;
+  }
+  return isPointerType(typeName);
+};
+
+export type LinkedListNodeValue = MemoryValue & {
+  value: Record<Name, { value: RecordedValue }>;
+};
+
 export const isLinkedListNode = (
   memoryValue: MemoryValue,
   linkedListAnnotation: LinkedListAnnotation
-) => 'typeName' in memoryValue && memoryValue.typeName === linkedListAnnotation.typeName;
+): memoryValue is LinkedListNodeValue => memoryValue.typeName === linkedListAnnotation.typeName;
 
 export const isTreeNode = (memoryValue: MemoryValue, binaryTreeAnnotation: BinaryTreeAnnotation) =>
-  'typeName' in memoryValue && memoryValue.typeName === binaryTreeAnnotation.typeName;
+  memoryValue.typeName === binaryTreeAnnotation.typeName;
 
 export enum FieldType {
   RECURSIVE,
@@ -128,7 +122,7 @@ export type PossibleStructAnnotation = {
   };
 };
 
-export enum BackendTypeRole {
+export enum StructRole {
   LinkedList = 'Linked List Node',
   Empty = 'Not Visualized',
 }

@@ -1,7 +1,7 @@
 # Project Name
 The Frontend part of visualize-debugger. The project that transfer user's C program into interactive visualization. 
 
-A react project for converting GDB related instance data (as called state) maps to a visualization. 
+A react project for converting the debugger's data (called state) maps to a visualization. 
 
 ## High Level Concept in this Project
 1. Declarative over Imperative
@@ -28,7 +28,7 @@ A react project for converting GDB related instance data (as called state) maps 
 
 #### State
 State: State refers any instance of user's c code, (think of a break point, user's C code's stack of frame). 
-- Backend State: the data representation of the state in the backend (Python debugger).
+- Backend State: the program state the debugger records at each step (`location`, `variables`, `heap`).
 - Frontend state:  the data representation of frontend visualization. Eg. A collection of drawable objects.
 
 

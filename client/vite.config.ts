@@ -19,6 +19,10 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     tsconfigPaths: true,
   },
+  // @yowasp/clang finds its wasm files next to its own script, which
+  // pre-bundling would move.
+  optimizeDeps: { exclude: ['@yowasp/clang'] },
+  worker: { format: 'es' },
   build: { outDir: 'build' },
   server: { port: 3000 },
 }));

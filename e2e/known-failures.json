@@ -1,8 +1,0 @@
-{
-  "program output › printf output appears in the console": "The debugger never sends program output to the browser: serve.py has no handler for it, though the client listens for 'sendStdoutToUser'.",
-  "stepping › the first step shows the first line of main": "serve.py runs one 'next' before sending the first state, so the first line of main is never shown.",
-  "stepping › each click moves to the next line": "When the client has to fetch a new step, it stores the step but doesn't show it; a second click is needed.",
-  "stepping › the session ends when the program finishes": "The server signals exit with '__iexit__', which the client never listens for, so the session stays open after the program ends.",
-  "playback › rewind moves the timeline to the start": "VisualiserController only updates the slider when the time is truthy, so seeking to 0 leaves it at the end.",
-  "sharing › a copied link reopens the same data": "Create Link is behind the inDev flag in globalStore, which is always false, so the button never shows."
-}

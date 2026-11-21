@@ -1,27 +1,29 @@
 import { UseBoundStore, StoreApi, create } from 'zustand';
 import { FrontendState, INITIAL_GRAPH } from '../Types/frontendType';
-import { BackendState, INITIAL_BACKEND_STATE } from '../Types/backendType';
+import { ProgramState, INITIAL_PROGRAM_STATE } from '../Types/programState';
 
-// Map BackendState and FrontendState one to one?? Good design??
-type MappedState = {
-  backendState: BackendState;
-  frontendState: FrontendState;
+type TimelineEntry = {
+  programState: ProgramState;
+  frontendState: FrontendState | undefined;
 };
 
 type State = {
-  states: MappedState[];
+  states: TimelineEntry[];
   currentIndex: number;
   isActive: boolean;
-  currState: () => MappedState;
+  getCurrentStep: () => TimelineEntry;
 };
 
 type Action = {
-  appendFrontendNewState: (backendState: BackendState, newState: FrontendState) => void;
+  pushOrReplaceLatestStep: (
+    programState: ProgramState,
+    newState: FrontendState | undefined
+  ) => void;
   stepForward: () => void;
   stepBackward: () => void;
   jumpToState: (index: number) => void;
   setActive: (active: boolean) => void;
-  clearFrontendState: () => void;
+  resetTimeline: () => void;
 };
 
 export const useFrontendStateStore: UseBoundStore<StoreApi<State & Action>> = create<
@@ -30,23 +32,23 @@ export const useFrontendStateStore: UseBoundStore<StoreApi<State & Action>> = cr
   states: [],
   currentIndex: -1,
   isActive: false,
-  currState: () => {
+  getCurrentStep: () => {
     if (useFrontendStateStore.getState().currentIndex === -1) {
       return {
-        backendState: INITIAL_BACKEND_STATE,
+        programState: INITIAL_PROGRAM_STATE,
         frontendState: INITIAL_GRAPH,
       };
     }
     return useFrontendStateStore.getState().states[useFrontendStateStore.getState().currentIndex];
   },
-  appendFrontendNewState: (backendState: BackendState, newState: FrontendState) => {
+  pushOrReplaceLatestStep: (programState: ProgramState, newState: FrontendState | undefined) => {
     set((state) => {
       const lastState = state.states[state.states.length - 1];
-      if (lastState && lastState.backendState === backendState) {
-        // Trigger rerender but preserve the map between backend state and frontend state
+      if (lastState && lastState.programState === programState) {
+        // Trigger rerender but keep the program state paired with its frontend state
         const updatedStates = [...state.states];
         updatedStates[updatedStates.length - 1] = {
-          backendState,
+          programState,
           frontendState: newState,
         };
 
@@ -59,7 +61,7 @@ export const useFrontendStateStore: UseBoundStore<StoreApi<State & Action>> = cr
         states: [
           ...state.states,
           {
-            backendState,
+            programState,
             frontendState: newState,
           },
         ],
@@ -94,7 +96,7 @@ export const useFrontendStateStore: UseBoundStore<StoreApi<State & Action>> = cr
   setActive: (active: boolean) => {
     set({ isActive: active });
   },
-  clearFrontendState: () => {
+  resetTimeline: () => {
     set({ isActive: false, states: [], currentIndex: -1 });
   },
 }));

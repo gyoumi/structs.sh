@@ -6,41 +6,50 @@ import CircularProgress from '@mui/material/CircularProgress';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Fade } from '@mui/material';
 import { handleCompileClicked } from '@/visualiser-debugger/Store/onboardingStore';
-import { useSocketCommunication } from '@/Services/useSocketCommunication';
+import { useDebugger } from '@/Services/useDebugger';
+import { useCompilerStatusStore } from '@/Services/debugger/compilerStatusStore';
 import { useFrontendStateStore } from '@/visualiser-debugger/Store/frontendStateStore';
 import { Button } from '@/components/Button';
 import Slider from '@/components/Timeline/Slider';
 import { useGlobalStore } from '@/visualiser-debugger/Store/globalStateStore';
-import { isInitialBackendState } from '@/visualiser-debugger/Types/backendType';
+import { isInitialProgramState } from '@/visualiser-debugger/Types/programState';
 import {
   DEFAULT_MESSAGE_DURATION,
   useToastStateStore,
 } from '@/visualiser-debugger/Store/toastStateStore';
 
 const BUFFER_THRESHOLD = 30;
+
+type BufferStage = 'off' | 'requested' | 'buffering';
+
 const Controls = () => {
-  const { currFrame } = useGlobalStore();
+  const { latestProgramState } = useGlobalStore();
   const { userAnnotation, parser } = useGlobalStore().visualizer;
-  const { sendCode, bulkSendNextStates, getNextState } = useSocketCommunication();
-  const { states, currentIndex, stepForward, stepBackward, jumpToState, isActive, setActive } =
+  const { startDebugging, requestSteps, requestNextStep } = useDebugger();
+  const { states, currentIndex, stepForward, stepBackward, jumpToState, isActive } =
     useFrontendStateStore();
 
-  const [loading, setLoading] = useState<boolean>(false);
-  const [bufferMode, setBufferMode] = useState<boolean>(false);
+  const [bufferStage, setBufferStage] = useState<BufferStage>('off');
+  const isBuffering = bufferStage === 'buffering';
+  const [awaitingNextState, setAwaitingNextState] = useState<boolean>(false);
+  const atLatestState = currentIndex >= states.length - 1;
 
-  // Avoid race condition
   const bufferingRef = useRef<boolean>(false);
   const { setToastMessage: setMessage } = useToastStateStore();
+  const compilerStatus = useCompilerStatusStore((state) => state.status);
 
-  const playToggle = () => {
-    setBufferMode((mode) => !mode);
+  const toggleBuffering = () => {
+    setBufferStage((stage) => {
+      if (stage === 'buffering') return stage;
+      return stage === 'off' ? 'requested' : 'off';
+    });
   };
 
   const startBuffering = useCallback(
     async (bufferSize: number) => {
       if (bufferingRef.current) return;
       bufferingRef.current = true;
-      setLoading(true);
+      setBufferStage('buffering');
 
       setMessage({
         content: 'Buffer started.',
@@ -48,7 +57,7 @@ const Controls = () => {
         durationMs: DEFAULT_MESSAGE_DURATION,
       });
 
-      await bulkSendNextStates(bufferSize);
+      await requestSteps(bufferSize);
 
       setMessage({
         content: 'Buffer completed.',
@@ -56,91 +65,84 @@ const Controls = () => {
         durationMs: DEFAULT_MESSAGE_DURATION,
       });
 
-      setLoading(false);
-      setBufferMode(false);
+      setBufferStage('off');
       bufferingRef.current = false;
     },
-    [bulkSendNextStates, setMessage]
+    [requestSteps, setMessage]
   );
 
   useEffect(() => {
     if (!isActive) {
-      setBufferMode(false);
-      setLoading(false);
+      setBufferStage('off');
     }
   }, [isActive]);
 
   useEffect(() => {
-    if (!bufferMode || bufferingRef.current) return;
+    if (bufferStage !== 'requested' || bufferingRef.current) return;
     if (states.length - currentIndex < BUFFER_THRESHOLD) {
       startBuffering(BUFFER_THRESHOLD);
     } else {
-      // There's no need to buffer at this point
       setMessage({
         content: 'Buffer completed.',
         colorTheme: 'info',
         durationMs: DEFAULT_MESSAGE_DURATION,
       });
 
-      setBufferMode(false);
+      setBufferStage('off');
     }
-  }, [bufferMode, currentIndex, setMessage, startBuffering, states.length]);
+  }, [bufferStage, currentIndex, setMessage, startBuffering, states.length]);
 
-  const [autoNext, setAutoNext] = useState<boolean>(false);
-  // To Process new backend frame and store it into frontend state
   useEffect(() => {
-    if (isInitialBackendState(currFrame)) {
+    if (isInitialProgramState(latestProgramState)) {
       return;
     }
 
-    if (currFrame && userAnnotation) {
-      const newParsedState = parser.parseState(currFrame, userAnnotation);
-      useFrontendStateStore.getState().appendFrontendNewState(currFrame, newParsedState);
-
-      if (autoNext === true) {
-        stepForward();
-        setAutoNext(false);
-      }
+    if (latestProgramState && userAnnotation) {
+      const newParsedState = parser.parseState(latestProgramState, userAnnotation);
+      useFrontendStateStore.getState().pushOrReplaceLatestStep(latestProgramState, newParsedState);
     } else {
       let issue = 'something';
-      if (!currFrame) {
-        issue = 'backendState';
+      if (!latestProgramState) {
+        issue = 'latestProgramState';
       } else if (!userAnnotation) {
         issue = 'localsAnnotations';
       }
-      console.error(`Unable to parse backend state: ${issue} is undefined`);
+      console.error(`Unable to parse program state: ${issue} is undefined`);
     }
-  }, [currFrame, userAnnotation, autoNext, parser, stepForward]);
+  }, [latestProgramState, userAnnotation, parser]);
 
   return (
     <div className={styles.timeline}>
       <Button
         variant="primary"
         onClick={() => {
-          setBufferMode(false);
-          setLoading(false);
-          sendCode();
+          setBufferStage('off');
+          startDebugging();
           handleCompileClicked();
         }}
         className="Onboarding-compileButton"
       >
         Compile
       </Button>
-      <Button disabled={!isActive} onClick={playToggle} className="Onboarding-playButton">
-        {loading ? (
-          <Fade in={loading} timeout={500}>
+      {compilerStatus?.state === 'loading' && (
+        <span role="status" className={styles.compilerStatus}>
+          Loading compiler {Math.floor((100 * compilerStatus.done) / compilerStatus.total)}%
+        </span>
+      )}
+      <Button disabled={!isActive} onClick={toggleBuffering} className="Onboarding-playButton">
+        {isBuffering ? (
+          <Fade in={isBuffering} timeout={500}>
             <CircularProgress size={24} />
           </Fade>
         ) : (
-          <Fade in={!loading} timeout={500}>
+          <Fade in={!isBuffering} timeout={500}>
             <PlayArrowIcon />
           </Fade>
         )}
       </Button>
 
-      {/* Step Backward BTN */}
       <Button
-        disabled={!isActive || currentIndex === 0}
+        disabled={awaitingNextState || currentIndex <= 0}
         onClick={() => {
           stepBackward();
         }}
@@ -148,18 +150,17 @@ const Controls = () => {
         <UndoIcon />
       </Button>
 
-      {/* Step Forward BTN */}
       <Button
-        disabled={!isActive}
+        disabled={awaitingNextState || (!isActive && atLatestState)}
         onClick={async () => {
-          if (currentIndex === states.length - 1) {
-            setActive(false);
-            setAutoNext(true);
-            await getNextState();
-            setActive(true);
-          } else {
+          if (!atLatestState) {
             stepForward();
+            return;
           }
+          setAwaitingNextState(true);
+          const gotState = await requestNextStep();
+          setAwaitingNextState(false);
+          if (gotState) stepForward();
         }}
       >
         <RedoIcon />
@@ -172,7 +173,7 @@ const Controls = () => {
 
           jumpToState(value as number);
         }}
-        loading={loading}
+        loading={isBuffering}
       />
     </div>
   );

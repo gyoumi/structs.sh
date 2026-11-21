@@ -4,6 +4,7 @@
 // into errors, so a broken convention fails CI instead of relying on review.
 import playwright from 'eslint-plugin-playwright';
 import tseslint from 'typescript-eslint';
+import { retiredNames, studentFreeIdentifier } from './scripts/retired-names.mjs';
 
 const pageInternals = ['locator', 'evaluate', '$', '$$', '$eval', '$$eval', 'getByTestId'];
 
@@ -19,7 +20,7 @@ export default tseslint.config(
     rules: {
       // Wait on something the user can see, never on the clock.
       'playwright/no-wait-for-timeout': 'error',
-      // Expected failures go in e2e/known-failures.json, with a reason.
+      // Expected failures go in e2e/known-failures/<debugger>.json, with a reason.
       'playwright/no-skipped-test': 'error',
       'playwright/no-focused-test': 'error',
       'playwright/missing-playwright-await': 'error',
@@ -33,6 +34,8 @@ export default tseslint.config(
         'error',
         { assertFunctionNames: ['startSession', 'stepUntilLine', 'runToEnd'] },
       ],
+      'id-denylist': ['error', ...retiredNames],
+      'id-match': ['error', studentFreeIdentifier, { properties: true, classFields: true }],
     },
   },
   {

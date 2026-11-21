@@ -1,9 +1,13 @@
 # Only the client image builds from the repo root. Send it the workspace
-# manifests and the client source, nothing else.
+# manifests, the client source and the debugger's Rust instrumenter.
 *
 !package.json
 !pnpm-lock.yaml
 !pnpm-workspace.yaml
 !client
+!instrumenter
+!rust-toolchain.toml
 client/node_modules
 client/build
+client/src/Services/debugger/wasm/generated
+instrumenter/target

@@ -1,9 +1,9 @@
 import { UserAnnotation } from '../../../Types/annotationType';
-import { BackendState } from '../../../Types/backendType';
+import { ProgramState } from '../../../Types/programState';
 import { FrontendState } from '../../../Types/frontendType';
 
 export interface Parser {
-  parseState: (backendStructure: BackendState, annotation: UserAnnotation) => FrontendState;
+  parseState: (programState: ProgramState, annotation: UserAnnotation) => FrontendState | undefined;
 }
 
 /**

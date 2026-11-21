@@ -1,0 +1,149 @@
+mod debug_section;
+mod line_table;
+mod scopes;
+mod struct_fields;
+mod type_names;
+mod type_reader;
+mod types;
+
+use std::collections::{BTreeMap, HashMap};
+use std::ops::Range;
+
+use gimli::{EndianSlice, LittleEndian, UnitOffset};
+use walrus::Module;
+
+pub(crate) use debug_section::debug_section_json;
+use types::Type;
+
+type Dwarf<'a> = gimli::Dwarf<EndianSlice<'a, LittleEndian>>;
+type Unit<'a> = gimli::Unit<EndianSlice<'a, LittleEndian>>;
+type Entry<'a, 'u> = gimli::DebuggingInformationEntry<'a, 'u, EndianSlice<'a, LittleEndian>>;
+
+/// Offsets are positions in the original file, as walrus's `InstrLocId`s are.
+#[derive(Default)]
+pub(crate) struct DebugInfo {
+    /// Values are indexes into `statements`.
+    pub statement_at_offset: BTreeMap<u32, usize>,
+    pub statements: Vec<Statement>,
+    pub functions: Vec<Function>,
+    pub types: Vec<Type>,
+}
+
+pub(crate) struct Statement {
+    pub line: u32,
+    pub variables: Vec<Variable>,
+}
+
+#[derive(Clone)]
+pub(crate) struct Variable {
+    pub name: String,
+    pub ty: usize,
+    /// Where it lives, from the function's frame base.
+    pub offset: i64,
+}
+
+pub(crate) struct Function {
+    pub ranges: Vec<Range<u32>>,
+    pub name: String,
+    pub frame_base: Option<FrameBase>,
+}
+
+/// Where a function's frame base is kept: clang uses a wasm local, or the
+/// stack pointer global in a function with nothing on the stack.
+#[derive(Clone, Copy)]
+pub(crate) enum FrameBase {
+    Local(u32),
+    Global(u32),
+}
+
+// walrus keeps the DWARF as a `Dwarf<Vec<u8>>`, not the `DwarfSections` gimli
+// now prefers, so the older `Dwarf::borrow` is the way to read it.
+#[allow(deprecated)]
+pub(crate) fn read_debug_info(module: &Module, code_start: u32) -> Result<DebugInfo, String> {
+    let dwarf: Dwarf = module
+        .debug
+        .dwarf
+        .borrow(|section| EndianSlice::new(section.as_slice(), LittleEndian));
+    read(&dwarf, code_start).map_err(|error| format!("could not read the debug info: {error}"))
+}
+
+fn read(dwarf: &Dwarf, code_start: u32) -> gimli::Result<DebugInfo> {
+    let mut info = DebugInfo::default();
+    let mut headers = dwarf.units();
+    while let Some(header) = headers.next()? {
+        let unit = dwarf.unit(header)?;
+        let mut reader = UnitReader {
+            dwarf,
+            unit: &unit,
+            types: &mut info.types,
+            types_by_offset: HashMap::new(),
+        };
+
+        let rows = reader.statement_rows()?;
+
+        let mut functions = Vec::new();
+        let mut tree = unit.entries_tree(None)?;
+        let root = tree.root()?;
+        let mut children = root.children();
+        while let Some(child) = children.next()? {
+            if child.entry().tag() == gimli::DW_TAG_subprogram
+                && let Some(function) = reader.function(child, code_start)?
+            {
+                functions.push(function);
+            }
+        }
+
+        for (address, line) in rows {
+            let offset = code_start + address as u32;
+            if info.statement_at_offset.contains_key(&offset) {
+                continue;
+            }
+            let variables = functions
+                .iter()
+                .find(|(function, _)| function.ranges.iter().any(|r| r.contains(&offset)))
+                .map(|(_, scopes)| scopes::visible(scopes, address))
+                .unwrap_or_default();
+            info.statement_at_offset
+                .insert(offset, info.statements.len());
+            info.statements.push(Statement { line, variables });
+        }
+
+        info.functions
+            .extend(functions.into_iter().map(|(function, _)| function));
+    }
+    Ok(info)
+}
+
+struct UnitReader<'a, 'u> {
+    dwarf: &'u Dwarf<'a>,
+    unit: &'u Unit<'a>,
+    types: &'u mut Vec<Type>,
+    types_by_offset: HashMap<UnitOffset, usize>,
+}
+
+impl UnitReader<'_, '_> {
+    fn string(&self, entry: &Entry, attribute: gimli::DwAt) -> gimli::Result<Option<String>> {
+        entry
+            .attr_value(attribute)?
+            .map(|value| {
+                let name = self.dwarf.attr_string(self.unit, value)?;
+                Ok(String::from_utf8_lossy(name.slice()).into_owned())
+            })
+            .transpose()
+    }
+
+    fn number(entry: &Entry, attribute: gimli::DwAt) -> gimli::Result<Option<u64>> {
+        Ok(entry
+            .attr_value(attribute)?
+            .and_then(|value| value.udata_value()))
+    }
+
+    fn ranges(&self, entry: &Entry) -> gimli::Result<Vec<Range<u64>>> {
+        let mut found = Vec::new();
+        let mut ranges = self.dwarf.die_ranges(self.unit, entry)?;
+        while let Some(range) = ranges.next()? {
+            found.push(range.begin..range.end);
+        }
+        Ok(found)
+    }
+}

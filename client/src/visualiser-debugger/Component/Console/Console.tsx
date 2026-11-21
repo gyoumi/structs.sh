@@ -28,19 +28,19 @@ const Console = ({ scrollToBottom }: ConsoleProp) => {
   const inputElement = useRef<HTMLInputElement>(null);
 
   const consoleChunks = useGlobalStore((state) => state.consoleChunks);
-  const isCompiled = useFrontendStateStore((state) => state.isActive);
+  const isSessionActive = useFrontendStateStore((state) => state.isActive);
   const appendConsoleChunks = useGlobalStore((state) => state.appendConsoleChunks);
   const { fileSystem, currFocusFilePath } = useUserFsStateStore();
 
   useEffect(() => {
-    if (isCompiled) {
+    if (isSessionActive) {
       const file = fileSystem.getFileFromPath(currFocusFilePath) as IFileFileNode;
       appendConsoleChunks(`${prefix}gcc -g ${file.name} -o a\n`);
       setInput('');
     } else {
       setInput(prefix);
     }
-  }, [isCompiled, prefix, appendConsoleChunks, currFocusFilePath, fileSystem]);
+  }, [isSessionActive, prefix, appendConsoleChunks, currFocusFilePath, fileSystem]);
 
   // Every time when user add input to console, check the corresponding command
   useEffect(() => {
@@ -79,7 +79,7 @@ const Console = ({ scrollToBottom }: ConsoleProp) => {
   ]);
 
   const handleInput = async (currInput: string) => {
-    if (isCompiled) {
+    if (isSessionActive) {
       setInput(currInput);
       return;
     }
@@ -91,7 +91,7 @@ const Console = ({ scrollToBottom }: ConsoleProp) => {
   };
 
   const clearInput = () => {
-    if (isCompiled) {
+    if (isSessionActive) {
       setInput('');
       return;
     }
@@ -133,7 +133,6 @@ const Console = ({ scrollToBottom }: ConsoleProp) => {
           clearInput={clearInput}
           scrollToBottom={scrollToBottom}
           inputRef={inputElement}
-          isCompiled={isCompiled}
         />
       </div>
     </div>

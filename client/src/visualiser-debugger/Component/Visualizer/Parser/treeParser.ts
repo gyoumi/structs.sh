@@ -1,6 +1,6 @@
 import { GlobalStateStore, useGlobalStore } from '../../../Store/globalStateStore';
 import { UserAnnotation, DataStructureType, isTreeNode } from '../../../Types/annotationType';
-import { Addr, BackendState } from '../../../Types/backendType';
+import { Addr, ProgramState } from '../../../Types/programState';
 import { EntityType } from '../Entities/BaseEntity/baseEntity';
 import { EdgeEntity } from '../Entities/BaseEntity/edgeEntity';
 import { NodeEntity, DEFAULT_NODE_SIZE } from '../Entities/BaseEntity/nodeEntity';
@@ -119,15 +119,15 @@ export class TreeParser implements Parser {
     return posCache;
   }
 
-  parseHeapData(backendStructure: BackendState, annotation: UserAnnotation): TreeNode[] {
+  parseHeapData(programState: ProgramState, annotation: UserAnnotation): TreeNode[] {
     // Later need to add an additional step to parse user defined struct into generic struct
     const treeNodes: TreeNode[] = [];
 
-    // === Get all linked list nodes from backend heap data
+    // === Get all linked list nodes from the program's heap data
     Object.entries(annotation.typeAnnotation).forEach(([_, binaryAnnotation]) => {
       switch (binaryAnnotation.type) {
         case DataStructureType.BinaryTree: {
-          Object.entries(backendStructure.heap_data).forEach(([uid, memoryValue]) => {
+          Object.entries(programState.heap).forEach(([uid, memoryValue]) => {
             if (isTreeNode(memoryValue, binaryAnnotation)) {
               treeNodes.push({
                 uid: uid as Addr,
@@ -164,13 +164,13 @@ export class TreeParser implements Parser {
     return treeNodes;
   }
 
-  parseState(backendStructure: BackendState, editorAnnotation: UserAnnotation): FrontendTreeGraph {
+  parseState(programState: ProgramState, editorAnnotation: UserAnnotation): FrontendTreeGraph {
     const nodes: NodeEntity[] = [];
     const edges: EdgeEntity[] = [];
     const cacheEntity: { [uid: string]: EntityConcrete } = {};
     const uiState = useGlobalStore.getState();
 
-    const treeNodes: TreeNode[] = this.parseHeapData(backendStructure, editorAnnotation);
+    const treeNodes: TreeNode[] = this.parseHeapData(programState, editorAnnotation);
 
     const treeNodesMap: Map<Addr, TreeNode> = new Map();
     treeNodes.forEach((node) => {

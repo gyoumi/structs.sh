@@ -1,0 +1,69 @@
+{
+  "location": {
+    "fileName": "delete.c",
+    "lineText": "        struct node *next = head->next;",
+    "lineNumber": 24,
+    "function": "reverse"
+  },
+  "variables": {
+    "next": {
+      "addr": "0xffe4",
+      "typeName": "struct node *",
+      "value": "0xaaaaaaaa"
+    },
+    "head": {
+      "addr": "0xffec",
+      "typeName": "struct node *",
+      "value": "0x102a0"
+    },
+    "prev": {
+      "addr": "0xffe8",
+      "typeName": "struct node *",
+      "value": "0x0"
+    }
+  },
+  "heap": {
+    "0x102a0": {
+      "addr": "0x102a0",
+      "typeName": "struct node",
+      "value": {
+        "value": {
+          "typeName": "int",
+          "value": 1
+        },
+        "next": {
+          "typeName": "struct node *",
+          "value": "0x10290"
+        }
+      }
+    },
+    "0x10290": {
+      "addr": "0x10290",
+      "typeName": "struct node",
+      "value": {
+        "value": {
+          "typeName": "int",
+          "value": 2
+        },
+        "next": {
+          "typeName": "struct node *",
+          "value": "0x10280"
+        }
+      }
+    },
+    "0x10280": {
+      "addr": "0x10280",
+      "typeName": "struct node",
+      "value": {
+        "value": {
+          "typeName": "int",
+          "value": 3
+        },
+        "next": {
+          "typeName": "struct node *",
+          "value": "0x0"
+        }
+      }
+    }
+  }
+}

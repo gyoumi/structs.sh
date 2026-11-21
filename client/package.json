@@ -10,7 +10,9 @@
     "preview": "vite preview",
     "lint": "eslint \"./src/**/*.{tsx,ts}\"",
     "lint-fix": "eslint './src/**/*.{tsx,ts,jsx,js}' --fix",
-    "tsc": "tsc"
+    "tsc": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@codemirror/lang-cpp": "^6.0.3",
@@ -37,6 +39,7 @@
     "@types/react-helmet": "^6.1.11",
     "@types/react-resizable": "^3.0.8",
     "@uiw/react-codemirror": "^4.25.9",
+    "@yowasp/clang": "22.0.0-git20542-10",
     "a11y-checker": "^2.2.1",
     "ace-builds": "^1.43.6",
     "axios": "^1.15.0",
@@ -62,7 +65,6 @@
     "react-use": "^17.6.0",
     "resize-observer-polyfill": "^1.5.1",
     "sass": "^1.99.0",
-    "socket.io-client": "^4.8.3",
     "uuid": "^10.0.0",
     "ws": "^8.20.0",
     "zustand": "^4.5.5"
@@ -83,6 +85,7 @@
     "@typescript-eslint/eslint-plugin": "^8.58.2",
     "@typescript-eslint/parser": "^8.58.2",
     "@vitejs/plugin-react": "^5.2.0",
+    "@vitest/eslint-plugin": "1.6.27",
     "eslint": "^9.39.4",
     "eslint-config-airbnb-extended": "^3.1.0",
     "eslint-config-prettier": "^10.1.8",
@@ -94,7 +97,8 @@
     "prettier": "^3.8.3",
     "typescript": "^6.0.2",
     "vite": "^8.0.0",
-    "vite-plugin-checker": "^0.10.0"
+    "vite-plugin-checker": "^0.10.0",
+    "vitest": "^5.1.0"
   },
   "browserslist": {
     "production": [

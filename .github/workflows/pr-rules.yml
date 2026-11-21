@@ -25,9 +25,6 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           fetch-depth: 0
-          # Left at the default (true): with false, checkout runs
-          # `git submodule foreach` straight away, which fails on the
-          # debugger/src/debugger/nsjail gitlink that has no .gitmodules entry.
           # The token is read-only and nothing from the PR runs.
       - name: Fetch the PR's commits
         env:

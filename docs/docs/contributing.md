@@ -13,9 +13,10 @@
   pnpm install
   ```
 
-- Start the project locally:
+- Build the debugger's instrumenter, which needs [Rust](https://rustup.rs/) (see `instrumenter/README.md`), then start the project locally:
 
   ```bash
+  pnpm run instrumenter
   docker compose up --build
   ```
 
@@ -27,8 +28,11 @@ Run the fast checks for what you changed:
 pnpm check:changed
 ```
 
-It compares your branch with `origin/dev` and runs type checks, lint, the e2e
-lint rules, knip, ruff and mypy for the areas you touched. CI runs these plus
+It compares your branch with the branch it will merge into (its open PR's
+base, or `origin/dev` before there's a PR; pass `--base <branch>` to
+choose) and runs type checks, lint, the client's unit tests, the e2e
+lint rules, knip, and the instrumenter's cargo checks, for
+the areas you touched. CI runs these plus
 the client build and the e2e suite.
 
 CI also checks every PR for a few things a reviewer would otherwise have to
@@ -40,9 +44,9 @@ PR that edits them is judged by the rules it started from:
 | Forbidden files | A non-pnpm lockfile, an `.env` file, a `.tsbuildinfo`, or a screenshot outside the image folders is committed | (not waivable) |
 | Debug tags | A temporary `[DEBUG-xxxx]` line is left in | (not waivable) |
 | Agent config alone | `.claude/` changes are mixed with other changes | (not waivable) |
-| Debugger needs a test | `debugger/src` changes without an e2e test, pytest or known-failures entry | `no-test-needed` label |
+| Debugger needs a test | Code in `instrumenter/src` or `client/src/Services/debugger` changes without an e2e test, a Vitest or cargo test, or a known-failures entry | `no-test-needed` label |
 | Large removal | A test file is deleted, or a source file is emptied or cut to under 30% of its size | `removal-ok` label |
-| Protected paths | CI, lint config, the `scripts` in a `package.json`, agent config, the known-failures list or the sandbox changes | `human-approved` label |
+| Protected paths | CI, lint config, the `scripts` in a `package.json`, agent config or the known-failures list changes | `human-approved` label |
 
 The PR title must be a [Conventional Commit](https://www.conventionalcommits.org/), because squash merges use it as the commit message.
 

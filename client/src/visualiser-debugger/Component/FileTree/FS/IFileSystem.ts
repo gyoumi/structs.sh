@@ -172,6 +172,8 @@ struct list {
 
 int listLengthContainer(struct list *l);
 int listLength(struct node *l);
+struct node *listIntro();
+struct node *createNode(int val);
 
 int main() {
     struct node *list = listIntro();

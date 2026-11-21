@@ -9,6 +9,11 @@ import { defineConfig } from 'eslint/config';
 import { configs } from 'eslint-config-airbnb-extended/legacy';
 import { rules as prettierConfigRules } from 'eslint-config-prettier';
 import prettierPlugin from 'eslint-plugin-prettier';
+import vitestPlugin from '@vitest/eslint-plugin';
+
+import { inScope, kindOf } from '../scripts/check-file-sizes.mjs';
+import oneStageValue from '../scripts/lint-one-stage-value.mjs';
+import { retiredNames, studentFreeIdentifier } from '../scripts/retired-names.mjs';
 
 const gitignorePath = path.resolve('.', '.gitignore');
 
@@ -131,6 +136,7 @@ const overrideConfig = defineConfig([
 const HEX_COLOUR = /#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})\b/;
 const structsPlugin = {
   rules: {
+    'one-stage-value': oneStageValue,
     'no-hardcoded-colour': {
       meta: {
         type: 'suggestion',
@@ -167,6 +173,40 @@ const coloursConfig = defineConfig([
   },
 ]);
 
+// ESLint passes each file's absolute path to a function in `files`.
+const repoRoot = path.resolve(import.meta.dirname, '..');
+const debuggerFile = (kind) => (filePath) => {
+  const repoPath = path.relative(repoRoot, filePath).split(path.sep).join('/');
+  return inScope(repoPath) && kindOf(repoPath) === kind;
+};
+
+const debuggerConfig = defineConfig([
+  {
+    name: 'structs/one-stage-value',
+    files: [debuggerFile('source')],
+    plugins: { structs: structsPlugin },
+    rules: { 'structs/one-stage-value': 'error' },
+  },
+  {
+    name: 'structs/debugger-tests',
+    files: [debuggerFile('test')],
+    plugins: { vitest: vitestPlugin },
+    rules: {
+      'vitest/prefer-each': 'error',
+      'vitest/no-identical-title': 'error',
+      'vitest/expect-expect': 'error',
+    },
+  },
+  {
+    name: 'structs/retired-names',
+    files: ['src/**/*.{ts,tsx}'],
+    rules: {
+      'id-denylist': ['error', ...retiredNames],
+      'id-match': ['error', studentFreeIdentifier, { properties: true, classFields: true }],
+    },
+  },
+]);
+
 export default defineConfig([
   includeIgnoreFile(gitignorePath),
   ...jsConfig,
@@ -175,4 +215,5 @@ export default defineConfig([
   ...prettierConfig,
   ...overrideConfig,
   ...coloursConfig,
+  ...debuggerConfig,
 ]);

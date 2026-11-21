@@ -2,31 +2,31 @@ import React, { useEffect, useState } from 'react';
 import { ChevronDownIcon } from '@radix-ui/react-icons';
 import SyntaxHighlighter from 'react-syntax-highlighter';
 import { github, dark } from 'react-syntax-highlighter/dist/esm/styles/hljs';
+import type { TypeDeclaration } from '@/Services/debugger/wasm/debugSection';
 import { MotionCollapse } from './MotionCollapse';
 import './typeAnnotation.css';
-import { BackendTypeRole } from '../../Types/annotationType';
+import { StructRole } from '../../Types/annotationType';
 import {
   LinkedListNodeAnnotation,
-  createPossibleLinkedListTypeDecl,
-} from './RoleAnnotation/LinkedListAnnotation';
-import { BackendTypeDeclaration } from '../../Types/backendType';
+  findLinkedListFieldCandidates,
+} from './RoleAnnotation/LinkedListNodeAnnotation';
 import { useTheme } from '../../Contexts/ThemeContexts';
 
 export type TypeAnnotationProp = {
-  typeDeclaration: BackendTypeDeclaration;
+  typeDeclaration: TypeDeclaration;
 };
 
 export const TypeAnnotation: React.FC<TypeAnnotationProp> = ({
   typeDeclaration,
 }: TypeAnnotationProp) => {
   const { typeName } = typeDeclaration;
-  const [selectedRole, setSelectedRole] = useState<BackendTypeRole>(BackendTypeRole.Empty);
+  const [selectedRole, setSelectedRole] = useState<StructRole>(StructRole.Empty);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const { darkMode } = useTheme();
 
   useEffect(() => {
-    if (createPossibleLinkedListTypeDecl(typeDeclaration) !== null) {
-      setSelectedRole(BackendTypeRole.LinkedList);
+    if (findLinkedListFieldCandidates(typeDeclaration) !== null) {
+      setSelectedRole(StructRole.LinkedList);
     }
   }, [typeDeclaration]);
 
@@ -50,9 +50,7 @@ export const TypeAnnotation: React.FC<TypeAnnotationProp> = ({
             type="button"
             style={{
               color:
-                selectedRole === BackendTypeRole.Empty
-                  ? 'var(--text-secondary)'
-                  : 'var(--text-primary)',
+                selectedRole === StructRole.Empty ? 'var(--text-secondary)' : 'var(--text-primary)',
             }}
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
           >
@@ -71,7 +69,7 @@ export const TypeAnnotation: React.FC<TypeAnnotationProp> = ({
           <MotionCollapse isOpen={isDropdownOpen}>
             {isDropdownOpen ? (
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {Object.entries(BackendTypeRole).map((role) => (
+                {Object.entries(StructRole).map((role) => (
                   <button
                     key={role[0]}
                     type="button"
@@ -107,8 +105,8 @@ export const TypeAnnotation: React.FC<TypeAnnotationProp> = ({
         </div>
       </div>
 
-      <MotionCollapse isOpen={selectedRole === BackendTypeRole.LinkedList}>
-        <LinkedListNodeAnnotation backendType={typeDeclaration} />
+      <MotionCollapse isOpen={selectedRole === StructRole.LinkedList}>
+        <LinkedListNodeAnnotation typeDeclaration={typeDeclaration} />
       </MotionCollapse>
     </div>
   );

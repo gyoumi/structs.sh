@@ -1,0 +1,50 @@
+{
+  "location": {
+    "fileName": "delete.c",
+    "lineText": "    return rest;",
+    "lineNumber": 18,
+    "function": "delete_first"
+  },
+  "variables": {
+    "head": {
+      "addr": "0xffec",
+      "typeName": "struct node *",
+      "value": "0x10280"
+    },
+    "rest": {
+      "addr": "0xffe8",
+      "typeName": "struct node *",
+      "value": "0x10290"
+    }
+  },
+  "heap": {
+    "0x10290": {
+      "addr": "0x10290",
+      "typeName": "struct node",
+      "value": {
+        "value": {
+          "typeName": "int",
+          "value": 2
+        },
+        "next": {
+          "typeName": "struct node *",
+          "value": "0x102a0"
+        }
+      }
+    },
+    "0x102a0": {
+      "addr": "0x102a0",
+      "typeName": "struct node",
+      "value": {
+        "value": {
+          "typeName": "int",
+          "value": 1
+        },
+        "next": {
+          "typeName": "struct node *",
+          "value": "0x0"
+        }
+      }
+    }
+  }
+}

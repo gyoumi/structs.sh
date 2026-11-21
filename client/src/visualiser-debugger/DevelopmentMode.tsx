@@ -6,7 +6,7 @@ import { Tabs, Tab } from '@/components/Tabs';
 import Console from '@/visualiser-debugger/Component/Console/Console';
 import { Joyride } from 'react-joyride';
 import DynamicTabs from '@/components/TabResize/DynamicTabs';
-import useSocketClientStore from '@/Services/socketClient';
+import { useDebuggerStore } from '@/Services/debugger/debuggerStore';
 import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
 import DevelopmentModeNavbar from '@/components/Navbars/DevelopmentModeNavbar';
 import { createDebuggerTheme } from '@/structsThemes';
@@ -36,10 +36,9 @@ const DevelopmentModeContent = () => {
     }
   };
 
-  const initialise = useSocketClientStore((state) => state.initialise);
-  const disconnect = useSocketClientStore((state) => state.disconnect);
+  const initialise = useDebuggerStore((state) => state.initialise);
+  const close = useDebuggerStore((state) => state.close);
 
-  // Onboarding Code
   useEffect(() => {
     if (onboardingCurrFile) {
       if (onboardingStore.getState().stepIndex === OPEN_FILE_STEP) {
@@ -49,18 +48,10 @@ const DevelopmentModeContent = () => {
     }
   }, [onboardingCurrFile]);
 
-  // initialising socket cycle
   useEffect(() => {
-    // intialise socket Connection
-    console.log('DevelopmentMode is mounted');
     initialise();
-
-    // disconnect socket connection
-    return () => {
-      console.log('DevelopmentMode is unmounted');
-      disconnect();
-    };
-  }, [initialise, disconnect]);
+    return close;
+  }, [initialise, close]);
 
   const handleClickStart = (event: React.MouseEvent<HTMLElement>) => {
     event.preventDefault();

@@ -1,0 +1,28 @@
+# Fixtures
+
+`gdb-variables.json` is what the GDB debugger sent for `variables.c`:
+`sendTypeDeclaration` events, then the states from 14 `executeNext` steps. It
+was recorded from the `debugger` container over Socket.IO, and checked by
+hand. Only the file name in `frame_info` was changed, from a temporary path.
+
+GDB skips the first line of `main` (see `e2e/known-failures/gdb.json`), so its
+first state is line 17, the wasm debugger's second step. Uninitialised
+variables hold whatever was on the stack, where wasm memory starts zeroed.
+
+`realloc_shrink.c` shrinks a block of four `struct node`s to one with
+`realloc`, then mallocs a block of ints. wasm's malloc shrinks it in place
+and puts the ints in the tail it gave back, over the old fourth node.
+
+`pool_reuse.c` carves structs out of one malloc'd pool: a `struct node`
+at pool + 8 is shown, then a `struct triple` at pool + 4 reuses its bytes,
+with an int field where the node's `next` was, holding the address of a block
+nothing reaches as a struct.
+
+`pool_same_address.c` shows a `struct node` at the start of a malloc'd pool,
+then reaches the same address as a `struct pair` for one step only, while
+the pool stays allocated to the end.
+
+`embedded_child.c` shows a malloc'd `struct box`, then keeps only a pointer
+to the `struct inner` inside it. `embedded_parent.c` does the reverse: a
+`struct inner` is shown first, then the `struct box` around it is reached.
+Neither frees its block.

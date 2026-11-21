@@ -55,4 +55,13 @@ test.describe('stepping', () => {
     expect(lines).toContain(5); // return 0;
     await expect(debuggerPage.stepForwardButton).toBeDisabled();
   });
+
+  test('stepping back still works after the session ends', async ({ debuggerPage }) => {
+    await debuggerPage.openProgram('hello.c');
+    await debuggerPage.startSession();
+    await debuggerPage.runToEnd();
+
+    await debuggerPage.stepBack();
+    expect(await debuggerPage.currentLine()).toBe(4); // printf(...)
+  });
 });

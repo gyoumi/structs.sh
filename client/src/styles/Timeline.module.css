@@ -9,6 +9,14 @@
   gap: 5px;
 }
 
+.compilerStatus {
+  flex-shrink: 0;
+  font-size: 0.8rem;
+  color: var(--slate-11);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
 .SliderRoot {
   flex: 1;
   position: relative;
