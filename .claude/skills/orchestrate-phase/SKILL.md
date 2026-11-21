@@ -30,14 +30,14 @@ Use this lane when all are true:
 
 In this lane:
 
-- Spawn one `sonnet` test writer and one `sonnet` implementer directly, as `.claude/rules/testing.md` ("Tests and code come from different agents") requires. No intermediate orchestrator. A change with no new or changed tests needs only the implementer.
+- Spawn one test writer (Gemini 4 Neon) and one `sonnet` implementer directly, with the models and spawn rules in `orchestrate-defaults`, as `.claude/rules/testing.md` ("Tests and code come from different agents") requires. No intermediate orchestrator. A change with no new or changed tests needs only the implementer.
 - One `opus` review. On NEEDS_FIX, the worker that owns each file applies its Act-on items (test findings to the test writer, code findings to the implementer), and the reviewer checks only that delta.
 - Cap at two review rounds. Consider and Noted findings go in the final report as follow-ups.
 
 ## Flow
 
 1. **Resolve** the plan and phases. Confirm the branch matches the ticket when that is obvious.
-2. **Split** independent file slices. Tests and code go to different workers: a test worker writes the failing tests first, and the implementation workers get the spec, the command that runs the tests and its output, never the test files (see `.claude/rules/testing.md`). Spawn the implementation workers in one message, each with the files it owns. Serialize only on a real file-ownership conflict. See `agent-mistakes-orchestration`, "One live worker per file".
+2. **Split** independent file slices. Tests and code go to different workers: a test writer (Gemini 4 Neon, per `orchestrate-defaults`) writes the failing tests first, and the implementation workers get the spec, the command that runs the tests and its output, never the test files (see `.claude/rules/testing.md`). Spawn the implementation workers in one message, each with the files it owns. Serialize only on a real file-ownership conflict. See `agent-mistakes-orchestration`, "One live worker per file".
 3. **Review loop.** After edits, spawn the `opus` phase reviewer (read-only) with the phase goal, the plan section, and the diff. The orchestrator buckets findings; the worker that owns each file applies its Act-on items; the reviewer re-checks only the delta. Repeat until APPROVE. Cap about 3 rounds. Wait for every named reviewer before applying anything.
 4. **Checks.** A `sonnet` checks worker runs the `review-branch` checks for the touched areas: client `tsc`, `lint`, `test`, `build`; the instrumenter's `cargo test`; the e2e suite. Green before verify.
 5. **Verify.** For UI or animation changes, run `ui-visual-test` on the affected screens. For debugger behaviour, the matching e2e behaviour must pass or be on that debugger's list in `e2e/known-failures/` with a reason. Always verify, even for small phases.
