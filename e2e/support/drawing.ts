@@ -9,6 +9,9 @@ export type DrawnStep = { line: number | null; labels: string[]; nodes: string[]
 type LabelWithOpacity = { text: string; opacity: number };
 type LabelWithPlace = LabelWithOpacity & { x: number; y: number };
 
+/** How far apart, in pixels, two label centres can be and still count as one column. */
+const SAME_COLUMN_PX = 4;
+
 /**
  * The labels that are node values: a number, or "??" for a node whose value
  * isn't set yet. The others are pointer names ("list", "head, n").
@@ -44,8 +47,10 @@ export class Drawing {
    * The pointer names drawn once the drawing has stopped moving, each with
    * the node it points at, sorted by name. The visualiser draws a pointer as
    * an arrow below its node with the name under it, so a name belongs to the
-   * node above it that is nearest horizontally. Names stacked for one node
-   * ("head," over "n") each count, without the comma.
+   * nearest node above it in its column. Labels whose centres are within
+   * SAME_COLUMN_PX share a column: one digit's box can sit a pixel off
+   * another's. Names stacked for one node ("head," over "n") each count,
+   * without the comma.
    */
   async settledPointerLabels(stableMs = 500, timeoutMs = 10_000): Promise<PointerLabel[]> {
     const settled = await this.settled(() => this.labelsWithPlace(), stableMs, timeoutMs, 'moving', '');
@@ -55,10 +60,12 @@ export class Drawing {
     return visible
       .filter(({ text }) => !isNode(text) && text.trim() !== '')
       .map((label) => {
-        const above = nodes
-          .filter((node) => node.y < label.y)
-          .sort((a, b) => Math.abs(a.x - label.x) - Math.abs(b.x - label.x) || b.y - a.y);
-        return { name: label.text.replace(/,$/, ''), node: above[0]?.text ?? null };
+        const above = nodes.filter((node) => node.y < label.y);
+        const nearestX = Math.min(...above.map((node) => Math.abs(node.x - label.x)));
+        const owner = above
+          .filter((node) => Math.abs(node.x - label.x) <= nearestX + SAME_COLUMN_PX)
+          .sort((a, b) => b.y - a.y)[0];
+        return { name: label.text.replace(/,$/, ''), node: owner?.text ?? null };
       })
       .sort((a, b) => a.name.localeCompare(b.name));
   }
