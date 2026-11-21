@@ -23,6 +23,20 @@ const refusals: { title: string; input: string; args: (number | string)[]; error
     error: 'Values need to be between 0 and 99.',
     invalid: ['Value'],
   },
+  {
+    title: 'a value that is not a whole number marks only the Value box',
+    input: 'Value abc and Index 0',
+    args: ['abc', 0],
+    error: 'Use whole numbers only.',
+    invalid: ['Value'],
+  },
+  {
+    title: 'an empty box marks only the empty box even when another box is not a whole number',
+    input: 'Value abc and the Index box left empty',
+    args: ['abc'],
+    error: 'Fill in every box first.',
+    invalid: ['Index'],
+  },
 ];
 
 test.describe('editing data', () => {
