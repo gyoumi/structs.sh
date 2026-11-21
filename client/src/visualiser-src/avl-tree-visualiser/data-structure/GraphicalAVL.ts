@@ -456,7 +456,7 @@ class GraphicalAVL extends GraphicalDataStructure {
   }
 
   public load(data: number[]): void {
-    this.root = GraphicalTreeGenerate.loadTree<GraphicalAVLNode>(GraphicalAVLNode.from, data);
+    this.root = GraphicalTreeGenerate.loadTree<GraphicalAVLNode>(GraphicalAVLNode.from, data, true);
     GraphicalAVL.updateHeight(this.root);
   }
 
