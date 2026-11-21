@@ -136,10 +136,12 @@ same time. 1f needs both.
   an array with some values fixed, which the sorting visualiser already
   draws, and its checks passed (see `puzzle-ideas.md`).
 - **A comparison is any comparison of two values in the code the page
-  shows**, including the one that ends a loop and the two after each
-  partition. Today the quicksort animation shows a pointer moving but not
-  every comparison, so it gains a step for each one, and the page shows a
-  counter that goes up on each.
+  shows**, including the one that ends a loop and the one after each
+  partition that places the pivot (`a[i] < v`). `quick.ts` also compares
+  `a[j] > v` to decide what to highlight, which isn't in the code shown, so
+  it doesn't count. Today the quicksort animation shows a pointer moving but
+  not every comparison, so it gains a step for each one, and the page shows
+  a counter that goes up on each.
 - **The player taps two free values to swap them.** It works on phones and
   from the keyboard (select a value, then use the arrow keys), and it can't
   put a value on a fixed slot. The sorting visualiser has no way to move
