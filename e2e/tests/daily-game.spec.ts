@@ -6,6 +6,34 @@ const fmt = (values: readonly number[]) => `[${values.join(', ')}]`;
 const fmtSlot = (slot?: SlotBounds) =>
   slot ? `slot ${slot.index} (value ${slot.value}, x=${slot.x}, x+width=${slot.x + slot.width})` : 'none';
 
+const RULE_PARTS = [
+  { label: '"quicksort"', pattern: /\bquicksort\b/i },
+  {
+    label: 'a goal word (most, as many, maximum, max, maximise/maximize/maximising/maximizing)',
+    pattern: /\b(?:most|as\s+many|maximum|max|maximi[sz](?:e|ing))\b/i,
+  },
+  { label: '"comparisons"', pattern: /\bcomparisons\b/i },
+] as const;
+
+const checkRulesSentence = (rules: string): { ok: boolean; reason: string } => {
+  const sentences = rules
+    .split(/[.!?]+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+  if (sentences.some((sentence) => RULE_PARTS.every(({ pattern }) => pattern.test(sentence)))) {
+    return { ok: true, reason: '' };
+  }
+  const missingFromText = RULE_PARTS.filter(({ pattern }) => !pattern.test(rules)).map(({ label }) => label);
+  const detail =
+    missingFromText.length > 0
+      ? `missing ${missingFromText.join(', ')}`
+      : 'all three appear in the text, but never in the same sentence';
+  return {
+    ok: false,
+    reason: `no sentence contains "quicksort", a goal word, and "comparisons" together (${detail})`,
+  };
+};
+
 test.describe('daily game', () => {
   test('the puzzle shows its rules, par and fixed values', async ({ dailyPage }) => {
     await dailyPage.serve(DAILY_7.puzzle);
@@ -13,12 +41,11 @@ test.describe('daily game', () => {
 
     const startCtx = `${DAILY_7.name} ${fmt(DAILY_7.start.values)}`;
     const rules = await dailyPage.rulesText();
-    const goalPattern = /\b(?:most|as many|maximi[sz](?:e|ing))[^.!?]*\bcomparisons\b/i;
-    expect(rules, `${startCtx}: Puzzle rules region should describe a quicksort puzzle`).toMatch(/quicksort/i);
+    const rulesCheck = checkRulesSentence(rules);
     expect(
-      rules,
-      `${startCtx}: Puzzle rules region should state the goal and "comparisons" in one sentence (matching ${goalPattern})`,
-    ).toMatch(goalPattern);
+      rulesCheck.ok,
+      `${startCtx}: Puzzle rules region check failed — ${rulesCheck.reason}; got ${JSON.stringify(rules)}`,
+    ).toBe(true);
     expect(await dailyPage.par(), `${DAILY_7.name}: Par status should show served par ${DAILY_7.puzzle.par}`).toBe(DAILY_7.puzzle.par);
     expect(await dailyPage.values(), `${DAILY_7.name}: Puzzle array should show starting values ${fmt(DAILY_7.puzzle.values)}`).toEqual([...DAILY_7.puzzle.values]);
     expect(await dailyPage.fixedIndices(), `${DAILY_7.name}: fixed slots ${fmt(DAILY_7.puzzle.fixed)} should be disabled and all others enabled`).toEqual([...DAILY_7.puzzle.fixed]);
@@ -189,8 +216,9 @@ test.describe('daily game', () => {
 
       const drawn = await dailyPage.drawnValues();
       const drawnKey = fmt(drawn);
+      const isPermutation = fmt([...drawn].sort((a, b) => a - b)) === sortedKey;
       sawIntermediateArrangement ||=
-        progress < 100 && drawn.length === sorted.length && drawnKey !== startKey && drawnKey !== sortedKey;
+        progress < 100 && isPermutation && drawnKey !== startKey && drawnKey !== sortedKey;
     });
 
     expect(
@@ -199,7 +227,7 @@ test.describe('daily game', () => {
     ).toBe(true);
     expect(
       sawIntermediateArrangement,
-      `${ctx} (${result.steps} steps): #visualiser-canvas drawing never changed between the endpoints (${startKey} and ${sortedKey}); expected at least one intermediate arrangement`,
+      `${ctx} (${result.steps} steps): #visualiser-canvas drawing never showed an intermediate permutation between the endpoints (${startKey} and ${sortedKey}); expected at least one intermediate arrangement`,
     ).toBe(true);
     expect(
       result.counter,
