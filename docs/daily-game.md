@@ -144,8 +144,9 @@ same time. 1f needs both.
   a counter that goes up on each.
 - **The player taps two free values to swap them.** It works on phones and
   from the keyboard (select a value, then use the arrow keys), and it can't
-  put a value on a fixed slot. The sorting visualiser has no way to move
-  values by hand today, so this is new.
+  put a value on a fixed slot. On a 390-pixel phone screen, the whole array
+  is visible without scrolling sideways. The sorting visualiser has no way to
+  move values by hand today, so this is new.
 - **Par is a target, not the maximum.** The puzzle file carries par and the
   best score, and the page never works either out. Par sits 65% of the way
   from a typical random arrangement's score to the best. For example, with a
@@ -196,7 +197,8 @@ For 1e, the puzzle page:
 1. The puzzle shows its rules, par and fixed values.
 2. Tapping two free values swaps them, and fixed values can't be selected.
 3. Free values can be swapped with the keyboard.
-4. Swapping works on a phone-sized screen.
+4. Swapping works on a phone-sized screen, and the whole array fits without
+   scrolling sideways.
 
 For 1f, run and score:
 
