@@ -24,9 +24,9 @@ function isBooleanClassProperty(member) {
 }
 
 const isBooleanDeclarator = (declarator) =>
-  declarator.id.type === 'Identifier' && (declarator.id.typeAnnotation ? isBooleanType(declarator.id.typeAnnotation) : isBooleanLiteral(declarator.init));
+  declarator.id.type === 'Identifier' && (isBooleanType(declarator.id.typeAnnotation) || isBooleanLiteral(declarator.init));
 
-const SCOPES = new Set(['Program', 'BlockStatement', 'StaticBlock', 'SwitchCase', 'ForStatement', 'ForInStatement', 'ForOfStatement', 'TSModuleBlock']);
+const SCOPES = new Set(['Program', 'BlockStatement', 'StaticBlock', 'SwitchStatement', 'ForStatement', 'ForInStatement', 'ForOfStatement', 'TSModuleBlock']);
 
 function scopeOf(node) {
   let scope = node.parent;

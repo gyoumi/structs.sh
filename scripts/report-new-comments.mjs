@@ -4,44 +4,59 @@ import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { inScope, kindOf } from './check-file-sizes.mjs';
-import { languageOf, scanLine } from './comment-scanner.mjs';
+import { commentStartLines, languageOf } from './comment-scanner.mjs';
 import { findTargetBranch } from './target-branch.mjs';
 
 const MESSAGE =
   "Checkpoint 5 keeps only API docs, licence headers and notes about outside constraints in the debugger's code. If this explains our own code, say it with a name, type or shape instead (see the no-comments skill).";
 
-const isScopeSource = (path) => inScope(path) && kindOf(path) === 'source';
+const languageFor = (path) => (inScope(path) && kindOf(path) === 'source' ? languageOf(path) : undefined);
 
-function looksLikeBlockContinuation(text) {
-  const close = text.indexOf('*/');
-  const open = text.indexOf('/*');
-  return text.trimStart().startsWith('*') || (close !== -1 && (open === -1 || close < open));
+function runsOfConsecutiveLines(addedLines) {
+  const runs = [];
+  let previous;
+  for (const added of addedLines) {
+    if (previous && previous.path === added.path && previous.line + 1 === added.line) runs.at(-1).push(added);
+    else runs.push([added]);
+    previous = added;
+  }
+  return runs;
 }
+
+const copy = ({ path, line, text }) => ({ path, line, text });
 
 /**
  * The added lines that start a plain comment in the debugger's source files:
- * not API docs and not lint or tool directives.
+ * not API docs and not lint or tool directives. Knowing only the added
+ * lines, it scans each run of consecutive ones as a unit.
  * @param {{ path: string, line: number, text: string }[]} addedLines
  * @returns {{ path: string, line: number, text: string }[]}
  */
 export function findNewComments(addedLines) {
-  const found = [];
-  let previous;
-  let depth = 0;
-  for (const { path, line, text } of addedLines) {
-    const language = isScopeSource(path) ? languageOf(path) : undefined;
-    const continues = previous && previous.path === path && previous.line + 1 === line;
-    previous = { path, line };
-    if (!language) {
-      depth = 0;
-      continue;
-    }
-    const startDepth = continues ? depth : Number(looksLikeBlockContinuation(text));
-    const scanned = scanLine(text, language, startDepth);
-    depth = scanned.depth;
-    if (scanned.plain) found.push({ path, line, text });
-  }
-  return found;
+  return runsOfConsecutiveLines(addedLines).flatMap((run) => {
+    const language = languageFor(run[0].path);
+    if (!language) return [];
+    const starts = commentStartLines(run.map(({ text }) => text).join('\n'), language);
+    return run.filter((_, index) => starts.has(index + 1)).map(copy);
+  });
+}
+
+/**
+ * @param {{ path: string, line: number, text: string }[]} addedLines
+ * @param {(path: string) => string} contentOf the file's content after the change
+ */
+function findNewCommentsInFiles(addedLines, contentOf) {
+  const startsByPath = new Map();
+  const startsIn = (path, language) => {
+    if (!startsByPath.has(path)) startsByPath.set(path, commentStartLines(contentOf(path), language));
+    return startsByPath.get(path);
+  };
+  return addedLines
+    .filter(({ path, line }) => {
+      const language = languageFor(path);
+      return language !== undefined && startsIn(path, language).has(line);
+    })
+    .map(copy);
 }
 
 const escapeData = (value) => String(value).replaceAll('%', '%25').replaceAll('\r', '%0D').replaceAll('\n', '%0A');
@@ -104,7 +119,7 @@ function main() {
   });
   const head = args.head ?? 'HEAD';
   const base = git('merge-base', args.base ?? findTargetBranch(), head).trim();
-  const comments = findNewComments(addedLinesBetween(base, head));
+  const comments = findNewCommentsInFiles(addedLinesBetween(base, head), (path) => git('show', `${head}:${path}`));
   for (const comment of comments) console.log(annotation(comment));
   console.log(
     comments.length === 0

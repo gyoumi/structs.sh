@@ -411,3 +411,53 @@ describe('CLI in a temporary git repo', () => {
     assert.equal(run.stdoutLines.at(-1), NONE, `the last stdout line should be the no-comments summary\n  ${scenario}\n${run.what}`);
   });
 });
+
+// Lines added inside a block comment or template literal that the base already
+// had: only the head file's full content shows they are not comments.
+describe('CLI: added lines inside an unchanged block comment or template literal', () => {
+  const blockBase = lines('export function run() {', '  /*', '   Explains the old thing.', '   More explanation.', '  */', '  return 1;', '}');
+  const blockHead = (...after) =>
+    lines('export function run() {', '  /*', '   Explains the old thing.', '   // looks like a comment', '   * starts with a star', '   More explanation.', '  */', ...after, '  return 1;', '}');
+
+  function expectRun(baseFiles, headFiles, expected, scenario) {
+    const repo = makeRepo();
+    const base = commit(repo, baseFiles, 'base');
+    const head = commit(repo, headFiles, 'head');
+    const run = runCli(repo, base, head);
+    assert.equal(run.status, 0, `exit code should be 0\n  ${scenario}\n${run.what}`);
+    assert.deepStrictEqual(
+      run.annotations,
+      expected.map(([path, line]) => warning(path, line)),
+      `the ::warning lines on stdout\n  ${scenario}\n  expected: ${expected.length ? expected.map(([p, l]) => `${p}:${l}`).join(', ') : 'none'}\n${run.what}`,
+    );
+    assert.equal(run.stdoutLines.at(-1), expected.length ? some(expected.length) : NONE, `the last stdout line should be the summary for ${expected.length} new comment(s)\n  ${scenario}\n${run.what}`);
+  }
+
+  it('does not report lines added inside a block comment the base already had', () => {
+    expectRun(
+      [[SRC, blockBase]],
+      [[SRC, blockHead()]],
+      [],
+      `base ${SRC} has a /* ... */ block on lines 2-5; head adds "   // looks like a comment" (line 4) and "   * starts with a star" (line 5) inside it, so they are part of the old comment`,
+    );
+  });
+
+  it('does not report a // line added inside a multi-line template literal the base already had', () => {
+    const path = 'client/src/Services/debugger/wasm/usage.ts';
+    expectRun(
+      [[path, lines('export const usage = `', 'usage: run <file>', '`;')]],
+      [[path, lines('export const usage = `', 'usage: run <file>', '// not a comment, part of the string', '`;')]],
+      [],
+      `base ${path} has a template literal on lines 1-3; head adds "// not a comment, part of the string" on line 3, inside the backticks`,
+    );
+  });
+
+  it('control: reports a new // comment added right after that block comment closes', () => {
+    expectRun(
+      [[SRC, blockBase]],
+      [[SRC, blockHead('  // new comment')]],
+      [[SRC, 8]],
+      `same as the block-comment case, plus "  // new comment" on line 8, right after the block's "*/" on line 7: only line 8 is a new comment`,
+    );
+  });
+});

@@ -1,8 +1,8 @@
 const DIRECTIVES = ['eslint-disable', 'eslint-enable', '@ts-expect-error', '@ts-ignore', '@ts-nocheck', 'prettier-ignore', 'c8 ignore', 'istanbul ignore'];
 
 const LANGUAGES = {
-  js: { lineDocs: ['///'], blockDocs: ['/**'], nestedBlocks: false },
-  rust: { lineDocs: ['///', '//!'], blockDocs: ['/**', '/*!'], nestedBlocks: true },
+  js: { lineDocs: ['///'], blockDocs: ['/**'], nestedBlocks: false, multiLineQuotes: false },
+  rust: { lineDocs: ['///', '//!'], blockDocs: ['/**', '/*!'], nestedBlocks: true, multiLineQuotes: true },
 };
 
 export function languageOf(path) {
@@ -10,74 +10,51 @@ export function languageOf(path) {
   return ['.ts', '.tsx', '.mjs', '.js'].some((ext) => path.endsWith(ext)) ? LANGUAGES.js : undefined;
 }
 
-const isDirective = (body) => DIRECTIVES.some((directive) => body.trimStart().startsWith(directive));
-const isPlain = (text, at, docs) => !docs.some((doc) => text.startsWith(doc, at)) && !isDirective(text.slice(at + 2));
-
-const REGEX_AFTER_CHAR = /[(,=:[!&|?{};+\-*%<>~^]$/;
+const DIRECTIVE_LENGTH = Math.max(...DIRECTIVES.map((directive) => directive.length));
+const REGEX_AFTER_CHAR = /[(,=:[!&|?{};+\-*%<>~^]/;
 const REGEX_AFTER_WORD = /\b(?:return|typeof|case|in|of|void|yield|await|delete|throw|new|else|do)$/;
+const RUST_CHAR = /'(?:\\u\{[0-9a-fA-F]+\}|\\.|[^\\'])'/y;
+const RUST_RAW_STRING = /b?r(#*)"/y;
 
-function startsRegex(text, at) {
-  const before = text.slice(0, at).trimEnd();
-  return before === '' || REGEX_AFTER_CHAR.test(before) || REGEX_AFTER_WORD.test(before);
+function lineStartsOf(text) {
+  const starts = [0];
+  for (let i = 0; i < text.length; i++) if (text[i] === '\n') starts.push(i + 1);
+  return starts;
 }
 
-function skipRegex(text, at) {
-  let inClass = false;
-  for (let i = at + 1; i < text.length; i++) {
-    const c = text[i];
-    if (c === '\\') i++;
-    else if (c === '[') inClass = true;
-    else if (c === ']') inClass = false;
-    else if (c === '/' && !inClass) return i + 1;
+function lineAt(lineStarts, index) {
+  let low = 0;
+  let high = lineStarts.length - 1;
+  while (low < high) {
+    const mid = (low + high + 1) >> 1;
+    if (lineStarts[mid] <= index) low = mid;
+    else high = mid - 1;
   }
-  return text.length;
-}
-
-function skipQuoted(text, at, quote) {
-  for (let i = at + 1; i < text.length; i++) {
-    if (text[i] === '\\') i++;
-    else if (text[i] === quote) return i + 1;
-  }
-  return text.length;
-}
-
-const RUST_RAW_STRING = /^b?r(#*)"/;
-
-function skipRustRawString(text, at) {
-  const opening = RUST_RAW_STRING.exec(text.slice(at));
-  if (!opening || /\w/.test(text[at - 1] ?? '')) return undefined;
-  const closing = `"${opening[1]}`;
-  const end = text.indexOf(closing, at + opening[0].length);
-  return end === -1 ? text.length : end + closing.length;
-}
-
-const RUST_CHAR = /^'(?:\\u\{[0-9a-fA-F]+\}|\\.|[^\\'])'/;
-
-function skipJsLiteral(text, at) {
-  const c = text[at];
-  if (c === '"' || c === "'" || c === '`') return skipQuoted(text, at, c);
-  if (c === '/' && !'/*'.includes(text[at + 1] ?? '') && startsRegex(text, at)) return skipRegex(text, at);
-  return undefined;
-}
-
-function skipRustLiteral(text, at) {
-  const c = text[at];
-  if (c === '"') return skipQuoted(text, at, '"');
-  if (c === "'") return at + (RUST_CHAR.exec(text.slice(at))?.[0].length ?? 1);
-  if (c === 'r' || c === 'b') return skipRustRawString(text, at);
-  return undefined;
+  return low + 1;
 }
 
 /**
- * Scans one line, starting inside `depth` open block comments.
- * @returns {{ plain: boolean, depth: number }} whether a plain comment starts on the line, and the block depth at its end
+ * The 1-based numbers of the lines on which a plain comment starts: not an
+ * API doc and not a lint or tool directive.
+ * @param {string} text
+ * @param {typeof LANGUAGES.js} language from languageOf
+ * @param {{ startInBlock?: boolean }} [options] whether the text starts inside a block comment
+ * @returns {Set<number>}
  */
-export function scanLine(text, language, depth) {
-  const skipLiteral = language === LANGUAGES.rust ? skipRustLiteral : skipJsLiteral;
-  let plain = false;
+export function commentStartLines(text, language, { startInBlock = false } = {}) {
+  const lineStarts = lineStartsOf(text);
+  const found = new Set();
   let i = 0;
-  while (i < text.length) {
-    if (depth > 0) {
+
+  const isPlain = (docs) => {
+    if (docs.some((doc) => text.startsWith(doc, i))) return false;
+    const body = text.slice(i + 2, i + 2 + DIRECTIVE_LENGTH + 16).trimStart();
+    return !DIRECTIVES.some((directive) => body.startsWith(directive));
+  };
+
+  const skipBlock = () => {
+    let depth = 1;
+    while (i < text.length && depth > 0) {
       if (text.startsWith('*/', i)) {
         depth--;
         i += 2;
@@ -85,19 +62,97 @@ export function scanLine(text, language, depth) {
         depth++;
         i += 2;
       } else i++;
-      continue;
     }
-    if (text.startsWith('//', i)) {
-      plain ||= isPlain(text, i, language.lineDocs);
-      break;
+  };
+
+  const skipQuoted = (quote) => {
+    for (i++; i < text.length; i++) {
+      if (text[i] === '\\') i++;
+      else if (text[i] === quote) return void i++;
+      else if (text[i] === '\n' && !language.multiLineQuotes) return;
     }
-    if (text.startsWith('/*', i)) {
-      plain ||= isPlain(text, i, language.blockDocs);
-      depth = 1;
-      i += 2;
-      continue;
+  };
+
+  const startsRegex = () => {
+    let before = i - 1;
+    while (before >= 0 && /\s/.test(text[before])) before--;
+    if (before < 0 || REGEX_AFTER_CHAR.test(text[before])) return true;
+    return REGEX_AFTER_WORD.test(text.slice(Math.max(0, before - 9), before + 1));
+  };
+
+  const skipRegex = () => {
+    let inClass = false;
+    for (i++; i < text.length && text[i] !== '\n'; i++) {
+      const c = text[i];
+      if (c === '\\') i++;
+      else if (c === '[') inClass = true;
+      else if (c === ']') inClass = false;
+      else if (c === '/' && !inClass) return void i++;
     }
-    i = skipLiteral(text, i) ?? i + 1;
-  }
-  return { plain, depth };
+  };
+
+  const skipRustRawString = () => {
+    RUST_RAW_STRING.lastIndex = i;
+    const opening = RUST_RAW_STRING.exec(text);
+    if (!opening || /\w/.test(text[i - 1] ?? '')) return false;
+    const closing = `"${opening[1]}`;
+    const end = text.indexOf(closing, i + opening[0].length);
+    i = end === -1 ? text.length : end + closing.length;
+    return true;
+  };
+
+  const skipRustQuote = () => {
+    RUST_CHAR.lastIndex = i;
+    i += RUST_CHAR.exec(text)?.[0].length ?? 1;
+  };
+
+  let scanCode;
+  const skipTemplate = () => {
+    for (i++; i < text.length; i++) {
+      if (text[i] === '\\') i++;
+      else if (text[i] === '`') return void i++;
+      else if (text.startsWith('${', i)) {
+        i += 2;
+        scanCode(true);
+        i--;
+      }
+    }
+  };
+
+  const skipLiteral = () => {
+    const c = text[i];
+    if (language === LANGUAGES.rust) {
+      if (c === '"') skipQuoted('"');
+      else if (c === "'") skipRustQuote();
+      else if (!((c === 'r' || c === 'b') && skipRustRawString())) i++;
+    } else if (c === '"' || c === "'") skipQuoted(c);
+    else if (c === '`') skipTemplate();
+    else if (c === '/' && startsRegex()) skipRegex();
+    else i++;
+  };
+
+  scanCode = (untilBrace) => {
+    let braces = 0;
+    while (i < text.length) {
+      if (text.startsWith('//', i)) {
+        if (isPlain(language.lineDocs)) found.add(lineAt(lineStarts, i));
+        const end = text.indexOf('\n', i);
+        i = end === -1 ? text.length : end;
+      } else if (text.startsWith('/*', i)) {
+        if (isPlain(language.blockDocs)) found.add(lineAt(lineStarts, i));
+        i += 2;
+        skipBlock();
+      } else if (untilBrace && text[i] === '{') {
+        braces++;
+        i++;
+      } else if (untilBrace && text[i] === '}') {
+        i++;
+        if (braces-- === 0) return;
+      } else skipLiteral();
+    }
+  };
+
+  if (startInBlock) skipBlock();
+  scanCode(false);
+  return found;
 }

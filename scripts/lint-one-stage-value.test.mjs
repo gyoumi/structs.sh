@@ -134,6 +134,23 @@ const valid = [
     name: 'nested type literals are judged alone: interface Run { ready: boolean; stage: { ended: boolean } } has one boolean in each',
     code: 'interface Run { ready: boolean; stage: { ended: boolean } }',
   },
+  {
+    name: 'boolean lets in two braced case blocks (case 1: { let ready = false } case 2: { let ended = true }) are in different scopes, not reported',
+    code: lines(
+      'function step(k: number) {',
+      '  switch (k) {',
+      '    case 1: {',
+      '      let ready = false;',
+      '      return ready;',
+      '    }',
+      '    case 2: {',
+      '      let ended = true;',
+      '      return ended;',
+      '    }',
+      '  }',
+      '}',
+    ),
+  },
 ];
 
 const invalid = [
@@ -263,6 +280,27 @@ const invalid = [
     name: "two boolean lets in a class method are reported on the second let (line 4, column 5); the class itself has no boolean properties",
     code: lines('class Run {', '  step() {', '    let a = true;', '    let b = false;', '    return a && b;', '  }', '}'),
     errors: [flags('a, b', { type: 'VariableDeclaration', line: 4, column: 5 })],
+  },
+  {
+    name: "boolean lets in two unbraced case clauses of one switch share the switch's scope: names 'ready, ended', on the second let (line 7, column 7)",
+    code: lines(
+      'function step(k: number) {',
+      '  switch (k) {',
+      '    case 1:',
+      '      let ready = false;',
+      '      break;',
+      '    case 2:',
+      '      let ended = true;',
+      '      break;',
+      '  }',
+      '}',
+    ),
+    errors: [flags('ready, ended', { type: 'VariableDeclaration', line: 7, column: 7 })],
+  },
+  {
+    name: "a let initialised to a boolean literal counts even with a non-boolean annotation (let ready: unknown = false; let ended = true): names 'ready, ended', on the second let (line 3, column 3)",
+    code: lines('function step() {', '  let ready: unknown = false;', '  let ended = true;', '  return [ready, ended];', '}'),
+    errors: [flags('ready, ended', { type: 'VariableDeclaration', line: 3, column: 3 })],
   },
 ];
 
