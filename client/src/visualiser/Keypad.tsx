@@ -34,7 +34,7 @@ const rangeHint = (max: number) => {
 };
 
 const Keypad = ({ command, runLabel, classes, maxIndex }: KeypadProps) => {
-  const { args, values, setValue, error, onSubmit } = useOperation(command);
+  const { args, values, setValue, error, invalid, onSubmit } = useOperation(command);
   const [activeField, setActiveField] = useState(0);
   const target = Math.min(activeField, Math.max(0, args.length - 1));
   const hasArgs = args.length > 0;
@@ -67,7 +67,7 @@ const Keypad = ({ command, runLabel, classes, maxIndex }: KeypadProps) => {
       {hasArgs && (
         <div className={classes.fields}>
           {args.map((arg, i) => (
-            <Field key={arg} className={classes.field} invalid={error ? true : undefined}>
+            <Field key={arg} className={classes.field} invalid={invalid[i] || undefined}>
               <FieldLabel className={classes.label}>{argLabel(arg)}</FieldLabel>
               <Input
                 className={classes.input}

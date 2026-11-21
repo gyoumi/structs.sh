@@ -20,7 +20,7 @@ export class VisualiserPage {
 
   // ---------------------------------------------------------------- locators
 
-  private label(command: string): string {
+  protected label(command: string): string {
     return topicLabels[this.topic]?.[command] ?? operationLabels[command] ?? command;
   }
 

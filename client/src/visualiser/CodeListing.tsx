@@ -1,22 +1,49 @@
-import { useEffect, useRef } from 'react';
+import { Fragment, useEffect, useRef } from 'react';
 import { useSnapshot, usePrefersReducedMotion } from './useVisualiser';
 
-/** Code that wraps only at spaces, so tokens like `node->left` never split across lines. */
-export const Unbroken = ({ text }: { text: string }) => (
-  <>
-    {text.split(/(\s+)/).map((part, index) =>
-      part.trim() ? (
-        <span key={index} style={{ whiteSpace: 'nowrap' }}>
-          {part}
-        </span>
-      ) : (
-        part
-      )
-    )}
-  </>
+const HANGING_INDENT_CH = 4;
+
+/**
+ * One token as an inline block, so it moves to the next line whole when it fits there. A token
+ * wider than the line breaks after `(`, `,` or `->`, with `overflow-wrap: anywhere` as the last resort.
+ */
+const Token = ({ text }: { text: string }) => (
+  <span
+    style={{
+      display: 'inline-block',
+      maxWidth: '100%',
+      boxSizing: 'border-box',
+      // A negative text-indent cannot shrink the box below its padding, so short tokens skip the hang.
+      ...(text.length > HANGING_INDENT_CH
+        ? { paddingInlineStart: `${HANGING_INDENT_CH}ch`, textIndent: `-${HANGING_INDENT_CH}ch` }
+        : { textIndent: 0 }),
+    }}
+  >
+    {text.split(/(?<=[(,]|->)/).map((segment, index) => (
+      <Fragment key={index}>
+        {index > 0 && <wbr />}
+        {segment.split(/(-\S)/).map((piece, i) =>
+          i % 2 ? (
+            <span key={i} style={{ whiteSpace: 'nowrap' }}>
+              {piece}
+            </span>
+          ) : (
+            piece
+          )
+        )}
+      </Fragment>
+    ))}
+  </span>
 );
 
-const HANGING_INDENT_CH = 4;
+/** Code that wraps at spaces, so tokens like `node->left` split only when wider than the line. */
+export const Unbroken = ({ text }: { text: string }) => (
+  <>
+    {text
+      .split(/(\s+)/)
+      .map((part, index) => (part.trim() ? <Token key={index} text={part} /> : part))}
+  </>
+);
 
 const scrollParent = (element: HTMLElement): HTMLElement | null => {
   for (
