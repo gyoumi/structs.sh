@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { readDrawing, type DrawnNode } from './drawing';
+import { readDrawing, type DrawnNode } from './visualiser-drawing';
 
 /** A tree node rebuilt from the drawing. */
 export interface TreeNode {
