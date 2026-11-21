@@ -41,17 +41,19 @@ passes the checks below on real instances.
 
 ### The generator's checks
 
-For each candidate instance, the generator finds par, then runs three
-checks:
+For each candidate instance, the generator finds the best score and sets
+par from it, then runs three checks. These checks were run when par meant
+the best score, so in the tables below "reached par" means reached the
+best.
 
 1. **Is it solvable?** With fixed values, some instances have no answer at
    all. For example, between 8% and 30% of Insertion beats merge instances
    have no arrangement where insertion sort compares less. These are
    rerolled.
-2. **Does a shortcut reach par?** A shortcut is a rule you can apply without
+2. **Does a shortcut reach the best?** A shortcut is a rule you can apply without
    working through the instance, such as "insert the keys in preorder" or
    "fill the free slots in ascending order". Each template lists its known
-   shortcuts. If one reaches par, the instance is rerolled.
+   shortcuts. If one reaches the best, the instance is rerolled.
 3. **How hard is it?** The bot player tries a random change and keeps it if
    the score didn't drop. If it reaches par often, the instance is easy. That
    sets its difficulty grade, not whether it ships. An algorithm you have to

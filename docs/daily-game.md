@@ -24,22 +24,22 @@ None of the decisions below are final. Change this document when they change.
 
 ## How progress is measured
 
-As with the debugger, the Playwright suite is the spec. The game's tests are
-written first, in step 1a, from what a player sees. They all start on a
-known-failures list (`e2e/known-failures/game.json`), which shrinks as the
-features land. Each run ends with a summary such as `6/20 behaviours
-working`.
+As with the debugger, the Playwright suite is the spec. Each checkpoint
+starts by writing its game tests, from what a player sees, before any of its
+code. They start on a known-failures list (`e2e/known-failures/game.json`),
+which shrinks as the features land. Each run ends with a summary such as
+`4/12 behaviours working`.
 
-The tests, grouped by the checkpoint that should make them pass:
+Tests for later checkpoints aren't written early, because they check screens
+that haven't been designed yet. What each checkpoint's tests should cover:
 
 | Checkpoint | Tests |
 |---|---|
-| 1 | The puzzle shows its rules, par and fixed values. Fixed values can't be moved, and free ones can. Run animates the algorithm and shows the score. The score matches what the animation showed. Matching or beating par is announced. Share text copies, without the answer. |
+| 1 | The 12 tests listed in step 1a. |
 | 2 | Each of the seven launch templates loads and plays (one test each). An exact-target puzzle says whether it's solved, and shows its second count. |
 | 3 | Today's puzzle comes from the server. A result survives a refresh. Playing on consecutive days builds a streak, and missing a day resets it. The puzzle changes at midnight in Sydney, including on a daylight saving day. The page says so when the server can't be reached. Share text includes the streak. |
 
-That's 6, 14 and then 20 tests. The test writer can change the list. If they
-do, change this table.
+The test writer can change the list. If they do, change this table.
 
 Under the e2e suite:
 
@@ -63,8 +63,9 @@ Today ──► 1. One puzzle plays ──► 2. Every day is new ──► 3. I
 ### 1. One puzzle plays
 
 A quicksort puzzle, hard-coded in the client, can be played start to finish
-in the browser. The player moves the free values, presses Run, watches the
-existing sorting visualiser animate the run, and sees a score and par. The
+in the browser. The player swaps the free values, presses Run, watches the
+existing sorting visualiser animate the run, and sees a score and par. They
+get three tries. The
 score comes from `structs-puzzles` built to wasm, with no server.
 
 This tests the riskiest parts first:
@@ -75,7 +76,7 @@ This tests the riskiest parts first:
 
 None of this needs the generator or the server.
 
-**Done when:** 6/20 game tests pass, the parity test passes for quicksort,
+**Done when:** checkpoint 1's 12 game tests pass, the parity test passes for quicksort,
 and three people who haven't seen the game play it without help. What
 confused them is written here.
 
@@ -84,10 +85,10 @@ See "Checkpoint 1, step by step".
 ### 2. Every day is new
 
 All seven launch templates are playable. `structs-forge` generates
-instances for them, finds par, rejects instances that fail the checks, and
+instances for them, finds the best score and par, rejects instances that fail the checks, and
 grades difficulty. The game page can load any puzzle it produces.
 
-**Done when:** 14/20 game tests pass, every launch template has a passing
+**Done when:** checkpoints 1 and 2's game tests pass, every launch template has a passing
 parity test, and `structs-forge` fills three weeks of the weekday schedule
 with puzzles that pass every check.
 
@@ -99,7 +100,7 @@ See "Checkpoint 2, step by step".
 streaks and history in the browser, and the whole stack runs locally and in
 CI, with `structs-forge` filling the database.
 
-**Done when:** 20/20 game tests pass against the running stack in CI.
+**Done when:** every game test passes against the running stack in CI.
 
 See "Checkpoint 3, step by step".
 
@@ -143,8 +144,39 @@ same time. 1f needs both.
   from the keyboard (select a value, then use the arrow keys), and it can't
   put a value on a fixed slot. The sorting visualiser has no way to move
   values by hand today, so this is new.
+- **Par is a target, not the maximum.** The puzzle file carries par and the
+  best score, and the page never works either out. Par sits 65% of the way
+  from a typical random arrangement's score to the best. For example, with a
+  median of 25 and a best of 34, par is 31. The best stays hidden until the
+  puzzle is finished.
+- **Three tries, and the highest score counts.** Each Run uses a try. After
+  a try the array stays as the player left it, so the next try starts from
+  there. Reaching par is announced and the next try is still offered.
+  Reaching the best ends the puzzle early. After the third try the puzzle
+  ends and reveals the best. Three is a starting number that 1g can change.
+- **Playback controls from the first run.** `/daily` has a Skip button that
+  jumps to the final count, and the visualiser's controls: play and pause,
+  rewind, replay, step back and forward, the timeline, and speeds from 0.25x
+  to 2x. The comparison counter follows the timeline, so stepping back
+  lowers it.
+- **The share text has one line per try**, marked ⭐ for reaching par and 🏆
+  for the best, and never includes the arrangement:
+
+  ```
+  structs.sh daily #12 · Quicksort
+  28 / 34
+  32 / 34 ⭐
+  34 / 34 🏆
+  structs.sh/daily
+  ```
+
+  Each line is the try's score over the best. With a par of 31, the second
+  try reached par and the third reached the best.
 - **The puzzle comes from a file in the client** until checkpoint 3. These
-  are test puzzles. Scheduled puzzles never go in the public repo.
+  are test puzzles. Scheduled puzzles never go in the public repo. The page
+  fetches the file, and the e2e tests serve their own puzzle in its place
+  with Playwright's network interception. At checkpoint 3 only the address
+  changes, to the server's.
 - **The page lives at `/daily`**, and nothing links to it until the goal.
 - **The page uses the UI overhaul's look from the start.** The overhaul
   ([#10](https://github.com/gyoumi/structs.sh/pull/10)) is in `dev`, so
@@ -152,11 +184,33 @@ same time. 1f needs both.
 
 ### 1a. Tests
 
-A different agent from the one writing the code writes all 20 game tests
-and adds them to `e2e/known-failures/game.json`. It starts from the table
-in "How progress is measured" and the comparison rule above.
+A different agent from the one writing the code writes checkpoint 1's game
+tests and adds them to `e2e/known-failures/game.json`. It works from the
+decisions above. Each test serves its own puzzle, with par, the best and
+the score of each arrangement it plays worked out by hand.
 
-**You'll know it's done when** the tests run in CI, all 20 are listed as
+For 1e, the puzzle page:
+
+1. The puzzle shows its rules, par and fixed values.
+2. Tapping two free values swaps them, and fixed values can't be selected.
+3. Free values can be swapped with the keyboard.
+4. Swapping works on a phone-sized screen.
+
+For 1f, run and score:
+
+5. Run animates the sort, and the counter goes up with each comparison.
+6. The final count matches the score shown, and both match the count
+   worked out by hand for the test's arrangement.
+7. Skip jumps straight to the final count.
+8. Stepping back lowers the counter.
+9. Reaching par is announced, and the next try is still offered.
+10. Reaching the best is announced, and the puzzle ends early.
+11. After three tries, the puzzle ends with the highest of the three scores
+    and reveals the best.
+12. The share text has one line per try with ⭐ and 🏆 marks, and doesn't
+    include the arrangement.
+
+**You'll know it's done when** the 12 tests run in CI, all 12 are listed as
 known failures, and CI is green.
 
 ### 1b. Rust scores quicksort
@@ -192,19 +246,19 @@ ones, and checks the counts match.
 ### 1e. Puzzle page
 
 `/daily` loads the puzzle file and shows the rules, par and the array, with
-fixed values locked. The player can swap free values.
+fixed values locked. The player can swap free values by tapping, with the
+keyboard, and on a phone.
 
-**You'll know it's done when** 2/20 game tests pass: the puzzle shows its
-rules, par and fixed values, and fixed values can't be moved but free ones
-can.
+**You'll know it's done when** 4/12 game tests pass: tests 1 to 4 in 1a.
 
 ### 1f. Run and score
 
-Run animates the sort with the comparison counter, then shows the score from
-the wasm build next to par. Matching or beating par is announced. A
-finished puzzle offers share text, with the score and par but not the input.
+Run animates the sort with the comparison counter and the playback
+controls, then shows the score from the wasm build next to par. The page
+counts tries, announces reaching par and the best, ends the puzzle, reveals
+the best, and offers the share text.
 
-**You'll know it's done when** 6/20 game tests pass.
+**You'll know it's done when** 12/12 game tests pass.
 
 ### 1g. Playtest
 
@@ -243,25 +297,26 @@ test. The page gains the inputs they need:
 - an insert order for the BST and AVL templates;
 - both trees side by side for the upset.
 
-**You'll know it's done when** 14/20 game tests pass, using one puzzle file
+**You'll know it's done when** checkpoint 2's game tests pass, using one puzzle file
 per template.
 
 ### 2b. Solver and checks
 
-`structs-forge` finds par for an instance by searching the moves the
-`Template` trait exposes. For each instance it runs the three checks from
-`puzzle-ideas.md`: is it solvable, does a shortcut reach par, and how often
-does the bot player reach par.
+`structs-forge` finds the best score for an instance by searching the moves
+the `Template` trait exposes, and sets par 65% of the way to it from the
+median of random inputs. For each instance it runs the three checks from
+`puzzle-ideas.md`: is it solvable, does a shortcut reach the best, and how
+often does the bot player reach par.
 
 **You'll know it's done when** its tests reproduce the `puzzle-checks`
-figures for every launch template. For example, sorted fills reach par on
-only 1 or 2 of 40 AVL instances.
+figures for every launch template. For example, sorted fills reach the best
+on only 1 or 2 of 40 AVL instances.
 
 ### 2c. Schedule
 
 `structs-forge` picks a template for each upcoming date, rerolls instances
 that fail a check or miss the weekday's difficulty range, and stores the
-instance, rules, seed, par and one best solution.
+instance, rules, seed, par, the best score and one best solution.
 
 **You'll know it's done when** one run fills three weeks of dates, and every
 stored puzzle loads and plays on the game page.
@@ -309,7 +364,7 @@ A Docker Compose file runs Postgres, a `structs-forge` run to fill it, the
 game server and the client. The e2e job runs the game tests against it, with
 the clock set by the test.
 
-**You'll know it's done when** 20/20 game tests pass in CI.
+**You'll know it's done when** every game test passes in CI.
 
 ## The goal, step by step
 

@@ -132,9 +132,10 @@ example: "change the edge weights so Dijkstra corrects a distance as many
 times as possible".
 
 The player experiments. They change the input, press Run, watch the
-algorithm react, and adjust. Par is the best score the solver found. When
-the solver couldn't try every input, par is the best known score, and a
-player can beat it.
+algorithm react, and adjust. The solver finds the best score. Par sits 65%
+of the way from a typical random input's score to the best, so there's room
+above par to compete. When the solver couldn't try every input, the best is
+only the best known score, and a player can beat it.
 
 Each template says whether a higher or lower score wins. Exact-target
 puzzles are solved or not, so they also name a second count to rank by, such
@@ -160,7 +161,7 @@ The full list of templates, with the checks each one has passed, is in
   to the order of the values, so these instances add generated constraints,
   such as values fixed in place, or given repeats.
 - **The generator checks every instance.** It rerolls instances with no
-  solution, and instances where a shortcut reaches par. A shortcut is a rule
+  solution, and instances where a shortcut reaches the best. A shortcut is a rule
   you can apply without working through the instance, such as "insert the
   keys in preorder". The bot player then grades how hard the instance is.
 
@@ -241,11 +242,11 @@ private repo (Rust, in the devsoc-unsw org)
 | `structs-review` (private) | The cheat-flag rules | Runs on a schedule |
 
 `structs-forge` does this for each upcoming date: pick the template, call
-its `generate` with a random seed, find par with the solver, reroll if the
-instance has no solution or one of the template's shortcuts reaches par,
-grade difficulty with the bot player, reroll if the grade misses that
-weekday's range, and store the instance, rules, seed, par and one best
-solution.
+its `generate` with a random seed, find the best score with the solver and
+set par from it, reroll if the instance has no solution or one of the
+template's shortcuts reaches the best, grade difficulty with the bot player,
+reroll if the grade misses that weekday's range, and store the instance,
+rules, seed, par, the best score and one best solution.
 
 The bot player plays like an impatient person. It tries a random change and
 keeps it if the score didn't drop. How often it reaches par measures how
@@ -261,7 +262,7 @@ hard the puzzle is.
   `structs-review` writes flags.
 - **The solver works on any template**, using only what the `Template` trait
   exposes: the moves a player can make, and the score. A template added in
-  this repo gets a par without changes to the private repo.
+  this repo gets a par and a best score without changes to the private repo.
 - **A template's scoring is frozen once puzzles exist for it.** Each stored
   puzzle names its template and version, and a scoring change becomes a new
   version.
@@ -378,7 +379,10 @@ For this project:
   time.
 - **Solver**: the part of `structs-forge` that finds the best score for an
   instance, by trying every input or by searching when there are too many.
-- **Par**: the day's target score, which is the solver's best.
+- **Best**: the solver's best score for an instance. The page reveals it
+  when the puzzle is finished.
+- **Par**: the day's target score, 65% of the way from a typical random
+  input's score to the best.
 - **Shortcut**: a rule that solves a template without working through the
   instance, such as "insert the keys in preorder". The generator rerolls any
   instance a shortcut solves.
