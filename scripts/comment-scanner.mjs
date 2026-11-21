@@ -10,9 +10,8 @@ export function languageOf(path) {
   return ['.ts', '.tsx', '.mjs', '.js'].some((ext) => path.endsWith(ext)) ? LANGUAGES.js : undefined;
 }
 
-const DIRECTIVE_LENGTH = Math.max(...DIRECTIVES.map((directive) => directive.length));
 const REGEX_AFTER_CHAR = /[(,=:[!&|?{};+\-*%<>~^]/;
-const REGEX_AFTER_WORD = /\b(?:return|typeof|case|in|of|void|yield|await|delete|throw|new|else|do)$/;
+const REGEX_AFTER_WORD = new Set(['return', 'typeof', 'case', 'in', 'of', 'void', 'yield', 'await', 'delete', 'throw', 'new', 'else', 'do']);
 const RUST_CHAR = /'(?:\\u\{[0-9a-fA-F]+\}|\\.|[^\\'])'/y;
 const RUST_RAW_STRING = /b?r(#*)"/y;
 
@@ -45,11 +44,13 @@ export function commentStartLines(text, language, { startInBlock = false } = {})
   const lineStarts = lineStartsOf(text);
   const found = new Set();
   let i = 0;
+  let lastCodeIndex = -1;
 
-  const isPlain = (docs) => {
+  const isPlain = (docs, blank) => {
     if (docs.some((doc) => text.startsWith(doc, i))) return false;
-    const body = text.slice(i + 2, i + 2 + DIRECTIVE_LENGTH + 16).trimStart();
-    return !DIRECTIVES.some((directive) => body.startsWith(directive));
+    let body = i + 2;
+    while (body < text.length && blank.test(text[body])) body++;
+    return !DIRECTIVES.some((directive) => text.startsWith(directive, body));
   };
 
   const skipBlock = () => {
@@ -74,10 +75,10 @@ export function commentStartLines(text, language, { startInBlock = false } = {})
   };
 
   const startsRegex = () => {
-    let before = i - 1;
-    while (before >= 0 && /\s/.test(text[before])) before--;
-    if (before < 0 || REGEX_AFTER_CHAR.test(text[before])) return true;
-    return REGEX_AFTER_WORD.test(text.slice(Math.max(0, before - 9), before + 1));
+    if (lastCodeIndex < 0 || REGEX_AFTER_CHAR.test(text[lastCodeIndex])) return true;
+    let wordStart = lastCodeIndex;
+    while (wordStart > 0 && /\w/.test(text[wordStart - 1])) wordStart--;
+    return REGEX_AFTER_WORD.has(text.slice(wordStart, lastCodeIndex + 1));
   };
 
   const skipRegex = () => {
@@ -113,6 +114,7 @@ export function commentStartLines(text, language, { startInBlock = false } = {})
       else if (text[i] === '`') return void i++;
       else if (text.startsWith('${', i)) {
         i += 2;
+        lastCodeIndex = i - 1;
         scanCode(true);
         i--;
       }
@@ -135,20 +137,24 @@ export function commentStartLines(text, language, { startInBlock = false } = {})
     let braces = 0;
     while (i < text.length) {
       if (text.startsWith('//', i)) {
-        if (isPlain(language.lineDocs)) found.add(lineAt(lineStarts, i));
+        if (isPlain(language.lineDocs, /[ \t]/)) found.add(lineAt(lineStarts, i));
         const end = text.indexOf('\n', i);
         i = end === -1 ? text.length : end;
       } else if (text.startsWith('/*', i)) {
-        if (isPlain(language.blockDocs)) found.add(lineAt(lineStarts, i));
+        if (isPlain(language.blockDocs, /\s/)) found.add(lineAt(lineStarts, i));
         i += 2;
         skipBlock();
       } else if (untilBrace && text[i] === '{') {
         braces++;
-        i++;
+        lastCodeIndex = i++;
       } else if (untilBrace && text[i] === '}') {
-        i++;
+        lastCodeIndex = i++;
         if (braces-- === 0) return;
-      } else skipLiteral();
+      } else {
+        const isCode = !/\s/.test(text[i]);
+        skipLiteral();
+        if (isCode) lastCodeIndex = i - 1;
+      }
     }
   };
 

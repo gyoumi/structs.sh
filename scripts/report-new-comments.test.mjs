@@ -161,6 +161,14 @@ describe('findNewComments: lint and tool directives are not plain comments', () 
   it('reports a comment that only mentions a tool ("// eslint is noisy here", "// ts-expect-error is not used")', () => {
     expectEach(SRC, ['// eslint is noisy here', '// ts-expect-error is not used'], true, 'its text does not start with a directive');
   });
+
+  it('does not report a directive with 40 spaces between // and it', () => {
+    expectEach(SRC, [`//${' '.repeat(40)}eslint-disable-next-line no-console`], false, 'a directive: 40 spaces after // still start the comment text with eslint-disable');
+  });
+
+  it('control: reports a plain note with 40 spaces between // and it', () => {
+    expectEach(SRC, [`//${' '.repeat(40)}plain note`], true, 'a plain note after 40 spaces is still a plain comment');
+  });
 });
 
 describe('findNewComments: block comments spanning lines', () => {
@@ -192,6 +200,11 @@ describe('findNewComments: block comments spanning lines', () => {
   it('keeps block state per file: a block left open in one file does not hide the next file\'s comment', () => {
     const input = [...added(SRC, ['run();', '/* opens and continues past the diff'], 10), ...added('scripts/check-pr.mjs', ['// why'], 1)];
     expectReported(input, [11, 1], `${SRC}:11 opens a block; scripts/check-pr.mjs:1 is another file, so its // why is reported`);
+  });
+
+  it('does not read /* inside a regex character class as a block comment, when the regex starts a line after a comment line', () => {
+    const input = added(SRC, ['// input fixture', '/[/*]/.test(input);', '// real comment']);
+    expectReported(input, [1, 3], 'line 2 is a regex literal /[/*]/ (it starts a statement, since line 1 ended in a comment, not code), so its /* opens no block; lines 1 and 3 are comments');
   });
 });
 
@@ -412,9 +425,9 @@ describe('CLI in a temporary git repo', () => {
   });
 });
 
-// Lines added inside a block comment or template literal that the base already
-// had: only the head file's full content shows they are not comments.
-describe('CLI: added lines inside an unchanged block comment or template literal', () => {
+// Lines added inside a block comment, template literal or regex: only the head
+// file's full content shows whether they are comments.
+describe('CLI: lines whose meaning depends on the lines around them (block comments, template literals, regex literals)', () => {
   const blockBase = lines('export function run() {', '  /*', '   Explains the old thing.', '   More explanation.', '  */', '  return 1;', '}');
   const blockHead = (...after) =>
     lines('export function run() {', '  /*', '   Explains the old thing.', '   // looks like a comment', '   * starts with a star', '   More explanation.', '  */', ...after, '  return 1;', '}');
@@ -458,6 +471,17 @@ describe('CLI: added lines inside an unchanged block comment or template literal
       [[SRC, blockHead('  // new comment')]],
       [[SRC, 8]],
       `same as the block-comment case, plus "  // new comment" on line 8, right after the block's "*/" on line 7: only line 8 is a new comment`,
+    );
+  });
+
+  it('reports the comments around a regex literal /[/*]/ that starts a line, and not the regex line', () => {
+    const base = lines('export function run(input: string) {', '  return 1;', '}');
+    const head = lines('export function run(input: string) {', '  // input fixture', '  /[/*]/.test(input);', '  // real comment', '  return 1;', '}');
+    expectRun(
+      [[SRC, base]],
+      [[SRC, head]],
+      [[SRC, 2], [SRC, 4]],
+      `head adds to ${SRC} "  // input fixture" (line 2), "  /[/*]/.test(input);" (line 3, a regex whose /* is in a character class) and "  // real comment" (line 4): lines 2 and 4 are new comments`,
     );
   });
 });

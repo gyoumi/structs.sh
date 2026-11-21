@@ -511,8 +511,10 @@ e2e suite and the GDB comparison must pass unchanged at every step.
     because only a reviewer can tell an outside constraint from an
     explanation.
   - Names: ESLint's `id-denylist` and `id-match` fail the names the renames
-    retired, and any identifier containing `student`, in the TypeScript in
-    `client/src` and `e2e/` (`scripts/retired-names.mjs`).
+    retired, and any name containing `student`, where our code declares
+    them (variables, functions, parameters, properties and types) in the
+    TypeScript in `client/src` and `e2e/` (`scripts/retired-names.mjs`).
+    They don't look at calls on other objects.
   - Tests: the Vitest ESLint plugin fails a scope test file with a loop of
     tests instead of `it.each` (`prefer-each`), two tests with the same
     title, or a test that asserts nothing.
