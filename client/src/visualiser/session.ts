@@ -1,6 +1,7 @@
+import { SVG } from '@svgdotjs/svg.js';
 import VisualiserController from '@/visualiser-src/controller/VisualiserController';
 import { Documentation } from '@/visualiser-src/common/typedefs';
-import { defaultSpeed } from '@/visualiser-src/common/constants';
+import { defaultSpeed, VISUALISER_CANVAS } from '@/visualiser-src/common/constants';
 import { CanvasTheme, setCanvasTheme } from '@/visualiser-src/common/canvasTheme';
 
 export interface LastRun {
@@ -109,11 +110,14 @@ export class VisualiserSession {
     });
   }
 
-  /** Redraws the current values in another theme. Colours are fixed when drawn, so the last run's playback is dropped. */
+  /** Redraws the current values in another theme, at once. Colours are fixed when drawn, so the last run's playback is dropped. */
   retheme(canvasTheme: Partial<CanvasTheme>): void {
     const { data } = this;
     setCanvasTheme(canvasTheme);
     this.controller.loadData(data);
+    SVG(VISUALISER_CANVAS)
+      .find('*')
+      .forEach((element) => element.timeline().finish());
     this.resetPlayback();
   }
 

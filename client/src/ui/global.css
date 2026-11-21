@@ -1,2 +1,9 @@
 /* Declared before any other CSS loads, so ui-sdk's layered styles sit below the app's own. */
 @layer ui-sdk;
+
+/* Set for two frames while the theme changes, so colours swap at once instead of easing. */
+[data-theme-switching] *,
+[data-theme-switching] *::before,
+[data-theme-switching] *::after {
+  transition: none !important;
+}
