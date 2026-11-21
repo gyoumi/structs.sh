@@ -21,14 +21,15 @@ const isWholeNumbers = (arg: string, text: string): boolean =>
     : /^\d+$/.test(text);
 
 const faultyBoxes = (error: string, args: string[], input: string[]): boolean[] => {
-  if (error === 'Fill in every box first.') return args.map((_, i) => !/\d/.test(input[i] ?? ''));
-  if (error === 'Use whole numbers only.') {
-    return args.map((arg, i) => !isWholeNumbers(arg, input[i] ?? ''));
+  let faulty = args.map(() => true);
+  if (error === 'Fill in every box first.') {
+    faulty = args.map((_, i) => (input[i] ?? '').trim() === '');
+  } else if (error === 'Use whole numbers only.') {
+    faulty = args.map((arg, i) => !isWholeNumbers(arg, input[i] ?? ''));
+  } else if (error === 'Values need to be between 0 and 99.') {
+    faulty = args.map((arg) => arg === 'value' || arg === 'values');
   }
-  if (error === 'Values need to be between 0 and 99.') {
-    return args.map((arg) => arg === 'value' || arg === 'values');
-  }
-  return args.map(() => true);
+  return faulty.some(Boolean) ? faulty : args.map(() => true);
 };
 
 export const maxIndexFor = (args: string[], size: number): number | undefined => {
@@ -73,7 +74,10 @@ export const useOperation = (command: string) => {
     }
     const message = session.run(command, input);
     if (message) {
-      const friendly = friendlyError(message);
+      let friendly = friendlyError(message);
+      if (friendly === 'Fill in every box first.' && input.every((text) => text.trim() !== '')) {
+        friendly = 'Use whole numbers only.';
+      }
       setError(friendly);
       setInvalid(faultyBoxes(friendly, args, input));
       return false;
