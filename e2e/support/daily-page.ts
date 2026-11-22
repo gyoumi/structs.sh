@@ -135,10 +135,6 @@ export class DailyPage {
     return this.readNumber(this.status('Comparisons'), 'Comparisons counter', context);
   }
 
-  async best(context?: string): Promise<number> {
-    return this.readNumber(this.status('Best'), 'Best status', context);
-  }
-
   /** Auto-retrying assertion that a named status readout is visible and its first number is `expected`. */
   async expectStatusNumber(name: string, expected: number, message: string): Promise<void> {
     const locator = this.status(name);
@@ -149,16 +145,27 @@ export class DailyPage {
     ).toHaveText(new RegExp(`^[^\\d-]*${expected}(?!\\d)`));
   }
 
-  async bestVisible(): Promise<boolean> {
-    return this.status('Best').isVisible();
-  }
-
   async goalReached(): Promise<boolean> {
     return this.status('Goal reached').isVisible();
   }
 
-  async bestReached(): Promise<boolean> {
-    return this.status('Best reached').isVisible();
+  /**
+   * Asserts the page reveals no best score: no `Best` or `Best reached` status, and no
+   * "highest possible" / "best possible" / "best score" / "out of <number>" wording anywhere on the page.
+   */
+  async expectNoBestShown(context: string): Promise<void> {
+    for (const name of ['Best', 'Best reached']) {
+      await expect(
+        this.status(name),
+        `${context}: the page must never show a "${name}" status (the solver's best stays hidden)`,
+      ).toHaveCount(0);
+    }
+    const body = (await this.page.locator('body').innerText()).replace(/\s+/g, ' ');
+    const leak = body.match(/highest possible|best possible|best score|best reached|maximum possible|out of \d+/i);
+    expect(
+      leak?.[0] ?? null,
+      `${context}: the page text must not hint at the solver's best score, but contains "${leak?.[0]}"`,
+    ).toBeNull();
   }
 
   async canRun(): Promise<boolean> {

@@ -83,14 +83,15 @@ which returns:
   "template": "quicksort-most-comparisons",
   "values": [8, 1, 6, 3, 2, 7, 4, 5],
   "fixed": [1, 4, 6],
-  "par": 34,
-  "best": 36
+  "par": 34
 }
 ```
 
 `values` is the starting arrangement and `fixed` holds the 0-based indices of
-locked slots. The page shows what the file says and never computes `par` or
-`best`.
+locked slots. The page shows what the file says and never computes `par`.
+There is no `best` field: the solver's best score stays on the server, and the
+page must never show a best score. If a file does carry an extra field such as
+`best`, the page ignores it.
 
 A comparison is every evaluation of a comparison between two array values in
 the C code shown beside the animation
@@ -159,26 +160,26 @@ names:
     highest score across all tries once the puzzle ends.
   - `status` `Tries left`: starts at `3` and decrements after each try (`2`,
     `1`, `0`).
-  - `status` `Best`: hidden until the puzzle ends (either by reaching `best`
-    early or after the third try), then visible with the puzzle's `best` number.
-  - `status` `Goal reached`: visible after a try that reaches the goal (`par`)
-    and is below `best`. The text inside is up to the page.
-  - `status` `Best reached`: visible after a try that reaches `best`. The text
-    inside is up to the page.
+  - `status` `Goal reached`: visible whenever the score shown in `Score`
+    reaches or beats the goal (`score >= par`): after a try that does, and at
+    the end when the highest try did. The text inside is up to the page.
+  - There is no `Best` or `Best reached` status, at any point.
 
-Players get three tries. Reaching the goal announces `Goal reached` and still
-offers the next try. Reaching `best` announces `Best reached`, reveals `Best`,
-and ends the puzzle early. After the third try, the puzzle ends with the highest
-of the three scores and reveals `Best`.
+Players always get three tries, and the puzzle never ends early. Reaching or
+beating the goal announces `Goal reached` and still offers the next try while
+tries remain. After the third try, the puzzle ends: `Tries left` is `0`, `Run`
+is disabled or hidden, `Score` shows the highest of the three scores, and
+`Share` appears.
 
-The share text copied by `Share` uses one line per try, with ` ⭐` at or above
-the goal (below `best`) and ` 🏆` on `best`, and never includes the arrangement:
+The share text copied by `Share` has a header naming the goal, then one line
+per try with ` ⭐` at or above the goal. It never includes the arrangement, a
+best score, or ` 🏆`:
 
 ```text
-structs.sh daily #12 · Quicksort
-30 / 36
-34 / 36 ⭐
-36 / 36 🏆
+structs.sh daily #12 · Quicksort · Goal 34
+30
+34 ⭐
+36 ⭐
 structs.sh/daily
 ```
 
