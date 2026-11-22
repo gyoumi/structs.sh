@@ -35,12 +35,18 @@ function partition(
 
   for (;;) {
     // Shift i pointer
-    while (producer.countComparison(elements[i].data.value <= v) && i < j) {
+    while (
+      producer.countComparison(elements[i].data.value <= v, 14, elements[i], canvasTheme.pointer) &&
+      i < j
+    ) {
       i += 1;
       producer.doAnimationAndHighlightTimestamp(14, true, producer.movePointer, ipointer, i);
     }
     // Shift j pointer
-    while (producer.countComparison(v < elements[j].data.value) && j > i) {
+    while (
+      producer.countComparison(v < elements[j].data.value, 15, elements[j], canvasTheme.danger) &&
+      j > i
+    ) {
       j -= 1;
       producer.doAnimationAndHighlightTimestamp(15, true, producer.movePointer, jpointer, j);
     }
@@ -79,7 +85,9 @@ function partition(
   }
 
   // Swap Pivot with number at the center of partition that is less than it
-  j = producer.countComparison(elements[i].data.value < v) ? i : i - 1;
+  j = producer.countComparison(elements[i].data.value < v, 19, elements[i], canvasTheme.compare)
+    ? i
+    : i - 1;
   producer.doAnimationAndHighlightTimestamp(19, true, producer.movePointer, jpointer, j);
   producer.doAnimationAndHighlightTimestamp(
     20,

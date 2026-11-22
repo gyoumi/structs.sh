@@ -39,6 +39,19 @@ export const puzzleTitle = (template: string) => {
   return first.charAt(0).toUpperCase() + first.slice(1);
 };
 
+/** One line per try: its score over the best, marked ⭐ at the goal and 🏆 at the best. Never the arrangement. */
+export const shareText = (puzzle: Puzzle, scores: number[]) =>
+  [
+    `structs.sh daily #${puzzle.number} · ${puzzleTitle(puzzle.template)}`,
+    ...scores.map((score) => {
+      let mark = '';
+      if (score >= puzzle.best) mark = ' 🏆';
+      else if (score >= puzzle.par) mark = ' ⭐';
+      return `${score} / ${puzzle.best}${mark}`;
+    }),
+    'structs.sh/daily',
+  ].join('\n');
+
 /** The slot to swap with: the nearest free one from `from` in `direction`, skipping fixed slots. */
 export const nextFreeSlot = (
   fixed: Set<number>,

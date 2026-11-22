@@ -25,6 +25,8 @@ export interface VisualiserSnapshot {
   lastRun: LastRun | null;
   speed: number;
   layoutVersion: number;
+  /** The running count of the sort being shown (quicksort's comparisons) at the current step. */
+  comparisons?: number;
   /** How many values the structure holds, including a run that is still playing. */
   size: number;
 }
@@ -45,6 +47,7 @@ const initialSnapshot: VisualiserSnapshot = {
   lastRun: null,
   speed: 1,
   layoutVersion: 0,
+  comparisons: 0,
 };
 
 /** Picks the random data a topic starts with, or returns undefined to use the engine's own. */
@@ -198,6 +201,12 @@ export class VisualiserSession {
     this.update({ speed });
   };
 
+  /** Draws `data` as the structure's values, dropping any run. */
+  loadData = (data: number[]): void => {
+    this.controller.loadData(data);
+    this.resetPlayback();
+  };
+
   generate = (): void => {
     this.loadInitialValues(this.snapshot.topicTitle);
     this.resetPlayback();
@@ -255,6 +264,7 @@ export class VisualiserSession {
     const step = snapshot.stepTimes.filter((t) => t <= time + 1).length;
     const line = duration > 0 ? controller.currentLine : null;
     const size = controller.data.length;
+    const comparisons = controller.counterAt(time);
 
     const changed =
       playing !== snapshot.playing ||
@@ -262,11 +272,12 @@ export class VisualiserSession {
       Math.abs(progress - snapshot.progress) > 0.05 ||
       step !== snapshot.step ||
       line !== snapshot.line ||
-      size !== snapshot.size;
+      size !== snapshot.size ||
+      comparisons !== (snapshot.comparisons ?? 0);
 
     if (changed) {
       this.idleFrames = 0;
-      this.update({ playing, complete, progress, step, line, size });
+      this.update({ playing, complete, progress, step, line, size, comparisons });
     } else {
       this.idleFrames += 1;
     }

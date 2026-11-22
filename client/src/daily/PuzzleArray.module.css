@@ -81,6 +81,18 @@
   cursor: not-allowed;
 }
 
+/* A free slot that can't be swapped right now keeps its look, unlike a locked one. */
+.slot.frozen:disabled {
+  border-style: solid;
+  border-color: var(--edge);
+  background-color: var(--sand);
+  background-image: none;
+  box-shadow: 0 var(--drop) 0 var(--shadow);
+  color: var(--button-ink);
+  cursor: default;
+  opacity: 0.6;
+}
+
 .lock {
   position: absolute;
   bottom: 0.3rem;

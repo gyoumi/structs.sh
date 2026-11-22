@@ -25,6 +25,8 @@ class VisualiserController {
 
   private timestamps: number[] = [];
 
+  private counterTimes: { time: number; value: number }[] = [];
+
   private speed: number = 1;
 
   private isStepMode: boolean = false;
@@ -80,6 +82,9 @@ class VisualiserController {
         runnerInfo.runners[0]
       );
       this.timelineDuration += maxRunner.duration() + 25;
+      if (runnerInfo.counter !== undefined) {
+        this.counterTimes.push({ time: this.timelineDuration, value: runnerInfo.counter });
+      }
       if (runnerInfo.isTimestamped) {
         maxRunner.after(() => {
           if (this.isStepMode) {
@@ -258,6 +263,7 @@ class VisualiserController {
 
   private clearRecording(): void {
     this.timestamps = [];
+    this.counterTimes = [];
     this.timelineDuration = 0;
     this.segments = [];
     this.operationCode = '';
@@ -269,6 +275,15 @@ class VisualiserController {
 
   public get time(): number {
     return this.currentTime;
+  }
+
+  // The producer's running count (for quicksort, the comparisons made) once the steps up to `time` are done.
+  public counterAt(time: number): number {
+    let value = 0;
+    this.counterTimes.forEach((entry) => {
+      if (entry.time <= time + 1) value = entry.value;
+    });
+    return value;
   }
 
   public get isPaused(): boolean {
