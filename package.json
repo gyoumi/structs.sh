@@ -11,6 +11,8 @@
   "scripts": {
     "prepare": "husky",
     "instrumenter": "cargo build --release --target wasm32-unknown-unknown --manifest-path instrumenter/Cargo.toml && mkdir -p client/src/Services/debugger/wasm/generated && cp instrumenter/target/wasm32-unknown-unknown/release/structs_instrumenter.wasm client/src/Services/debugger/wasm/generated/instrumenter.wasm",
+    "puzzles": "cargo build --release --target wasm32-unknown-unknown --manifest-path crates/Cargo.toml -p structs-puzzles && mkdir -p client/src/Services/puzzles/generated && cp crates/target/wasm32-unknown-unknown/release/structs_puzzles.wasm client/src/Services/puzzles/generated/puzzles.wasm",
+    "wasm": "pnpm run \"/^(instrumenter|puzzles)$/\"",
     "e2e": "playwright test -c e2e",
     "e2e:strict": "E2E_STRICT=1 playwright test -c e2e",
     "e2e:typecheck": "tsc -p e2e",

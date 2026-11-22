@@ -7,3 +7,6 @@ build
 
 # Built from instrumenter/ by `pnpm run instrumenter`
 src/Services/debugger/wasm/generated/
+
+# Built from crates/ by `pnpm run puzzles`
+src/Services/puzzles/generated/

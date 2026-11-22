@@ -1,4 +1,18 @@
 //! Puzzle templates, step logs, and scoring for the structs.sh daily game.
+//!
+//! Built for `wasm32-unknown-unknown`, the browser calls these exports (see
+//! `ffi.rs`; the JSON they take and return is described in [`wire`]):
+//! 1. `alloc(len)` for the request, which the caller copies in.
+//! 2. `score(ptr, len)`, which frees the request and returns 0 on success or
+//!    1 on failure.
+//! 3. `result_ptr()` and `result_len()` to read the reply, or the error
+//!    message, as UTF-8.
+//! 4. `free_result()` once the caller has copied it.
+
+pub mod wire;
+
+#[cfg(target_arch = "wasm32")]
+mod ffi;
 
 /// A daily game puzzle template.
 ///

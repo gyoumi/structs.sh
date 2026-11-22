@@ -28,21 +28,24 @@ jobs:
       - name: Install browser
         run: pnpm exec playwright install --only-shell chromium
 
-      # The debugger loads the instrumenter's .wasm, built from instrumenter/
-      # with the Rust in rust-toolchain.toml by the `instrumenter` script in
-      # package.json. The built .wasm is reused until one of those changes.
-      - name: Restore instrumenter
-        id: instrumenter-cache
+      # The debugger loads the instrumenter's .wasm, built from instrumenter/,
+      # and the daily game loads the puzzles' .wasm, built from crates/. Both
+      # use the Rust in rust-toolchain.toml and are built by the `wasm` script
+      # in package.json. The built files are reused until one of those changes.
+      - name: Restore wasm
+        id: wasm-cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: client/src/Services/debugger/wasm/generated/instrumenter.wasm
-          key: instrumenter-${{ hashFiles('instrumenter/**', 'rust-toolchain.toml', 'package.json') }}
+          path: |
+            client/src/Services/debugger/wasm/generated/instrumenter.wasm
+            client/src/Services/puzzles/generated/puzzles.wasm
+          key: wasm-${{ hashFiles('instrumenter/**', 'crates/**', 'rust-toolchain.toml', 'package.json') }}
 
-      - name: Build instrumenter
-        if: steps.instrumenter-cache.outputs.cache-hit != 'true'
+      - name: Build wasm
+        if: steps.wasm-cache.outputs.cache-hit != 'true'
         run: |
           rustup toolchain install
-          pnpm run instrumenter
+          pnpm run wasm
 
       - name: Type-check e2e
         run: pnpm run e2e:typecheck
