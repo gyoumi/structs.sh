@@ -1,5 +1,4 @@
 import { Polygon } from '@svgdotjs/svg.js';
-import AnimationProducer from '@/visualiser-src/common/AnimationProducer';
 import { canvasTheme } from '@/visualiser-src/common/canvasTheme';
 import GraphicalSortsElement from '../data-structure/GraphicalSortsElement';
 import SortsQuickAnimationProducer from '../animation-producer/SortsQuickAnimationProducer';
@@ -36,12 +35,12 @@ function partition(
 
   for (;;) {
     // Shift i pointer
-    while (elements[i].data.value <= v && i < j) {
+    while (producer.countComparison(elements[i].data.value <= v) && i < j) {
       i += 1;
       producer.doAnimationAndHighlightTimestamp(14, true, producer.movePointer, ipointer, i);
     }
     // Shift j pointer
-    while (v < elements[j].data.value && j > i) {
+    while (producer.countComparison(v < elements[j].data.value) && j > i) {
       j -= 1;
       producer.doAnimationAndHighlightTimestamp(15, true, producer.movePointer, jpointer, j);
     }
@@ -80,7 +79,7 @@ function partition(
   }
 
   // Swap Pivot with number at the center of partition that is less than it
-  j = elements[i].data.value < v ? i : i - 1;
+  j = producer.countComparison(elements[i].data.value < v) ? i : i - 1;
   producer.doAnimationAndHighlightTimestamp(19, true, producer.movePointer, jpointer, j);
   producer.doAnimationAndHighlightTimestamp(
     20,
@@ -176,7 +175,7 @@ function quickSortRange(
   quickSortRange(elements, i + 1, hi, producer, ipointer, jpointer);
 }
 
-export function quickSort(elements: GraphicalSortsElement[]): AnimationProducer {
+export function quickSort(elements: GraphicalSortsElement[]): SortsQuickAnimationProducer {
   const ipointer = GraphicalSortsElement.pointer(0, canvasTheme.pointer);
   const jpointer = GraphicalSortsElement.pointer(0, canvasTheme.danger);
 

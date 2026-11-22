@@ -7,6 +7,19 @@ import { boxWidth } from '../util/constants';
 import { canvasTheme } from '../../common/canvasTheme';
 
 export default class SortsQuickAnimationProducer extends SortsAnimationProducer {
+  private comparisonCount = 0;
+
+  /** Number of value comparisons made by the quicksort that built this producer. */
+  public get comparisons(): number {
+    return this.comparisonCount;
+  }
+
+  /** Records one value comparison and passes its result through. */
+  public countComparison(result: boolean): boolean {
+    this.comparisonCount += 1;
+    return result;
+  }
+
   public renderQuickCode() {
     this.renderCode(quickCodeSnippet);
   }
