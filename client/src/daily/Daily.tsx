@@ -13,6 +13,7 @@ import { findTopic } from '@/visualiser/topics';
 import {
   SessionContext,
   useCreateSession,
+  usePrefersReducedMotion,
   useSession,
   useSnapshot,
 } from '@/visualiser/useVisualiser';
@@ -48,6 +49,8 @@ const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
   const [scoreFailed, setScoreFailed] = useState(false);
   const [shared, setShared] = useState<'copied' | 'failed' | null>(null);
   const arrangement = useRef(values);
+  const runner = useRef<HTMLDivElement>(null);
+  const reducedMotion = usePrefersReducedMotion();
   // The theme the canvas was last drawn in. Colours are fixed when drawn, so a theme switch
   // waits for the next arrangement unless nothing has run yet. The stage background follows it
   // so the bars stay readable until they are redrawn.
@@ -105,6 +108,11 @@ const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
     setPhase('running');
     draw(values);
     session.run('quick', []);
+    // Bring the drawing and its controls into view so the player can watch the sort.
+    runner.current?.scrollIntoView?.({
+      behavior: reducedMotion ? 'auto' : 'smooth',
+      block: 'nearest',
+    });
   };
 
   const swap = (a: number, b: number) => {
@@ -218,7 +226,7 @@ const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
       <p className={`${styles.column} ${styles.message}`} aria-live="polite">
         {message}
       </p>
-      <div className={styles.runner}>
+      <div ref={runner} className={styles.runner}>
         <p className={styles.stat}>
           <span id="daily-comparisons-label">Comparisons</span>
           <output
