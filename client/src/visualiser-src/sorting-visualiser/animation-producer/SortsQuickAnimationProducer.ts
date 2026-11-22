@@ -14,10 +14,30 @@ export default class SortsQuickAnimationProducer extends SortsAnimationProducer 
     return this.comparisonCount;
   }
 
-  /** Records one value comparison and passes its result through. */
-  public countComparison(result: boolean): boolean {
+  protected get counter(): number {
+    return this.comparisonCount;
+  }
+
+  /**
+   * Records one value comparison and passes its result through. Each comparison gets a timeline
+   * step of its own that marks the compared element, so the count changes by one per step.
+   */
+  public countComparison(
+    result: boolean,
+    line: number,
+    element: GraphicalSortsElement,
+    colour: string
+  ): boolean {
     this.comparisonCount += 1;
+    this.doAnimationAndHighlightTimestamp(line, true, this.markCompared, element, colour);
     return result;
+  }
+
+  public markCompared(element: GraphicalSortsElement, colour: string) {
+    this.addSequenceAnimation(
+      element.boxTarget.animate(150).attr({ stroke: colour, fill: colour })
+    );
+    this.addSequenceAnimation(element.numberTarget.animate(150).attr({ fill: colour }));
   }
 
   public renderQuickCode() {

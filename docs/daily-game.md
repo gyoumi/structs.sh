@@ -148,36 +148,44 @@ same time. 1f needs both.
   is visible without scrolling sideways. The sorting visualiser has no way to
   move values by hand today, so this is new.
 - **Goal is a target to reach, not the maximum.** The puzzle file carries the
-  goal (stored in the `par` field) and the best score, and the page never works
-  either out. The goal sits 65% of the way from a typical random arrangement's
-  score to the best. For example, with a median of 25 and a best of 34, the
-  goal is 31. The best stays hidden until the puzzle is finished.
+  goal (stored in the `par` field), and the page never works it out. The goal
+  sits 65% of the way from a typical random arrangement's score to the
+  solver's best. For example, with a median of 25 and a best of 34, the goal
+  is 31.
+- **The best score is never shown.** To keep the game competitive, the
+  solver's best stays with the generator and server. The puzzle file has no
+  `best` field, and the page never shows a best score, a "best reached"
+  badge, or a "highest possible score" message, not even after the puzzle
+  ends. A player who beats the goal can't tell whether more is possible.
 - **The page talks to the player plainly.** Copy is short, friendly, second
   person, and free of jargon: "numbers" and "locked" rather than "free values"
   and "fixed slots", and "goal" rather than golf's "par".
 - **Three tries, and the highest score counts.** Each Run uses a try. After
   a try the array stays as the player left it, so the next try starts from
-  there. Reaching the goal is announced and the next try is still offered.
-  Reaching the best ends the puzzle early. After the third try the puzzle
-  ends and reveals the best. Three is a starting number that 1h can change.
+  there. Reaching or beating the goal is announced and the next try is still
+  offered. Every puzzle gives all three tries and never ends early, even when
+  a try hits the solver's best. After the third try the puzzle ends and shows
+  the highest of the three scores. Three is a starting number that 1h can
+  change.
 - **Playback controls from the first run.** `/daily` has a Skip button that
   jumps to the final count, and the visualiser's controls: play and pause,
   rewind, replay, step back and forward, the timeline, and speeds from 0.25x
   to 2x. The comparison counter follows the timeline, so stepping back
   lowers it.
-- **The share text has one line per try**, marked ⭐ for reaching the goal and 🏆
-  for the best, and never includes the arrangement:
+- **The share text has one line per try**, marked ⭐ at or above the goal,
+  and never includes the arrangement or a best score:
 
   ```
-  structs.sh daily #12 · Quicksort
-  28 / 34
-  32 / 34 ⭐
-  34 / 34 🏆
+  structs.sh daily #12 · Quicksort · Goal 34
+  30
+  34 ⭐
+  36 ⭐
   structs.sh/daily
   ```
 
-  Each line is the try's score over the best. With a goal of 31, the second
-  try reached the goal and the third reached the best.
+  The first line names the goal, and each later line is one try's score. Here
+  the first try was below the goal of 34, and the second and third reached or
+  beat it.
 - **The puzzle comes from a file in the client** until checkpoint 3. These
   are test puzzles. Scheduled puzzles never go in the public repo. The page
   fetches the file, and the e2e tests serve their own puzzle in its place
@@ -192,7 +200,7 @@ same time. 1f needs both.
 
 A different agent from the one writing the code writes checkpoint 1's game
 tests and adds them to `e2e/known-failures/game.json`. It works from the
-decisions above. Each test serves its own puzzle, with the goal, the best and
+decisions above. Each test serves its own puzzle, with the goal and
 the score of each arrangement it plays worked out by hand.
 
 For 1e, the puzzle page:
@@ -211,11 +219,11 @@ For 1f, run and score:
 7. Skip jumps straight to the final count.
 8. Stepping back lowers the counter.
 9. Reaching the goal is announced, and the next try is still offered.
-10. Reaching the best is announced, and the puzzle ends early.
-11. After three tries, the puzzle ends with the highest of the three scores
-    and reveals the best.
-12. The share text has one line per try with ⭐ and 🏆 marks, and doesn't
-    include the arrangement.
+10. Beating the goal still offers the next try and never reveals a best
+    score.
+11. After three tries, the puzzle ends with the highest of the three scores.
+12. The share text has one line per try with ⭐ marks, and doesn't include
+    the arrangement.
 
 **You'll know it's done when** the 12 tests run in CI, all 12 are listed as
 known failures, and CI is green.
@@ -265,8 +273,9 @@ keyboard, and on a phone.
 
 Run animates the sort with the comparison counter and the playback
 controls, then shows the score from the wasm build next to the goal. The page
-counts tries, announces reaching the goal and the best, ends the puzzle, reveals
-the best, and offers the share text.
+counts tries, announces reaching or beating the goal, ends the puzzle after
+the third try with the highest score, and offers the share text. It never
+shows a best score.
 
 **You'll know it's done when** 12/12 game tests pass.
 
@@ -342,7 +351,8 @@ per template.
 the `Template` trait exposes, and sets the goal 65% of the way to it from the
 median of random inputs. For each instance it runs the three checks from
 `puzzle-ideas.md`: is it solvable, does a shortcut reach the best, and how
-often does the bot player reach the goal.
+often does the bot player reach the goal. The best score stays private to
+`structs-forge` and the server, and is never sent to players.
 
 **You'll know it's done when** its tests reproduce the `puzzle-checks`
 figures for every launch template. For example, sorted fills reach the best
@@ -352,7 +362,9 @@ on only 1 or 2 of 40 AVL instances.
 
 `structs-forge` picks a template for each upcoming date, rerolls instances
 that fail a check or miss the weekday's difficulty range, and stores the
-instance, rules, seed, goal, the best score and one best solution.
+instance, rules, seed, goal, the best score and one best solution. Only the
+puzzle and its goal are served to the page; the best score and solution stay
+on the server.
 
 **You'll know it's done when** one run fills three weeks of dates, and every
 stored puzzle loads and plays on the game page.

@@ -83,14 +83,15 @@ which returns:
   "template": "quicksort-most-comparisons",
   "values": [8, 1, 6, 3, 2, 7, 4, 5],
   "fixed": [1, 4, 6],
-  "par": 34,
-  "best": 36
+  "par": 34
 }
 ```
 
 `values` is the starting arrangement and `fixed` holds the 0-based indices of
-locked slots. The page shows what the file says and never computes `par` or
-`best`.
+locked slots. The page shows what the file says and never computes `par`.
+There is no `best` field: the solver's best score stays on the server, and the
+page must never show a best score. If a file does carry an extra field such as
+`best`, the page ignores it.
 
 A comparison is every evaluation of a comparison between two array values in
 the C code shown beside the animation
@@ -107,9 +108,24 @@ rest of the e2e tests drive `/daily` only through ARIA roles and accessible
 names:
 
 - **Rules:** `region` named `Puzzle rules`. It must contain the sentence
-  `Reorder the numbers so quicksort makes as many comparisons as you can.`
+  `Reorder the numbers so quicksort makes as many comparisons as possible.`
+  It also explains that quicksort picks the leftmost number in each range as
+  the pivot (the text mentions both `leftmost` and `pivot`), for example
+  `Quicksort always picks the leftmost number in each range as the pivot.`
+  Those two sentences are the only rules prose shown by default. The region
+  has no `You have N tries` sentence (nothing matching `/you have \d+ tries/i`)
+  and no `Tap or click...` swap instructions (nothing matching
+  `/tap or click/i`); the lock icons, slots, `Tries left` and `Run` already
+  say this.
+  - The keyboard help sits in a native `<details>` inside the region whose
+    `<summary>` text is exactly `Keyboard controls`. It is closed when the page
+    loads, so the keyboard help (text matching `/Enter or Space/i`) is hidden.
+    Clicking the summary opens it and shows the help; clicking again closes it.
 - **Puzzle array:** `group` named `Puzzle array`, containing one `button` per
   slot in left-to-right order.
+  - The group shows no static `Pivot` label (no text containing `pivot`).
+    Slot 0 is only the first pivot; the pivot moves right as quicksort
+    recurses, so a tag fixed over slot 0 would mislead.
   - Each slot button's text starts with its numeric value (for example `8`).
     Hide any lock icon with `aria-hidden="true"`.
   - Fixed slots are disabled (`disabled` or `aria-disabled="true"`). Clicking or
@@ -135,6 +151,11 @@ names:
   - `button` `Run`: starts a try on the current arrangement and starts playback
     by itself. Disabled while a run animates, and disabled or hidden once the
     puzzle ends.
+    Clicking `Run` also scrolls the page so both the visualiser stage
+    (`#visualiser-container`) and the `Playback` toolbar are fully in view,
+    on desktop and on a 390x844 phone, so the player can watch the sort.
+    Pressing `Enter` on a focused `Run` moves focus straight to `Skip`, so the
+    next key press can skip the animation.
   - `button` `Skip`: jumps the animation straight to the final comparison count
     and completes the try, whether playback is playing or paused.
   - `button` `Share`: visible and enabled once the puzzle ends; copies the share
@@ -157,26 +178,26 @@ names:
     highest score across all tries once the puzzle ends.
   - `status` `Tries left`: starts at `3` and decrements after each try (`2`,
     `1`, `0`).
-  - `status` `Best`: hidden until the puzzle ends (either by reaching `best`
-    early or after the third try), then visible with the puzzle's `best` number.
-  - `status` `Goal reached`: visible after a try that reaches the goal (`par`)
-    and is below `best`. The text inside is up to the page.
-  - `status` `Best reached`: visible after a try that reaches `best`. The text
-    inside is up to the page.
+  - `status` `Goal reached`: visible whenever the score shown in `Score`
+    reaches or beats the goal (`score >= par`): after a try that does, and at
+    the end when the highest try did. The text inside is up to the page.
+  - There is no `Best` or `Best reached` status, at any point.
 
-Players get three tries. Reaching the goal announces `Goal reached` and still
-offers the next try. Reaching `best` announces `Best reached`, reveals `Best`,
-and ends the puzzle early. After the third try, the puzzle ends with the highest
-of the three scores and reveals `Best`.
+Players always get three tries, and the puzzle never ends early. Reaching or
+beating the goal announces `Goal reached` and still offers the next try while
+tries remain. After the third try, the puzzle ends: `Tries left` is `0`, `Run`
+is disabled or hidden, `Score` shows the highest of the three scores, and
+`Share` appears.
 
-The share text copied by `Share` uses one line per try, with ` ⭐` at or above
-the goal (below `best`) and ` 🏆` on `best`, and never includes the arrangement:
+The share text copied by `Share` has a header naming the goal, then one line
+per try with ` ⭐` at or above the goal. It never includes the arrangement, a
+best score, or ` 🏆`:
 
 ```text
-structs.sh daily #12 · Quicksort
-30 / 36
-34 / 36 ⭐
-36 / 36 🏆
+structs.sh daily #12 · Quicksort · Goal 34
+30
+34 ⭐
+36 ⭐
 structs.sh/daily
 ```
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parsePuzzle, type Puzzle } from './puzzle';
+import { parsePuzzle, shareText, type Puzzle } from './puzzle';
 
 const DAILY_12: Puzzle = {
   number: 12,
@@ -7,7 +7,6 @@ const DAILY_12: Puzzle = {
   values: [8, 1, 6, 3, 2, 7, 4, 5],
   fixed: [1, 4, 6],
   par: 34,
-  best: 36,
 };
 
 const without = <K extends keyof Puzzle>(key: K) => {
@@ -113,11 +112,107 @@ describe('parsePuzzle — broken shapes', () => {
       label: 'missing par',
       input: without('par'),
     },
-    {
-      label: 'missing best',
-      input: without('best'),
-    },
   ])('throws an Error for $label', ({ label, input }) => {
     expectInvalid(label, input);
+  });
+});
+
+describe('parsePuzzle — no best score', () => {
+  it('parses a puzzle that has no best field', () => {
+    const input = { ...DAILY_12 };
+    const call = `parsePuzzle(${JSON.stringify(input)}) [no best field]`;
+    let result: Puzzle | undefined;
+    let error: unknown;
+    try {
+      result = parsePuzzle(input);
+    } catch (caught: unknown) {
+      error = caught;
+    }
+    expect(
+      error,
+      `${call}: expected no error because best is not part of the puzzle file, but it threw ${String(error)}`
+    ).toBeUndefined();
+    expect(result, `${call}: expected the puzzle back unchanged`).toEqual(input);
+  });
+
+  it('accepts a file with an extra best field but does not pass best on', () => {
+    const input = { ...DAILY_12, best: 36 };
+    const call = `parsePuzzle(${JSON.stringify(input)}) [extra best field]`;
+    let result: Puzzle | undefined;
+    let error: unknown;
+    try {
+      result = parsePuzzle(input);
+    } catch (caught: unknown) {
+      error = caught;
+    }
+    expect(
+      error,
+      `${call}: expected an extra best field to be ignored, but it threw ${String(error)}`
+    ).toBeUndefined();
+    expect(
+      result && 'best' in result,
+      `${call}: expected the returned puzzle to have no best key, got ${JSON.stringify(result)}`
+    ).toBe(false);
+    expect(result, `${call}: expected { number, template, values, fixed, par } only`).toEqual(
+      DAILY_12
+    );
+  });
+});
+
+describe('shareText', () => {
+  const header = 'structs.sh daily #12 · Quicksort · Goal 34';
+
+  it.each([
+    {
+      label: 'one try below the goal (30 < 34)',
+      scores: [30],
+      expected: [header, '30', 'structs.sh/daily'],
+    },
+    {
+      label: 'one try equal to the goal (34 = 34)',
+      scores: [34],
+      expected: [header, '34 ⭐', 'structs.sh/daily'],
+    },
+    {
+      label: 'one try above the goal (36 > 34, also the solver best)',
+      scores: [36],
+      expected: [header, '36 ⭐', 'structs.sh/daily'],
+    },
+    {
+      label: 'three tries below, at and above the goal',
+      scores: [30, 34, 36],
+      expected: [header, '30', '34 ⭐', '36 ⭐', 'structs.sh/daily'],
+    },
+    {
+      label: 'three tries, highest first',
+      scores: [34, 25, 31],
+      expected: [header, '34 ⭐', '25', '31', 'structs.sh/daily'],
+    },
+  ])('formats $label', ({ label, scores, expected }) => {
+    const text = shareText(DAILY_12, scores);
+    const want = expected.join('\n');
+    expect(
+      text,
+      `shareText(puzzle #12 goal 34, ${JSON.stringify(scores)}) [${label}]: expected ${JSON.stringify(want)}, got ${JSON.stringify(text)}`
+    ).toBe(want);
+  });
+
+  it('never includes a best score, a 🏆, or the arrangement', () => {
+    const scores = [30, 34, 36];
+    const text = shareText({ ...DAILY_12, best: 36 } as Puzzle, scores);
+    const call = `shareText(puzzle #12 goal 34 with extra best 36, ${JSON.stringify(scores)})`;
+    expect(text.includes('🏆'), `${call}: must not contain 🏆, got ${JSON.stringify(text)}`).toBe(
+      false
+    );
+    expect(
+      /\/\s*36/.test(text),
+      `${call}: must not contain "/ 36" (the best), got ${JSON.stringify(text)}`
+    ).toBe(false);
+    [DAILY_12.values, [8, 1, 5, 3, 2, 7, 4, 6]].forEach((arrangement) => {
+      expect(
+        text.includes(arrangement.join(', ')) || text.includes(arrangement.join(',')),
+        `${call}: must not contain the arrangement ${JSON.stringify(arrangement)}, got ${JSON.stringify(text)}`
+      ).toBe(false);
+    });
   });
 });

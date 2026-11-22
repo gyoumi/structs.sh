@@ -6,6 +6,8 @@ import styles from './PuzzleArray.module.css';
 type Props = {
   values: number[];
   fixed: Set<number>;
+  /** Locks every slot, as while a run animates. */
+  frozen?: boolean;
   onSwap: (a: number, b: number) => void;
 };
 
@@ -27,12 +29,14 @@ const slideFrom = (value: HTMLElement, to: HTMLElement, from: HTMLElement) => {
   );
 };
 
-const PuzzleArray = ({ values, fixed, onSwap }: Props) => {
+const PuzzleArray = ({ values, fixed, frozen = false, onSwap }: Props) => {
   const [selected, setSelected] = useState<number | null>(null);
   const [announcement, setAnnouncement] = useState('');
   const slots = useRef<(HTMLButtonElement | null)[]>([]);
   const valueEls = useRef<(HTMLSpanElement | null)[]>([]);
   const focusAfterSwap = useRef<number | null>(null);
+
+  if (frozen && selected !== null) setSelected(null);
 
   useLayoutEffect(() => {
     if (focusAfterSwap.current === null) return;
@@ -88,15 +92,15 @@ const PuzzleArray = ({ values, fixed, onSwap }: Props) => {
         {values.map((value, index) => {
           const locked = fixed.has(index);
           return (
+            // Slots are positions, so the index is their identity.
             <button
-              // Slots are positions, so the index is their identity.
               key={index}
               ref={(element) => {
                 slots.current[index] = element;
               }}
               type="button"
-              className={styles.slot}
-              disabled={locked}
+              className={frozen && !locked ? `${styles.slot} ${styles.frozen}` : styles.slot}
+              disabled={locked || frozen}
               aria-pressed={locked ? undefined : selected === index}
               onClick={() => handleClick(index)}
               onKeyDown={(event) => handleKeyDown(event, index)}

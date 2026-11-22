@@ -7,6 +7,8 @@ interface RunnerInfo {
   runners: Runner[];
   isTimestamped: boolean;
   line: number | null;
+  /** The producer's running count once this step is done, if it keeps one. */
+  counter?: number;
 }
 export default abstract class AnimationProducer {
   private _allRunners: RunnerInfo[] = [];
@@ -27,6 +29,11 @@ export default abstract class AnimationProducer {
 
   public get code() {
     return this._code;
+  }
+
+  /** A running count the page shows beside the animation. Producers that count something override this. */
+  protected get counter(): number | undefined {
+    return undefined;
   }
 
   public get allRunners() {
@@ -162,6 +169,7 @@ export default abstract class AnimationProducer {
         runners: this.currentSequence,
         isTimestamped,
         line: this._currentLine,
+        counter: this.counter,
       });
     }
 

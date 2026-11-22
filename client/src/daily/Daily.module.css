@@ -60,25 +60,136 @@
   line-height: 1.4;
 }
 
+.keys summary {
+  width: fit-content;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .keys summary:hover {
+    color: var(--ink);
+  }
+}
+
+.keys summary:focus-visible {
+  outline: 3px solid var(--steel);
+  outline-offset: 3px;
+}
+
+.page .keys p {
+  margin-top: 0.25rem;
+}
+
 .play {
   margin-top: 1.5rem;
 }
 
-.goal {
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 1.5rem;
+}
+
+.stat {
   display: flex;
   align-items: baseline;
-  gap: 0.625rem;
+  gap: 0.5rem;
   margin: 0;
   color: var(--muted);
   font-size: 1.125rem;
   font-weight: 600;
 }
 
-.goalValue {
+.value {
   color: var(--ink);
   font-size: 2rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+.badge {
+  padding: 0.125rem 0.75rem;
+  border: 2px solid var(--edge);
+  border-radius: 999px;
+  background: var(--sand);
+  color: var(--button-ink);
+  font-weight: 700;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+}
+
+.action {
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.action:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.shareNote {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.page .message {
+  min-height: 3em;
+  margin: 0.75rem 0 0;
+  color: var(--muted);
+}
+
+.runner {
+  --line: var(--edge);
+  --ground: var(--bg);
+  --white: #ffffff;
+  --stage: var(--surface);
+  --dot: var(--hero-dot);
+  --stage-focus: var(--steel);
+
+  display: grid;
+  margin: 1rem var(--gutter) 0;
+  overflow: hidden;
+  border: 2px solid var(--edge);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: 6px 6px 0 var(--shadow);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  /* Run scrolls the card into view; leave room below it for the drop shadow. */
+  scroll-margin-block: 1rem;
+}
+
+.runner .stat {
+  padding: 0.5rem 1rem;
+  border-bottom: 2px solid var(--edge);
+}
+
+.stage {
+  height: 14rem;
+  background-color: var(--stage);
+  background-image: radial-gradient(var(--dot) 1.2px, transparent 1.4px);
+  background-size: 22px 22px;
+}
+
+/* The stage keeps the theme its bars were drawn in, so a theme switch mid-run stays readable.
+   These match --surface and --hero-dot in Landing.module.css. */
+.stageLight {
+  --stage: #ffffff;
+  --dot: rgba(31, 29, 92, 0.13);
+}
+
+.stageDark {
+  --stage: #1e1c55;
+  --dot: rgba(255, 255, 255, 0.09);
 }
 
 /* The array gets the full phone width so its slots stay big enough to tap. */
@@ -87,7 +198,11 @@
     padding-inline: 0.5rem;
   }
 
-  .play .goal {
+  .play .column {
     padding-inline: calc(var(--gutter) - 0.5rem);
+  }
+
+  .runner {
+    margin-inline: calc(var(--gutter) - 0.5rem);
   }
 }
