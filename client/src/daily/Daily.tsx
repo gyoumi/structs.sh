@@ -49,8 +49,15 @@ const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
   const [shared, setShared] = useState<'copied' | 'failed' | null>(null);
   const arrangement = useRef(values);
   // The theme the canvas was last drawn in. Colours are fixed when drawn, so a theme switch
-  // waits for the next arrangement unless nothing has run yet.
+  // waits for the next arrangement unless nothing has run yet. The stage background follows it
+  // so the bars stay readable until they are redrawn.
   const drawnTheme = useRef(theme);
+  const [stageTheme, setStageTheme] = useState(theme);
+
+  const markDrawn = (drawn: Theme) => {
+    drawnTheme.current = drawn;
+    setStageTheme(drawn);
+  };
 
   useEffect(() => {
     loadPuzzles().catch(() => {});
@@ -59,14 +66,14 @@ const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
   const applyTheme = useEffectEvent(() => {
     if (drawnTheme.current === theme) return;
     if (phase !== 'ready' || session.getSnapshot().duration > 0) return;
-    drawnTheme.current = theme;
+    markDrawn(theme);
     session.retheme(canvasThemes[theme]);
   });
 
   useEffect(() => applyTheme(), [theme]);
 
   const draw = (arrangementValues: number[]) => {
-    drawnTheme.current = theme;
+    markDrawn(theme);
     session.loadData(arrangementValues, canvasThemes[theme]);
   };
 
@@ -222,7 +229,10 @@ const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
             {comparisons}
           </output>
         </p>
-        <Stage label="Quicksort drawing" className={styles.stage} />
+        <Stage
+          label="Quicksort drawing"
+          className={`${styles.stage} ${stageTheme === 'dark' ? styles.stageDark : styles.stageLight}`}
+        />
         <Transport />
       </div>
     </section>

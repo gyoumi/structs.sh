@@ -157,6 +157,18 @@
   background-size: 22px 22px;
 }
 
+/* The stage keeps the theme its bars were drawn in, so a theme switch mid-run stays readable.
+   These match --surface and --hero-dot in Landing.module.css. */
+.stageLight {
+  --stage: #ffffff;
+  --dot: rgba(31, 29, 92, 0.13);
+}
+
+.stageDark {
+  --stage: #1e1c55;
+  --dot: rgba(255, 255, 255, 0.09);
+}
+
 /* The array gets the full phone width so its slots stay big enough to tap. */
 @media (max-width: 639px) {
   .play {
