@@ -83,7 +83,10 @@ export class DailyPage {
   async expectKeyboardControlsCollapsed(context: string): Promise<void> {
     const rules = this.ui.rulesRegion;
     const summary = rules.locator('details > summary').filter({ hasText: /^\s*Keyboard controls\s*$/ });
-    const details = rules.locator('details').filter({ has: summary });
+    // `has:` resolves relative to each <details>, so pass a page-rooted locator, not one under `rules`.
+    const details = rules
+      .locator('details')
+      .filter({ has: this.page.locator('summary', { hasText: /^\s*Keyboard controls\s*$/ }) });
     const help = details.getByText(/Enter or Space/i);
     await expect(
       summary,
