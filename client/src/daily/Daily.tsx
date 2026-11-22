@@ -93,14 +93,13 @@ const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
       .finally(() => setPhase('ready'));
   }, [phase, complete, puzzle]);
 
-  const ended = scores.length >= MAX_TRIES || scores.some((score) => score >= puzzle.best);
+  const ended = scores.length >= MAX_TRIES;
   const busy = phase !== 'ready';
   const triesLeft = ended ? 0 : MAX_TRIES - scores.length;
   const highest = Math.max(0, ...scores);
   const score = ended ? highest : scores.at(-1);
   const scored = score !== undefined;
-  const goalReached = scored && score >= puzzle.par && score < puzzle.best;
-  const bestReached = scored && score >= puzzle.best;
+  const goalReached = scored && score >= puzzle.par;
 
   const run = () => {
     arrangement.current = values;
@@ -135,12 +134,10 @@ const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
   let message = 'Press Run to test this order.';
   if (busy) message = 'Sorting…';
   else if (scoreFailed) message = 'Couldn’t score that try. Press Run to try again.';
-  else if (ended && scores.some((s) => s >= puzzle.best)) {
-    message = `You found the highest possible score in ${scores.length === 1 ? '1 try' : `${scores.length} tries`}.`;
-  } else if (ended && highest >= puzzle.par) {
-    message = `You reached the goal. Your highest score was ${highest} out of ${puzzle.best}.`;
+  else if (ended && highest >= puzzle.par) {
+    message = `You reached the goal! Your highest score was ${highest}.`;
   } else if (ended) {
-    message = `Out of tries. Your highest score was ${highest} out of ${puzzle.best}.`;
+    message = `Out of tries. Your highest score was ${highest}.`;
   } else if (scored && score < puzzle.par) message = 'Swap numbers and run again to go higher.';
   else if (scored) {
     message = 'You reached the goal! Can you go even higher? Swap numbers and run again.';
@@ -170,22 +167,9 @@ const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
             {triesLeft}
           </output>
         </p>
-        {ended && (
-          <p className={styles.stat}>
-            <span id="daily-best-label">Best</span>
-            <output aria-labelledby="daily-best-label" className={styles.value}>
-              {puzzle.best}
-            </output>
-          </p>
-        )}
         {goalReached && (
           <output aria-label="Goal reached" className={styles.badge}>
             Goal reached ⭐
-          </output>
-        )}
-        {bestReached && (
-          <output aria-label="Best reached" className={styles.badge}>
-            Best score! 🏆
           </output>
         )}
       </div>

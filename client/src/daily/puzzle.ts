@@ -8,7 +8,6 @@ export type Puzzle = {
   values: number[];
   fixed: number[];
   par: number;
-  best: number;
 };
 
 const isNumbers = (value: unknown): value is number[] =>
@@ -25,12 +24,13 @@ export const parsePuzzle = (data: unknown): Puzzle => {
     puzzle.values.length === 0 ||
     !isNumbers(puzzle.fixed) ||
     !puzzle.fixed.every((index) => Number.isInteger(index) && index >= 0 && index < length) ||
-    !Number.isFinite(puzzle.par) ||
-    !Number.isFinite(puzzle.best)
+    !Number.isFinite(puzzle.par)
   ) {
     throw new Error('The puzzle file is not in the expected format.');
   }
-  return puzzle as Puzzle;
+  // Copy only the known fields, so nothing extra in the file (such as a best score) reaches the page.
+  const { number, template, values, fixed, par } = puzzle as Puzzle;
+  return { number, template, values, fixed, par };
 };
 
 /** "quicksort-most-comparisons" is shown as "Quicksort". */
@@ -39,16 +39,11 @@ export const puzzleTitle = (template: string) => {
   return first.charAt(0).toUpperCase() + first.slice(1);
 };
 
-/** One line per try: its score over the best, marked ⭐ at the goal and 🏆 at the best. Never the arrangement. */
+/** One line per try: its score, marked ⭐ at the goal. Never the arrangement. */
 export const shareText = (puzzle: Puzzle, scores: number[]) =>
   [
-    `structs.sh daily #${puzzle.number} · ${puzzleTitle(puzzle.template)}`,
-    ...scores.map((score) => {
-      let mark = '';
-      if (score >= puzzle.best) mark = ' 🏆';
-      else if (score >= puzzle.par) mark = ' ⭐';
-      return `${score} / ${puzzle.best}${mark}`;
-    }),
+    `structs.sh daily #${puzzle.number} · ${puzzleTitle(puzzle.template)} · Goal ${puzzle.par}`,
+    ...scores.map((score) => `${score}${score >= puzzle.par ? ' ⭐' : ''}`),
     'structs.sh/daily',
   ].join('\n');
 
