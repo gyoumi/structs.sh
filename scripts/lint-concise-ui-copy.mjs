@@ -6,8 +6,10 @@ const EXEMPT_CONTAINERS = new Set(['details', 'article']);
 // Phrasing elements whose text reads as part of the surrounding sentence.
 const INLINE_ELEMENTS = new Set(['a', 'abbr', 'b', 'bdi', 'bdo', 'cite', 'code', 'data', 'dfn', 'em', 'i', 'kbd', 'mark', 'q', 's', 'samp', 'small', 'span', 'strong', 'sub', 'sup', 'time', 'u', 'var']);
 // Separates text that never reads as one phrase (block children, `${...}`, unknown values).
-const BREAK = '\n';
-const GUARD_TYPES = new Set(['Identifier', 'MemberExpression', 'CallExpression']);
+// A control character, so ordinary line breaks in JSX text stay plain whitespace.
+const BREAK = '\0';
+// Cap on the rendered variants tracked per element, so nested ternaries stay cheap.
+const MAX_VARIANTS = 8;
 const SR_ONLY_TOKEN = /^(?:sr[-_]?only|visually[-_]?hidden)$/i;
 const NARRATION = [
   /\b(?:tap or click|click or tap)\b/i,
@@ -75,39 +77,46 @@ function isExempt(element) {
 
 const isInline = (element) => INLINE_ELEMENTS.has(elementName(element)) && !isExemptSelf(element);
 
-// Rendered static text of an expression; `all` also reads non-inline elements.
-function expressionText(expr, all) {
+const unique = (list) => [...new Set(list)].slice(0, MAX_VARIANTS);
+// One of the lists renders: the union of their variants.
+const either = (...lists) => unique(lists.flat());
+// Each list renders in turn: every combination of their variants.
+const sequence = (lists) => lists.reduce((acc, list) => unique(acc.flatMap((a) => list.map((b) => a + b))), ['']);
+
+// Possible rendered static texts of an expression; `all` also reads non-inline elements.
+function expressionTexts(expr, all) {
   switch (expr?.type) {
     case 'Literal':
-      return typeof expr.value === 'string' ? expr.value : BREAK;
+      return [typeof expr.value === 'string' ? expr.value : BREAK];
     case 'TemplateLiteral':
-      return expr.quasis.map((quasi) => quasi.value.cooked ?? quasi.value.raw).join(BREAK);
+      return [expr.quasis.map((quasi) => quasi.value.cooked ?? quasi.value.raw).join(BREAK)];
     case 'JSXElement':
-      return (all ? !isExemptSelf(expr) : isInline(expr)) ? staticText(expr, all) : BREAK;
+      return (all ? !isExemptSelf(expr) : isInline(expr)) ? staticTexts(expr, all) : [BREAK];
     case 'JSXFragment':
-      return staticText(expr, all);
+      return staticTexts(expr, all);
     case 'JSXEmptyExpression':
-      return '';
+      return [''];
     case 'LogicalExpression':
-      if (expr.operator === '&&') return expressionText(expr.right, all);
-      return expressionText(expr.left, all) + BREAK + expressionText(expr.right, all);
+      // `&&` checks the rendered case; `||` and `??` render one side or the other.
+      if (expr.operator === '&&') return expressionTexts(expr.right, all);
+      return either(expressionTexts(expr.left, all), expressionTexts(expr.right, all));
     case 'ConditionalExpression':
-      return expressionText(expr.consequent, all) + BREAK + expressionText(expr.alternate, all);
+      return either(expressionTexts(expr.consequent, all), expressionTexts(expr.alternate, all));
     default:
-      return BREAK;
+      return [BREAK];
   }
 }
 
-// Rendered static text of an element's children, skipping exempt ones. Block
-// children become a BREAK unless `all` is set (used for word counts).
-function staticText(node, all = false) {
-  return node.children
-    .map((child) => {
-      if (child.type === 'JSXText') return child.value;
-      if (child.type === 'JSXExpressionContainer') return expressionText(child.expression, all);
-      return expressionText(child, all);
-    })
-    .join('');
+// Possible rendered static texts of an element's children, skipping exempt ones.
+// Block children become a BREAK unless `all` is set (used for word counts).
+function staticTexts(node, all = false) {
+  return sequence(
+    node.children.map((child) => {
+      if (child.type === 'JSXText') return [child.value];
+      if (child.type === 'JSXExpressionContainer') return expressionTexts(child.expression, all);
+      return expressionTexts(child, all);
+    }),
+  );
 }
 
 // Non-exempt inline child elements, looking through fragments and conditional expressions.
@@ -129,19 +138,27 @@ function inlineChildren(node) {
 const collapse = (text) => text.replace(/\s+/g, ' ').trim();
 const wordCount = (text) => (text ? text.split(' ').length : 0);
 const sentenceCount = (text) => (text.replace(/\b(?:e\.g|i\.e)\./gi, '').match(/[.!?]+["'”’)\]]*(?=\s|$)/g) ?? []).length;
-// Narrating phrases in a node's own inline text, checked one segment at a time.
+// Narrating phrases in a node's own inline text, checked one segment of each variant at a time.
 const narrationPhrases = (node) =>
-  staticText(node)
-    .split(BREAK)
+  staticTexts(node)
+    .flatMap((text) => text.split(BREAK))
     .map(collapse)
     .flatMap((segment) => NARRATION.map((pattern) => pattern.exec(segment)?.[0]).filter(Boolean));
+
+// A plain reference such as `ready` or `state.items[0]`: reading it twice gives the same value.
+const isPureRef = (expr) => {
+  if (expr?.type === 'Identifier') return true;
+  if (expr?.type !== 'MemberExpression') return false;
+  const propertyOk = !expr.computed || expr.property.type === 'Literal' || isPureRef(expr.property);
+  return propertyOk && isPureRef(expr.object);
+};
 
 // `C && ...` is a positive guard on C and `!C && ...` a negative one.
 const guardOf = (expr) => {
   if (expr?.type !== 'LogicalExpression' || expr.operator !== '&&') return null;
   const { left } = expr;
-  if (GUARD_TYPES.has(left.type)) return { base: left, positive: true };
-  if (left.type === 'UnaryExpression' && left.operator === '!' && GUARD_TYPES.has(left.argument.type)) {
+  if (isPureRef(left)) return { base: left, positive: true };
+  if (left.type === 'UnaryExpression' && left.operator === '!' && isPureRef(left.argument)) {
     return { base: left.argument, positive: false };
   }
   return null;
@@ -162,13 +179,14 @@ export default {
   },
   create(context) {
     const sourceCode = context.sourceCode ?? context.getSourceCode();
+    // Each rendered variant is checked; the longest one over the limit is reported.
     const checkParagraph = (node) => {
-      const text = collapse(staticText(node, true));
-      const words = wordCount(text);
-      const sentences = sentenceCount(text);
-      if (words > MAX_WORDS || sentences > MAX_SENTENCES) {
-        context.report({ node, messageId: 'longParagraph', data: { words, sentences } });
-      }
+      const worst = staticTexts(node, true)
+        .map((variant) => collapse(variant.replaceAll(BREAK, ' ')))
+        .map((text) => ({ words: wordCount(text), sentences: sentenceCount(text) }))
+        .filter(({ words, sentences }) => words > MAX_WORDS || sentences > MAX_SENTENCES)
+        .sort((a, b) => b.words - a.words || b.sentences - a.sentences)[0];
+      if (worst) context.report({ node, messageId: 'longParagraph', data: worst });
     };
 
     // Report on the innermost element whose own text narrates the interface.
@@ -195,19 +213,20 @@ export default {
       return count;
     };
     // Siblings `{C && ...}` and `{!C && ...}` never render together: each side
-    // counts from a base without the other side's <p>s, and the worst side carries on.
+    // counts on from a base without either side's <p>s, and the worst side carries on.
     const countChildren = (children, start) => {
       const guards = new Map();
       return children.reduce((count, child) => {
         const guard = child.type === 'JSXExpressionContainer' ? guardOf(child.expression) : null;
         if (!guard) return countNode(child, count);
         const key = sourceCode.getText(guard.base);
-        const added = guards.get(key) ?? { true: 0, false: 0 };
-        guards.set(key, added);
-        const base = count - added[!guard.positive];
-        const after = countExpression(child.expression.right, base);
-        added[guard.positive] += after - base;
-        return Math.max(count, after);
+        const pair = guards.get(key) ?? { pos: 0, neg: 0 };
+        guards.set(key, pair);
+        const side = guard.positive ? 'pos' : 'neg';
+        const base = count - Math.max(pair.pos, pair.neg);
+        const from = base + pair[side];
+        pair[side] += countExpression(child.expression.right, from) - from;
+        return base + Math.max(pair.pos, pair.neg);
       }, start);
     };
     const countNode = (node, count) => {
