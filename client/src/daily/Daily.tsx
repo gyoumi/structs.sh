@@ -50,6 +50,10 @@ const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
   const [shared, setShared] = useState<'copied' | 'failed' | null>(null);
   const arrangement = useRef(values);
   const runner = useRef<HTMLDivElement>(null);
+  const runButton = useRef<HTMLButtonElement>(null);
+  const skipButton = useRef<HTMLButtonElement>(null);
+  // Run disables itself when pressed, which would drop keyboard focus to the page.
+  const focusSkip = useRef(false);
   const reducedMotion = usePrefersReducedMotion();
   // The theme the canvas was last drawn in. Colours are fixed when drawn, so a theme switch
   // waits for the next arrangement unless nothing has run yet. The stage background follows it
@@ -80,6 +84,13 @@ const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
     session.loadData(arrangementValues, canvasThemes[theme]);
   };
 
+  // Hand focus from Run to Skip once Skip is enabled, without fighting the scroll to the drawing.
+  useEffect(() => {
+    if (!focusSkip.current) return;
+    focusSkip.current = false;
+    if (phase === 'running') skipButton.current?.focus({ preventScroll: true });
+  }, [phase]);
+
   // A try is over once its animation reaches the end, however it got there (playing, Skip or the slider).
   useEffect(() => {
     if (phase !== 'running' || !complete) return;
@@ -102,6 +113,7 @@ const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
   const goalReached = scored && score >= puzzle.par;
 
   const run = () => {
+    focusSkip.current = document.activeElement === runButton.current;
     arrangement.current = values;
     setScoreFailed(false);
     setPhase('running');
@@ -182,6 +194,7 @@ const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
       />
       <div className={`${styles.column} ${styles.actions}`}>
         <button
+          ref={runButton}
           type="button"
           className={`${landing.primary} ${styles.action}`}
           onClick={run}
@@ -190,6 +203,7 @@ const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
           Run
         </button>
         <button
+          ref={skipButton}
           type="button"
           className={`${landing.secondary} ${styles.action}`}
           onClick={session.finish}

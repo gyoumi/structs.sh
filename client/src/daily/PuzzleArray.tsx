@@ -1,4 +1,4 @@
-import { CSSProperties, KeyboardEvent, useLayoutEffect, useRef, useState } from 'react';
+import { CSSProperties, KeyboardEvent, useId, useLayoutEffect, useRef, useState } from 'react';
 import { LockIcon } from '@/ui/icons';
 import { nextFreeSlot } from './puzzle';
 import styles from './PuzzleArray.module.css';
@@ -37,6 +37,7 @@ const PuzzleArray = ({ values, fixed, pivotIndex, frozen = false, onSwap }: Prop
   const slots = useRef<(HTMLButtonElement | null)[]>([]);
   const valueEls = useRef<(HTMLSpanElement | null)[]>([]);
   const focusAfterSwap = useRef<number | null>(null);
+  const pivotId = useId();
 
   if (frozen && selected !== null) setSelected(null);
 
@@ -96,7 +97,11 @@ const PuzzleArray = ({ values, fixed, pivotIndex, frozen = false, onSwap }: Prop
           return (
             // Slots are positions, so the index is their identity.
             <div key={index} className={styles.cell}>
-              {index === pivotIndex && <span className={styles.pivotTag}>Pivot</span>}
+              {index === pivotIndex && (
+                <span id={pivotId} className={styles.pivotTag}>
+                  Pivot
+                </span>
+              )}
               <button
                 ref={(element) => {
                   slots.current[index] = element;
@@ -105,6 +110,7 @@ const PuzzleArray = ({ values, fixed, pivotIndex, frozen = false, onSwap }: Prop
                 className={frozen && !locked ? `${styles.slot} ${styles.frozen}` : styles.slot}
                 disabled={locked || frozen}
                 aria-pressed={locked ? undefined : selected === index}
+                aria-describedby={index === pivotIndex ? pivotId : undefined}
                 onClick={() => handleClick(index)}
                 onKeyDown={(event) => handleKeyDown(event, index)}
               >

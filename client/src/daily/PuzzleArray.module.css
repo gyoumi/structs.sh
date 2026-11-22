@@ -14,15 +14,17 @@
   min-width: 0;
 }
 
-/* Sits above slot 0, outside its button, so it never lifts with the slot or joins its name. */
+/*
+ * Sits above slot 0, outside its button, so it never lifts with the slot or joins its name.
+ * It keeps its own width and may overhang a narrow slot; the page's side padding leaves room.
+ */
 .pivotTag {
   position: absolute;
   bottom: calc(100% + 0.85rem);
   left: 50%;
-  max-width: 100%;
+  z-index: 2;
   box-sizing: border-box;
   padding: 0.05rem 0.35rem;
-  overflow: hidden;
   border: 1.5px solid var(--edge);
   border-radius: 999px;
   background: var(--sand);
@@ -32,7 +34,6 @@
   letter-spacing: 0.02em;
   line-height: 1.2;
   white-space: nowrap;
-  text-overflow: clip;
   translate: -50% 0;
   pointer-events: none;
 }
