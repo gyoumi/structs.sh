@@ -1,0 +1,6 @@
+[package]
+name = "structs-puzzles"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Puzzle templates, step logs, and scoring for the structs.sh daily game"

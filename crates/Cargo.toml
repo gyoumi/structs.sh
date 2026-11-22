@@ -1,0 +1,3 @@
+[workspace]
+members = ["structs-puzzles"]
+resolver = "3"
