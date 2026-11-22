@@ -60,7 +60,8 @@ Feature progress
 
 ## Known failures
 
-`known-failures/wasm.json` lists the behaviours that don't work yet, each with
+`known-failures/*.json` (such as `known-failures/wasm.json` and
+`known-failures/game.json`) lists the behaviours that don't work yet, each with
 a reason.
 Those tests are expected to fail, so they don't turn the run red. When one
 starts passing, Playwright reports it as a failure so it gets removed from the
@@ -70,6 +71,111 @@ added silently.
 `pnpm run e2e:strict` ignores the list and shows raw results.
 `pnpm run check:known-failures` checks that every entry names a real test and
 gives a reason. CI runs it on every PR.
+
+## The daily game
+
+The daily game lives at `/daily`. On load, it fetches `GET /puzzles/today.json`,
+which returns:
+
+```json
+{
+  "number": 12,
+  "template": "quicksort-most-comparisons",
+  "values": [8, 1, 6, 3, 2, 7, 4, 5],
+  "fixed": [1, 4, 6],
+  "par": 34,
+  "best": 36
+}
+```
+
+`values` is the starting arrangement and `fixed` holds the 0-based indices of
+locked slots. The page shows what the file says and never computes `par` or
+`best`.
+
+A comparison is every evaluation of a comparison between two array values in
+the C code shown beside the animation
+(`client/src/visualiser-src/sorting-visualiser/util/codeSnippets.ts`): each
+evaluation of `a[i] <= v` in the first `while` loop (including the one that
+ends it), each evaluation of `v < a[j]` in the second (including the one that
+ends it), and `a[i] < v` once after each partition. The C code shown beside the
+animation contains every counted comparison; `quick.ts` also checks
+`elements[j].data.value > v` only to choose a highlight, and that check does
+not count. Index-only checks (`i < j`, `hi <= lo`) do not count.
+
+The sorting visualiser draws into `#visualiser-canvas` as it does today. The
+rest of the e2e tests drive `/daily` only through ARIA roles and accessible
+names:
+
+- **Rules:** `region` named `Puzzle rules`. It must contain the sentence
+  `Arrange the free values so quicksort makes as many comparisons as possible.`
+- **Puzzle array:** `group` named `Puzzle array`, containing one `button` per
+  slot in left-to-right order.
+  - Each slot button's text starts with its numeric value (for example `8`).
+    Hide any lock icon with `aria-hidden="true"`.
+  - Fixed slots are disabled (`disabled` or `aria-disabled="true"`). Clicking or
+    tapping a fixed slot never selects or swaps it.
+  - Free slots carry `aria-pressed="true"` when selected and
+    `aria-pressed="false"` when unselected.
+  - Clicking or tapping two free slots swaps their values and clears the
+    selection. Clicking a selected slot deselects it. This also works on a
+    390x844 touch screen.
+  - Every slot button fits fully within the width of a 390x844 screen (no
+    horizontal overflow).
+  - From the keyboard, focusing a free slot and pressing `Enter` or `Space`
+    selects it (`aria-pressed="true"`). While selected, `ArrowRight` swaps it
+    with the neighbouring free slot to the right (skipping any fixed slots) and
+    keeps focus and selection on the moved value; `ArrowLeft` does the same to
+    the left. Pressing `Enter`, `Space`, or `Escape` clears the selection.
+  - After a try finishes, the array stays in the arrangement the player ran, so
+    the next try starts from there.
+- **Action buttons (exact names):**
+  - `button` `Run`: starts a try on the current arrangement and starts playback
+    by itself. Disabled while a run animates, and disabled or hidden once the
+    puzzle ends.
+  - `button` `Skip`: jumps the animation straight to the final comparison count
+    and completes the try, whether playback is playing or paused.
+  - `button` `Share`: visible and enabled once the puzzle ends; copies the share
+    text to the clipboard via `navigator.clipboard.writeText`.
+- **Playback controls:** the visualiser's controls (`toolbar` `Playback` with
+  buttons `Play`, `Pause`, `Replay`, `Previous step`, `Next step`,
+  `Back to the start`, and `Skip to the end`; `slider` `Animation progress` from
+  `0` to `100`, using either a native range input or `aria-valuenow`; `combobox`
+  `Speed` from `0.25×` to `2×`). Replaying a finished run does not use a try.
+- **Status readouts** (`role="status"` or `<output>`). Give each readout its
+  accessible name with `aria-label`, `aria-labelledby`, or a `<label for>` on
+  `<output>`, because `role="status"` does not take its accessible name from its
+  inner text:
+  - `status` `Par`: shows the puzzle's `par` number.
+  - `status` `Comparisons`: starts at `0`, rises with each comparison during the
+    animation (changing by at most `1` per timeline step), and follows the
+    timeline so stepping back lowers it (add `aria-live="off"` if you want to
+    avoid screen-reader chatter while animating).
+  - `status` `Score`: shows the last run's score while tries remain, and the
+    highest score across all tries once the puzzle ends.
+  - `status` `Tries left`: starts at `3` and decrements after each try (`2`,
+    `1`, `0`).
+  - `status` `Best`: hidden until the puzzle ends (either by reaching `best`
+    early or after the third try), then visible with the puzzle's `best` number.
+  - `status` `Par reached`: visible after a try that reaches `par` and is below
+    `best`. The text inside is up to the page.
+  - `status` `Best reached`: visible after a try that reaches `best`. The text
+    inside is up to the page.
+
+Players get three tries. Reaching `par` announces `Par reached` and still offers
+the next try. Reaching `best` announces `Best reached`, reveals `Best`, and ends
+the puzzle early. After the third try, the puzzle ends with the highest of the
+three scores and reveals `Best`.
+
+The share text copied by `Share` uses one line per try, with ` ⭐` at or above
+`par` (below `best`) and ` 🏆` on `best`, and never includes the arrangement:
+
+```text
+structs.sh daily #12 · Quicksort
+30 / 36
+34 / 36 ⭐
+36 / 36 🏆
+structs.sh/daily
+```
 
 ## Changing the debugger
 

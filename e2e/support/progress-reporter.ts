@@ -46,7 +46,7 @@ export default class ProgressReporter implements Reporter {
       const notes = [
         t.knownFailing && `${t.knownFailing} on the known-failures list`,
         t.broken.length && `${t.broken.length} broken`,
-        t.nowFixed.length && `${t.nowFixed.length} now passing, remove from known-failures/wasm.json`,
+        t.nowFixed.length && `${t.nowFixed.length} now passing, remove from known-failures/`,
       ].filter(Boolean);
 
       lines.push(
