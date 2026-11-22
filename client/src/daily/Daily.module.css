@@ -60,6 +60,27 @@
   line-height: 1.4;
 }
 
+.keys summary {
+  width: fit-content;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .keys summary:hover {
+    color: var(--ink);
+  }
+}
+
+.keys summary:focus-visible {
+  outline: 3px solid var(--steel);
+  outline-offset: 3px;
+}
+
+.page .keys p {
+  margin-top: 0.25rem;
+}
+
 .play {
   margin-top: 1.5rem;
 }

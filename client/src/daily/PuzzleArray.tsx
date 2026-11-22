@@ -1,4 +1,4 @@
-import { CSSProperties, KeyboardEvent, useId, useLayoutEffect, useRef, useState } from 'react';
+import { CSSProperties, KeyboardEvent, useLayoutEffect, useRef, useState } from 'react';
 import { LockIcon } from '@/ui/icons';
 import { nextFreeSlot } from './puzzle';
 import styles from './PuzzleArray.module.css';
@@ -6,8 +6,6 @@ import styles from './PuzzleArray.module.css';
 type Props = {
   values: number[];
   fixed: Set<number>;
-  /** The slot the algorithm takes as its pivot, tagged above the slot. Omit for none. */
-  pivotIndex?: number;
   /** Locks every slot, as while a run animates. */
   frozen?: boolean;
   onSwap: (a: number, b: number) => void;
@@ -31,13 +29,12 @@ const slideFrom = (value: HTMLElement, to: HTMLElement, from: HTMLElement) => {
   );
 };
 
-const PuzzleArray = ({ values, fixed, pivotIndex, frozen = false, onSwap }: Props) => {
+const PuzzleArray = ({ values, fixed, frozen = false, onSwap }: Props) => {
   const [selected, setSelected] = useState<number | null>(null);
   const [announcement, setAnnouncement] = useState('');
   const slots = useRef<(HTMLButtonElement | null)[]>([]);
   const valueEls = useRef<(HTMLSpanElement | null)[]>([]);
   const focusAfterSwap = useRef<number | null>(null);
-  const pivotId = useId();
 
   if (frozen && selected !== null) setSelected(null);
 
@@ -96,35 +93,28 @@ const PuzzleArray = ({ values, fixed, pivotIndex, frozen = false, onSwap }: Prop
           const locked = fixed.has(index);
           return (
             // Slots are positions, so the index is their identity.
-            <div key={index} className={styles.cell}>
-              {index === pivotIndex && (
-                <span id={pivotId} className={styles.pivotTag}>
-                  Pivot
-                </span>
-              )}
-              <button
+            <button
+              key={index}
+              ref={(element) => {
+                slots.current[index] = element;
+              }}
+              type="button"
+              className={frozen && !locked ? `${styles.slot} ${styles.frozen}` : styles.slot}
+              disabled={locked || frozen}
+              aria-pressed={locked ? undefined : selected === index}
+              onClick={() => handleClick(index)}
+              onKeyDown={(event) => handleKeyDown(event, index)}
+            >
+              <span
                 ref={(element) => {
-                  slots.current[index] = element;
+                  valueEls.current[index] = element;
                 }}
-                type="button"
-                className={frozen && !locked ? `${styles.slot} ${styles.frozen}` : styles.slot}
-                disabled={locked || frozen}
-                aria-pressed={locked ? undefined : selected === index}
-                aria-describedby={index === pivotIndex ? pivotId : undefined}
-                onClick={() => handleClick(index)}
-                onKeyDown={(event) => handleKeyDown(event, index)}
+                className={styles.value}
               >
-                <span
-                  ref={(element) => {
-                    valueEls.current[index] = element;
-                  }}
-                  className={styles.value}
-                >
-                  {value}
-                </span>
-                {locked && <LockIcon size={14} className={styles.lock} />}
-              </button>
-            </div>
+                {value}
+              </span>
+              {locked && <LockIcon size={14} className={styles.lock} />}
+            </button>
           );
         })}
       </div>

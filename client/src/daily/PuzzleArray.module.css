@@ -4,43 +4,11 @@
   justify-content: center;
   gap: 3px;
   margin: 0;
-  /* Room above the slots for the pivot tag, clear of slot 0's lift and focus outline. */
-  padding: 2.25rem 0 1.25rem;
-}
-
-.cell {
-  position: relative;
-  display: grid;
-  min-width: 0;
-}
-
-/*
- * Sits above slot 0, outside its button, so it never lifts with the slot or joins its name.
- * It keeps its own width and may overhang a narrow slot; the page's side padding leaves room.
- */
-.pivotTag {
-  position: absolute;
-  bottom: calc(100% + 0.85rem);
-  left: 50%;
-  z-index: 2;
-  box-sizing: border-box;
-  padding: 0.05rem 0.35rem;
-  border: 1.5px solid var(--edge);
-  border-radius: 999px;
-  background: var(--sand);
-  color: var(--button-ink);
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  line-height: 1.2;
-  white-space: nowrap;
-  translate: -50% 0;
-  pointer-events: none;
+  padding: 1rem 0 1.25rem;
 }
 
 .slot {
   position: relative;
-  width: 100%;
   display: grid;
   place-items: center;
   min-width: 0;

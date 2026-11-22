@@ -185,13 +185,7 @@ const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
           </output>
         )}
       </div>
-      <PuzzleArray
-        values={values}
-        fixed={fixed}
-        pivotIndex={0}
-        frozen={busy || ended}
-        onSwap={swap}
-      />
+      <PuzzleArray values={values} fixed={fixed} frozen={busy || ended} onSwap={swap} />
       <div className={`${styles.column} ${styles.actions}`}>
         <button
           ref={runButton}
@@ -272,16 +266,15 @@ const PuzzleView = ({ puzzle, theme }: { puzzle: Puzzle; theme: Theme }) => {
       </h1>
       <section aria-label="Puzzle rules" className={`${styles.column} ${styles.rules}`}>
         <p className={styles.lede}>{RULES}</p>
-        <p>
-          Quicksort always picks the first number in each range as the pivot. Tap or click two
-          unlocked numbers to swap them, then press Run. Locked numbers stay put. You have{' '}
-          {MAX_TRIES} tries to reach the goal, or go higher.
-        </p>
-        <p className={styles.keys}>
-          Keyboard: press Enter or Space to pick a number. Use Left or Right to swap it with the
-          next unlocked one, or Tab to another and press Enter or Space to swap. Escape clears the
-          selection.
-        </p>
+        <p>Quicksort always picks the leftmost number in each range as the pivot.</p>
+        <details className={styles.keys}>
+          <summary>Keyboard controls</summary>
+          <p>
+            Press Enter or Space to pick a number. Use Left or Right to swap it with the next
+            unlocked one, or Tab to another and press Enter or Space to swap. Escape clears the
+            selection.
+          </p>
+        </details>
       </section>
       <SessionContext value={session}>
         <Play
