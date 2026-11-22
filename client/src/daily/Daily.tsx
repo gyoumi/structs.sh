@@ -28,12 +28,13 @@ const PuzzleView = ({ puzzle }: { puzzle: Puzzle }) => {
       <section aria-label="Puzzle rules" className={`${styles.column} ${styles.rules}`}>
         <p className={styles.lede}>{RULES}</p>
         <p>
-          Tap or click two numbers to swap them. Locked numbers stay put. Reach the goal, or go even
-          higher.
+          Tap or click two unlocked numbers to swap them. Locked numbers stay put. Reach the goal,
+          or go even higher.
         </p>
         <p className={styles.keys}>
-          Keyboard: press Enter or Space to pick a number. Use the arrow keys to move it, or Tab to
-          another and press Enter or Space to swap. Escape cancels.
+          Keyboard: press Enter or Space to pick a number. Use Left or Right to swap it with the
+          next unlocked one, or Tab to another and press Enter or Space to swap. Escape clears the
+          selection.
         </p>
       </section>
       <section className={styles.play}>

@@ -147,7 +147,7 @@ same time. 1f needs both.
   put a value on a fixed slot. On a 390-pixel phone screen, the whole array
   is visible without scrolling sideways. The sorting visualiser has no way to
   move values by hand today, so this is new.
-- **Goal is a target to beat, not the maximum.** The puzzle file carries the
+- **Goal is a target to reach, not the maximum.** The puzzle file carries the
   goal (stored in the `par` field) and the best score, and the page never works
   either out. The goal sits 65% of the way from a typical random arrangement's
   score to the best. For example, with a median of 25 and a best of 34, the
