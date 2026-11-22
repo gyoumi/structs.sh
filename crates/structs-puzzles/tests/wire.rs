@@ -87,3 +87,10 @@ fn large_inputs_score_the_same_as_a_direct_call() {
     let reply = score_request(&request(QUICKSORT, &values, &[], &arrangement));
     assert_eq!(reply, Ok(format!("{{\"score\":{direct}}}")));
 }
+
+#[test]
+fn a_huge_fixed_index_does_not_wrap_its_slot_number() {
+    let message =
+        score_request(&request(QUICKSORT, &[1, 2], &[4_294_967_295], &[1, 2])).unwrap_err();
+    assert!(message.contains("fixed slot 4294967296"), "{message}");
+}

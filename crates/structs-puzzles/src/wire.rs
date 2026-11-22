@@ -39,7 +39,7 @@ fn score(request: &Request) -> Result<u32, String> {
     {
         return Err(format!(
             "The puzzle is broken: fixed slot {} is past its last value.",
-            index + 1
+            index as u64 + 1
         ));
     }
     let instance = Instance {
@@ -51,7 +51,8 @@ fn score(request: &Request) -> Result<u32, String> {
         .map_err(|error| describe(&error))
 }
 
-/// Slots are numbered from 1 in messages, as players count them.
+/// Slots are numbered from 1 in messages, as players count them. Indexes widen
+/// to u64 before the add so a huge index can't wrap to 0 on wasm32.
 fn describe(error: &InputError) -> String {
     match error {
         InputError::WrongLength { expected, got } => {
@@ -59,7 +60,7 @@ fn describe(error: &InputError) -> String {
         }
         InputError::FixedValueMoved { index } => format!(
             "A fixed value moved: slot {} is fixed and has to keep its value.",
-            index + 1
+            *index as u64 + 1
         ),
         InputError::NotAPermutation => "The arrangement has to be a permutation of the puzzle's \
              values: use each value exactly once."

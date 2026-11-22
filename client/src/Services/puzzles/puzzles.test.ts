@@ -189,11 +189,11 @@ describe('scorePuzzle — fixed inputs', () => {
 });
 
 describe('scorePuzzle — large input', () => {
-  it('scores a 300-value sorted array (forcing wasm memory growth) as 45448', async () => {
+  it('scores a large input (300 sorted values, the deepest recursion for that size) as 45448', async () => {
     const score = await scorePuzzle(LARGE_SORTED_PUZZLE, LARGE_SORTED_VALUES);
     expect(
       score,
-      `${describeCall(LARGE_SORTED_PUZZLE, LARGE_SORTED_VALUES, '300 sorted values')}: comparison count after wasm memory growth should be 45448`
+      `${describeCall(LARGE_SORTED_PUZZLE, LARGE_SORTED_VALUES, '300 sorted values')}: comparison count should be 45448`
     ).toBe(45448);
   });
 });
