@@ -269,7 +269,7 @@ the best, and offers the share text.
 
 ### 1g. Layout
 
-`/daily` is rearranged to follow the [layout mockup](daily-game-layout.png).
+`/daily` is rearranged to follow the [layout mockup](docs/images/daily-game-layout.png).
 The mockup shows a later Dijkstra puzzle, so this step takes its layout, not
 its content:
 
