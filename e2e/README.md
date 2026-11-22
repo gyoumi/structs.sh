@@ -107,7 +107,7 @@ rest of the e2e tests drive `/daily` only through ARIA roles and accessible
 names:
 
 - **Rules:** `region` named `Puzzle rules`. It must contain the sentence
-  `Arrange the free values so quicksort makes as many comparisons as possible.`
+  `Reorder the numbers so quicksort makes as many comparisons as you can.`
 - **Puzzle array:** `group` named `Puzzle array`, containing one `button` per
   slot in left-to-right order.
   - Each slot button's text starts with its numeric value (for example `8`).
@@ -125,7 +125,10 @@ names:
     selects it (`aria-pressed="true"`). While selected, `ArrowRight` swaps it
     with the neighbouring free slot to the right (skipping any fixed slots) and
     keeps focus and selection on the moved value; `ArrowLeft` does the same to
-    the left. Pressing `Enter`, `Space`, or `Escape` clears the selection.
+    the left. With a value selected, pressing `Enter` or `Space` on the
+    selected slot clears the selection; pressing `Enter` or `Space` on a
+    different free slot swaps the two and clears the selection, as tapping two
+    values does; pressing `Escape` on any slot clears the selection.
   - After a try finishes, the array stays in the arrangement the player ran, so
     the next try starts from there.
 - **Action buttons (exact names):**
@@ -145,7 +148,7 @@ names:
   accessible name with `aria-label`, `aria-labelledby`, or a `<label for>` on
   `<output>`, because `role="status"` does not take its accessible name from its
   inner text:
-  - `status` `Par`: shows the puzzle's `par` number.
+  - `status` `Goal`: shows the puzzle's goal (the `par` field in the JSON).
   - `status` `Comparisons`: starts at `0`, rises with each comparison during the
     animation (changing by at most `1` per timeline step), and follows the
     timeline so stepping back lowers it (add `aria-live="off"` if you want to
@@ -156,18 +159,18 @@ names:
     `1`, `0`).
   - `status` `Best`: hidden until the puzzle ends (either by reaching `best`
     early or after the third try), then visible with the puzzle's `best` number.
-  - `status` `Par reached`: visible after a try that reaches `par` and is below
-    `best`. The text inside is up to the page.
+  - `status` `Goal reached`: visible after a try that reaches the goal (`par`)
+    and is below `best`. The text inside is up to the page.
   - `status` `Best reached`: visible after a try that reaches `best`. The text
     inside is up to the page.
 
-Players get three tries. Reaching `par` announces `Par reached` and still offers
-the next try. Reaching `best` announces `Best reached`, reveals `Best`, and ends
-the puzzle early. After the third try, the puzzle ends with the highest of the
-three scores and reveals `Best`.
+Players get three tries. Reaching the goal announces `Goal reached` and still
+offers the next try. Reaching `best` announces `Best reached`, reveals `Best`,
+and ends the puzzle early. After the third try, the puzzle ends with the highest
+of the three scores and reveals `Best`.
 
 The share text copied by `Share` uses one line per try, with ` ⭐` at or above
-`par` (below `best`) and ` 🏆` on `best`, and never includes the arrangement:
+the goal (below `best`) and ` 🏆` on `best`, and never includes the arrangement:
 
 ```text
 structs.sh daily #12 · Quicksort

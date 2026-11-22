@@ -132,9 +132,9 @@ example: "change the edge weights so Dijkstra corrects a distance as many
 times as possible".
 
 The player experiments. They change the input, press Run, watch the
-algorithm react, and adjust. The solver finds the best score. Par sits 65%
+algorithm react, and adjust. The solver finds the best score. The goal sits 65%
 of the way from a typical random input's score to the best, so there's room
-above par to compete. When the solver couldn't try every input, the best is
+above the goal to compete. When the solver couldn't try every input, the best is
 only the best known score, and a player can beat it.
 
 Each template says whether a higher or lower score wins. Exact-target
@@ -207,7 +207,7 @@ These steps make cheating harder, and the rest is accepted:
 - Templates whose answer follows a fixed rule are left out.
 - The global board needs a university email or a linked LinkedIn profile,
   each of which can belong to only one account.
-- `structs-review` flags results such as par on the first run day after
+- `structs-review` flags results such as reaching the goal on the first run day after
   day, solves faster than the bot's fastest, and many accounts from one
   network. A flag hides the result from the global board until a person
   reviews it. Nothing is banned automatically.
@@ -243,13 +243,13 @@ private repo (Rust, in the devsoc-unsw org)
 
 `structs-forge` does this for each upcoming date: pick the template, call
 its `generate` with a random seed, find the best score with the solver and
-set par from it, reroll if the instance has no solution or one of the
+set the goal from it, reroll if the instance has no solution or one of the
 template's shortcuts reaches the best, grade difficulty with the bot player,
 reroll if the grade misses that weekday's range, and store the instance,
-rules, seed, par, the best score and one best solution.
+rules, seed, goal, the best score and one best solution.
 
 The bot player plays like an impatient person. It tries a random change and
-keeps it if the score didn't drop. How often it reaches par measures how
+keeps it if the score didn't drop. How often it reaches the goal measures how
 hard the puzzle is.
 
 ### Rules
@@ -262,7 +262,7 @@ hard the puzzle is.
   `structs-review` writes flags.
 - **The solver works on any template**, using only what the `Template` trait
   exposes: the moves a player can make, and the score. A template added in
-  this repo gets a par and a best score without changes to the private repo.
+  this repo gets a goal and a best score without changes to the private repo.
 - **A template's scoring is frozen once puzzles exist for it.** Each stored
   puzzle names its template and version, and a scoring change becomes a new
   version.
@@ -381,8 +381,8 @@ For this project:
   instance, by trying every input or by searching when there are too many.
 - **Best**: the solver's best score for an instance. The page reveals it
   when the puzzle is finished.
-- **Par**: the day's target score, 65% of the way from a typical random
-  input's score to the best.
+- **Goal**: the day's target score, 65% of the way from a typical random
+  input's score to the best (stored as `par` in the puzzle file).
 - **Shortcut**: a rule that solves a template without working through the
   instance, such as "insert the keys in preorder". The generator rerolls any
   instance a shortcut solves.

@@ -64,7 +64,7 @@ Today ──► 1. One puzzle plays ──► 2. Every day is new ──► 3. I
 
 A quicksort puzzle, hard-coded in the client, can be played start to finish
 in the browser. The player swaps the free values, presses Run, watches the
-existing sorting visualiser animate the run, and sees a score and par. They
+existing sorting visualiser animate the run, and sees a score and a goal. They
 get three tries. The
 score comes from `structs-puzzles` built to wasm, with no server.
 
@@ -85,7 +85,7 @@ See "Checkpoint 1, step by step".
 ### 2. Every day is new
 
 All seven launch templates are playable. `structs-forge` generates
-instances for them, finds the best score and par, rejects instances that fail the checks, and
+instances for them, finds the best score and goal, rejects instances that fail the checks, and
 grades difficulty. The game page can load any puzzle it produces.
 
 **Done when:** checkpoints 1 and 2's game tests pass, every launch template has a passing
@@ -147,14 +147,17 @@ same time. 1f needs both.
   put a value on a fixed slot. On a 390-pixel phone screen, the whole array
   is visible without scrolling sideways. The sorting visualiser has no way to
   move values by hand today, so this is new.
-- **Par is a target, not the maximum.** The puzzle file carries par and the
-  best score, and the page never works either out. Par sits 65% of the way
-  from a typical random arrangement's score to the best. For example, with a
-  median of 25 and a best of 34, par is 31. The best stays hidden until the
-  puzzle is finished.
+- **Goal is a target to reach, not the maximum.** The puzzle file carries the
+  goal (stored in the `par` field) and the best score, and the page never works
+  either out. The goal sits 65% of the way from a typical random arrangement's
+  score to the best. For example, with a median of 25 and a best of 34, the
+  goal is 31. The best stays hidden until the puzzle is finished.
+- **The page talks to the player plainly.** Copy is short, friendly, second
+  person, and free of jargon: "numbers" and "locked" rather than "free values"
+  and "fixed slots", and "goal" rather than golf's "par".
 - **Three tries, and the highest score counts.** Each Run uses a try. After
   a try the array stays as the player left it, so the next try starts from
-  there. Reaching par is announced and the next try is still offered.
+  there. Reaching the goal is announced and the next try is still offered.
   Reaching the best ends the puzzle early. After the third try the puzzle
   ends and reveals the best. Three is a starting number that 1h can change.
 - **Playback controls from the first run.** `/daily` has a Skip button that
@@ -162,7 +165,7 @@ same time. 1f needs both.
   rewind, replay, step back and forward, the timeline, and speeds from 0.25x
   to 2x. The comparison counter follows the timeline, so stepping back
   lowers it.
-- **The share text has one line per try**, marked ⭐ for reaching par and 🏆
+- **The share text has one line per try**, marked ⭐ for reaching the goal and 🏆
   for the best, and never includes the arrangement:
 
   ```
@@ -173,8 +176,8 @@ same time. 1f needs both.
   structs.sh/daily
   ```
 
-  Each line is the try's score over the best. With a par of 31, the second
-  try reached par and the third reached the best.
+  Each line is the try's score over the best. With a goal of 31, the second
+  try reached the goal and the third reached the best.
 - **The puzzle comes from a file in the client** until checkpoint 3. These
   are test puzzles. Scheduled puzzles never go in the public repo. The page
   fetches the file, and the e2e tests serve their own puzzle in its place
@@ -189,12 +192,12 @@ same time. 1f needs both.
 
 A different agent from the one writing the code writes checkpoint 1's game
 tests and adds them to `e2e/known-failures/game.json`. It works from the
-decisions above. Each test serves its own puzzle, with par, the best and
+decisions above. Each test serves its own puzzle, with the goal, the best and
 the score of each arrangement it plays worked out by hand.
 
 For 1e, the puzzle page:
 
-1. The puzzle shows its rules, par and fixed values.
+1. The puzzle shows its rules, goal and fixed values.
 2. Tapping two free values swaps them, and fixed values can't be selected.
 3. Free values can be swapped with the keyboard.
 4. Swapping works on a phone-sized screen, and the whole array fits without
@@ -207,7 +210,7 @@ For 1f, run and score:
    worked out by hand for the test's arrangement.
 7. Skip jumps straight to the final count.
 8. Stepping back lowers the counter.
-9. Reaching par is announced, and the next try is still offered.
+9. Reaching the goal is announced, and the next try is still offered.
 10. Reaching the best is announced, and the puzzle ends early.
 11. After three tries, the puzzle ends with the highest of the three scores
     and reveals the best.
@@ -252,7 +255,7 @@ ones, and checks the counts match.
 
 ### 1e. Puzzle page
 
-`/daily` loads the puzzle file and shows the rules, par and the array, with
+`/daily` loads the puzzle file and shows the rules, goal and the array, with
 fixed values locked. The player can swap free values by tapping, with the
 keyboard, and on a phone.
 
@@ -261,8 +264,8 @@ keyboard, and on a phone.
 ### 1f. Run and score
 
 Run animates the sort with the comparison counter and the playback
-controls, then shows the score from the wasm build next to par. The page
-counts tries, announces reaching par and the best, ends the puzzle, reveals
+controls, then shows the score from the wasm build next to the goal. The page
+counts tries, announces reaching the goal and the best, ends the puzzle, reveals
 the best, and offers the share text.
 
 **You'll know it's done when** 12/12 game tests pass.
@@ -336,10 +339,10 @@ per template.
 ### 2b. Solver and checks
 
 `structs-forge` finds the best score for an instance by searching the moves
-the `Template` trait exposes, and sets par 65% of the way to it from the
+the `Template` trait exposes, and sets the goal 65% of the way to it from the
 median of random inputs. For each instance it runs the three checks from
 `puzzle-ideas.md`: is it solvable, does a shortcut reach the best, and how
-often does the bot player reach par.
+often does the bot player reach the goal.
 
 **You'll know it's done when** its tests reproduce the `puzzle-checks`
 figures for every launch template. For example, sorted fills reach the best
@@ -349,7 +352,7 @@ on only 1 or 2 of 40 AVL instances.
 
 `structs-forge` picks a template for each upcoming date, rerolls instances
 that fail a check or miss the weekday's difficulty range, and stores the
-instance, rules, seed, par, the best score and one best solution.
+instance, rules, seed, goal, the best score and one best solution.
 
 **You'll know it's done when** one run fills three weeks of dates, and every
 stored puzzle loads and plays on the game page.
