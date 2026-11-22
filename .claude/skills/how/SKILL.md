@@ -29,7 +29,7 @@ Write plainly; see `unslop`.
 Default is explanation only. Switch to critique only when the user asks for problems, risks, or improvements.
 
 1. Give the explanation first.
-2. Spawn one read-only critic (`sonnet`, see `orchestrate-defaults`) to review the explained subsystem for problems.
+2. Spawn one read-only critic (`opus`) to review the explained subsystem for problems.
 3. You are the lead. Put every finding in one bucket: Act on, Consider, Noted, or Dismissed.
 4. Dismiss findings that add abstraction without a concrete failure.
 
