@@ -20,45 +20,16 @@ export class DailyPage {
 
   // ---------------------------------------------------------------- locators
 
-  private get rulesRegion(): Locator {
-    return this.page.getByRole('region', { name: 'Puzzle rules' });
-  }
-
-  private get arrayGroup(): Locator {
-    return this.page.getByRole('group', { name: 'Puzzle array' });
-  }
-
-  private get slots(): Locator {
-    return this.arrayGroup.getByRole('button');
-  }
-
-  private slot(index: number): Locator {
-    return this.slots.nth(index);
-  }
-
-  private button(name: string): Locator {
-    return this.page.getByRole('button', { name, exact: true });
-  }
-
-  private get playback(): Locator {
-    return this.page.getByRole('toolbar', { name: 'Playback' });
-  }
-
-  private playbackButton(name: string): Locator {
-    return this.playback.getByRole('button', { name });
-  }
-
-  private get timeline(): Locator {
-    return this.page.getByRole('slider', { name: 'Animation progress' });
-  }
-
-  private get speedPicker(): Locator {
-    return this.page.getByRole('combobox', { name: 'Speed' });
-  }
-
-  private status(name: string): Locator {
-    return this.page.getByRole('status', { name, exact: true });
-  }
+  private get rulesRegion(): Locator { return this.page.getByRole('region', { name: 'Puzzle rules' }); }
+  private get arrayGroup(): Locator { return this.page.getByRole('group', { name: 'Puzzle array' }); }
+  private get slots(): Locator { return this.arrayGroup.getByRole('button'); }
+  private slot(index: number): Locator { return this.slots.nth(index); }
+  private button(name: string): Locator { return this.page.getByRole('button', { name, exact: true }); }
+  private get playback(): Locator { return this.page.getByRole('toolbar', { name: 'Playback' }); }
+  private playbackButton(name: string): Locator { return this.playback.getByRole('button', { name }); }
+  private get timeline(): Locator { return this.page.getByRole('slider', { name: 'Animation progress' }); }
+  private get speedPicker(): Locator { return this.page.getByRole('combobox', { name: 'Speed' }); }
+  private status(name: string): Locator { return this.page.getByRole('status', { name, exact: true }); }
 
   // -------------------------------------------------------- setup / opening
 
@@ -171,7 +142,7 @@ export class DailyPage {
   /** Auto-retrying assertion that a named status readout is visible and its first number is `expected`. */
   async expectStatusNumber(name: string, expected: number, message: string): Promise<void> {
     const locator = this.status(name);
-    await expect(locator, message).toBeVisible();
+    await expect(locator, `${message} ("${name}" status readout should be visible)`).toBeVisible();
     await expect(
       locator,
       `${message} (the first number in the "${name}" readout must be ${expected})`,
@@ -191,23 +162,23 @@ export class DailyPage {
   }
 
   async canRun(): Promise<boolean> {
-    const run = this.button('Run');
-    return (await run.isVisible()) && (await run.isEnabled());
+    return this.isReady(this.button('Run'));
   }
 
   async canShare(): Promise<boolean> {
-    const share = this.button('Share');
-    return (await share.isVisible()) && (await share.isEnabled());
+    return this.isReady(this.button('Share'));
   }
 
-  async progress(): Promise<number> {
+  async progress(context?: string): Promise<number> {
+    const prefix = context ? `${context}: ` : '';
+    await this.expectVisible(this.timeline, `${prefix}Animation progress slider`, 'reading playback progress');
     const ariaNow = await this.timeline.getAttribute('aria-valuenow');
     if (ariaNow !== null && ariaNow.trim() !== '') return Number(ariaNow);
     return Number(await this.timeline.inputValue());
   }
 
-  async roundedProgress(): Promise<number> {
-    return Math.round(await this.progress());
+  async roundedProgress(context?: string): Promise<number> {
+    return Math.round(await this.progress(context));
   }
 
   // --------------------------------------------------------------- editing
@@ -270,14 +241,15 @@ export class DailyPage {
   // -------------------------------------------------------------- playback
 
   async run(): Promise<void> {
-    await this.button('Run').click();
+    await this.clickWhenReady(this.button('Run'), 'Run button', 'running the puzzle');
   }
 
   async skip(context?: string): Promise<void> {
     const prefix = context ? `${context}: ` : '';
-    await this.button('Skip').click();
+    await this.clickWhenReady(this.button('Skip'), `${prefix}Skip button`, 'skipping the animation');
+    await this.expectVisible(this.timeline, `${prefix}Animation progress slider`, 'checking progress after Skip');
     await expect
-      .poll(() => this.roundedProgress(), {
+      .poll(() => this.roundedProgress(context), {
         intervals: [50],
         timeout: 1_000,
         message: `${prefix}Skip must jump rounded Animation progress to 100 within 1000 ms, not play through the remaining animation`,
@@ -286,6 +258,7 @@ export class DailyPage {
   }
 
   async waitForRunToFinish(timeout = 60_000): Promise<void> {
+    await this.expectVisible(this.timeline, 'Animation progress slider', 'waiting for Run to finish');
     await expect
       .poll(() => this.roundedProgress(), {
         intervals: [100],
@@ -296,45 +269,58 @@ export class DailyPage {
   }
 
   async playPlayback(): Promise<void> {
-    await this.playbackButton('Play').click();
+    await this.clickWhenReady(this.playbackButton('Play'), 'Play button in Playback toolbar', 'resuming playback');
   }
 
   async pausePlayback(): Promise<void> {
-    await this.playbackButton('Pause').click();
+    await this.clickWhenReady(this.playbackButton('Pause'), 'Pause button in Playback toolbar', 'pausing playback');
   }
 
   async replayPlayback(): Promise<void> {
-    await this.playbackButton('Replay').click();
+    await this.clickWhenReady(this.playbackButton('Replay'), 'Replay button in Playback toolbar', 'replaying the sort');
   }
 
   async skipToEnd(context?: string): Promise<void> {
     const prefix = context ? `${context}: ` : '';
-    await this.playbackButton('Skip to the end').click();
+    await this.clickWhenReady(
+      this.playbackButton('Skip to the end'),
+      `${prefix}Skip to the end button in Playback toolbar`,
+      'skipping to the end of playback',
+    );
     await expect
-      .poll(() => this.roundedProgress(), {
+      .poll(() => this.roundedProgress(context), {
         message: `${prefix}Skip to the end should move rounded Animation progress to 100`,
       })
       .toBe(100);
   }
 
   async speeds(): Promise<number[]> {
-    await this.speedPicker.click();
+    await this.clickWhenReady(this.speedPicker, 'Speed combobox', 'listing playback speeds');
     const options = await this.page.getByRole('option').allTextContents();
     await this.page.keyboard.press('Escape');
     return options.map((option) => parseFloat(option));
   }
 
   async setSpeed(speed: number): Promise<void> {
-    await this.speedPicker.click();
-    await this.page.getByRole('option', { name: `${speed}×`, exact: true }).click();
+    await this.clickWhenReady(this.speedPicker, 'Speed combobox', `selecting ${speed}× playback speed`);
+    await this.clickWhenReady(
+      this.page.getByRole('option', { name: `${speed}×`, exact: true }),
+      `Speed option "${speed}×"`,
+      `selecting ${speed}× playback speed`,
+    );
   }
 
   async speed(): Promise<number> {
+    await this.expectVisible(this.speedPicker, 'Speed combobox', 'reading the selected playback speed');
     return parseFloat((await this.speedPicker.textContent()) ?? '');
   }
 
   async rewind(): Promise<void> {
-    await this.playbackButton('Back to the start').click();
+    await this.clickWhenReady(
+      this.playbackButton('Back to the start'),
+      'Back to the start button in Playback toolbar',
+      'rewinding playback to the start',
+    );
     await expect
       .poll(() => this.progress(), { message: 'Back to the start should move Animation progress to 0' })
       .toBe(0);
@@ -351,7 +337,7 @@ export class DailyPage {
     context?: string,
   ): Promise<{ steps: number; counter: number; atEnd: boolean }> {
     let previousCounter = await this.counter(context);
-    let atEnd = (await this.roundedProgress()) === 100;
+    let atEnd = (await this.roundedProgress(context)) === 100;
     let steps = 0;
     while (!atEnd && steps < maxSteps) {
       steps += 1;
@@ -375,7 +361,7 @@ export class DailyPage {
     maxSteps = 20,
   ): Promise<{ counter: number; progress: number; steps: number }> {
     let counter = await this.counter(context);
-    let rawProgress = await this.progress();
+    let rawProgress = await this.progress(context);
     for (let steps = 1; steps <= maxSteps; steps += 1) {
       const stepCtx = context ? `${context} step back ${steps}` : undefined;
       const settled = await this.stepAndSettle('Previous step', 0, stepCtx);
@@ -390,7 +376,7 @@ export class DailyPage {
   async shareText(): Promise<string> {
     await this.page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
     await this.page.evaluate(() => navigator.clipboard.writeText(''));
-    await this.button('Share').click();
+    await this.clickWhenReady(this.button('Share'), 'Share button', 'copying the share text');
     let copied = '';
     await expect
       .poll(async () => (copied = await this.page.evaluate(() => navigator.clipboard.readText())), {
@@ -425,12 +411,16 @@ export class DailyPage {
     context?: string,
   ): Promise<{ counter: number; progress: number }> {
     const prefix = context ? `${context}: ` : '';
-    const before = await this.progress();
-    await this.playbackButton(action).click();
+    const before = await this.progress(context);
+    await this.clickWhenReady(
+      this.playbackButton(action),
+      `${prefix}${action} button in Playback toolbar`,
+      action === 'Next step' ? 'stepping forward' : 'stepping back',
+    );
     const atBoundary = boundary === 100 ? Math.round(before) === 100 : before === 0;
     if (!atBoundary) {
       await expect
-        .poll(() => this.progress(), {
+        .poll(() => this.progress(context), {
           intervals: [50],
           message: `${prefix}${action} should move Animation progress from ${before}`,
         })
@@ -442,15 +432,14 @@ export class DailyPage {
   private async waitForStepToSettle(action: string, context?: string): Promise<{ counter: number; progress: number }> {
     const prefix = context ? `${context}: ` : '';
     const pauseButton = this.playbackButton('Pause');
-    let prevProgress = await this.progress();
+    let prevProgress = await this.progress(context);
     let prevCounter = await this.counter(context);
     await expect
       .poll(
         async () => {
           await this.waitTwoFrames();
-          const playing =
-            (await pauseButton.isVisible()) && (await pauseButton.isEnabled({ timeout: 250 }).catch(() => false));
-          const progress = await this.progress();
+          const playing = await this.isReady(pauseButton);
+          const progress = await this.progress(context);
           const counter = await this.counter(context);
           const settled = !playing && progress === prevProgress && counter === prevCounter;
           prevProgress = progress;
@@ -479,9 +468,23 @@ export class DailyPage {
     });
   }
 
+  private async expectVisible(locator: Locator, label: string, action: string): Promise<void> {
+    await expect(locator, `${label} should be visible when ${action}`).toBeVisible();
+  }
+
+  private async clickWhenReady(locator: Locator, label: string, action: string): Promise<void> {
+    await expect(locator, `${label} should be visible before ${action}`).toBeVisible();
+    await expect(locator, `${label} should be enabled before ${action}`).toBeEnabled();
+    await locator.click();
+  }
+
+  private async isReady(locator: Locator): Promise<boolean> {
+    return (await locator.isVisible()) && (await locator.isEnabled({ timeout: 250 }).catch(() => false));
+  }
+
   private async readNumber(locator: Locator, label: string, context?: string): Promise<number> {
     const prefix = context ? `${context}: ` : '';
-    await expect(locator, `${prefix}${label} should be visible`).toBeVisible();
+    await this.expectVisible(locator, `${prefix}${label}`, 'reading its value');
     const text = ((await locator.textContent()) ?? '').trim();
     const match = text.match(/-?\d+/);
     if (!match) throw new Error(`${prefix}Expected ${label} to contain a number, got "${text}"`);
