@@ -128,7 +128,10 @@ describe('parsePuzzle — no best score', () => {
     } catch (caught: unknown) {
       error = caught;
     }
-    expect(error, `${call}: expected no error because best is not part of the puzzle file, but it threw ${String(error)}`).toBeUndefined();
+    expect(
+      error,
+      `${call}: expected no error because best is not part of the puzzle file, but it threw ${String(error)}`
+    ).toBeUndefined();
     expect(result, `${call}: expected the puzzle back unchanged`).toEqual(input);
   });
 
@@ -142,12 +145,17 @@ describe('parsePuzzle — no best score', () => {
     } catch (caught: unknown) {
       error = caught;
     }
-    expect(error, `${call}: expected an extra best field to be ignored, but it threw ${String(error)}`).toBeUndefined();
+    expect(
+      error,
+      `${call}: expected an extra best field to be ignored, but it threw ${String(error)}`
+    ).toBeUndefined();
     expect(
       result && 'best' in result,
       `${call}: expected the returned puzzle to have no best key, got ${JSON.stringify(result)}`
     ).toBe(false);
-    expect(result, `${call}: expected { number, template, values, fixed, par } only`).toEqual(DAILY_12);
+    expect(result, `${call}: expected { number, template, values, fixed, par } only`).toEqual(
+      DAILY_12
+    );
   });
 });
 
@@ -193,13 +201,18 @@ describe('shareText', () => {
     const scores = [30, 34, 36];
     const text = shareText({ ...DAILY_12, best: 36 } as Puzzle, scores);
     const call = `shareText(puzzle #12 goal 34 with extra best 36, ${JSON.stringify(scores)})`;
-    expect(text.includes('🏆'), `${call}: must not contain 🏆, got ${JSON.stringify(text)}`).toBe(false);
-    expect(/\/\s*36/.test(text), `${call}: must not contain "/ 36" (the best), got ${JSON.stringify(text)}`).toBe(false);
-    for (const arrangement of [DAILY_12.values, [8, 1, 5, 3, 2, 7, 4, 6]]) {
+    expect(text.includes('🏆'), `${call}: must not contain 🏆, got ${JSON.stringify(text)}`).toBe(
+      false
+    );
+    expect(
+      /\/\s*36/.test(text),
+      `${call}: must not contain "/ 36" (the best), got ${JSON.stringify(text)}`
+    ).toBe(false);
+    [DAILY_12.values, [8, 1, 5, 3, 2, 7, 4, 6]].forEach((arrangement) => {
       expect(
         text.includes(arrangement.join(', ')) || text.includes(arrangement.join(',')),
         `${call}: must not contain the arrangement ${JSON.stringify(arrangement)}, got ${JSON.stringify(text)}`
       ).toBe(false);
-    }
+    });
   });
 });
