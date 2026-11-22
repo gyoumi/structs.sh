@@ -183,11 +183,14 @@ export class DailyPage {
     return this.readNumber(this.status('Best'), 'Best status', context);
   }
 
-  /** Auto-retrying assertion that a named status readout is visible and shows `expected`. */
+  /** Auto-retrying assertion that a named status readout is visible and its first number is `expected`. */
   async expectStatusNumber(name: string, expected: number, message: string): Promise<void> {
     const locator = this.status(name);
     await expect(locator, message).toBeVisible();
-    await expect(locator, message).toHaveText(new RegExp(`(^|\\D)${expected}(\\D|$)`));
+    await expect(
+      locator,
+      `${message} (the first number in the "${name}" readout must be ${expected})`,
+    ).toHaveText(new RegExp(`^[^\\d-]*${expected}(?!\\d)`));
   }
 
   async bestVisible(): Promise<boolean> {
