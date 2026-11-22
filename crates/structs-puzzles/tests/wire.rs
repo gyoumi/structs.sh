@@ -94,3 +94,13 @@ fn a_huge_fixed_index_does_not_wrap_its_slot_number() {
         score_request(&request(QUICKSORT, &[1, 2], &[4_294_967_295], &[1, 2])).unwrap_err();
     assert!(message.contains("fixed slot 4294967296"), "{message}");
 }
+
+#[cfg(target_pointer_width = "64")]
+#[test]
+fn a_usize_max_fixed_index_does_not_overflow_its_slot_number() {
+    let message = score_request(&request(QUICKSORT, &[1, 2], &[usize::MAX], &[1, 2])).unwrap_err();
+    assert!(
+        message.contains("fixed slot 18446744073709551616"),
+        "{message}"
+    );
+}
