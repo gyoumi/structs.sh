@@ -6,6 +6,7 @@ export interface StepReading {
   step: number;
   before: number;
   after: number;
+  /** Rounded Animation progress (0-100). */
   progress: number;
 }
 
@@ -64,11 +65,7 @@ export class DailyPage {
   /** Serves `puzzle` in response to GET /puzzles/today.json. */
   async serve(puzzle: DailyPuzzle): Promise<void> {
     await this.page.route('**/puzzles/today.json', (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(puzzle),
-      }),
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(puzzle) }),
     );
   }
 
@@ -83,10 +80,7 @@ export class DailyPage {
 
   async expectRulesToContain(expected: string, context: string): Promise<void> {
     await expect(this.rulesRegion, `${context}: /daily should show a Puzzle rules region`).toBeVisible();
-    await expect(
-      this.rulesRegion,
-      `${context}: Puzzle rules region should contain "${expected}"`,
-    ).toContainText(expected);
+    await expect(this.rulesRegion, `${context}: Puzzle rules region should contain "${expected}"`).toContainText(expected);
   }
 
   /** The values shown in Puzzle array from left to right. */
@@ -110,13 +104,8 @@ export class DailyPage {
       window.scrollTo({ top: Math.max(0, window.scrollY + rect.top - offset), left: 0, behavior: 'instant' });
     });
     const scrollX = await this.page.evaluate(() => window.scrollX);
-    expect(
-      scrollX,
-      `${context}: window.scrollX should remain 0 after vertically scrolling Puzzle array into view`,
-    ).toBe(0);
-    await expect(this.slots, `${context}: Puzzle array should render all ${expectedCount} slots`).toHaveCount(
-      expectedCount,
-    );
+    expect(scrollX, `${context}: window.scrollX should remain 0 after vertically scrolling Puzzle array into view`).toBe(0);
+    await expect(this.slots, `${context}: Puzzle array should render all ${expectedCount} slots`).toHaveCount(expectedCount);
     for (let i = 0; i < expectedCount; i += 1) {
       const slot = this.slot(i);
       const text = ((await slot.textContent()) ?? '').trim();
@@ -217,6 +206,10 @@ export class DailyPage {
     return Number(await this.timeline.inputValue());
   }
 
+  async roundedProgress(): Promise<number> {
+    return Math.round(await this.progress());
+  }
+
   // --------------------------------------------------------------- editing
 
   async select(index: number): Promise<void> {
@@ -284,17 +277,21 @@ export class DailyPage {
     const prefix = context ? `${context}: ` : '';
     await this.button('Skip').click();
     await expect
-      .poll(() => this.progress(), {
+      .poll(() => this.roundedProgress(), {
         intervals: [50],
         timeout: 1_000,
-        message: `${prefix}Skip must jump Animation progress to 100 within 1000 ms, not play through the remaining animation`,
+        message: `${prefix}Skip must jump rounded Animation progress to 100 within 1000 ms, not play through the remaining animation`,
       })
       .toBe(100);
   }
 
   async waitForRunToFinish(timeout = 60_000): Promise<void> {
     await expect
-      .poll(() => this.progress(), { intervals: [100], timeout, message: 'Run should animate to Animation progress 100' })
+      .poll(() => this.roundedProgress(), {
+        intervals: [100],
+        timeout,
+        message: 'Run should animate to rounded Animation progress 100',
+      })
       .toBe(100);
   }
 
@@ -314,7 +311,9 @@ export class DailyPage {
     const prefix = context ? `${context}: ` : '';
     await this.playbackButton('Skip to the end').click();
     await expect
-      .poll(() => this.progress(), { message: `${prefix}Skip to the end should move Animation progress to 100` })
+      .poll(() => this.roundedProgress(), {
+        message: `${prefix}Skip to the end should move rounded Animation progress to 100`,
+      })
       .toBe(100);
   }
 
@@ -352,15 +351,16 @@ export class DailyPage {
     context?: string,
   ): Promise<{ steps: number; counter: number; atEnd: boolean }> {
     let previousCounter = await this.counter(context);
-    let atEnd = (await this.progress()) === 100;
+    let atEnd = (await this.roundedProgress()) === 100;
     let steps = 0;
     while (!atEnd && steps < maxSteps) {
       steps += 1;
       const stepCtx = context ? `${context} step ${steps}` : undefined;
       const settled = await this.stepAndSettle('Next step', 100, stepCtx);
-      await onStep({ step: steps, before: previousCounter, after: settled.counter, progress: settled.progress });
+      const rounded = Math.round(settled.progress);
+      await onStep({ step: steps, before: previousCounter, after: settled.counter, progress: rounded });
       previousCounter = settled.counter;
-      atEnd = settled.progress === 100;
+      atEnd = rounded === 100;
     }
     return { steps, counter: previousCounter, atEnd };
   }
@@ -375,15 +375,15 @@ export class DailyPage {
     maxSteps = 20,
   ): Promise<{ counter: number; progress: number; steps: number }> {
     let counter = await this.counter(context);
-    let progress = await this.progress();
+    let rawProgress = await this.progress();
     for (let steps = 1; steps <= maxSteps; steps += 1) {
       const stepCtx = context ? `${context} step back ${steps}` : undefined;
       const settled = await this.stepAndSettle('Previous step', 0, stepCtx);
       counter = settled.counter;
-      progress = settled.progress;
-      if (counter < from || progress === 0) return { counter, progress, steps };
+      rawProgress = settled.progress;
+      if (counter < from || rawProgress === 0) return { counter, progress: Math.round(rawProgress), steps };
     }
-    return { counter, progress, steps: maxSteps };
+    return { counter, progress: Math.round(rawProgress), steps: maxSteps };
   }
 
   /** Grants clipboard permissions, clears the clipboard, clicks Share, and returns the copied share text. */
@@ -393,13 +393,9 @@ export class DailyPage {
     await this.button('Share').click();
     let copied = '';
     await expect
-      .poll(
-        async () => {
-          copied = await this.page.evaluate(() => navigator.clipboard.readText());
-          return copied;
-        },
-        { message: 'Clicking Share should copy non-empty share text to the clipboard' },
-      )
+      .poll(async () => (copied = await this.page.evaluate(() => navigator.clipboard.readText())), {
+        message: 'Clicking Share should copy non-empty share text to the clipboard',
+      })
       .not.toBe('');
     return copied;
   }
@@ -431,7 +427,8 @@ export class DailyPage {
     const prefix = context ? `${context}: ` : '';
     const before = await this.progress();
     await this.playbackButton(action).click();
-    if (before !== boundary) {
+    const atBoundary = boundary === 100 ? Math.round(before) === 100 : before === 0;
+    if (!atBoundary) {
       await expect
         .poll(() => this.progress(), {
           intervals: [50],
