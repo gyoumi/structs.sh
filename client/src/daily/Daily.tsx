@@ -1,5 +1,5 @@
 import '@fontsource-variable/fredoka';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import logo from '@/assets/img/structs.png';
 import hero from '@/landing/HeroSection.module.css';
@@ -33,12 +33,13 @@ const swapValues = (values: number[], a: number, b: number) =>
 
 type PlayProps = {
   puzzle: Puzzle;
+  theme: Theme;
   values: number[];
   fixed: Set<number>;
   onSwap: (a: number, b: number) => void;
 };
 
-const Play = ({ puzzle, values, fixed, onSwap }: PlayProps) => {
+const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
   const session = useSession();
   const complete = useSnapshot((s) => s.complete);
   const comparisons = useSnapshot((s) => s.comparisons ?? 0);
@@ -47,10 +48,27 @@ const Play = ({ puzzle, values, fixed, onSwap }: PlayProps) => {
   const [scoreFailed, setScoreFailed] = useState(false);
   const [shared, setShared] = useState<'copied' | 'failed' | null>(null);
   const arrangement = useRef(values);
+  // The theme the canvas was last drawn in. Colours are fixed when drawn, so a theme switch
+  // waits for the next arrangement unless nothing has run yet.
+  const drawnTheme = useRef(theme);
 
   useEffect(() => {
     loadPuzzles().catch(() => {});
   }, []);
+
+  const applyTheme = useEffectEvent(() => {
+    if (drawnTheme.current === theme) return;
+    if (phase !== 'ready' || session.getSnapshot().duration > 0) return;
+    drawnTheme.current = theme;
+    session.retheme(canvasThemes[theme]);
+  });
+
+  useEffect(() => applyTheme(), [theme]);
+
+  const draw = (arrangementValues: number[]) => {
+    drawnTheme.current = theme;
+    session.loadData(arrangementValues, canvasThemes[theme]);
+  };
 
   // A try is over once its animation reaches the end, however it got there (playing, Skip or the slider).
   useEffect(() => {
@@ -78,12 +96,22 @@ const Play = ({ puzzle, values, fixed, onSwap }: PlayProps) => {
     arrangement.current = values;
     setScoreFailed(false);
     setPhase('running');
-    session.loadData(values);
+    draw(values);
     session.run('quick', []);
   };
 
+  const swap = (a: number, b: number) => {
+    onSwap(a, b);
+    draw(swapValues(values, a, b));
+  };
+
   const share = () => {
-    navigator.clipboard
+    const clipboard = navigator.clipboard as Clipboard | undefined;
+    if (!clipboard?.writeText) {
+      setShared('failed');
+      return;
+    }
+    clipboard
       .writeText(shareText(puzzle, scores))
       .then(() => setShared('copied'))
       .catch(() => setShared('failed'));
@@ -99,7 +127,9 @@ const Play = ({ puzzle, values, fixed, onSwap }: PlayProps) => {
   } else if (ended) {
     message = `Out of tries. Your highest score was ${highest} out of ${puzzle.best}.`;
   } else if (scored && score < puzzle.par) message = 'Swap numbers and run again to go higher.';
-  else if (scored) message = 'Can you go even higher? Swap numbers and run again.';
+  else if (scored) {
+    message = 'You reached the goal! Can you go even higher? Swap numbers and run again.';
+  }
 
   return (
     <section className={styles.play}>
@@ -144,7 +174,7 @@ const Play = ({ puzzle, values, fixed, onSwap }: PlayProps) => {
           </output>
         )}
       </div>
-      <PuzzleArray values={values} fixed={fixed} frozen={busy || ended} onSwap={onSwap} />
+      <PuzzleArray values={values} fixed={fixed} frozen={busy || ended} onSwap={swap} />
       <div className={`${styles.column} ${styles.actions}`}>
         <button
           type="button"
@@ -202,7 +232,10 @@ const Play = ({ puzzle, values, fixed, onSwap }: PlayProps) => {
 const PuzzleView = ({ puzzle, theme }: { puzzle: Puzzle; theme: Theme }) => {
   const [values, setValues] = useState(puzzle.values);
   const [fixed] = useState(() => new Set(puzzle.fixed));
-  const session = useCreateSession(sorting, canvasThemes[theme], values);
+  // The session is created with the first theme and values only. Play redraws on later changes,
+  // so a theme switch never drops a try that is still running.
+  const [initial] = useState(() => ({ theme: canvasThemes[theme], values: puzzle.values }));
+  const session = useCreateSession(sorting, initial.theme, initial.values);
 
   // A full quicksort at 1x takes about a minute, so tries start at the fastest speed.
   useEffect(() => session.setSpeed(2), [session]);
@@ -230,6 +263,7 @@ const PuzzleView = ({ puzzle, theme }: { puzzle: Puzzle; theme: Theme }) => {
       <SessionContext value={session}>
         <Play
           puzzle={puzzle}
+          theme={theme}
           values={values}
           fixed={fixed}
           onSwap={(a, b) => setValues((current) => swapValues(current, a, b))}

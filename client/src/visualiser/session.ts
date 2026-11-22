@@ -201,8 +201,9 @@ export class VisualiserSession {
     this.update({ speed });
   };
 
-  /** Draws `data` as the structure's values, dropping any run. */
-  loadData = (data: number[]): void => {
+  /** Draws `data` as the structure's values, dropping any run. Given a theme, draws in it. */
+  loadData = (data: number[], canvasTheme?: Partial<CanvasTheme>): void => {
+    if (canvasTheme) setCanvasTheme(canvasTheme);
     this.controller.loadData(data);
     this.resetPlayback();
   };

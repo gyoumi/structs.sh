@@ -19,25 +19,21 @@ export default class SortsQuickAnimationProducer extends SortsAnimationProducer 
   }
 
   /**
-   * Records one value comparison and passes its result through. Given a code line, the comparison
-   * also gets a timeline step of its own that marks the compared element, so the count changes by
-   * one per step.
+   * Records one value comparison and passes its result through. Each comparison gets a timeline
+   * step of its own that marks the compared element, so the count changes by one per step.
    */
   public countComparison(
     result: boolean,
-    line?: number,
-    element?: GraphicalSortsElement,
-    colour?: string
+    line: number,
+    element: GraphicalSortsElement,
+    colour: string
   ): boolean {
     this.comparisonCount += 1;
-    if (line !== undefined) {
-      this.doAnimationAndHighlightTimestamp(line, true, this.markCompared, element, colour);
-    }
+    this.doAnimationAndHighlightTimestamp(line, true, this.markCompared, element, colour);
     return result;
   }
 
-  public markCompared(element?: GraphicalSortsElement, colour?: string) {
-    if (!element || !colour) return;
+  public markCompared(element: GraphicalSortsElement, colour: string) {
     this.addSequenceAnimation(
       element.boxTarget.animate(150).attr({ stroke: colour, fill: colour })
     );
