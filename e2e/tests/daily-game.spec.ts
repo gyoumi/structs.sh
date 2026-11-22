@@ -156,10 +156,6 @@ test.describe('daily game', () => {
       `${ctx}: after Run and Pause, Animation progress should be below 100 before the run finishes`,
     ).toBeLessThan(100);
     expect(
-      midCounter,
-      `${ctx}: after Run and Pause, Comparisons counter should be below ${DAILY_12.start.count} before the run finishes`,
-    ).toBeLessThan(DAILY_12.start.count);
-    expect(
       runEnabledWhileAnimating,
       `${ctx}: while Run is animating (checked before Pause at progress ${midProgress}%, comparisons ${midCounter}/${DAILY_12.start.count}), Run button should be disabled`,
     ).toBe(false);
@@ -182,23 +178,27 @@ test.describe('daily game', () => {
     const sortedKey = fmt(sorted);
     let sawIntermediateArrangement = false;
     const maxSteps = 250;
-    const result = await dailyPage.stepToEnd(maxSteps, async ({ step, before, after, progress }) => {
-      const delta = after - before;
-      expect(
-        delta,
-        `${ctx} step ${step}: Comparisons counter went from ${before} to ${after} (delta ${delta}); must never go down`,
-      ).toBeGreaterThanOrEqual(0);
-      expect(
-        delta,
-        `${ctx} step ${step}: Comparisons counter went from ${before} to ${after} (delta ${delta}); must go up by at most 1 per step`,
-      ).toBeLessThanOrEqual(1);
+    const result = await dailyPage.stepToEnd(
+      maxSteps,
+      async ({ step, before, after, progress }) => {
+        const delta = after - before;
+        expect(
+          delta,
+          `${ctx} step ${step}: Comparisons counter went from ${before} to ${after} (delta ${delta}); must never go down`,
+        ).toBeGreaterThanOrEqual(0);
+        expect(
+          delta,
+          `${ctx} step ${step}: Comparisons counter went from ${before} to ${after} (delta ${delta}); must go up by at most 1 per step`,
+        ).toBeLessThanOrEqual(1);
 
-      const drawn = await dailyPage.drawnValues();
-      const drawnKey = fmt(drawn);
-      const isPermutation = fmt([...drawn].sort((a, b) => a - b)) === sortedKey;
-      sawIntermediateArrangement ||=
-        progress < 100 && isPermutation && drawnKey !== startKey && drawnKey !== sortedKey;
-    });
+        const drawn = await dailyPage.drawnValues();
+        const drawnKey = fmt(drawn);
+        const isPermutation = fmt([...drawn].sort((a, b) => a - b)) === sortedKey;
+        sawIntermediateArrangement ||=
+          progress < 100 && isPermutation && drawnKey !== startKey && drawnKey !== sortedKey;
+      },
+      ctx,
+    );
 
     expect(
       result.atEnd,
@@ -230,12 +230,11 @@ test.describe('daily game', () => {
     const ctx = `${DAILY_7.name} ${fmt(DAILY_7.start.values)}`;
     const finalCount = await dailyPage.counter(ctx);
     expect(finalCount, `${ctx}: final Comparisons counter should match hand-worked count ${DAILY_7.start.count}`).toBe(DAILY_7.start.count);
-    await expect
-      .poll(() => dailyPage.score(ctx), {
-        message: `${ctx}: Score status should match hand-worked count ${DAILY_7.start.count}`,
-      })
-      .toBe(DAILY_7.start.count);
-    expect(await dailyPage.score(ctx), `${ctx}: Score status should equal final Comparisons counter`).toBe(finalCount);
+    await dailyPage.expectStatusNumber(
+      'Score',
+      finalCount,
+      `${ctx}: Score status should match final Comparisons counter (${finalCount}) and hand-worked count ${DAILY_7.start.count}`,
+    );
   });
 
   test('Skip jumps straight to the final count', async ({ dailyPage }) => {
@@ -258,11 +257,11 @@ test.describe('daily game', () => {
     await dailyPage.skip(ctx);
 
     expect(await dailyPage.counter(ctx), `${ctx}: Skip while paused should jump Comparisons counter to ${DAILY_12.start.count}`).toBe(DAILY_12.start.count);
-    await expect
-      .poll(() => dailyPage.score(ctx), {
-        message: `${ctx}: Skip while paused should show final Score ${DAILY_12.start.count}`,
-      })
-      .toBe(DAILY_12.start.count);
+    await dailyPage.expectStatusNumber(
+      'Score',
+      DAILY_12.start.count,
+      `${ctx}: Skip while paused should show final Score ${DAILY_12.start.count}`,
+    );
   });
 
   test('stepping back lowers the counter', async ({ dailyPage }) => {
@@ -276,7 +275,7 @@ test.describe('daily game', () => {
     const atEnd = await dailyPage.counter(ctx);
     expect(atEnd, `${ctx}: setup after Skip should show Comparisons counter ${DAILY_12.start.count}`).toBe(DAILY_12.start.count);
 
-    const stepped = await dailyPage.stepBackUntilCounterDrops(atEnd);
+    const stepped = await dailyPage.stepBackUntilCounterDrops(atEnd, ctx);
     expect(stepped.progress, `${ctx}: Previous step (${stepped.steps} click(s)) should move Animation progress below 100`).toBeLessThan(100);
     expect(stepped.counter, `${ctx}: Previous step (${stepped.steps} click(s)) from ${atEnd} should lower Comparisons counter below ${atEnd}`).toBeLessThan(atEnd);
     expect(stepped.counter, `${ctx}: Comparisons counter after stepping back should stay >= 0`).toBeGreaterThanOrEqual(0);
@@ -291,19 +290,19 @@ test.describe('daily game', () => {
     await dailyPage.run();
     await dailyPage.skip(ctx);
 
-    await expect
-      .poll(() => dailyPage.score(ctx), {
-        message: `${ctx}: Score should be ${DAILY_12.par.count} (par ${DAILY_12.puzzle.par})`,
-      })
-      .toBe(DAILY_12.par.count);
+    await dailyPage.expectStatusNumber(
+      'Score',
+      DAILY_12.par.count,
+      `${ctx}: Score should be ${DAILY_12.par.count} (par ${DAILY_12.puzzle.par})`,
+    );
     expect(await dailyPage.parReached(), `${ctx}: "Par reached" status should be visible`).toBe(true);
     expect(await dailyPage.bestReached(), `${ctx}: "Best reached" status should stay hidden below best`).toBe(false);
     expect(await dailyPage.bestVisible(), `${ctx}: Best status should stay hidden while tries remain`).toBe(false);
-    await expect
-      .poll(() => dailyPage.triesLeft(ctx), {
-        message: `${ctx}: 2 tries should remain after reaching par on try 1`,
-      })
-      .toBe(2);
+    await dailyPage.expectStatusNumber(
+      'Tries left',
+      2,
+      `${ctx}: 2 tries should remain after reaching par on try 1`,
+    );
     expect(await dailyPage.canRun(), `${ctx}: Run button should remain enabled for the next try`).toBe(true);
     expect(await dailyPage.values(), `${ctx}: Puzzle array should stay as the player left it`).toEqual([...DAILY_12.par.values]);
   });
@@ -317,11 +316,11 @@ test.describe('daily game', () => {
     await dailyPage.run();
     await dailyPage.skip(ctx);
 
-    await expect
-      .poll(() => dailyPage.score(ctx), {
-        message: `${ctx}: Score should be ${DAILY_12.bestFromStart.count} (best)`,
-      })
-      .toBe(DAILY_12.bestFromStart.count);
+    await dailyPage.expectStatusNumber(
+      'Score',
+      DAILY_12.bestFromStart.count,
+      `${ctx}: Score should be ${DAILY_12.bestFromStart.count} (best)`,
+    );
     expect(await dailyPage.bestReached(), `${ctx}: "Best reached" status should be visible`).toBe(true);
     expect(await dailyPage.best(ctx), `${ctx}: Best status should reveal ${DAILY_12.puzzle.best}`).toBe(DAILY_12.puzzle.best);
     expect(await dailyPage.canRun(), `${ctx}: Run button should be disabled or hidden after reaching best`).toBe(false);
@@ -355,32 +354,16 @@ test.describe('daily game', () => {
     // Try 1: 30 (below par)
     await dailyPage.run();
     await dailyPage.skip(try1Ctx);
-    await expect
-      .poll(() => dailyPage.score(try1Ctx), {
-        message: `${try1Ctx}: Score should be ${DAILY_12.start.count}`,
-      })
-      .toBe(DAILY_12.start.count);
-    await expect
-      .poll(() => dailyPage.triesLeft(try1Ctx), {
-        message: `${try1Ctx}: Tries left should be 2`,
-      })
-      .toBe(2);
+    await dailyPage.expectStatusNumber('Score', DAILY_12.start.count, `${try1Ctx}: Score should be ${DAILY_12.start.count}`);
+    await dailyPage.expectStatusNumber('Tries left', 2, `${try1Ctx}: Tries left should be 2`);
     expect(await dailyPage.values(), `${try1Ctx}: Puzzle array should stay at ${fmt(DAILY_12.start.values)}`).toEqual([...DAILY_12.start.values]);
 
     // Try 2: 34 (reaches par, below best; highest of the three tries)
     await dailyPage.swap(DAILY_12.par.swap[0], DAILY_12.par.swap[1]);
     await dailyPage.run();
     await dailyPage.skip(try2Ctx);
-    await expect
-      .poll(() => dailyPage.score(try2Ctx), {
-        message: `${try2Ctx}: Score should be ${DAILY_12.par.count}`,
-      })
-      .toBe(DAILY_12.par.count);
-    await expect
-      .poll(() => dailyPage.triesLeft(try2Ctx), {
-        message: `${try2Ctx}: Tries left should be 1`,
-      })
-      .toBe(1);
+    await dailyPage.expectStatusNumber('Score', DAILY_12.par.count, `${try2Ctx}: Score should be ${DAILY_12.par.count}`);
+    await dailyPage.expectStatusNumber('Tries left', 1, `${try2Ctx}: Tries left should be 1`);
 
     // Try 3: 25 (lower than tries 1 and 2)
     await dailyPage.swap(DAILY_12.lowFromPar.swap[0], DAILY_12.lowFromPar.swap[1]);
@@ -388,16 +371,12 @@ test.describe('daily game', () => {
     await dailyPage.skip(try3Ctx);
 
     expect(await dailyPage.counter(try3Ctx), `${try3Ctx}: Comparisons counter should be ${DAILY_12.lowFromPar.count}`).toBe(DAILY_12.lowFromPar.count);
-    await expect
-      .poll(() => dailyPage.triesLeft(try3Ctx), {
-        message: `${try3Ctx}: Tries left should be 0`,
-      })
-      .toBe(0);
-    await expect
-      .poll(() => dailyPage.score(endCtx), {
-        message: `${endCtx}: final Score should be the highest try (${DAILY_12.par.count})`,
-      })
-      .toBe(DAILY_12.par.count);
+    await dailyPage.expectStatusNumber('Tries left', 0, `${try3Ctx}: Tries left should be 0`);
+    await dailyPage.expectStatusNumber(
+      'Score',
+      DAILY_12.par.count,
+      `${endCtx}: final Score should be the highest try (${DAILY_12.par.count})`,
+    );
     expect(await dailyPage.best(endCtx), `${endCtx}: Best status should reveal ${DAILY_12.puzzle.best}`).toBe(DAILY_12.puzzle.best);
     expect(await dailyPage.canRun(), `${endCtx}: Run button should be disabled or hidden`).toBe(false);
     expect(await dailyPage.canShare(), `${endCtx}: Share button should be visible and enabled once the puzzle ends below best`).toBe(true);

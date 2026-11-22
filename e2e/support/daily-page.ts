@@ -102,9 +102,18 @@ export class DailyPage {
     return result;
   }
 
-  /** Scrolls Puzzle array into view and asserts every slot button fits fully in the viewport without clipping. */
+  /** Scrolls Puzzle array vertically into view (keeping scrollX at 0) and asserts every slot button fits fully in the viewport without clipping. */
   async expectAllSlotsInViewport(context: string, expectedCount: number): Promise<void> {
-    await this.arrayGroup.scrollIntoViewIfNeeded();
+    await this.arrayGroup.evaluate((el) => {
+      const rect = el.getBoundingClientRect();
+      const offset = Math.max(0, (window.innerHeight - rect.height) / 2);
+      window.scrollTo({ top: Math.max(0, window.scrollY + rect.top - offset), left: 0, behavior: 'instant' });
+    });
+    const scrollX = await this.page.evaluate(() => window.scrollX);
+    expect(
+      scrollX,
+      `${context}: window.scrollX should remain 0 after vertically scrolling Puzzle array into view`,
+    ).toBe(0);
     await expect(this.slots, `${context}: Puzzle array should render all ${expectedCount} slots`).toHaveCount(
       expectedCount,
     );
@@ -172,6 +181,13 @@ export class DailyPage {
 
   async best(context?: string): Promise<number> {
     return this.readNumber(this.status('Best'), 'Best status', context);
+  }
+
+  /** Auto-retrying assertion that a named status readout is visible and shows `expected`. */
+  async expectStatusNumber(name: string, expected: number, message: string): Promise<void> {
+    const locator = this.status(name);
+    await expect(locator, message).toBeVisible();
+    await expect(locator, message).toHaveText(new RegExp(`(^|\\D)${expected}(\\D|$)`));
   }
 
   async bestVisible(): Promise<boolean> {
@@ -303,18 +319,19 @@ export class DailyPage {
    * then waits for playback to pause and for both Animation progress and
    * Comparisons counter to settle.
    */
-  async stepForwardAndSettle(): Promise<{ counter: number; progress: number; atEnd: boolean }> {
+  async stepForwardAndSettle(context?: string): Promise<{ counter: number; progress: number; atEnd: boolean }> {
+    const prefix = context ? `${context}: ` : '';
     const before = await this.progress();
     await this.stepForward();
     if (before < 100) {
       await expect
         .poll(() => this.progress(), {
           intervals: [50],
-          message: `Next step should move Animation progress from ${before}`,
+          message: `${prefix}Next step should move Animation progress from ${before}`,
         })
         .not.toBe(before);
     }
-    const settled = await this.waitForStepToSettle('Next step');
+    const settled = await this.waitForStepToSettle('Next step', context);
     return { ...settled, atEnd: settled.progress === 100 };
   }
 
@@ -325,13 +342,15 @@ export class DailyPage {
   async stepToEnd(
     maxSteps: number,
     onStep: (reading: StepReading) => void | Promise<void>,
+    context?: string,
   ): Promise<{ steps: number; counter: number; atEnd: boolean }> {
-    let previousCounter = await this.counter();
+    let previousCounter = await this.counter(context);
     let atEnd = (await this.progress()) === 100;
     let steps = 0;
     while (!atEnd && steps < maxSteps) {
       steps += 1;
-      const settled = await this.stepForwardAndSettle();
+      const stepCtx = context ? `${context} step ${steps}` : undefined;
+      const settled = await this.stepForwardAndSettle(stepCtx);
       await onStep({ step: steps, before: previousCounter, after: settled.counter, progress: settled.progress });
       previousCounter = settled.counter;
       atEnd = settled.atEnd;
@@ -348,18 +367,19 @@ export class DailyPage {
    * then waits for playback to pause and for both Animation progress and
    * Comparisons counter to settle.
    */
-  async stepBackAndSettle(): Promise<{ counter: number; progress: number; atStart: boolean }> {
+  async stepBackAndSettle(context?: string): Promise<{ counter: number; progress: number; atStart: boolean }> {
+    const prefix = context ? `${context}: ` : '';
     const before = await this.progress();
     await this.stepBack();
     if (before > 0) {
       await expect
         .poll(() => this.progress(), {
           intervals: [50],
-          message: `Previous step should move Animation progress from ${before}`,
+          message: `${prefix}Previous step should move Animation progress from ${before}`,
         })
         .not.toBe(before);
     }
-    const settled = await this.waitForStepToSettle('Previous step');
+    const settled = await this.waitForStepToSettle('Previous step', context);
     return { ...settled, atStart: settled.progress === 0 };
   }
 
@@ -369,12 +389,14 @@ export class DailyPage {
    */
   async stepBackUntilCounterDrops(
     from: number,
+    context?: string,
     maxSteps = 20,
   ): Promise<{ counter: number; progress: number; steps: number }> {
-    let counter = await this.counter();
+    let counter = await this.counter(context);
     let progress = await this.progress();
     for (let steps = 1; steps <= maxSteps; steps += 1) {
-      const settled = await this.stepBackAndSettle();
+      const stepCtx = context ? `${context} step back ${steps}` : undefined;
+      const settled = await this.stepBackAndSettle(stepCtx);
       counter = settled.counter;
       progress = settled.progress;
       if (counter < from || settled.atStart) return { counter, progress, steps };
@@ -402,10 +424,11 @@ export class DailyPage {
 
   // --------------------------------------------------------------- helpers
 
-  private async waitForStepToSettle(action: string): Promise<{ counter: number; progress: number }> {
+  private async waitForStepToSettle(action: string, context?: string): Promise<{ counter: number; progress: number }> {
+    const prefix = context ? `${context}: ` : '';
     const pauseButton = this.playback.getByRole('button', { name: 'Pause' });
     let prevProgress = await this.progress();
-    let prevCounter = await this.counter();
+    let prevCounter = await this.counter(context);
     await expect
       .poll(
         async () => {
@@ -413,13 +436,13 @@ export class DailyPage {
           const playing =
             (await pauseButton.isVisible()) && (await pauseButton.isEnabled({ timeout: 250 }).catch(() => false));
           const progress = await this.progress();
-          const counter = await this.counter();
+          const counter = await this.counter(context);
           const settled = !playing && progress === prevProgress && counter === prevCounter;
           prevProgress = progress;
           prevCounter = counter;
           return settled;
         },
-        { intervals: [50], message: `Animation progress and Comparisons counter should settle after ${action}` },
+        { intervals: [50], message: `${prefix}Animation progress and Comparisons counter should settle after ${action}` },
       )
       .toBe(true);
     return { counter: prevCounter, progress: prevProgress };
