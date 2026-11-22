@@ -21,7 +21,7 @@ import PuzzleArray from './PuzzleArray';
 import { Puzzle, puzzleTitle, shareText, usePuzzle } from './puzzle';
 import styles from './Daily.module.css';
 
-const RULES = 'Reorder the numbers so quicksort makes as many comparisons as you can.';
+const RULES = 'Reorder the numbers so quicksort makes as many comparisons as possible.';
 const MAX_TRIES = 3;
 
 const sorting = findTopic('sorting-algorithms');
@@ -173,7 +173,13 @@ const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
           </output>
         )}
       </div>
-      <PuzzleArray values={values} fixed={fixed} frozen={busy || ended} onSwap={swap} />
+      <PuzzleArray
+        values={values}
+        fixed={fixed}
+        pivotIndex={0}
+        frozen={busy || ended}
+        onSwap={swap}
+      />
       <div className={`${styles.column} ${styles.actions}`}>
         <button
           type="button"
@@ -253,8 +259,9 @@ const PuzzleView = ({ puzzle, theme }: { puzzle: Puzzle; theme: Theme }) => {
       <section aria-label="Puzzle rules" className={`${styles.column} ${styles.rules}`}>
         <p className={styles.lede}>{RULES}</p>
         <p>
-          Tap or click two unlocked numbers to swap them, then press Run. Locked numbers stay put.
-          You have {MAX_TRIES} tries to reach the goal, or go higher.
+          Quicksort always picks the first number in each range as the pivot. Tap or click two
+          unlocked numbers to swap them, then press Run. Locked numbers stay put. You have{' '}
+          {MAX_TRIES} tries to reach the goal, or go higher.
         </p>
         <p className={styles.keys}>
           Keyboard: press Enter or Space to pick a number. Use Left or Right to swap it with the

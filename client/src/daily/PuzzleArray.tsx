@@ -6,6 +6,8 @@ import styles from './PuzzleArray.module.css';
 type Props = {
   values: number[];
   fixed: Set<number>;
+  /** The slot the algorithm takes as its pivot, tagged above the slot. Omit for none. */
+  pivotIndex?: number;
   /** Locks every slot, as while a run animates. */
   frozen?: boolean;
   onSwap: (a: number, b: number) => void;
@@ -29,7 +31,7 @@ const slideFrom = (value: HTMLElement, to: HTMLElement, from: HTMLElement) => {
   );
 };
 
-const PuzzleArray = ({ values, fixed, frozen = false, onSwap }: Props) => {
+const PuzzleArray = ({ values, fixed, pivotIndex, frozen = false, onSwap }: Props) => {
   const [selected, setSelected] = useState<number | null>(null);
   const [announcement, setAnnouncement] = useState('');
   const slots = useRef<(HTMLButtonElement | null)[]>([]);
@@ -92,29 +94,31 @@ const PuzzleArray = ({ values, fixed, frozen = false, onSwap }: Props) => {
         {values.map((value, index) => {
           const locked = fixed.has(index);
           return (
-            <button
-              // Slots are positions, so the index is their identity.
-              key={index}
-              ref={(element) => {
-                slots.current[index] = element;
-              }}
-              type="button"
-              className={frozen && !locked ? `${styles.slot} ${styles.frozen}` : styles.slot}
-              disabled={locked || frozen}
-              aria-pressed={locked ? undefined : selected === index}
-              onClick={() => handleClick(index)}
-              onKeyDown={(event) => handleKeyDown(event, index)}
-            >
-              <span
+            // Slots are positions, so the index is their identity.
+            <div key={index} className={styles.cell}>
+              {index === pivotIndex && <span className={styles.pivotTag}>Pivot</span>}
+              <button
                 ref={(element) => {
-                  valueEls.current[index] = element;
+                  slots.current[index] = element;
                 }}
-                className={styles.value}
+                type="button"
+                className={frozen && !locked ? `${styles.slot} ${styles.frozen}` : styles.slot}
+                disabled={locked || frozen}
+                aria-pressed={locked ? undefined : selected === index}
+                onClick={() => handleClick(index)}
+                onKeyDown={(event) => handleKeyDown(event, index)}
               >
-                {value}
-              </span>
-              {locked && <LockIcon size={14} className={styles.lock} />}
-            </button>
+                <span
+                  ref={(element) => {
+                    valueEls.current[index] = element;
+                  }}
+                  className={styles.value}
+                >
+                  {value}
+                </span>
+                {locked && <LockIcon size={14} className={styles.lock} />}
+              </button>
+            </div>
           );
         })}
       </div>
