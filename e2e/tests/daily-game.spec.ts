@@ -2,19 +2,19 @@ import { test, expect } from '../support/test';
 import { DAILY_7, DAILY_12 } from '../support/daily-fixtures';
 
 const fmt = (values: readonly number[]) => `[${values.join(', ')}]`;
-const RULES_SENTENCE = 'Arrange the free values so quicksort makes as many comparisons as possible.';
+const RULES_SENTENCE = 'Reorder the numbers so quicksort makes as many comparisons as you can.';
 
 test.describe('daily game', () => {
-  test('the puzzle shows its rules, par and fixed values', async ({ dailyPage }) => {
+  test('the puzzle shows its rules, goal and fixed values', async ({ dailyPage }) => {
     const servedPuzzle = { ...DAILY_7.puzzle, par: 35 };
     await dailyPage.serve(servedPuzzle);
     await dailyPage.open();
 
-    const startCtx = `DAILY_7 (#7, served par ${servedPuzzle.par}, formula par ${DAILY_7.puzzle.par}, best ${servedPuzzle.best}) ${fmt(DAILY_7.start.values)}`;
+    const startCtx = `DAILY_7 (#7, served goal ${servedPuzzle.par}, formula goal ${DAILY_7.puzzle.par}, best ${servedPuzzle.best}) ${fmt(DAILY_7.start.values)}`;
     await dailyPage.expectRulesToContain(RULES_SENTENCE, startCtx);
     expect(
-      await dailyPage.par(startCtx),
-      `${startCtx}: Par status must show the served par ${servedPuzzle.par} rather than work out the formula par ${DAILY_7.puzzle.par}`,
+      await dailyPage.goal(startCtx),
+      `${startCtx}: Goal status must show the served goal ${servedPuzzle.par} rather than work out the formula goal ${DAILY_7.puzzle.par}`,
     ).toBe(servedPuzzle.par);
     expect(await dailyPage.values(), `${startCtx}: Puzzle array should show starting values ${fmt(DAILY_7.puzzle.values)}`).toEqual([...DAILY_7.puzzle.values]);
     expect(await dailyPage.fixedIndices(), `${startCtx}: fixed slots ${fmt(DAILY_7.puzzle.fixed)} should be disabled and all others enabled`).toEqual([...DAILY_7.puzzle.fixed]);
@@ -26,31 +26,31 @@ test.describe('daily game', () => {
     await dailyPage.open();
 
     const startCtx = `${DAILY_12.name} ${fmt(DAILY_12.start.values)}`;
-    const parCtx = `${DAILY_12.name} ${fmt(DAILY_12.par.values)}`;
+    const goalCtx = `${DAILY_12.name} ${fmt(DAILY_12.par.values)}`;
 
     await dailyPage.select(2);
     expect(await dailyPage.selectedIndices(), `${startCtx}: selecting free slot 2 (value 6) should set aria-pressed="true" only on slot 2`).toEqual([2]);
 
     await dailyPage.select(7);
     expect(await dailyPage.values(), `${startCtx}: tapping free slots 2 and 7 should swap 6 and 5 to ${fmt(DAILY_12.par.values)}`).toEqual([...DAILY_12.par.values]);
-    expect(await dailyPage.selectedIndices(), `${parCtx}: selection should clear after swapping slots 2 and 7`).toEqual([]);
+    expect(await dailyPage.selectedIndices(), `${goalCtx}: selection should clear after swapping slots 2 and 7`).toEqual([]);
     expect(await dailyPage.fixedIndices(), `${DAILY_12.name}: fixed slots ${fmt(DAILY_12.puzzle.fixed)} should be disabled`).toEqual([...DAILY_12.puzzle.fixed]);
 
     await dailyPage.trySelectFixed(1);
-    expect(await dailyPage.selectedIndices(), `${parCtx}: clicking fixed slot 1 (value 1) must not select it`).toEqual([]);
+    expect(await dailyPage.selectedIndices(), `${goalCtx}: clicking fixed slot 1 (value 1) must not select it`).toEqual([]);
 
     await dailyPage.select(0);
-    expect(await dailyPage.values(), `${parCtx}: clicking fixed slot 1 then free slot 0 must not swap them`).toEqual([...DAILY_12.par.values]);
-    expect(await dailyPage.selectedIndices(), `${parCtx}: clicking free slot 0 after fixed slot 1 should select slot 0`).toEqual([0]);
+    expect(await dailyPage.values(), `${goalCtx}: clicking fixed slot 1 then free slot 0 must not swap them`).toEqual([...DAILY_12.par.values]);
+    expect(await dailyPage.selectedIndices(), `${goalCtx}: clicking free slot 0 after fixed slot 1 should select slot 0`).toEqual([0]);
 
     await dailyPage.trySelectFixed(1);
     expect(
       await dailyPage.values(),
-      `${parCtx}: with free slot 0 (value 8) selected, clicking fixed slot 1 (value 1) must not move either value; expected ${fmt(DAILY_12.par.values)}`,
+      `${goalCtx}: with free slot 0 (value 8) selected, clicking fixed slot 1 (value 1) must not move either value; expected ${fmt(DAILY_12.par.values)}`,
     ).toEqual([...DAILY_12.par.values]);
     expect(
       await dailyPage.selectedIndices(),
-      `${parCtx}: targeting fixed slot 1 (value 1) while free slot 0 is selected must not select slot 1`,
+      `${goalCtx}: targeting fixed slot 1 (value 1) while free slot 0 is selected must not select slot 1`,
     ).not.toContain(1);
   });
 
@@ -132,27 +132,27 @@ test.describe('daily game', () => {
       expect(await dailyPage.values(), `${DAILY_12.name} ${fmt(DAILY_12.start.values)} at 390x844 touch: tapping free slots 2 and 7 should swap 6 and 5 to ${fmt(DAILY_12.par.values)}`).toEqual([...DAILY_12.par.values]);
       expect(await dailyPage.fixedIndices(), `${DAILY_12.name} at 390x844 touch: fixed slots ${fmt(DAILY_12.puzzle.fixed)} should remain disabled`).toEqual([...DAILY_12.puzzle.fixed]);
 
-      const parCtx = `${DAILY_12.name} ${fmt(DAILY_12.par.values)} at 390x844 touch`;
+      const goalCtx = `${DAILY_12.name} ${fmt(DAILY_12.par.values)} at 390x844 touch`;
       await dailyPage.tryTapFixed(1);
       expect(
         await dailyPage.selectedIndices(),
-        `${parCtx}: tapping fixed slot 1 (value 1) must not select it`,
+        `${goalCtx}: tapping fixed slot 1 (value 1) must not select it`,
       ).toEqual([]);
 
       await dailyPage.tapSlot(0);
       expect(
         await dailyPage.selectedIndices(),
-        `${parCtx}: tapping free slot 0 (value 8) should select slot 0`,
+        `${goalCtx}: tapping free slot 0 (value 8) should select slot 0`,
       ).toEqual([0]);
 
       await dailyPage.tryTapFixed(1);
       expect(
         await dailyPage.values(),
-        `${parCtx}: with free slot 0 (value 8) selected, tapping fixed slot 1 (value 1) must not move either value; expected ${fmt(DAILY_12.par.values)}`,
+        `${goalCtx}: with free slot 0 (value 8) selected, tapping fixed slot 1 (value 1) must not move either value; expected ${fmt(DAILY_12.par.values)}`,
       ).toEqual([...DAILY_12.par.values]);
       expect(
         await dailyPage.selectedIndices(),
-        `${parCtx}: targeting fixed slot 1 (value 1) while free slot 0 is selected must not select slot 1`,
+        `${goalCtx}: targeting fixed slot 1 (value 1) while free slot 0 is selected must not select slot 1`,
       ).not.toContain(1);
     });
   });
@@ -349,7 +349,7 @@ test.describe('daily game', () => {
     expect(await dailyPage.speed(), `${ctx}: selecting 2× in the Speed combobox should stick (expected 2)`).toBe(2);
   });
 
-  test('reaching par is announced, and the next try is still offered', async ({ dailyPage }) => {
+  test('reaching the goal is announced, and the next try is still offered', async ({ dailyPage }) => {
     await dailyPage.serve(DAILY_12.puzzle);
     await dailyPage.open();
 
@@ -361,15 +361,15 @@ test.describe('daily game', () => {
     await dailyPage.expectStatusNumber(
       'Score',
       DAILY_12.par.count,
-      `${ctx}: Score should be ${DAILY_12.par.count} (par ${DAILY_12.puzzle.par})`,
+      `${ctx}: Score should be ${DAILY_12.par.count} (goal ${DAILY_12.puzzle.par})`,
     );
-    expect(await dailyPage.parReached(), `${ctx}: "Par reached" status should be visible`).toBe(true);
+    expect(await dailyPage.goalReached(), `${ctx}: "Goal reached" status should be visible`).toBe(true);
     expect(await dailyPage.bestReached(), `${ctx}: "Best reached" status should stay hidden below best`).toBe(false);
     expect(await dailyPage.bestVisible(), `${ctx}: Best status should stay hidden while tries remain`).toBe(false);
     await dailyPage.expectStatusNumber(
       'Tries left',
       2,
-      `${ctx}: 2 tries should remain after reaching par on try 1`,
+      `${ctx}: 2 tries should remain after reaching the goal on try 1`,
     );
     expect(await dailyPage.canRun(), `${ctx}: Run button should remain enabled for the next try`).toBe(true);
     expect(await dailyPage.values(), `${ctx}: Puzzle array should stay as the player left it`).toEqual([...DAILY_12.par.values]);
@@ -416,7 +416,7 @@ test.describe('daily game', () => {
 
     await dailyPage.expectStatusNumber('Tries left', 3, `${DAILY_12.name} ${fmt(DAILY_12.start.values)}: new puzzle should start with 3 tries left`);
 
-    // Try 1: 34 (reaches par, below best; highest of the three tries)
+    // Try 1: 34 (reaches goal, below best; highest of the three tries)
     await dailyPage.swap(DAILY_12.par.swap[0], DAILY_12.par.swap[1]);
     await dailyPage.run();
     await dailyPage.skip(try1Ctx);
@@ -435,7 +435,7 @@ test.describe('daily game', () => {
     );
     await dailyPage.expectStatusNumber('Tries left', 1, `${try2Ctx}: Tries left should be 1`);
 
-    // Try 3: 31 (below par and below try 1)
+    // Try 3: 31 (below goal and below try 1)
     await dailyPage.swap(DAILY_12.thirdFromLow.swap[0], DAILY_12.thirdFromLow.swap[1]);
     await dailyPage.run();
     await dailyPage.skip(try3Ctx);
@@ -456,7 +456,7 @@ test.describe('daily game', () => {
     ].join('\n');
     expect(
       (await dailyPage.shareText()).trim(),
-      `${endCtx}: Share text after finishing below best should match exact 3-row format (⭐ on par try ${DAILY_12.par.count} / ${DAILY_12.puzzle.best}, no 🏆)`,
+      `${endCtx}: Share text after finishing below best should match exact 3-row format (⭐ on goal try ${DAILY_12.par.count} / ${DAILY_12.puzzle.best}, no 🏆)`,
     ).toBe(expectedShare);
   });
 
@@ -464,7 +464,7 @@ test.describe('daily game', () => {
     await dailyPage.serve(DAILY_12.puzzle);
     await dailyPage.open();
 
-    // Try 1: 30 / 36 (below par), Try 2: 34 / 36 ⭐ (par), Try 3: 36 / 36 🏆 (best)
+    // Try 1: 30 / 36 (below goal), Try 2: 34 / 36 ⭐ (goal), Try 3: 36 / 36 🏆 (best)
     await dailyPage.run();
     await dailyPage.skip(`${DAILY_12.name} try 1 ${fmt(DAILY_12.start.values)}`);
     await dailyPage.swap(DAILY_12.par.swap[0], DAILY_12.par.swap[1]);

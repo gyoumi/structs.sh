@@ -127,8 +127,8 @@ export class DailyPage {
     return (await readDrawing(this.page)).sort((a, b) => a.x - b.x || a.y - b.y).map((node) => node.value);
   }
 
-  async par(context?: string): Promise<number> {
-    return this.readNumber(this.status('Par'), 'Par status', context);
+  async goal(context?: string): Promise<number> {
+    return this.readNumber(this.status('Goal'), 'Goal status', context);
   }
 
   async counter(context?: string): Promise<number> {
@@ -153,8 +153,8 @@ export class DailyPage {
     return this.status('Best').isVisible();
   }
 
-  async parReached(): Promise<boolean> {
-    return this.status('Par reached').isVisible();
+  async goalReached(): Promise<boolean> {
+    return this.status('Goal reached').isVisible();
   }
 
   async bestReached(): Promise<boolean> {

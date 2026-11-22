@@ -8,8 +8,7 @@ import PuzzleArray from './PuzzleArray';
 import { Puzzle, puzzleTitle, usePuzzle } from './puzzle';
 import styles from './Daily.module.css';
 
-const RULES =
-  'Arrange the free values so quicksort makes as many comparisons as possible. Fixed values stay where they are.';
+const RULES = 'Reorder the numbers so quicksort makes as many comparisons as you can.';
 
 const swapValues = (values: number[], a: number, b: number) =>
   values.map((value, index) => (index === a ? values[b] : index === b ? values[a] : value));
@@ -29,18 +28,18 @@ const PuzzleView = ({ puzzle }: { puzzle: Puzzle }) => {
       <section aria-label="Puzzle rules" className={`${styles.column} ${styles.rules}`}>
         <p className={styles.lede}>{RULES}</p>
         <p>
-          Tap two free values to swap them. Fixed values, marked with a lock, can’t move. Aim for
-          par, the number of comparisons to reach.
+          Tap or click two numbers to swap them. Locked numbers stay put. Reach the goal, or go even
+          higher.
         </p>
         <p className={styles.keys}>
-          Keyboard: Enter or Space selects a value, the arrow keys move it past fixed values, and
-          Escape clears.
+          Keyboard: press Enter or Space to pick a number. Use the arrow keys to move it, or Tab to
+          another and press Enter or Space to swap. Escape cancels.
         </p>
       </section>
       <section className={styles.play}>
-        <p className={`${styles.column} ${styles.par}`}>
-          <span id="daily-par-label">Par</span>
-          <output aria-labelledby="daily-par-label" className={styles.parValue}>
+        <p className={`${styles.column} ${styles.goal}`}>
+          <span id="daily-goal-label">Goal</span>
+          <output aria-labelledby="daily-goal-label" className={styles.goalValue}>
             {puzzle.par}
           </output>
         </p>
@@ -71,7 +70,7 @@ const Daily = () => {
         {state.status === 'loading' && <p className={styles.column}>Loading today’s puzzle…</p>}
         {state.status === 'error' && (
           <p role="alert" className={styles.column}>
-            Today’s puzzle didn’t load. Reload the page to try again.
+            Couldn’t load today’s puzzle. Reload the page to try again.
           </p>
         )}
         {state.status === 'ready' && <PuzzleView puzzle={state.puzzle} />}

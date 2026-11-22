@@ -64,7 +64,7 @@
   margin-top: 1.5rem;
 }
 
-.par {
+.goal {
   display: flex;
   align-items: baseline;
   gap: 0.625rem;
@@ -74,7 +74,7 @@
   font-weight: 600;
 }
 
-.parValue {
+.goalValue {
   color: var(--ink);
   font-size: 2rem;
   font-weight: 700;
@@ -87,7 +87,7 @@
     padding-inline: 0.5rem;
   }
 
-  .play .par {
+  .play .goal {
     padding-inline: calc(var(--gutter) - 0.5rem);
   }
 }
