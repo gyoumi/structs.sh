@@ -69,5 +69,3 @@ Use active voice as default. A CTA says exactly what happens when it is used: "S
 Treat failure and emptiness as moments for direction, not mood. Explain what went wrong and how to fix it, in the interface's voice rather than a person's. Errors don't apologize, and they are never vague about what happened. An empty screen is an invitation to act.
 
 Keep the tone conversational: plain verbs, sentence case, no filler, with tone matched to the brand and the audience. Let each written element do exactly one job.
-
-Keep interface copy minimal. Cut any sentence that repeats what a visual already says: a lock icon, a counter, a button label. In interactive UI, don't stack more than two paragraphs or write a block longer than 25 words. Put keyboard help and other secondary instructions in a collapsed `<details>` element. The `structs/concise-ui-copy` lint rule checks this.
