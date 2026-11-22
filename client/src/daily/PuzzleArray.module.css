@@ -35,6 +35,7 @@
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1;
+  pointer-events: none;
 }
 
 @media (hover: hover) {
