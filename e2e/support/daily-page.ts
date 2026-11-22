@@ -2,13 +2,6 @@ import { expect, type Locator, type Page } from '@playwright/test';
 import type { DailyPuzzle } from './daily-fixtures';
 import { readDrawing } from './visualiser-drawing';
 
-export interface SlotBounds {
-  index: number;
-  value: number;
-  x: number;
-  width: number;
-}
-
 export interface StepReading {
   step: number;
   before: number;
@@ -88,9 +81,12 @@ export class DailyPage {
 
   // --------------------------------------------------------------- reading
 
-  async rulesText(): Promise<string> {
-    await expect(this.rulesRegion, '/daily should show a Puzzle rules region').toBeVisible();
-    return ((await this.rulesRegion.textContent()) ?? '').replace(/\s+/g, ' ').trim();
+  async expectRulesToContain(expected: string, context: string): Promise<void> {
+    await expect(this.rulesRegion, `${context}: /daily should show a Puzzle rules region`).toBeVisible();
+    await expect(
+      this.rulesRegion,
+      `${context}: Puzzle rules region should contain "${expected}"`,
+    ).toContainText(expected);
   }
 
   /** The values shown in Puzzle array from left to right. */
@@ -106,20 +102,22 @@ export class DailyPage {
     return result;
   }
 
-  /** Bounding boxes of every slot button in Puzzle array, left to right. */
-  async slotBounds(): Promise<SlotBounds[]> {
-    const count = await this.slots.count();
-    const bounds: SlotBounds[] = [];
-    for (let i = 0; i < count; i += 1) {
+  /** Scrolls Puzzle array into view and asserts every slot button fits fully in the viewport without clipping. */
+  async expectAllSlotsInViewport(context: string, expectedCount: number): Promise<void> {
+    await this.arrayGroup.scrollIntoViewIfNeeded();
+    await expect(this.slots, `${context}: Puzzle array should render all ${expectedCount} slots`).toHaveCount(
+      expectedCount,
+    );
+    for (let i = 0; i < expectedCount; i += 1) {
       const slot = this.slot(i);
-      const box = await slot.boundingBox();
-      if (!box) throw new Error(`Slot ${i} in Puzzle array has no bounding box`);
       const text = ((await slot.textContent()) ?? '').trim();
       const match = text.match(/-?\d+/);
-      if (!match) throw new Error(`Expected slot ${i} in Puzzle array to start with a number, got "${text}"`);
-      bounds.push({ index: i, value: Number(match[0]), x: box.x, width: box.width });
+      const value = match ? match[0] : text;
+      await expect(
+        slot,
+        `${context}: slot ${i} (value ${value}) in Puzzle array must be fully visible in the viewport without clipping or horizontal overflow`,
+      ).toBeInViewport({ ratio: 1 });
     }
-    return bounds;
   }
 
   /** 0-based indices of slots marked disabled (fixed). */
@@ -156,24 +154,24 @@ export class DailyPage {
     return (await readDrawing(this.page)).sort((a, b) => a.x - b.x || a.y - b.y).map((node) => node.value);
   }
 
-  async par(): Promise<number> {
-    return this.readNumber(this.status('Par'), 'Par status');
+  async par(context?: string): Promise<number> {
+    return this.readNumber(this.status('Par'), 'Par status', context);
   }
 
-  async counter(): Promise<number> {
-    return this.readNumber(this.status('Comparisons'), 'Comparisons counter');
+  async counter(context?: string): Promise<number> {
+    return this.readNumber(this.status('Comparisons'), 'Comparisons counter', context);
   }
 
-  async score(): Promise<number> {
-    return this.readNumber(this.status('Score'), 'Score status');
+  async score(context?: string): Promise<number> {
+    return this.readNumber(this.status('Score'), 'Score status', context);
   }
 
-  async triesLeft(): Promise<number> {
-    return this.readNumber(this.status('Tries left'), 'Tries left status');
+  async triesLeft(context?: string): Promise<number> {
+    return this.readNumber(this.status('Tries left'), 'Tries left status', context);
   }
 
-  async best(): Promise<number> {
-    return this.readNumber(this.status('Best'), 'Best status');
+  async best(context?: string): Promise<number> {
+    return this.readNumber(this.status('Best'), 'Best status', context);
   }
 
   async bestVisible(): Promise<boolean> {
@@ -197,6 +195,8 @@ export class DailyPage {
   }
 
   async progress(): Promise<number> {
+    const ariaNow = await this.timeline.getAttribute('aria-valuenow');
+    if (ariaNow !== null && ariaNow.trim() !== '') return Number(ariaNow);
     return Number(await this.timeline.inputValue());
   }
 
@@ -264,9 +264,16 @@ export class DailyPage {
     await this.runButton.click();
   }
 
-  async skip(): Promise<void> {
+  async skip(context?: string): Promise<void> {
+    const prefix = context ? `${context}: ` : '';
     await this.skipButton.click();
-    await expect.poll(() => this.progress(), { message: 'Skip should advance Animation progress to 100' }).toBe(100);
+    await expect
+      .poll(() => this.progress(), {
+        intervals: [50],
+        timeout: 1_000,
+        message: `${prefix}Skip must jump Animation progress to 100 within 1000 ms, not play through the remaining animation`,
+      })
+      .toBe(100);
   }
 
   async waitForRunToFinish(timeout = 60_000): Promise<void> {
@@ -403,7 +410,8 @@ export class DailyPage {
       .poll(
         async () => {
           await this.waitTwoFrames();
-          const playing = await pauseButton.isVisible();
+          const playing =
+            (await pauseButton.isVisible()) && (await pauseButton.isEnabled({ timeout: 250 }).catch(() => false));
           const progress = await this.progress();
           const counter = await this.counter();
           const settled = !playing && progress === prevProgress && counter === prevCounter;
@@ -433,11 +441,12 @@ export class DailyPage {
     });
   }
 
-  private async readNumber(locator: Locator, label: string): Promise<number> {
-    await expect(locator, `${label} should be visible`).toBeVisible();
+  private async readNumber(locator: Locator, label: string, context?: string): Promise<number> {
+    const prefix = context ? `${context}: ` : '';
+    await expect(locator, `${prefix}${label} should be visible`).toBeVisible();
     const text = ((await locator.textContent()) ?? '').trim();
     const match = text.match(/-?\d+/);
-    if (!match) throw new Error(`Expected ${label} to contain a number, got "${text}"`);
+    if (!match) throw new Error(`${prefix}Expected ${label} to contain a number, got "${text}"`);
     return Number(match[0]);
   }
 

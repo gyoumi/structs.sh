@@ -106,9 +106,8 @@ The sorting visualiser draws into `#visualiser-canvas` as it does today. The
 rest of the e2e tests drive `/daily` only through ARIA roles and accessible
 names:
 
-- **Rules:** `region` named `Puzzle rules`. One sentence names quicksort, the
-  goal of making it do as many comparisons as possible, and the word
-  `comparisons`.
+- **Rules:** `region` named `Puzzle rules`. It must contain the sentence
+  `Arrange the free values so quicksort makes as many comparisons as possible.`
 - **Puzzle array:** `group` named `Puzzle array`, containing one `button` per
   slot in left-to-right order.
   - Each slot button's text starts with its numeric value (for example `8`).
@@ -140,7 +139,8 @@ names:
 - **Playback controls:** the visualiser's controls (`toolbar` `Playback` with
   buttons `Play`, `Pause`, `Replay`, `Previous step`, `Next step`,
   `Back to the start`, and `Skip to the end`; `slider` `Animation progress` from
-  `0` to `100`; `combobox` `Speed` from `0.25×` to `2×`).
+  `0` to `100`, using either a native range input or `aria-valuenow`; `combobox`
+  `Speed` from `0.25×` to `2×`).
 - **Status readouts** (`role="status"` or `<output>`). Give each readout its
   accessible name with `aria-label`, `aria-labelledby`, or a `<label for>` on
   `<output>`, because `role="status"` does not take its accessible name from its
