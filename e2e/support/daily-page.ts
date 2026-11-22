@@ -35,24 +35,24 @@ export class DailyPage {
     return this.slots.nth(index);
   }
 
-  private get runButton(): Locator {
-    return this.page.getByRole('button', { name: 'Run', exact: true });
-  }
-
-  private get skipButton(): Locator {
-    return this.page.getByRole('button', { name: 'Skip', exact: true });
-  }
-
-  private get shareButton(): Locator {
-    return this.page.getByRole('button', { name: 'Share', exact: true });
+  private button(name: string): Locator {
+    return this.page.getByRole('button', { name, exact: true });
   }
 
   private get playback(): Locator {
     return this.page.getByRole('toolbar', { name: 'Playback' });
   }
 
+  private playbackButton(name: string): Locator {
+    return this.playback.getByRole('button', { name });
+  }
+
   private get timeline(): Locator {
     return this.page.getByRole('slider', { name: 'Animation progress' });
+  }
+
+  private get speedPicker(): Locator {
+    return this.page.getByRole('combobox', { name: 'Speed' });
   }
 
   private status(name: string): Locator {
@@ -131,22 +131,26 @@ export class DailyPage {
 
   /** 0-based indices of slots marked disabled (fixed). */
   async fixedIndices(): Promise<number[]> {
-    const count = await this.slots.count();
-    const fixed: number[] = [];
-    for (let i = 0; i < count; i += 1) {
-      if (await this.slot(i).isDisabled()) fixed.push(i);
-    }
-    return fixed;
+    return this.matchingSlotIndices((slot) => slot.isDisabled());
   }
 
   /** 0-based indices of slots currently selected (`aria-pressed="true"`). */
   async selectedIndices(): Promise<number[]> {
+    return this.matchingSlotIndices(async (slot) => (await slot.getAttribute('aria-pressed')) === 'true');
+  }
+
+  /** Asserts every free slot has aria-pressed="false" and no slot has aria-pressed="true". */
+  async expectNoSelection(context: string): Promise<void> {
     const count = await this.slots.count();
-    const selected: number[] = [];
     for (let i = 0; i < count; i += 1) {
-      if ((await this.slot(i).getAttribute('aria-pressed')) === 'true') selected.push(i);
+      const slot = this.slot(i);
+      const pressed = await slot.getAttribute('aria-pressed');
+      if (await slot.isDisabled()) {
+        expect(pressed, `${context}: fixed slot ${i} must not have aria-pressed="true"`).not.toBe('true');
+      } else {
+        expect(pressed, `${context}: free slot ${i} must have aria-pressed="false" when selection is cleared`).toBe('false');
+      }
     }
-    return selected;
   }
 
   /** 0-based index of the focused slot in Puzzle array, or null if no slot has focus. */
@@ -169,14 +173,6 @@ export class DailyPage {
 
   async counter(context?: string): Promise<number> {
     return this.readNumber(this.status('Comparisons'), 'Comparisons counter', context);
-  }
-
-  async score(context?: string): Promise<number> {
-    return this.readNumber(this.status('Score'), 'Score status', context);
-  }
-
-  async triesLeft(context?: string): Promise<number> {
-    return this.readNumber(this.status('Tries left'), 'Tries left status', context);
   }
 
   async best(context?: string): Promise<number> {
@@ -206,11 +202,13 @@ export class DailyPage {
   }
 
   async canRun(): Promise<boolean> {
-    return (await this.runButton.isVisible()) && (await this.runButton.isEnabled());
+    const run = this.button('Run');
+    return (await run.isVisible()) && (await run.isEnabled());
   }
 
   async canShare(): Promise<boolean> {
-    return (await this.shareButton.isVisible()) && (await this.shareButton.isEnabled());
+    const share = this.button('Share');
+    return (await share.isVisible()) && (await share.isEnabled());
   }
 
   async progress(): Promise<number> {
@@ -242,24 +240,23 @@ export class DailyPage {
 
   /** Clicks the center of a slot by coordinates so disabled/fixed slots can be clicked like a user would. */
   async trySelectFixed(index: number): Promise<void> {
-    const target = this.slot(index);
-    await target.scrollIntoViewIfNeeded();
-    const box = await target.boundingBox();
-    if (!box) throw new Error(`Slot ${index} has no bounding box`);
-    await this.page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    const { x, y } = await this.slotCenter(index);
+    await this.page.mouse.click(x, y);
   }
 
   /** Taps the center of a slot by coordinates so disabled/fixed slots can be tapped on touch viewports. */
   async tryTapFixed(index: number): Promise<void> {
-    const target = this.slot(index);
-    await target.scrollIntoViewIfNeeded();
-    const box = await target.boundingBox();
-    if (!box) throw new Error(`Slot ${index} has no bounding box`);
-    await this.page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+    const { x, y } = await this.slotCenter(index);
+    await this.page.touchscreen.tap(x, y);
   }
 
-  /** Reaches a free slot by pressing Tab from the page, then selects it with Enter. */
-  async keyboardSelectByTab(index: number, context: string, maxTabs = 50): Promise<void> {
+  /** Reaches a free slot by pressing Tab from the page, then selects it with Enter or Space. */
+  async keyboardSelectByTab(
+    index: number,
+    context: string,
+    key: 'Enter' | 'Space' = 'Enter',
+    maxTabs = 50,
+  ): Promise<void> {
     let tabs = 0;
     while ((await this.focusedSlotIndex()) !== index && tabs < maxTabs) {
       await this.page.keyboard.press('Tab');
@@ -270,22 +267,22 @@ export class DailyPage {
       await this.focusedSlotIndex(),
       `${context}: expected Tab to reach free slot ${index} within ${maxTabs} presses (pressed Tab ${tabs} time(s); focus is on ${active})`,
     ).toBe(index);
-    await this.page.keyboard.press('Enter');
+    await this.page.keyboard.press(key);
   }
 
-  async keyboardMove(direction: 'ArrowLeft' | 'ArrowRight'): Promise<void> {
-    await this.page.keyboard.press(direction);
+  async pressKey(key: 'ArrowLeft' | 'ArrowRight' | 'Enter' | 'Space' | 'Escape'): Promise<void> {
+    await this.page.keyboard.press(key);
   }
 
   // -------------------------------------------------------------- playback
 
   async run(): Promise<void> {
-    await this.runButton.click();
+    await this.button('Run').click();
   }
 
   async skip(context?: string): Promise<void> {
     const prefix = context ? `${context}: ` : '';
-    await this.skipButton.click();
+    await this.button('Skip').click();
     await expect
       .poll(() => this.progress(), {
         intervals: [50],
@@ -301,41 +298,48 @@ export class DailyPage {
       .toBe(100);
   }
 
+  async playPlayback(): Promise<void> {
+    await this.playbackButton('Play').click();
+  }
+
   async pausePlayback(): Promise<void> {
-    await this.playback.getByRole('button', { name: 'Pause' }).click();
+    await this.playbackButton('Pause').click();
+  }
+
+  async replayPlayback(): Promise<void> {
+    await this.playbackButton('Replay').click();
+  }
+
+  async skipToEnd(context?: string): Promise<void> {
+    const prefix = context ? `${context}: ` : '';
+    await this.playbackButton('Skip to the end').click();
+    await expect
+      .poll(() => this.progress(), { message: `${prefix}Skip to the end should move Animation progress to 100` })
+      .toBe(100);
+  }
+
+  async speeds(): Promise<number[]> {
+    await this.speedPicker.click();
+    const options = await this.page.getByRole('option').allTextContents();
+    await this.page.keyboard.press('Escape');
+    return options.map((option) => parseFloat(option));
+  }
+
+  async setSpeed(speed: number): Promise<void> {
+    await this.speedPicker.click();
+    await this.page.getByRole('option', { name: `${speed}×`, exact: true }).click();
+  }
+
+  async speed(): Promise<number> {
+    return parseFloat((await this.speedPicker.textContent()) ?? '');
   }
 
   async rewind(): Promise<void> {
-    await this.playback.getByRole('button', { name: 'Back to the start' }).click();
+    await this.playbackButton('Back to the start').click();
     await expect
       .poll(() => this.progress(), { message: 'Back to the start should move Animation progress to 0' })
       .toBe(0);
     await this.waitTwoFrames();
-  }
-
-  async stepForward(): Promise<void> {
-    await this.playback.getByRole('button', { name: 'Next step' }).click();
-  }
-
-  /**
-   * Clicks Next step, waits for Animation progress to move (unless already at 100),
-   * then waits for playback to pause and for both Animation progress and
-   * Comparisons counter to settle.
-   */
-  async stepForwardAndSettle(context?: string): Promise<{ counter: number; progress: number; atEnd: boolean }> {
-    const prefix = context ? `${context}: ` : '';
-    const before = await this.progress();
-    await this.stepForward();
-    if (before < 100) {
-      await expect
-        .poll(() => this.progress(), {
-          intervals: [50],
-          message: `${prefix}Next step should move Animation progress from ${before}`,
-        })
-        .not.toBe(before);
-    }
-    const settled = await this.waitForStepToSettle('Next step', context);
-    return { ...settled, atEnd: settled.progress === 100 };
   }
 
   /**
@@ -353,37 +357,12 @@ export class DailyPage {
     while (!atEnd && steps < maxSteps) {
       steps += 1;
       const stepCtx = context ? `${context} step ${steps}` : undefined;
-      const settled = await this.stepForwardAndSettle(stepCtx);
+      const settled = await this.stepAndSettle('Next step', 100, stepCtx);
       await onStep({ step: steps, before: previousCounter, after: settled.counter, progress: settled.progress });
       previousCounter = settled.counter;
-      atEnd = settled.atEnd;
+      atEnd = settled.progress === 100;
     }
     return { steps, counter: previousCounter, atEnd };
-  }
-
-  async stepBack(): Promise<void> {
-    await this.playback.getByRole('button', { name: 'Previous step' }).click();
-  }
-
-  /**
-   * Clicks Previous step, waits for Animation progress to move (unless already at 0),
-   * then waits for playback to pause and for both Animation progress and
-   * Comparisons counter to settle.
-   */
-  async stepBackAndSettle(context?: string): Promise<{ counter: number; progress: number; atStart: boolean }> {
-    const prefix = context ? `${context}: ` : '';
-    const before = await this.progress();
-    await this.stepBack();
-    if (before > 0) {
-      await expect
-        .poll(() => this.progress(), {
-          intervals: [50],
-          message: `${prefix}Previous step should move Animation progress from ${before}`,
-        })
-        .not.toBe(before);
-    }
-    const settled = await this.waitForStepToSettle('Previous step', context);
-    return { ...settled, atStart: settled.progress === 0 };
   }
 
   /**
@@ -399,10 +378,10 @@ export class DailyPage {
     let progress = await this.progress();
     for (let steps = 1; steps <= maxSteps; steps += 1) {
       const stepCtx = context ? `${context} step back ${steps}` : undefined;
-      const settled = await this.stepBackAndSettle(stepCtx);
+      const settled = await this.stepAndSettle('Previous step', 0, stepCtx);
       counter = settled.counter;
       progress = settled.progress;
-      if (counter < from || settled.atStart) return { counter, progress, steps };
+      if (counter < from || progress === 0) return { counter, progress, steps };
     }
     return { counter, progress, steps: maxSteps };
   }
@@ -411,7 +390,7 @@ export class DailyPage {
   async shareText(): Promise<string> {
     await this.page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
     await this.page.evaluate(() => navigator.clipboard.writeText(''));
-    await this.shareButton.click();
+    await this.button('Share').click();
     let copied = '';
     await expect
       .poll(
@@ -427,9 +406,45 @@ export class DailyPage {
 
   // --------------------------------------------------------------- helpers
 
+  private async matchingSlotIndices(pred: (slot: Locator) => Promise<boolean>): Promise<number[]> {
+    const count = await this.slots.count();
+    const indices: number[] = [];
+    for (let i = 0; i < count; i += 1) {
+      if (await pred(this.slot(i))) indices.push(i);
+    }
+    return indices;
+  }
+
+  private async slotCenter(index: number): Promise<{ x: number; y: number }> {
+    const target = this.slot(index);
+    await target.scrollIntoViewIfNeeded();
+    const box = await target.boundingBox();
+    if (!box) throw new Error(`Slot ${index} has no bounding box`);
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  }
+
+  private async stepAndSettle(
+    action: 'Next step' | 'Previous step',
+    boundary: 0 | 100,
+    context?: string,
+  ): Promise<{ counter: number; progress: number }> {
+    const prefix = context ? `${context}: ` : '';
+    const before = await this.progress();
+    await this.playbackButton(action).click();
+    if (before !== boundary) {
+      await expect
+        .poll(() => this.progress(), {
+          intervals: [50],
+          message: `${prefix}${action} should move Animation progress from ${before}`,
+        })
+        .not.toBe(before);
+    }
+    return this.waitForStepToSettle(action, context);
+  }
+
   private async waitForStepToSettle(action: string, context?: string): Promise<{ counter: number; progress: number }> {
     const prefix = context ? `${context}: ` : '';
-    const pauseButton = this.playback.getByRole('button', { name: 'Pause' });
+    const pauseButton = this.playbackButton('Pause');
     let prevProgress = await this.progress();
     let prevCounter = await this.counter(context);
     await expect

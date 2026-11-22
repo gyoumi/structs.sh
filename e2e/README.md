@@ -140,7 +140,7 @@ names:
   buttons `Play`, `Pause`, `Replay`, `Previous step`, `Next step`,
   `Back to the start`, and `Skip to the end`; `slider` `Animation progress` from
   `0` to `100`, using either a native range input or `aria-valuenow`; `combobox`
-  `Speed` from `0.25×` to `2×`).
+  `Speed` from `0.25×` to `2×`). Replaying a finished run does not use a try.
 - **Status readouts** (`role="status"` or `<output>`). Give each readout its
   accessible name with `aria-label`, `aria-labelledby`, or a `<label for>` on
   `<output>`, because `role="status"` does not take its accessible name from its

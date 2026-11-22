@@ -34,6 +34,10 @@ export interface DailyPuzzle {
  * - bestFromStart (5<->7): [8, 1, 6, 3, 2, 5, 4, 7] -> 36 comparisons (reaches best)
  * - bestFromPar   (5<->7 from par): [8, 1, 5, 3, 2, 6, 4, 7] -> 36 comparisons (reaches best)
  * - lowFromPar    (0<->2 from par): [5, 1, 8, 3, 2, 7, 4, 6] -> 25 comparisons (below start and par)
+ * - thirdFromLow  (0<->7 from lowFromPar): [6, 1, 8, 3, 2, 7, 4, 5] -> 31 comparisons (below par;
+ *     partition(0,7) v=6 -> 13 comps [4,1,5,3,2,6,7,8]; partition(0,4) v=4 -> 8 comps [3,1,2,4,5];
+ *     partition(0,2) v=3 -> 4 comps [2,1,3]; partition(0,1) v=2 -> 3 comps [1,2];
+ *     partition(6,7) v=7 -> 3 comps [7,8]; total 13+8+4+3+3 = 31)
  */
 export const DAILY_12 = {
   name: 'DAILY_12 (#12, par 34, best 36)',
@@ -50,6 +54,7 @@ export const DAILY_12 = {
   bestFromStart: { swap: [5, 7] as const, values: [8, 1, 6, 3, 2, 5, 4, 7], count: 36 },
   bestFromPar: { swap: [5, 7] as const, values: [8, 1, 5, 3, 2, 6, 4, 7], count: 36 },
   lowFromPar: { swap: [0, 2] as const, values: [5, 1, 8, 3, 2, 7, 4, 6], count: 25 },
+  thirdFromLow: { swap: [0, 7] as const, values: [6, 1, 8, 3, 2, 7, 4, 5], count: 31 },
 } as const;
 
 /**

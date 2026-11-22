@@ -6,12 +6,16 @@ const RULES_SENTENCE = 'Arrange the free values so quicksort makes as many compa
 
 test.describe('daily game', () => {
   test('the puzzle shows its rules, par and fixed values', async ({ dailyPage }) => {
-    await dailyPage.serve(DAILY_7.puzzle);
+    const servedPuzzle = { ...DAILY_7.puzzle, par: 35 };
+    await dailyPage.serve(servedPuzzle);
     await dailyPage.open();
 
-    const startCtx = `${DAILY_7.name} ${fmt(DAILY_7.start.values)}`;
+    const startCtx = `DAILY_7 (#7, served par ${servedPuzzle.par}, formula par ${DAILY_7.puzzle.par}, best ${servedPuzzle.best}) ${fmt(DAILY_7.start.values)}`;
     await dailyPage.expectRulesToContain(RULES_SENTENCE, startCtx);
-    expect(await dailyPage.par(startCtx), `${startCtx}: Par status should show served par ${DAILY_7.puzzle.par}`).toBe(DAILY_7.puzzle.par);
+    expect(
+      await dailyPage.par(startCtx),
+      `${startCtx}: Par status must show the served par ${servedPuzzle.par} rather than work out the formula par ${DAILY_7.puzzle.par}`,
+    ).toBe(servedPuzzle.par);
     expect(await dailyPage.values(), `${startCtx}: Puzzle array should show starting values ${fmt(DAILY_7.puzzle.values)}`).toEqual([...DAILY_7.puzzle.values]);
     expect(await dailyPage.fixedIndices(), `${startCtx}: fixed slots ${fmt(DAILY_7.puzzle.fixed)} should be disabled and all others enabled`).toEqual([...DAILY_7.puzzle.fixed]);
     expect(await dailyPage.bestVisible(), `${startCtx}: Best status should stay hidden until puzzle end`).toBe(false);
@@ -55,31 +59,42 @@ test.describe('daily game', () => {
     await dailyPage.open();
 
     const startCtx = `${DAILY_12.name} ${fmt(DAILY_12.start.values)}`;
+    for (const clearKey of ['Escape', 'Space', 'Enter'] as const) {
+      await dailyPage.keyboardSelectByTab(0, startCtx, 'Space');
+      expect(await dailyPage.selectedIndices(), `${startCtx}: pressing Space on focused free slot 0 should select slot 0 (before clearing with ${clearKey})`).toEqual([0]);
+      await dailyPage.pressKey(clearKey);
+      await dailyPage.expectNoSelection(`${startCtx}: pressing ${clearKey} while slot 0 is selected`);
+      expect(
+        await dailyPage.values(),
+        `${startCtx}: clearing slot 0 selection with ${clearKey} must leave values unchanged at ${fmt(DAILY_12.start.values)}`,
+      ).toEqual([...DAILY_12.start.values]);
+    }
+
     await dailyPage.keyboardSelectByTab(0, startCtx);
     expect(await dailyPage.selectedIndices(), `${startCtx}: pressing Tab to free slot 0 and pressing Enter should select slot 0`).toEqual([0]);
 
     // Slot 1 is fixed (value 1), so ArrowRight skips slot 1 and swaps slot 0 (8) with slot 2 (6).
     const afterFirstRight = [6, 1, 8, 3, 2, 7, 4, 5];
     const firstRightCtx = `${DAILY_12.name} ${fmt(afterFirstRight)}`;
-    await dailyPage.keyboardMove('ArrowRight');
+    await dailyPage.pressKey('ArrowRight');
     expect(await dailyPage.values(), `${startCtx}: ArrowRight from slot 0 should skip fixed slot 1 and swap with slot 2 to ${fmt(afterFirstRight)}`).toEqual(afterFirstRight);
     expect(await dailyPage.selectedIndices(), `${firstRightCtx}: selection should follow the moved value to slot 2`).toEqual([2]);
     expect(await dailyPage.focusedSlotIndex(), `${firstRightCtx}: focus should follow the moved value to slot 2`).toBe(2);
 
     const afterSecondRight = [6, 1, 3, 8, 2, 7, 4, 5];
     const secondRightCtx = `${DAILY_12.name} ${fmt(afterSecondRight)}`;
-    await dailyPage.keyboardMove('ArrowRight');
+    await dailyPage.pressKey('ArrowRight');
     expect(await dailyPage.values(), `${firstRightCtx}: ArrowRight from slot 2 should swap with adjacent free slot 3 to ${fmt(afterSecondRight)}`).toEqual(afterSecondRight);
     expect(await dailyPage.selectedIndices(), `${secondRightCtx}: selection should follow the moved value to slot 3`).toEqual([3]);
     expect(await dailyPage.focusedSlotIndex(), `${secondRightCtx}: focus should follow the moved value to slot 3`).toBe(3);
 
-    await dailyPage.keyboardMove('ArrowLeft');
+    await dailyPage.pressKey('ArrowLeft');
     expect(await dailyPage.values(), `${secondRightCtx}: ArrowLeft from slot 3 should swap back with slot 2 to ${fmt(afterFirstRight)}`).toEqual(afterFirstRight);
     expect(await dailyPage.selectedIndices(), `${firstRightCtx}: selection should follow the moved value back to slot 2`).toEqual([2]);
     expect(await dailyPage.focusedSlotIndex(), `${firstRightCtx}: focus should follow the moved value back to slot 2`).toBe(2);
 
     // Slot 1 is fixed (value 1), so ArrowLeft from slot 2 skips slot 1 and swaps slot 2 (8) back with slot 0 (6).
-    await dailyPage.keyboardMove('ArrowLeft');
+    await dailyPage.pressKey('ArrowLeft');
     expect(
       await dailyPage.values(),
       `${firstRightCtx}: ArrowLeft from slot 2 should skip fixed slot 1 and swap with slot 0 to ${fmt(DAILY_12.start.values)}`,
@@ -245,23 +260,26 @@ test.describe('daily game', () => {
     await dailyPage.run();
     await dailyPage.pausePlayback();
 
-    expect(
-      await dailyPage.progress(),
-      `${ctx}: after Run and Pause, Animation progress should be below 100 before Skip`,
-    ).toBeLessThan(100);
-    expect(
-      await dailyPage.counter(ctx),
-      `${ctx}: after Run and Pause, Comparisons counter should be below ${DAILY_12.start.count} before Skip`,
-    ).toBeLessThan(DAILY_12.start.count);
+    const pausedCounter = await dailyPage.counter(ctx);
+    expect(await dailyPage.progress(), `${ctx}: after Run and Pause, Animation progress should be below 100 before Play`).toBeLessThan(100);
+    expect(pausedCounter, `${ctx}: after Run and Pause, Comparisons counter should be below ${DAILY_12.start.count} before Play`).toBeLessThan(DAILY_12.start.count);
+
+    await dailyPage.playPlayback();
+    await expect
+      .poll(() => dailyPage.counter(ctx), {
+        intervals: [50],
+        message: `${ctx}: after Pause, pressing Play should resume playback and raise Comparisons counter above ${pausedCounter} without Next step`,
+      })
+      .toBeGreaterThan(pausedCounter);
+    await dailyPage.pausePlayback();
+
+    expect(await dailyPage.progress(), `${ctx}: after Play and Pause, Animation progress should remain below 100 before Skip`).toBeLessThan(100);
+    expect(await dailyPage.counter(ctx), `${ctx}: after Play and Pause, Comparisons counter should remain below ${DAILY_12.start.count} before Skip`).toBeLessThan(DAILY_12.start.count);
 
     await dailyPage.skip(ctx);
 
     expect(await dailyPage.counter(ctx), `${ctx}: Skip while paused should jump Comparisons counter to ${DAILY_12.start.count}`).toBe(DAILY_12.start.count);
-    await dailyPage.expectStatusNumber(
-      'Score',
-      DAILY_12.start.count,
-      `${ctx}: Skip while paused should show final Score ${DAILY_12.start.count}`,
-    );
+    await dailyPage.expectStatusNumber('Score', DAILY_12.start.count, `${ctx}: Skip while paused should show final Score ${DAILY_12.start.count}`);
   });
 
   test('stepping back lowers the counter', async ({ dailyPage }) => {
@@ -274,11 +292,41 @@ test.describe('daily game', () => {
 
     const atEnd = await dailyPage.counter(ctx);
     expect(atEnd, `${ctx}: setup after Skip should show Comparisons counter ${DAILY_12.start.count}`).toBe(DAILY_12.start.count);
+    await dailyPage.expectStatusNumber('Tries left', 2, `${ctx}: Tries left should be 2 after try 1 finishes`);
 
     const stepped = await dailyPage.stepBackUntilCounterDrops(atEnd, ctx);
     expect(stepped.progress, `${ctx}: Previous step (${stepped.steps} click(s)) should move Animation progress below 100`).toBeLessThan(100);
     expect(stepped.counter, `${ctx}: Previous step (${stepped.steps} click(s)) from ${atEnd} should lower Comparisons counter below ${atEnd}`).toBeLessThan(atEnd);
     expect(stepped.counter, `${ctx}: Comparisons counter after stepping back should stay >= 0`).toBeGreaterThanOrEqual(0);
+
+    await dailyPage.skipToEnd(ctx);
+    await dailyPage.replayPlayback();
+    let afterReplay = 100;
+    await expect
+      .poll(
+        async () => {
+          afterReplay = await dailyPage.progress();
+          return afterReplay;
+        },
+        {
+          intervals: [25],
+          message: `${ctx}: pressing Replay after a completed run should restart playback so Animation progress drops below 100`,
+        },
+      )
+      .toBeLessThan(100);
+    await expect
+      .poll(() => dailyPage.progress(), {
+        intervals: [50],
+        message: `${ctx}: after Replay restarts playback at Animation progress ${afterReplay}%, progress should rise above ${afterReplay}`,
+      })
+      .toBeGreaterThan(afterReplay);
+    await dailyPage.expectStatusNumber('Tries left', 2, `${ctx}: pressing Replay must not use a try (Tries left should stay 2)`);
+
+    const speeds = await dailyPage.speeds();
+    expect(speeds, `${ctx}: Speed combobox should offer 0.25× (got [${speeds.join(', ')}])`).toContain(0.25);
+    expect(speeds, `${ctx}: Speed combobox should offer 2× (got [${speeds.join(', ')}])`).toContain(2);
+    await dailyPage.setSpeed(2);
+    expect(await dailyPage.speed(), `${ctx}: selecting 2× in the Speed combobox should stick (expected 2)`).toBe(2);
   });
 
   test('reaching par is announced, and the next try is still offered', async ({ dailyPage }) => {
@@ -341,51 +389,49 @@ test.describe('daily game', () => {
     await dailyPage.serve(DAILY_12.puzzle);
     await dailyPage.open();
 
-    const try1Ctx = `${DAILY_12.name} try 1 ${fmt(DAILY_12.start.values)}`;
-    const try2Ctx = `${DAILY_12.name} try 2 ${fmt(DAILY_12.par.values)}`;
-    const try3Ctx = `${DAILY_12.name} try 3 ${fmt(DAILY_12.lowFromPar.values)}`;
-    const endCtx = `${DAILY_12.name} after tries [${DAILY_12.start.count}, ${DAILY_12.par.count}, ${DAILY_12.lowFromPar.count}]`;
+    const try1Ctx = `${DAILY_12.name} try 1 ${fmt(DAILY_12.par.values)}`;
+    const try2Ctx = `${DAILY_12.name} try 2 ${fmt(DAILY_12.lowFromPar.values)}`;
+    const try3Ctx = `${DAILY_12.name} try 3 ${fmt(DAILY_12.thirdFromLow.values)}`;
+    const endCtx = `${DAILY_12.name} after tries [${DAILY_12.par.count}, ${DAILY_12.lowFromPar.count}, ${DAILY_12.thirdFromLow.count}]`;
 
-    expect(
-      await dailyPage.triesLeft(`${DAILY_12.name} ${fmt(DAILY_12.start.values)}`),
-      `${DAILY_12.name} ${fmt(DAILY_12.start.values)}: new puzzle should start with 3 tries left`,
-    ).toBe(3);
+    await dailyPage.expectStatusNumber('Tries left', 3, `${DAILY_12.name} ${fmt(DAILY_12.start.values)}: new puzzle should start with 3 tries left`);
 
-    // Try 1: 30 (below par)
-    await dailyPage.run();
-    await dailyPage.skip(try1Ctx);
-    await dailyPage.expectStatusNumber('Score', DAILY_12.start.count, `${try1Ctx}: Score should be ${DAILY_12.start.count}`);
-    await dailyPage.expectStatusNumber('Tries left', 2, `${try1Ctx}: Tries left should be 2`);
-    expect(await dailyPage.values(), `${try1Ctx}: Puzzle array should stay at ${fmt(DAILY_12.start.values)}`).toEqual([...DAILY_12.start.values]);
-
-    // Try 2: 34 (reaches par, below best; highest of the three tries)
+    // Try 1: 34 (reaches par, below best; highest of the three tries)
     await dailyPage.swap(DAILY_12.par.swap[0], DAILY_12.par.swap[1]);
     await dailyPage.run();
+    await dailyPage.skip(try1Ctx);
+    await dailyPage.expectStatusNumber('Score', DAILY_12.par.count, `${try1Ctx}: Score should be ${DAILY_12.par.count}`);
+    await dailyPage.expectStatusNumber('Tries left', 2, `${try1Ctx}: Tries left should be 2`);
+    expect(await dailyPage.values(), `${try1Ctx}: Puzzle array should stay at ${fmt(DAILY_12.par.values)}`).toEqual([...DAILY_12.par.values]);
+
+    // Try 2: 25 (lower than try 1; Score must show the last run while tries remain)
+    await dailyPage.swap(DAILY_12.lowFromPar.swap[0], DAILY_12.lowFromPar.swap[1]);
+    await dailyPage.run();
     await dailyPage.skip(try2Ctx);
-    await dailyPage.expectStatusNumber('Score', DAILY_12.par.count, `${try2Ctx}: Score should be ${DAILY_12.par.count}`);
+    await dailyPage.expectStatusNumber(
+      'Score',
+      DAILY_12.lowFromPar.count,
+      `${try2Ctx}: while tries remain, Score must show the last run (${DAILY_12.lowFromPar.count}), not the highest (${DAILY_12.par.count})`,
+    );
     await dailyPage.expectStatusNumber('Tries left', 1, `${try2Ctx}: Tries left should be 1`);
 
-    // Try 3: 25 (lower than tries 1 and 2)
-    await dailyPage.swap(DAILY_12.lowFromPar.swap[0], DAILY_12.lowFromPar.swap[1]);
+    // Try 3: 31 (below par and below try 1)
+    await dailyPage.swap(DAILY_12.thirdFromLow.swap[0], DAILY_12.thirdFromLow.swap[1]);
     await dailyPage.run();
     await dailyPage.skip(try3Ctx);
 
-    expect(await dailyPage.counter(try3Ctx), `${try3Ctx}: Comparisons counter should be ${DAILY_12.lowFromPar.count}`).toBe(DAILY_12.lowFromPar.count);
+    expect(await dailyPage.counter(try3Ctx), `${try3Ctx}: Comparisons counter should be ${DAILY_12.thirdFromLow.count}`).toBe(DAILY_12.thirdFromLow.count);
     await dailyPage.expectStatusNumber('Tries left', 0, `${try3Ctx}: Tries left should be 0`);
-    await dailyPage.expectStatusNumber(
-      'Score',
-      DAILY_12.par.count,
-      `${endCtx}: final Score should be the highest try (${DAILY_12.par.count})`,
-    );
+    await dailyPage.expectStatusNumber('Score', DAILY_12.par.count, `${endCtx}: final Score should be the highest try (${DAILY_12.par.count})`);
     expect(await dailyPage.best(endCtx), `${endCtx}: Best status should reveal ${DAILY_12.puzzle.best}`).toBe(DAILY_12.puzzle.best);
     expect(await dailyPage.canRun(), `${endCtx}: Run button should be disabled or hidden`).toBe(false);
     expect(await dailyPage.canShare(), `${endCtx}: Share button should be visible and enabled once the puzzle ends below best`).toBe(true);
 
     const expectedShare = [
       'structs.sh daily #12 · Quicksort',
-      `${DAILY_12.start.count} / ${DAILY_12.puzzle.best}`,
       `${DAILY_12.par.count} / ${DAILY_12.puzzle.best} ⭐`,
       `${DAILY_12.lowFromPar.count} / ${DAILY_12.puzzle.best}`,
+      `${DAILY_12.thirdFromLow.count} / ${DAILY_12.puzzle.best}`,
       'structs.sh/daily',
     ].join('\n');
     expect(
