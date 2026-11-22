@@ -152,6 +152,19 @@ const valid = [
     name: "'Press the pivot' and 'You have solved 3 puzzles' do not match the narration phrases",
     code: tsx('<div>', '  <p>Press the pivot to lock it.</p>', '  <span>You have solved 3 puzzles.</span>', '</div>'),
   },
+  // Regression cases from the Sol review.
+  {
+    name: 'mutually exclusive ternary branches do not sum: <p>A</p>{ok ? <p>B</p> : <p>C</p>} shows at most 2 <p>, not reported',
+    code: tsx('<section>', '  <p>A.</p>', '  {ok ? <p>B.</p> : <p>C.</p>}', '</section>'),
+  },
+  {
+    name: 'a className="sr-only" <span> inside a visible <p> is skipped: its 30 words and Press Enter do not count for the <p>',
+    code: tsx(`<p>Short visible text. <span className="sr-only">${words(30)}. Press Enter to select. Tap or click to swap.</span></p>`),
+  },
+  {
+    name: "'e.g.' is not a sentence end: 'Pick one, e.g. the left tile. Swap it.' is 2 sentences",
+    code: tsx('<p>Pick one, e.g. the left tile. Swap it.</p>'),
+  },
 ];
 
 const invalid = [
@@ -352,6 +365,71 @@ const invalid = [
       name: 'a srOnly sibling does not exempt a visible <p>: Press Enter in the visible <p> is uiNarration',
       code,
       errors: [narration(code, 'Press Enter')],
+    };
+  })(),
+  // Regression cases from the Sol review.
+  (() => {
+    const code = tsx('<section>', '  <p>A.</p>', '  <p>B.</p>', '  {show && <p>C.</p>}', '</section>');
+    return {
+      name: "a <p> behind {show && ...} counts: <p>A</p><p>B</p>{show && <p>C</p>} is stackedParagraphs, on the 3rd <p>",
+      code,
+      errors: [stacked(code, 3)],
+    };
+  })(),
+  (() => {
+    const code = tsx('<section>', '  <p>A.</p>', '  <>', '    <p>B.</p>', '    <p>C.</p>', '  </>', '</section>');
+    return {
+      name: 'a nested <> fragment is transparent: <p>A</p><><p>B</p><p>C</p></> in a <section> is stackedParagraphs, on the 3rd <p>',
+      code,
+      errors: [stacked(code, 3)],
+    };
+  })(),
+  (() => {
+    const code = tsx('<p className="not-sr-only">Tap or click a tile.</p>');
+    return {
+      name: "className='not-sr-only' is not screen-reader-only (classes match exactly): 'Tap or click' is uiNarration",
+      code,
+      errors: [narration(code, 'Tap or click')],
+    };
+  })(),
+  (() => {
+    const code = tsx("<p className={show ? 'normal' : 'sr-only'}>Tap or click a tile.</p>");
+    return {
+      name: "a conditionally applied sr-only (className={show ? 'normal' : 'sr-only'}) does not exempt the <p>: uiNarration",
+      code,
+      errors: [narration(code, 'Tap or click')],
+    };
+  })(),
+  (() => {
+    const code = tsx('<p>Press <kbd>Enter</kbd> to pick.</p>');
+    return {
+      name: 'narration across inline markup (<p>Press <kbd>Enter</kbd> to pick.</p>) is uiNarration, reported once',
+      code,
+      errors: [narration(code, 'Press')],
+    };
+  })(),
+  (() => {
+    const code = tsx('<ul>', '  <li>Press Enter to start.</li>', '</ul>');
+    return {
+      name: "'Press Enter to start.' in a <li> is uiNarration, reported once on the <li> line",
+      code,
+      errors: [narration(code, 'Press Enter')],
+    };
+  })(),
+  (() => {
+    const code = tsx('<p>{`Tap or click ${target} to swap.`}</p>');
+    return {
+      name: 'the static text of an interpolated template literal ({`Tap or click ${target} to swap.`}) is uiNarration',
+      code,
+      errors: [narration(code, 'Tap or click')],
+    };
+  })(),
+  (() => {
+    const code = tsx('<p>Click "Run." Watch the bars. Check your score.</p>');
+    return {
+      name: 'a period before a closing quote ends a sentence: \'Click "Run." Watch the bars. Check your score.\' is 3 sentences, longParagraph',
+      code,
+      errors: [long(code)],
     };
   })(),
 ];
