@@ -70,7 +70,8 @@ export class DailyPage {
 
   /**
    * Asserts a visible `Pivot` indicator in Puzzle array, outside the slot buttons,
-   * horizontally aligned with slot 0 and not overflowing the viewport width.
+   * horizontally aligned with slot 0, not clipped, fully inside the viewport width, and linked to
+   * slot 0 with aria-describedby (slot 0's accessible name stays just its number).
    */
   async expectPivotMarkerOnFirstSlot(context: string): Promise<void> {
     const marker = this.pivotMarker;
@@ -84,6 +85,11 @@ export class DailyPage {
       firstText,
       `${context}: slot 0's button text must still start with its number (the Pivot indicator belongs outside the button); got "${firstText}"`,
     ).toMatch(/^-?\d+/);
+    const clip = await marker.evaluate((el) => ({ scrollWidth: el.scrollWidth, clientWidth: el.clientWidth }));
+    expect(
+      clip.scrollWidth <= clip.clientWidth + 1,
+      `${context}: the Pivot indicator's text must not be clipped horizontally (scrollWidth ${clip.scrollWidth}px should be <= clientWidth ${clip.clientWidth}px, 1px tolerance)`,
+    ).toBe(true);
     const markerBox = await marker.boundingBox();
     const slotBox = await this.slot(0).boundingBox();
     if (!markerBox || !slotBox) {
@@ -97,9 +103,28 @@ export class DailyPage {
     ).toBe(true);
     const viewportWidth = await this.page.evaluate(() => window.innerWidth);
     expect(
-      markerBox.x >= -1 && markerBox.x + markerBox.width <= viewportWidth + 1,
+      markerBox.x >= 0 && markerBox.x + markerBox.width <= viewportWidth,
       `${context}: the Pivot indicator (x ${Math.round(markerBox.x)}..${Math.round(markerBox.x + markerBox.width)}px) must fit within the viewport width ${viewportWidth}px`,
     ).toBe(true);
+    await expect(
+      marker,
+      `${context}: the Pivot indicator needs a non-empty id so slot 0 can reference it with aria-describedby`,
+    ).toHaveAttribute('id', /\S/);
+    const markerId = (await marker.evaluate((el) => el.id)).trim();
+    const describedBy = ((await this.slot(0).getAttribute('aria-describedby')) ?? '').split(/\s+/).filter(Boolean);
+    expect(
+      describedBy,
+      `${context}: slot 0's button must have aria-describedby including the Pivot indicator's id "${markerId}" so screen readers announce it; got aria-describedby="${describedBy.join(' ')}"`,
+    ).toContain(markerId);
+    await expect(
+      this.slot(0),
+      `${context}: slot 0's accessible description should be "Pivot"`,
+    ).toHaveAccessibleDescription('Pivot');
+    const firstNumber = firstText.match(/^-?\d+/)?.[0] ?? firstText;
+    await expect(
+      this.slot(0),
+      `${context}: slot 0's accessible name should stay just its number "${firstNumber}" (Pivot is its description, not part of its name)`,
+    ).toHaveAccessibleName(firstNumber);
   }
 
   /** The values shown in Puzzle array from left to right. */
@@ -300,32 +325,75 @@ export class DailyPage {
   }
 
   /**
-   * Waits (briefly, for smooth scrolling to settle) until the sorting visualiser's
-   * #visualiser-canvas is fully inside the vertical viewport, allowing 1px rounding.
-   * On failure the received value spells out the canvas rect, viewport height and scrollY.
+   * Waits (briefly, for smooth scrolling to settle) until both the visualiser's stable stage
+   * (`#visualiser-container`, which wraps the pan/zoom-transformed #visualiser-canvas) and the
+   * `Playback` toolbar are fully inside the vertical viewport, allowing 1px rounding.
+   * On failure the received value spells out each rect, the viewport height and scrollY.
    */
-  async expectVisualiserCanvasInViewport(context: string, timeout = 2_000): Promise<void> {
-    const inView = 'fully in the viewport';
+  async expectVisualiserInViewport(context: string, timeout = 2_000): Promise<void> {
+    const inView = 'stage and Playback toolbar fully in the viewport';
+    await expect(this.playback, `${context}: the Playback toolbar should be visible after Run`).toBeVisible();
     await expect
       .poll(
-        () =>
-          this.page.evaluate((ok) => {
-            const el = document.querySelector('#visualiser-canvas');
-            if (!el) return '#visualiser-canvas not found on the page';
+        async () => {
+          const toolbar = await this.playback.evaluate((el) => {
             const rect = el.getBoundingClientRect();
-            const top = Math.round(rect.top);
-            const bottom = Math.round(rect.bottom);
-            const viewportHeight = window.innerHeight;
-            if (top >= -1 && bottom <= viewportHeight + 1) return ok;
-            return `canvas rect top ${top}, bottom ${bottom}, viewport height ${viewportHeight}, scrollY ${Math.round(window.scrollY)}`;
-          }, inView),
+            return { top: Math.round(rect.top), bottom: Math.round(rect.bottom) };
+          });
+          return this.page.evaluate(
+            ({ ok, toolbarRect }) => {
+              const stage = document.querySelector('#visualiser-container');
+              if (!stage) return '#visualiser-container (the visualiser stage) not found on the page';
+              const rect = stage.getBoundingClientRect();
+              const stageRect = { top: Math.round(rect.top), bottom: Math.round(rect.bottom) };
+              const viewportHeight = window.innerHeight;
+              const fits = (r: { top: number; bottom: number }) => r.top >= -1 && r.bottom <= viewportHeight + 1;
+              if (fits(stageRect) && fits(toolbarRect)) return ok;
+              return `stage rect top ${stageRect.top}, bottom ${stageRect.bottom}${fits(stageRect) ? '' : ' (out of view)'}; Playback toolbar top ${toolbarRect.top}, bottom ${toolbarRect.bottom}${fits(toolbarRect) ? '' : ' (out of view)'}; viewport height ${viewportHeight}, scrollY ${Math.round(window.scrollY)}`;
+            },
+            { ok: inView, toolbarRect: toolbar },
+          );
+        },
         {
           intervals: [100],
           timeout,
-          message: `${context}: clicking Run should scroll the page so #visualiser-canvas is fully in the viewport (top >= 0 and bottom <= viewport height, 1px tolerance) within ${timeout} ms`,
+          message: `${context}: Run should scroll the page so both the visualiser stage (#visualiser-container) and the Playback toolbar are fully in the viewport (top >= 0 and bottom <= viewport height, 1px tolerance) within ${timeout} ms`,
         },
       )
       .toBe(inView);
+  }
+
+  /** Focuses the named action button (for example `Run`) without clicking it. */
+  async focusButton(name: 'Run' | 'Skip' | 'Share'): Promise<void> {
+    const target = this.button(name);
+    await expect(target, `${name} button should be visible before focusing it`).toBeVisible();
+    await expect(target, `${name} button should be enabled before focusing it`).toBeEnabled();
+    await target.focus();
+    await expect(target, `${name} button should take focus`).toBeFocused();
+  }
+
+  /** Asserts the named action button is enabled and has keyboard focus, naming the actual focused element on failure. */
+  async expectButtonFocused(name: 'Run' | 'Skip' | 'Share', context: string): Promise<void> {
+    const target = this.button(name);
+    await expect(target, `${context}: ${name} button should be enabled`).toBeEnabled();
+    await expect
+      .poll(async () => ((await target.evaluate((el) => el === document.activeElement)) ? 'focused' : `focus is on ${await this.describeActiveElement()}`), {
+        intervals: [50],
+        timeout: 2_000,
+        message: `${context}: keyboard focus should be on the ${name} button`,
+      })
+      .toBe('focused');
+  }
+
+  /** Polls until rounded Animation progress is 100 within `timeout` ms (for example after pressing Enter on Skip). */
+  async expectProgressAtEnd(context: string, timeout = 1_000): Promise<void> {
+    await expect
+      .poll(() => this.roundedProgress(context), {
+        intervals: [50],
+        timeout,
+        message: `${context}: rounded Animation progress should reach 100 within ${timeout} ms`,
+      })
+      .toBe(100);
   }
 
   async skip(context?: string): Promise<void> {

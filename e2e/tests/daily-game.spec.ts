@@ -123,6 +123,21 @@ test.describe('daily game', () => {
   test.describe('on a phone', () => {
     test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 
+    test('Run scrolls the drawing and its playback controls into view on a phone', async ({ dailyPage }) => {
+      await dailyPage.serve(DAILY_12.puzzle);
+      await dailyPage.open();
+
+      const ctx = `${DAILY_12.name} ${fmt(DAILY_12.start.values)} at 390x844 touch`;
+      await dailyPage.run();
+      await dailyPage.expectVisualiserInViewport(`${ctx} after tapping Run`);
+      await expect
+        .poll(() => dailyPage.counter(ctx), {
+          intervals: [50],
+          message: `${ctx}: after tapping Run, the sort should animate and raise Comparisons counter above 0`,
+        })
+        .toBeGreaterThan(0);
+    });
+
     test('swapping works on a phone-sized screen', async ({ dailyPage }) => {
       await dailyPage.serve(DAILY_12.puzzle);
       await dailyPage.open();
@@ -159,6 +174,35 @@ test.describe('daily game', () => {
     });
   });
 
+  test.describe('on a narrow phone', () => {
+    test.use({ viewport: { width: 320, height: 640 }, isMobile: true, hasTouch: true });
+
+    test('the Pivot indicator fits on a 320px-wide screen', async ({ dailyPage }) => {
+      await dailyPage.serve(DAILY_12.puzzle);
+      await dailyPage.open();
+
+      const ctx = `${DAILY_12.name} ${fmt(DAILY_12.start.values)} at 320x640 touch`;
+      expect(await dailyPage.values(), `${ctx}: Puzzle array should show starting values ${fmt(DAILY_12.start.values)}`).toEqual([...DAILY_12.start.values]);
+      await dailyPage.expectPivotMarkerOnFirstSlot(ctx);
+    });
+  });
+
+  test('starting Run from the keyboard moves focus to Skip', async ({ dailyPage }) => {
+    await dailyPage.serve(DAILY_12.puzzle);
+    await dailyPage.open();
+
+    const ctx = `${DAILY_12.name} ${fmt(DAILY_12.start.values)}`;
+    await dailyPage.focusButton('Run');
+    await dailyPage.pressKey('Enter');
+    await dailyPage.expectButtonFocused(
+      'Skip',
+      `${ctx}: after focusing Run and pressing Enter, focus must move to Skip (not drop to the page body or jump past Skip to the visualiser)`,
+    );
+    await dailyPage.pressKey('Enter');
+    await dailyPage.expectProgressAtEnd(`${ctx}: pressing Enter on the focused Skip button`);
+    expect(await dailyPage.counter(ctx), `${ctx}: Enter on Skip should jump Comparisons counter to ${DAILY_12.start.count}`).toBe(DAILY_12.start.count);
+  });
+
   test('Run animates the sort, and the counter goes up with each comparison', async ({ dailyPage }) => {
     await dailyPage.serve(DAILY_12.puzzle);
     await dailyPage.open();
@@ -173,7 +217,7 @@ test.describe('daily game', () => {
 
     await dailyPage.run();
     // Checked before Pause, because clicking Pause would itself scroll the page.
-    await dailyPage.expectVisualiserCanvasInViewport(`${ctx} after clicking Run`);
+    await dailyPage.expectVisualiserInViewport(`${ctx} after clicking Run`);
     await expect
       .poll(() => dailyPage.counter(ctx), {
         intervals: [50],

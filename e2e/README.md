@@ -116,8 +116,11 @@ names:
   - Slot 0 has a visible `Pivot` indicator: an element inside the group whose
     text is exactly `Pivot`. It sits outside the slot button's text, so the
     button still starts with its number. It lines up horizontally with slot 0
-    (its centre is within slot 0's left and right edges) and fits within a
-    390x844 screen without clipping.
+    (its centre is within slot 0's left and right edges), and its text is not
+    clipped and sits fully inside the screen width, down to a 320x640 screen.
+    It has an `id`, and slot 0's button points at it with `aria-describedby`,
+    so slot 0's accessible description is `Pivot` while its accessible name
+    stays just its number.
   - Each slot button's text starts with its numeric value (for example `8`).
     Hide any lock icon with `aria-hidden="true"`.
   - Fixed slots are disabled (`disabled` or `aria-disabled="true"`). Clicking or
@@ -143,8 +146,11 @@ names:
   - `button` `Run`: starts a try on the current arrangement and starts playback
     by itself. Disabled while a run animates, and disabled or hidden once the
     puzzle ends.
-    Clicking `Run` also scrolls the visualiser into view so the player can
-    watch the sort.
+    Clicking `Run` also scrolls the page so both the visualiser stage
+    (`#visualiser-container`) and the `Playback` toolbar are fully in view,
+    on desktop and on a 390x844 phone, so the player can watch the sort.
+    Pressing `Enter` on a focused `Run` moves focus straight to `Skip`, so the
+    next key press can skip the animation.
   - `button` `Skip`: jumps the animation straight to the final comparison count
     and completes the try, whether playback is playing or paused.
   - `button` `Share`: visible and enabled once the puzzle ends; copies the share

@@ -379,8 +379,8 @@ For this project:
   time.
 - **Solver**: the part of `structs-forge` that finds the best score for an
   instance, by trying every input or by searching when there are too many.
-- **Best**: the solver's best score for an instance. The page reveals it
-  when the puzzle is finished.
+- **Best**: the solver's best score for an instance. The generator uses it
+  offline to work out the Goal, and the page never shows it.
 - **Goal**: the day's target score, 65% of the way from a typical random
   input's score to the best (stored as `par` in the puzzle file).
 - **Shortcut**: a rule that solves a template without working through the
