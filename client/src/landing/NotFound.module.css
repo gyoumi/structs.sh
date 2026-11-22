@@ -1,0 +1,75 @@
+.path {
+  padding: 0.05em 0.35em;
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: inherit;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.array {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: clamp(0.5rem, 1.6vw, 1rem);
+  height: clamp(14rem, 30vw, 20rem);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cell {
+  display: flex;
+  flex: 0 1 4.5rem;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.625rem;
+  height: 100%;
+  justify-content: flex-end;
+}
+
+.bar {
+  display: grid;
+  place-items: start center;
+  height: calc(var(--h) * 1%);
+  padding-top: 0.5rem;
+  border: 2.5px solid var(--button-ink);
+  border-radius: 14px;
+  background: var(--sand);
+  box-shadow: 0 var(--drop) 0 var(--shadow);
+  color: var(--button-ink);
+  font-size: clamp(1rem, 2vw, 1.375rem);
+  font-weight: 700;
+  box-sizing: border-box;
+}
+
+.missing {
+  --h: 64;
+
+  place-items: center;
+  border: 2.5px dashed var(--dash);
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+  font-size: clamp(1.5rem, 3vw, 2.25rem);
+}
+
+.index {
+  color: var(--muted);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.missing + .index {
+  color: var(--ink);
+}
+
+@media (max-width: 860px) {
+  .array {
+    height: 12rem;
+    margin-top: 1rem;
+  }
+}

@@ -1,20 +1,32 @@
 import Box from '@mui/material/Box';
 import { ThemeProvider } from '@mui/material/styles';
 import { AnimatePresence } from 'framer-motion';
-import { Route, Routes } from 'react-router-dom';
-import Feedback from '@/Feedback';
-import HomePage from '@/HomePage';
-import Page404 from '@/Page404';
-import VisualiserPage from '@/VisualiserPage';
+import { Route, Routes, useLocation, useNavigationType } from 'react-router-dom';
+import FeedbackRedirect from '@/landing/FeedbackRedirect';
+import Landing from '@/landing/Landing';
+import NotFound from '@/landing/NotFound';
 import { structsTheme } from '@/structsThemes';
+import Visualiser from '@/visualiser/Visualiser';
 import './App.scss';
+import '@/visualiser-src/linked-list-visualiser/styles/visualiser.css';
 import DevelopmentMode from '@/visualiser-debugger/DevelopmentMode';
 import { useGlobalStore } from '@/visualiser-debugger/Store/globalStateStore';
-import { useEffect } from 'react';
+import { useEffect, useLayoutEffect } from 'react';
 import { useFrontendStateStore } from '@/visualiser-debugger/Store/frontendStateStore';
 import Toast from '@/visualiser-debugger/Component/Toast/Toast';
 
+/** Opens each new page at the top. Back and forward keep the browser's restored position, and anchors scroll themselves. */
+const useScrollToTopOnNavigate = () => {
+  const { pathname, hash } = useLocation();
+  const navigationType = useNavigationType();
+  useLayoutEffect(() => {
+    if (navigationType !== 'POP' && !hash) window.scrollTo(0, 0);
+  }, [pathname, hash, navigationType]);
+};
+
 const App = () => {
+  useScrollToTopOnNavigate();
+
   useEffect(() => {
     // @ts-ignore
     window.globalStore = useGlobalStore;
@@ -28,19 +40,19 @@ const App = () => {
         <ThemeProvider theme={structsTheme}>
           <Routes>
             {/* Homepage */}
-            <Route path="/" element={<HomePage />} />
+            <Route path="/" element={<Landing />} />
 
             {/* Visualiser routes */}
-            <Route path="/visualiser/:topic/:data?" element={<VisualiserPage />} />
+            <Route path="/visualiser/:topic/:data?" element={<Visualiser />} />
 
             {/* Feedback and feature request page */}
-            <Route path="/feedback" element={<Feedback />} />
+            <Route path="/feedback" element={<FeedbackRedirect />} />
 
             {/* Development mode */}
             <Route path="/debugger" element={<DevelopmentMode />} />
 
             {/* 404 page */}
-            <Route path="*" element={<Page404 />} />
+            <Route path="*" element={<NotFound />} />
           </Routes>
           {/** For Providing warning/info/context of the app at anytime */}
           <Toast />

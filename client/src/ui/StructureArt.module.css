@@ -1,0 +1,83 @@
+.host {
+  --art-on: 0;
+}
+
+.host:is(:focus-visible, [data-checked], [data-active]) {
+  --art-on: 1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .host:hover {
+    --art-on: 1;
+  }
+}
+
+.art {
+  overflow: visible;
+  fill: none;
+  stroke: var(--art-ink, currentColor);
+  stroke-width: var(--art-stroke, 3);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.art * {
+  transition:
+    transform 460ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    stroke-dashoffset 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.node {
+  fill: var(--art-fill, none);
+}
+
+.round {
+  rx: var(--art-round, 3px);
+}
+
+.lit {
+  fill: var(--art-accent);
+  opacity: var(--art-on);
+}
+
+.shift {
+  transform: translate(
+    calc(var(--art-on) * var(--dx, 0) * 1px),
+    calc(var(--art-on) * var(--dy, 0) * 1px)
+  );
+}
+
+.appear {
+  opacity: var(--art-on);
+}
+
+.vanish {
+  opacity: calc(1 - var(--art-on));
+}
+
+.pop {
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: var(--art-on);
+  transform: scale(calc(0.6 + var(--art-on) * 0.4));
+}
+
+.trace {
+  stroke: var(--art-accent);
+  stroke-width: calc(var(--art-stroke, 3) * 1.6);
+  stroke-dasharray: 1;
+  stroke-dashoffset: calc(1 - var(--art-on));
+}
+
+.cursor {
+  fill: var(--art-accent);
+  stroke: none;
+  opacity: 0.45;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .art * {
+    transition-duration: 1ms;
+  }
+}

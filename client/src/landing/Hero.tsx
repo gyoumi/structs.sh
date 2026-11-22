@@ -1,0 +1,213 @@
+import { useState } from 'react';
+import { Theme, useTheme } from '@/ui/theme';
+import { DEVSOC, DevsocGlyph, devsocInk } from './devsoc';
+import { easeInOut, useTimeline } from './useTimeline';
+import styles from './Hero.module.css';
+
+const BLOCK_SIZE = 40;
+const DEPTH = 16;
+const COLUMN_SPACING = BLOCK_SIZE + 20;
+const HOLD_MS = 700;
+const FRAME_MS = 230;
+const MOVE_MS = 200;
+const SETTLE_MS = 200;
+
+type SortedPlace = number;
+type PlaceRange = [start: number, endExclusive: number];
+
+const START_ORDER: SortedPlace[] = [3, 0, 4, 2, 5, 1];
+
+const SHORTEST_STACK = 2;
+const stackHeight = (stack: SortedPlace) => stack + SHORTEST_STACK;
+
+const inRange = (place: number, [start, endExclusive]: PlaceRange) =>
+  place >= start && place < endExclusive;
+
+interface Frame {
+  order: SortedPlace[];
+  comparing: SortedPlace[];
+  sortedRange: PlaceRange;
+}
+
+const swap = (order: SortedPlace[], a: number, b: number) => {
+  [order[a], order[b]] = [order[b], order[a]];
+};
+
+const selectionSort = (): Frame[] => {
+  const order = [...START_ORDER];
+  const frames: Frame[] = [{ order: [...order], comparing: [], sortedRange: [0, 0] }];
+  for (let i = 0; i < order.length - 1; i += 1) {
+    let smallest = i;
+    for (let j = i + 1; j < order.length; j += 1) {
+      frames.push({
+        order: [...order],
+        comparing: [order[smallest], order[j]],
+        sortedRange: [0, i],
+      });
+      if (order[j] < order[smallest]) smallest = j;
+    }
+    swap(order, i, smallest);
+    frames.push({ order: [...order], comparing: [order[i]], sortedRange: [0, i + 1] });
+  }
+  frames.push({ order: [...order], comparing: [], sortedRange: [0, order.length] });
+  return frames;
+};
+
+const bubbleSort = (): Frame[] => {
+  const order = [...START_ORDER];
+  const n = order.length;
+  const frames: Frame[] = [{ order: [...order], comparing: [], sortedRange: [n, n] }];
+  for (let pass = 0; pass < n - 1; pass += 1) {
+    const settled: PlaceRange = [n - pass, n];
+    for (let j = 0; j < n - 1 - pass; j += 1) {
+      frames.push({ order: [...order], comparing: [order[j], order[j + 1]], sortedRange: settled });
+      if (order[j] > order[j + 1]) {
+        swap(order, j, j + 1);
+        frames.push({
+          order: [...order],
+          comparing: [order[j], order[j + 1]],
+          sortedRange: settled,
+        });
+      }
+    }
+  }
+  frames.push({ order: [...order], comparing: [], sortedRange: [0, n] });
+  return frames;
+};
+
+const insertionSort = (): Frame[] => {
+  const order = [...START_ORDER];
+  const frames: Frame[] = [{ order: [...order], comparing: [], sortedRange: [0, 1] }];
+  for (let i = 1; i < order.length; i += 1) {
+    for (let j = i; j > 0; j -= 1) {
+      frames.push({ order: [...order], comparing: [order[j - 1], order[j]], sortedRange: [0, i] });
+      if (order[j - 1] < order[j]) break;
+      swap(order, j - 1, j);
+      frames.push({ order: [...order], comparing: [order[j - 1]], sortedRange: [0, i] });
+    }
+  }
+  frames.push({ order: [...order], comparing: [], sortedRange: [0, order.length] });
+  return frames;
+};
+
+const SORTS = [
+  { name: 'selection sort', frames: selectionSort() },
+  { name: 'bubble sort', frames: bubbleSort() },
+  { name: 'insertion sort', frames: insertionSort() },
+];
+
+const startOf = (frame: number) => (frame === 0 ? 0 : HOLD_MS + (frame - 1) * FRAME_MS);
+const durationOf = (frames: Frame[]) => startOf(frames.length - 1) + SETTLE_MS;
+
+interface Faces {
+  front: string;
+  top: string;
+  side: string;
+}
+
+const palette: Record<Theme, Record<'waiting' | 'comparing' | 'sorted', Faces>> = {
+  light: {
+    waiting: { front: '#9CC5EC', top: '#D6E8F8', side: '#6F9FD2' },
+    comparing: { front: '#ECC98F', top: '#F7E6C4', side: '#C99A52' },
+    sorted: { front: '#B3AEF0', top: '#DCD9FA', side: '#8A84DC' },
+  },
+  dark: {
+    waiting: { front: '#6FA3D8', top: '#C4DEF4', side: '#3F78B5' },
+    comparing: { front: '#ECC98F', top: '#F7E6C4', side: '#B98A45' },
+    sorted: { front: '#8F8AE0', top: '#C3C0F2', side: '#5D58BD' },
+  },
+};
+
+const Block = ({
+  bottom,
+  faces,
+  drawTopFace,
+}: {
+  bottom: number;
+  faces: Faces;
+  drawTopFace: boolean;
+}) => {
+  const y = bottom - BLOCK_SIZE;
+  return (
+    <>
+      <rect x={0} y={y} width={BLOCK_SIZE} height={BLOCK_SIZE} fill={faces.front} />
+      <polygon
+        points={`${BLOCK_SIZE},${y} ${BLOCK_SIZE + DEPTH},${y - DEPTH} ${BLOCK_SIZE + DEPTH},${bottom - DEPTH} ${BLOCK_SIZE},${bottom}`}
+        fill={faces.side}
+      />
+      {drawTopFace && (
+        <polygon
+          points={`0,${y} ${DEPTH},${y - DEPTH} ${BLOCK_SIZE + DEPTH},${y - DEPTH} ${BLOCK_SIZE},${y}`}
+          fill={faces.top}
+        />
+      )}
+      <path
+        d={`M0 ${bottom}h${BLOCK_SIZE}l${DEPTH} ${-DEPTH}`}
+        stroke="rgba(20, 18, 63, 0.22)"
+        strokeWidth={2}
+        fill="none"
+      />
+    </>
+  );
+};
+
+const placeOf = (frames: Frame[], stack: SortedPlace, frame: number, time: number) => {
+  const now = frames[frame].order.indexOf(stack);
+  if (frame === 0) return now;
+  const before = frames[frame - 1].order.indexOf(stack);
+  return before + (now - before) * easeInOut((time - startOf(frame)) / MOVE_MS);
+};
+
+const Hero = () => {
+  const theme = useTheme();
+  const [{ name, frames }] = useState(() => SORTS[Math.floor(Math.random() * SORTS.length)]);
+  const { ref, time, replay } = useTimeline(durationOf(frames));
+  const frame = frames.reduce((current, _, i) => (time >= startOf(i) ? i : current), 0);
+  const { comparing, sortedRange, order } = frames[frame];
+  const colours = palette[theme];
+  const paintOrder = [...order].sort(
+    (a, b) => Number(comparing.includes(a)) - Number(comparing.includes(b))
+  );
+
+  return (
+    <div ref={ref} className={styles.wrap} onPointerEnter={replay}>
+      <svg
+        className={styles.sort}
+        viewBox={`-4 ${-(7 * BLOCK_SIZE + DEPTH + 6)} ${5 * COLUMN_SPACING + BLOCK_SIZE + DEPTH + 8} ${7 * BLOCK_SIZE + DEPTH + 10}`}
+        role="img"
+        aria-label={`Blocks sorting themselves into DevSoc's <dev/> logo with ${name}`}
+      >
+        {paintOrder.map((stack) => {
+          const place = order.indexOf(stack);
+          const state = comparing.includes(stack)
+            ? 'comparing'
+            : inRange(place, sortedRange)
+              ? 'sorted'
+              : 'waiting';
+          const char = DEVSOC[stack];
+          const height = stackHeight(stack);
+          return (
+            <g
+              key={char}
+              transform={`translate(${placeOf(frames, stack, frame, time) * COLUMN_SPACING} 0)`}
+            >
+              {Array.from({ length: height }, (_, level) => (
+                <Block
+                  key={level}
+                  bottom={-level * BLOCK_SIZE}
+                  faces={colours[state]}
+                  drawTopFace={level === height - 1}
+                />
+              ))}
+              <g transform={`translate(${BLOCK_SIZE / 2} ${-BLOCK_SIZE / 2})`}>
+                <DevsocGlyph char={char} scale={0.72} fill={devsocInk(char, 'light')} />
+              </g>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+};
+
+export default Hero;

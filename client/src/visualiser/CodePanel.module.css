@@ -1,0 +1,139 @@
+.code {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  padding: 16px 0 0;
+  overflow: hidden;
+  border: 2px solid var(--line);
+  border-radius: 16px;
+  background: var(--code-panel);
+  box-shadow: 6px 6px 0 var(--shadow);
+  color: var(--code-ink);
+}
+
+.codeTitle {
+  margin: 0;
+  padding: 0 16px;
+  color: var(--code-title);
+  font-size: 13px;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.live:empty {
+  margin-top: -12px;
+}
+
+.narration {
+  margin: 0 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--narration);
+  color: var(--ink);
+  transition: background-color 200ms ease;
+}
+
+.narration[data-state='done'] {
+  background: var(--sand);
+  color: #23225e;
+  animation: settle 420ms cubic-bezier(0.3, 1.5, 0.5, 1);
+}
+
+@keyframes settle {
+  0% {
+    transform: translateY(-4px);
+  }
+
+  100% {
+    transform: none;
+  }
+}
+
+.narrationTitle {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.narrationBody {
+  margin: 6px 0 0;
+  font-size: 14px;
+}
+
+.narrationBody code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--ground);
+  font-family: CodeText, monospace;
+  font-size: 13px;
+  font-variant-ligatures: none;
+}
+
+.listing {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 4px 0 16px;
+  overflow: auto;
+  list-style: none;
+  font-family: CodeText, monospace;
+  font-size: 13px;
+  font-variant-ligatures: none;
+  line-height: 1.75;
+}
+
+.codeLine {
+  position: relative;
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  padding-right: 14px;
+  color: var(--code-text);
+  transition:
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.codeLine code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: inherit;
+}
+
+.codeNumber {
+  padding-right: 12px;
+  text-align: right;
+  color: var(--code-number);
+}
+
+.codeLine[data-current] {
+  background: var(--sand);
+  color: #23225e;
+}
+
+.codeLine[data-current] .codeNumber {
+  color: var(--code-current-number);
+}
+
+.codeEmpty {
+  margin: 0;
+  padding: 0 16px;
+  color: var(--code-text);
+}
+
+@media (max-width: 860px) {
+  .code {
+    order: 3;
+    max-height: 60vh;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .codeLine,
+  .narration {
+    transition: none;
+    animation: none;
+  }
+}
