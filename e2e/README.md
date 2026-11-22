@@ -125,7 +125,10 @@ names:
     selects it (`aria-pressed="true"`). While selected, `ArrowRight` swaps it
     with the neighbouring free slot to the right (skipping any fixed slots) and
     keeps focus and selection on the moved value; `ArrowLeft` does the same to
-    the left. Pressing `Enter`, `Space`, or `Escape` clears the selection.
+    the left. With a value selected, pressing `Enter` or `Space` on the
+    selected slot clears the selection; pressing `Enter` or `Space` on a
+    different free slot swaps the two and clears the selection, as tapping two
+    values does; pressing `Escape` on any slot clears the selection.
   - After a try finishes, the array stays in the arrangement the player ran, so
     the next try starts from there.
 - **Action buttons (exact names):**

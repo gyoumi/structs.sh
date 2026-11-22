@@ -101,6 +101,21 @@ test.describe('daily game', () => {
     ).toEqual([...DAILY_12.start.values]);
     expect(await dailyPage.selectedIndices(), `${startCtx}: selection should follow the moved value back to slot 0`).toEqual([0]);
     expect(await dailyPage.focusedSlotIndex(), `${startCtx}: focus should follow the moved value back to slot 0`).toBe(0);
+
+    // Clear selection, select slot 0 with Enter, Tab past fixed slot 1 to slot 2, and press Enter to swap.
+    await dailyPage.pressKey('Escape');
+    await dailyPage.keyboardSelectByTab(0, startCtx, 'Enter');
+    await dailyPage.pressKey('Tab');
+    expect(
+      await dailyPage.focusedSlotIndex(),
+      `${startCtx}: pressing Enter on slot 0 then Tab should move focus past fixed slot 1 to free slot 2`,
+    ).toBe(2);
+    await dailyPage.pressKey('Enter');
+    expect(
+      await dailyPage.values(),
+      `${startCtx}: pressing Enter on slot 0, Tab, then Enter on slot 2 should swap 8 and 6 to ${fmt(afterFirstRight)}`,
+    ).toEqual(afterFirstRight);
+    await dailyPage.expectNoSelection(`${startCtx}: pressing Enter on slot 0, Tab, then Enter on slot 2 (expected ${fmt(afterFirstRight)})`);
   });
 
   test.describe('on a phone', () => {

@@ -1,10 +1,10 @@
 {
-  "daily game › Run animates the sort, and the counter goes up with each comparison": "Opening /daily shows the 404 page with no Run button or comparison counter because the daily game page is not built yet.",
-  "daily game › the final count matches the score shown, and both match the hand-worked count": "Opening /daily shows the 404 page with no quicksort animation or wasm scoring because the daily game page and scoring are not built yet.",
-  "daily game › Skip jumps straight to the final count": "Opening /daily shows the 404 page with no Skip button or playback animation because the daily game page is not built yet.",
-  "daily game › stepping back lowers the counter": "Opening /daily shows the 404 page with no playback toolbar or comparison counter because the daily game page is not built yet.",
-  "daily game › reaching par is announced, and the next try is still offered": "Opening /daily shows the 404 page with no par announcement or try counter because the daily game page is not built yet.",
-  "daily game › reaching the best is announced, and the puzzle ends early": "Opening /daily shows the 404 page with no best announcement or early puzzle end because the daily game page is not built yet.",
-  "daily game › after three tries, the puzzle ends with the highest score and reveals the best": "Opening /daily shows the 404 page with no three-try loop, highest-score summary or best reveal because the daily game page is not built yet.",
-  "daily game › the share text has one line per try with ⭐ and 🏆 marks, and does not include the arrangement": "Opening /daily shows the 404 page with no Share button or share text because the daily game page is not built yet."
+  "daily game › Run animates the sort, and the counter goes up with each comparison": "/daily shows the puzzle but has no Comparisons counter, Run button, or quicksort animation yet (step 1f).",
+  "daily game › the final count matches the score shown, and both match the hand-worked count": "/daily shows the puzzle but has no Run button, Comparisons counter, or Score readout yet (step 1f).",
+  "daily game › Skip jumps straight to the final count": "/daily shows the puzzle but has no Run button, Skip button, or playback controls yet (step 1f).",
+  "daily game › stepping back lowers the counter": "/daily shows the puzzle but has no Run button, playback toolbar, or Comparisons counter yet (step 1f).",
+  "daily game › reaching par is announced, and the next try is still offered": "/daily shows the puzzle but has no Run button, Par reached readout, or Tries left readout yet (step 1f).",
+  "daily game › reaching the best is announced, and the puzzle ends early": "/daily shows the puzzle but has no Run button, Best reached readout, or Share button yet (step 1f).",
+  "daily game › after three tries, the puzzle ends with the highest score and reveals the best": "/daily shows the puzzle but has no Tries left readout, Run button, or three-try loop yet (step 1f).",
+  "daily game › the share text has one line per try with ⭐ and 🏆 marks, and does not include the arrangement": "/daily shows the puzzle but has no Run button or Share button yet (step 1f)."
 }

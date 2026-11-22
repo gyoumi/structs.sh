@@ -234,7 +234,7 @@ export class DailyPage {
     await this.page.keyboard.press(key);
   }
 
-  async pressKey(key: 'ArrowLeft' | 'ArrowRight' | 'Enter' | 'Space' | 'Escape'): Promise<void> {
+  async pressKey(key: 'ArrowLeft' | 'ArrowRight' | 'Enter' | 'Space' | 'Escape' | 'Tab'): Promise<void> {
     await this.page.keyboard.press(key);
   }
 
@@ -246,8 +246,8 @@ export class DailyPage {
 
   async skip(context?: string): Promise<void> {
     const prefix = context ? `${context}: ` : '';
+    await this.expectVisible(this.timeline, `${prefix}Animation progress slider`, 'skipping the animation');
     await this.clickWhenReady(this.button('Skip'), `${prefix}Skip button`, 'skipping the animation');
-    await this.expectVisible(this.timeline, `${prefix}Animation progress slider`, 'checking progress after Skip');
     await expect
       .poll(() => this.roundedProgress(context), {
         intervals: [50],
