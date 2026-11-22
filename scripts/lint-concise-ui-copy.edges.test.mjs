@@ -31,6 +31,7 @@ const lineOf = (code, needle) => {
 };
 
 const narration = (code, needle) => ({ messageId: 'uiNarration', line: lineOf(code, needle) });
+const stacked = (code, needle) => ({ messageId: 'stackedParagraphs', line: lineOf(code, needle) });
 
 // Wrap JSX in a component so each case is a whole .tsx module.
 const tsx = (...jsx) => lines('export function View() {', '  return (', ...jsx.map((row) => `    ${row}`), '  );', '}');
@@ -47,6 +48,10 @@ const valid = [
   {
     name: 'a template literal does not join text across ${...}: {`Tap ${action} or click a tile.`} in a <p> is not uiNarration',
     code: tsx('<p>{`Tap ${action} or click a tile.`}</p>'),
+  },
+  {
+    name: "ternary branches are not summed: <p>{show ? 'One. Two.' : 'Three. Four.'}</p> renders 2 sentences either way, so no longParagraph",
+    code: tsx("<p>{show ? 'One. Two.' : 'Three. Four.'}</p>"),
   },
 ];
 
@@ -81,6 +86,38 @@ const invalid = [
       name: 'contrast with the ${action} case: {`Tap or click ${target}`} in a <p> is uiNarration (the phrase is whole before the ${...})',
       code,
       errors: [narration(code, 'Tap or click')],
+    };
+  })(),
+  (() => {
+    const code = tsx('<section>{ready && <p>A.</p>}{ready && <p>B.</p>}{!ready && <p>C.</p>}{!ready && <p>D.</p>}{!ready && <p>E.</p>}</section>');
+    return {
+      name: 'guards only pair off one-to-one: 2 {ready && <p>} then 3 {!ready && <p>} in a <section> can render 3 <p>, so stackedParagraphs on the 3rd !ready <p> (<p>E.</p>)',
+      code,
+      errors: [stacked(code, '<p>E.</p>')],
+    };
+  })(),
+  (() => {
+    const code = tsx('<section><p>A.</p>{queue.shift() && <p>B.</p>}{!queue.shift() && <p>C.</p>}</section>');
+    return {
+      name: 'a call guard is not pure: {queue.shift() && <p>} and {!queue.shift() && <p>} can both render, so stackedParagraphs on <p>C.</p>',
+      code,
+      errors: [stacked(code, '<p>C.</p>')],
+    };
+  })(),
+  (() => {
+    const code = tsx('<p>', '  Tap or', '  click a tile.', '</p>');
+    return {
+      name: "a JSX text newline is plain whitespace: 'Tap or' / 'click a tile.' on two lines of one <p> is uiNarration, on the <p>",
+      code,
+      errors: [narration(code, '<p>')],
+    };
+  })(),
+  (() => {
+    const code = tsx('<p>Press {show ? <kbd>F1</kbd> : <kbd>Enter</kbd>} to start.</p>');
+    return {
+      name: "the alternate branch of a ternary still reads as text: <p>Press {show ? <kbd>F1</kbd> : <kbd>Enter</kbd>} to start.</p> is uiNarration once, on the <p>",
+      code,
+      errors: [narration(code, '<p>')],
     };
   })(),
 ];
