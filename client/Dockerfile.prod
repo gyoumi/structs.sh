@@ -7,6 +7,16 @@ COPY instrumenter instrumenter
 RUN rustup toolchain install \
  && cargo build --release --target wasm32-unknown-unknown --manifest-path instrumenter/Cargo.toml
 
+# ===== Stage 0b: Building the daily game's puzzles =====
+# The daily game's Rust scoring (crates/), built to .wasm. A separate stage,
+# so BuildKit builds it alongside the instrumenter.
+FROM rust:1.99-slim AS puzzles
+WORKDIR /app
+COPY rust-toolchain.toml ./
+COPY crates crates
+RUN rustup toolchain install \
+ && cargo build --release --locked --target wasm32-unknown-unknown --manifest-path crates/Cargo.toml -p structs-puzzles
+
 # ===== Stage 1: Producing Build Files =====
 # Build from the repo root, because the pnpm lockfile and workspace file live there.
 FROM node:22-alpine AS build
@@ -23,6 +33,8 @@ RUN pnpm install --frozen-lockfile --filter structs-client
 COPY client client
 COPY --from=instrumenter /app/instrumenter/target/wasm32-unknown-unknown/release/structs_instrumenter.wasm \
      client/src/Services/debugger/wasm/generated/instrumenter.wasm
+COPY --from=puzzles /app/crates/target/wasm32-unknown-unknown/release/structs_puzzles.wasm \
+     client/src/Services/puzzles/generated/puzzles.wasm
 
 # This outputs production-ready files to `client/build`
 RUN pnpm --dir client run build

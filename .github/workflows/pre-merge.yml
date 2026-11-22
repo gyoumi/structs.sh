@@ -17,12 +17,13 @@ jobs:
         with:
           runtime: node@22
           cache: true
-      # The client's tests and build load the instrumenter's .wasm. rustup is
-      # on the runner and installs the version in rust-toolchain.toml.
-      - name: Build instrumenter
+      # The client's tests and build load the instrumenter's and the puzzles'
+      # .wasm. rustup is on the runner and installs the version in
+      # rust-toolchain.toml.
+      - name: Build wasm
         run: |
           rustup toolchain install
-          pnpm run instrumenter
+          pnpm run wasm
       - name: TypeScript
         working-directory: ./client
         run: pnpm run tsc
@@ -66,7 +67,9 @@ jobs:
       - name: Format
         run: cargo fmt --check
       - name: Clippy
-        run: cargo clippy --all-targets -- -D warnings
+        run: |
+          cargo clippy --all-targets -- -D warnings
+          cargo clippy --release --target wasm32-unknown-unknown -- -D warnings
       - name: Tests
         run: cargo test
 

@@ -13,10 +13,10 @@
   pnpm install
   ```
 
-- Build the debugger's instrumenter, which needs [Rust](https://rustup.rs/) (see `instrumenter/README.md`), then start the project locally:
+- Build the WebAssembly modules, which need [Rust](https://rustup.rs/): the debugger's instrumenter (see `instrumenter/README.md`) and the daily game's puzzles. Then start the project locally:
 
   ```bash
-  pnpm run instrumenter
+  pnpm run wasm
   docker compose up --build
   ```
 
@@ -32,8 +32,9 @@ It compares your branch with the branch it will merge into (its open PR's
 base, or `origin/dev` before there's a PR; pass `--base <branch>` to
 choose) and runs type checks, lint, the client's unit tests, the e2e
 lint rules, knip, and the instrumenter's cargo checks, for
-the areas you touched. CI runs these plus
-the client build and the e2e suite.
+the areas you touched. It rebuilds the instrumenter or the puzzles
+WebAssembly module first when their sources changed or the build is
+missing. CI runs these plus the client build and the e2e suite.
 
 CI also checks every PR for a few things a reviewer would otherwise have to
 catch (`scripts/pr-rules.mjs`). These rules run from the base branch, so a
