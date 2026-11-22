@@ -60,6 +60,13 @@
   outline-offset: 2px;
 }
 
+/* Extends the hit area down over the gap the lift leaves, so a tap there still deselects. */
+.slot[aria-pressed='true']::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 calc(-0.5rem - 2.5px) 0;
+}
+
 .slot:disabled {
   border-style: dashed;
   border-color: var(--dash);
