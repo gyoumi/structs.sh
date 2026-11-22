@@ -170,6 +170,8 @@ test.describe('daily game', () => {
     ).toBe(0);
 
     await dailyPage.run();
+    // Checked before Pause, because clicking Pause would itself scroll the page.
+    await dailyPage.expectVisualiserCanvasInViewport(`${ctx} after clicking Run`);
     await expect
       .poll(() => dailyPage.counter(ctx), {
         intervals: [50],

@@ -135,6 +135,8 @@ names:
   - `button` `Run`: starts a try on the current arrangement and starts playback
     by itself. Disabled while a run animates, and disabled or hidden once the
     puzzle ends.
+    Clicking `Run` also scrolls the visualiser into view so the player can
+    watch the sort.
   - `button` `Skip`: jumps the animation straight to the final comparison count
     and completes the try, whether playback is playing or paused.
   - `button` `Share`: visible and enabled once the puzzle ends; copies the share

@@ -244,6 +244,35 @@ export class DailyPage {
     await this.clickWhenReady(this.button('Run'), 'Run button', 'running the puzzle');
   }
 
+  /**
+   * Waits (briefly, for smooth scrolling to settle) until the sorting visualiser's
+   * #visualiser-canvas is fully inside the vertical viewport, allowing 1px rounding.
+   * On failure the received value spells out the canvas rect, viewport height and scrollY.
+   */
+  async expectVisualiserCanvasInViewport(context: string, timeout = 2_000): Promise<void> {
+    const inView = 'fully in the viewport';
+    await expect
+      .poll(
+        () =>
+          this.page.evaluate((ok) => {
+            const el = document.querySelector('#visualiser-canvas');
+            if (!el) return '#visualiser-canvas not found on the page';
+            const rect = el.getBoundingClientRect();
+            const top = Math.round(rect.top);
+            const bottom = Math.round(rect.bottom);
+            const viewportHeight = window.innerHeight;
+            if (top >= -1 && bottom <= viewportHeight + 1) return ok;
+            return `canvas rect top ${top}, bottom ${bottom}, viewport height ${viewportHeight}, scrollY ${Math.round(window.scrollY)}`;
+          }, inView),
+        {
+          intervals: [100],
+          timeout,
+          message: `${context}: clicking Run should scroll the page so #visualiser-canvas is fully in the viewport (top >= 0 and bottom <= viewport height, 1px tolerance) within ${timeout} ms`,
+        },
+      )
+      .toBe(inView);
+  }
+
   async skip(context?: string): Promise<void> {
     const prefix = context ? `${context}: ` : '';
     await this.expectVisible(this.timeline, `${prefix}Animation progress slider`, 'skipping the animation');
