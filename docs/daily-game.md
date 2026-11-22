@@ -228,6 +228,9 @@ computer it runs on. CI gains a job like the instrumenter's: `cargo fmt`,
 **You'll know it's done when** `cargo test` passes in CI, including inputs
 whose comparisons were counted by hand.
 
+Follow-up: the file-size check and the PR rules for Rust tests cover
+`instrumenter/` but not `crates/` yet.
+
 ### 1c. Wasm in the client
 
 `structs-puzzles` is built for `wasm32-unknown-unknown`, and its exports
