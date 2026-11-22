@@ -27,7 +27,7 @@ export class DailyPage {
   private get pivotMarker(): Locator {
     return this.arrayGroup
       .getByText('Pivot', { exact: true })
-      .and(this.page.locator('xpath=self::*[not(ancestor-or-self::button)]'));
+      .and(this.page.locator('xpath=//*[not(ancestor-or-self::button)]'));
   }
   private button(name: string): Locator { return this.page.getByRole('button', { name, exact: true }); }
   private get playback(): Locator { return this.page.getByRole('toolbar', { name: 'Playback' }); }
