@@ -109,18 +109,23 @@ names:
 
 - **Rules:** `region` named `Puzzle rules`. It must contain the sentence
   `Reorder the numbers so quicksort makes as many comparisons as possible.`
-  It also explains that quicksort picks the first number in each range as the
-  pivot (the text mentions `pivot`).
+  It also explains that quicksort picks the leftmost number in each range as
+  the pivot (the text mentions both `leftmost` and `pivot`), for example
+  `Quicksort always picks the leftmost number in each range as the pivot.`
+  Those two sentences are the only rules prose shown by default. The region
+  has no `You have N tries` sentence (nothing matching `/you have \d+ tries/i`)
+  and no `Tap or click...` swap instructions (nothing matching
+  `/tap or click/i`); the lock icons, slots, `Tries left` and `Run` already
+  say this.
+  - The keyboard help sits in a native `<details>` inside the region whose
+    `<summary>` text is exactly `Keyboard controls`. It is closed when the page
+    loads, so the keyboard help (text matching `/Enter or Space/i`) is hidden.
+    Clicking the summary opens it and shows the help; clicking again closes it.
 - **Puzzle array:** `group` named `Puzzle array`, containing one `button` per
   slot in left-to-right order.
-  - Slot 0 has a visible `Pivot` indicator: an element inside the group whose
-    text is exactly `Pivot`. It sits outside the slot button's text, so the
-    button still starts with its number. It lines up horizontally with slot 0
-    (its centre is within slot 0's left and right edges), and its text is not
-    clipped and sits fully inside the screen width, down to a 320x640 screen.
-    It has an `id`, and slot 0's button points at it with `aria-describedby`,
-    so slot 0's accessible description is `Pivot` while its accessible name
-    stays just its number.
+  - The group shows no static `Pivot` label (no text containing `pivot`).
+    Slot 0 is only the first pivot; the pivot moves right as quicksort
+    recurses, so a tag fixed over slot 0 would mislead.
   - Each slot button's text starts with its numeric value (for example `8`).
     Hide any lock icon with `aria-hidden="true"`.
   - Fixed slots are disabled (`disabled` or `aria-disabled="true"`). Clicking or

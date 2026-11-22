@@ -2,69 +2,9 @@ import { expect } from '@playwright/test';
 import type { DailyLocators } from './daily-locators';
 
 /**
- * Layout and accessibility checks on /daily: the Pivot indicator, slots fitting
- * the viewport, Run scrolling the visualiser into view, and no best score leaking.
+ * Layout and accessibility checks on /daily: slots fitting the viewport, Run scrolling the visualiser into view, and no best score leaking.
  * `DailyPage` exposes each of these as a method.
  */
-
-/**
- * Asserts a visible `Pivot` indicator in Puzzle array, outside the slot buttons,
- * horizontally aligned with slot 0, not clipped, fully inside the viewport width, and linked to
- * slot 0 with aria-describedby (slot 0's accessible name stays just its number).
- */
-export async function expectPivotMarkerOnFirstSlot(ui: DailyLocators, context: string): Promise<void> {
-  const marker = ui.pivotMarker;
-  await expect(
-    marker,
-    `${context}: Puzzle array should contain exactly one element with text "Pivot" outside the slot buttons`,
-  ).toHaveCount(1);
-  await expect(marker, `${context}: the Pivot indicator in Puzzle array should be visible`).toBeVisible();
-  const firstText = ((await ui.slot(0).textContent()) ?? '').trim();
-  expect(
-    firstText,
-    `${context}: slot 0's button text must still start with its number (the Pivot indicator belongs outside the button); got "${firstText}"`,
-  ).toMatch(/^-?\d+/);
-  const clip = await marker.evaluate((el) => ({ scrollWidth: el.scrollWidth, clientWidth: el.clientWidth }));
-  expect(
-    clip.scrollWidth <= clip.clientWidth + 1,
-    `${context}: the Pivot indicator's text must not be clipped horizontally (scrollWidth ${clip.scrollWidth}px should be <= clientWidth ${clip.clientWidth}px, 1px tolerance)`,
-  ).toBe(true);
-  const markerBox = await marker.boundingBox();
-  const slotBox = await ui.slot(0).boundingBox();
-  if (!markerBox || !slotBox) {
-    throw new Error(`${context}: could not measure the Pivot indicator (${JSON.stringify(markerBox)}) or slot 0 (${JSON.stringify(slotBox)})`);
-  }
-  const centre = markerBox.x + markerBox.width / 2;
-  const slotRange = `${Math.round(slotBox.x)}..${Math.round(slotBox.x + slotBox.width)}`;
-  expect(
-    centre >= slotBox.x - 1 && centre <= slotBox.x + slotBox.width + 1,
-    `${context}: the Pivot indicator's horizontal centre (${Math.round(centre)}px) should lie within slot 0's box (x ${slotRange}px)`,
-  ).toBe(true);
-  const viewportWidth = await ui.page.evaluate(() => window.innerWidth);
-  expect(
-    markerBox.x >= 0 && markerBox.x + markerBox.width <= viewportWidth,
-    `${context}: the Pivot indicator (x ${Math.round(markerBox.x)}..${Math.round(markerBox.x + markerBox.width)}px) must fit within the viewport width ${viewportWidth}px`,
-  ).toBe(true);
-  await expect(
-    marker,
-    `${context}: the Pivot indicator needs a non-empty id so slot 0 can reference it with aria-describedby`,
-  ).toHaveAttribute('id', /\S/);
-  const markerId = (await marker.evaluate((el) => el.id)).trim();
-  const describedBy = ((await ui.slot(0).getAttribute('aria-describedby')) ?? '').split(/\s+/).filter(Boolean);
-  expect(
-    describedBy,
-    `${context}: slot 0's button must have aria-describedby including the Pivot indicator's id "${markerId}" so screen readers announce it; got aria-describedby="${describedBy.join(' ')}"`,
-  ).toContain(markerId);
-  await expect(
-    ui.slot(0),
-    `${context}: slot 0's accessible description should be "Pivot"`,
-  ).toHaveAccessibleDescription('Pivot');
-  const firstNumber = firstText.match(/^-?\d+/)?.[0] ?? firstText;
-  await expect(
-    ui.slot(0),
-    `${context}: slot 0's accessible name should stay just its number "${firstNumber}" (Pivot is its description, not part of its name)`,
-  ).toHaveAccessibleName(firstNumber);
-}
 
 /** Scrolls Puzzle array vertically into view (keeping scrollX at 0) and asserts every slot button fits fully in the viewport without clipping. */
 export async function expectAllSlotsInViewport(ui: DailyLocators, context: string, expectedCount: number): Promise<void> {

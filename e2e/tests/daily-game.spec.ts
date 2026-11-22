@@ -16,7 +16,9 @@ test.describe('daily game', () => {
     const startCtx = `DAILY_7 (#7, served goal ${servedPuzzle.par}, formula goal ${DAILY_7.puzzle.par}, no best field) ${fmt(DAILY_7.start.values)}`;
     await dailyPage.expectRulesToContain(RULES_SENTENCE, startCtx);
     await dailyPage.expectRulesToExplainPivot(startCtx);
-    await dailyPage.expectPivotMarkerOnFirstSlot(startCtx);
+    await dailyPage.expectRulesWithoutHandHolding(startCtx);
+    await dailyPage.expectKeyboardControlsCollapsed(startCtx);
+    await dailyPage.expectNoStaticPivotLabel(startCtx);
     expect(
       await dailyPage.goal(startCtx),
       `${startCtx}: Goal status must show the served goal ${servedPuzzle.par} rather than work out the formula goal ${DAILY_7.puzzle.par}`,
@@ -174,19 +176,6 @@ test.describe('daily game', () => {
         await dailyPage.selectedIndices(),
         `${goalCtx}: targeting fixed slot 1 (value 1) while free slot 0 is selected must not select slot 1`,
       ).not.toContain(1);
-    });
-  });
-
-  test.describe('on a narrow phone', () => {
-    test.use({ viewport: { width: 320, height: 640 }, isMobile: true, hasTouch: true });
-
-    test('the Pivot indicator fits on a 320px-wide screen', async ({ dailyPage }) => {
-      await dailyPage.serve(DAILY_12.puzzle);
-      await dailyPage.open();
-
-      const ctx = `${DAILY_12.name} ${fmt(DAILY_12.start.values)} at 320x640 touch`;
-      expect(await dailyPage.values(), `${ctx}: Puzzle array should show starting values ${fmt(DAILY_12.start.values)}`).toEqual([...DAILY_12.start.values]);
-      await dailyPage.expectPivotMarkerOnFirstSlot(ctx);
     });
   });
 

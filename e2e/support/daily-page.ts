@@ -3,7 +3,6 @@ import type { DailyPuzzle } from './daily-fixtures';
 import {
   expectAllSlotsInViewport,
   expectNoBestShown,
-  expectPivotMarkerOnFirstSlot,
   expectVisualiserInViewport,
 } from './daily-layout';
 import { DailyLocators } from './daily-locators';
@@ -48,19 +47,71 @@ export class DailyPage {
     await expect(rules, `${context}: Puzzle rules region should contain "${expected}"`).toContainText(expected);
   }
 
-  /** Asserts the rules say quicksort picks the first number in each range as the pivot. */
+  /** Asserts the rules say quicksort picks the leftmost number in each range as the pivot. */
   async expectRulesToExplainPivot(context: string): Promise<void> {
     const rules = this.ui.rulesRegion;
     await expect(rules, `${context}: /daily should show a Puzzle rules region`).toBeVisible();
     await expect(
       rules,
-      `${context}: Puzzle rules region must state that quicksort picks the first number in each range as the pivot (expected text matching /first number.*pivot/i)`,
-    ).toContainText(/first number.*pivot/i);
+      `${context}: Puzzle rules region must state that quicksort picks the leftmost number in each range as the pivot (expected text matching /leftmost.*pivot/i, e.g. "Quicksort always picks the leftmost number in each range as the pivot.")`,
+    ).toContainText(/\bleftmost\b.*\bpivot\b/i);
   }
 
-  /** See `expectPivotMarkerOnFirstSlot` in daily-layout.ts. */
-  async expectPivotMarkerOnFirstSlot(context: string): Promise<void> {
-    await expectPivotMarkerOnFirstSlot(this.ui, context);
+  /**
+   * Asserts Puzzle rules drops the hand-holding prose: no "You have N tries" sentence and no
+   * "Tap or click two unlocked numbers..." instructions. The lock icons, slots, Tries left and
+   * Run already say this.
+   */
+  async expectRulesWithoutHandHolding(context: string): Promise<void> {
+    const rules = this.ui.rulesRegion;
+    await expect(rules, `${context}: /daily should show a Puzzle rules region`).toBeVisible();
+    await expect(
+      rules,
+      `${context}: Puzzle rules must not repeat the tries count in prose (no text matching /you have \\d+ tries/i); Tries left already shows it`,
+    ).not.toContainText(/you have \d+ tries/i);
+    await expect(
+      rules,
+      `${context}: Puzzle rules must not include "Tap or click..." swap instructions (no text matching /tap or click/i)`,
+    ).not.toContainText(/tap or click/i);
+  }
+
+  /**
+   * Asserts the keyboard help sits in a native <details> inside Puzzle rules whose <summary> reads
+   * "Keyboard controls": closed on load with the /Enter or Space/i text hidden, opened by clicking
+   * the summary, and closed again by a second click.
+   */
+  async expectKeyboardControlsCollapsed(context: string): Promise<void> {
+    const rules = this.ui.rulesRegion;
+    const summary = rules.locator('details > summary').filter({ hasText: /^\s*Keyboard controls\s*$/ });
+    const details = rules.locator('details').filter({ has: summary });
+    const help = details.getByText(/Enter or Space/i);
+    await expect(
+      summary,
+      `${context}: Puzzle rules should contain one <details> whose <summary> text is "Keyboard controls"`,
+    ).toHaveCount(1);
+    await expect(summary, `${context}: the "Keyboard controls" summary should be visible`).toBeVisible();
+    await expect(details, `${context}: the Keyboard controls <details> should be closed on page load`).toHaveJSProperty('open', false);
+    await expect(help.first(), `${context}: keyboard help matching /Enter or Space/i should be inside the Keyboard controls <details>`).toBeAttached();
+    await expect(help.first(), `${context}: keyboard help (/Enter or Space/i) should be hidden while Keyboard controls is collapsed`).toBeHidden();
+
+    await summary.click();
+    await expect(details, `${context}: clicking "Keyboard controls" should open its <details>`).toHaveJSProperty('open', true);
+    await expect(help.first(), `${context}: after opening Keyboard controls, the keyboard help (/Enter or Space/i) should be visible`).toBeVisible();
+
+    await summary.click();
+    await expect(details, `${context}: clicking "Keyboard controls" again should close its <details>`).toHaveJSProperty('open', false);
+    await expect(help.first(), `${context}: after closing Keyboard controls again, the keyboard help should be hidden`).toBeHidden();
+  }
+
+  /**
+   * Asserts Puzzle array carries no static `Pivot` label. Slot 0 is only the first pivot;
+   * the pivot moves as quicksort recurses, so a fixed tag over slot 0 would mislead.
+   */
+  async expectNoStaticPivotLabel(context: string): Promise<void> {
+    await expect(
+      this.ui.arrayGroup,
+      `${context}: Puzzle array must not show a static "Pivot" label (the pivot changes as quicksort recurses, so a tag fixed over slot 0 is misleading)`,
+    ).not.toContainText(/pivot/i);
   }
 
   /** The values shown in Puzzle array from left to right. */

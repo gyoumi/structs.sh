@@ -14,11 +14,6 @@ export class DailyLocators {
   get arrayGroup(): Locator { return this.page.getByRole('group', { name: 'Puzzle array' }); }
   get slots(): Locator { return this.arrayGroup.getByRole('button'); }
   slot(index: number): Locator { return this.slots.nth(index); }
-  get pivotMarker(): Locator {
-    return this.arrayGroup
-      .getByText('Pivot', { exact: true })
-      .and(this.page.locator('xpath=//*[not(ancestor-or-self::button)]'));
-  }
   button(name: string): Locator { return this.page.getByRole('button', { name, exact: true }); }
   get playback(): Locator { return this.page.getByRole('toolbar', { name: 'Playback' }); }
   playbackButton(name: string): Locator { return this.playback.getByRole('button', { name }); }
