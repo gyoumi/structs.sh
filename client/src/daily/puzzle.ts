@@ -14,8 +14,9 @@ export type Puzzle = {
 const isNumbers = (value: unknown): value is number[] =>
   Array.isArray(value) && value.every((item) => Number.isFinite(item));
 
-const parsePuzzle = (data: unknown): Puzzle => {
+export const parsePuzzle = (data: unknown): Puzzle => {
   const puzzle = data as Partial<Puzzle> | null;
+  const length = Array.isArray(puzzle?.values) ? puzzle.values.length : 0;
   if (
     !puzzle ||
     !Number.isFinite(puzzle.number) ||
@@ -23,6 +24,7 @@ const parsePuzzle = (data: unknown): Puzzle => {
     !isNumbers(puzzle.values) ||
     puzzle.values.length === 0 ||
     !isNumbers(puzzle.fixed) ||
+    !puzzle.fixed.every((index) => Number.isInteger(index) && index >= 0 && index < length) ||
     !Number.isFinite(puzzle.par) ||
     !Number.isFinite(puzzle.best)
   ) {
