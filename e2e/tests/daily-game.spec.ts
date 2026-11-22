@@ -380,6 +380,18 @@ test.describe('daily game', () => {
     expect(await dailyPage.best(endCtx), `${endCtx}: Best status should reveal ${DAILY_12.puzzle.best}`).toBe(DAILY_12.puzzle.best);
     expect(await dailyPage.canRun(), `${endCtx}: Run button should be disabled or hidden`).toBe(false);
     expect(await dailyPage.canShare(), `${endCtx}: Share button should be visible and enabled once the puzzle ends below best`).toBe(true);
+
+    const expectedShare = [
+      'structs.sh daily #12 · Quicksort',
+      `${DAILY_12.start.count} / ${DAILY_12.puzzle.best}`,
+      `${DAILY_12.par.count} / ${DAILY_12.puzzle.best} ⭐`,
+      `${DAILY_12.lowFromPar.count} / ${DAILY_12.puzzle.best}`,
+      'structs.sh/daily',
+    ].join('\n');
+    expect(
+      (await dailyPage.shareText()).trim(),
+      `${endCtx}: Share text after finishing below best should match exact 3-row format (⭐ on par try ${DAILY_12.par.count} / ${DAILY_12.puzzle.best}, no 🏆)`,
+    ).toBe(expectedShare);
   });
 
   test('the share text has one line per try with ⭐ and 🏆 marks, and does not include the arrangement', async ({ dailyPage }) => {
