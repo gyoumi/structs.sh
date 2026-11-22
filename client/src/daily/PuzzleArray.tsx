@@ -9,12 +9,15 @@ type Props = {
   onSwap: (a: number, b: number) => void;
 };
 
-/** Slides `to` in from where `from` sits, so the eye can follow the value that moved. */
-const slideFrom = (to: HTMLElement, from: HTMLElement) => {
-  if (typeof to.animate !== 'function') return;
+/**
+ * Slides the value inside `to` in from where `from` sits, so the eye can follow the value that
+ * moved. The buttons stay put so tap targets never move.
+ */
+const slideFrom = (value: HTMLElement, to: HTMLElement, from: HTMLElement) => {
+  if (typeof value.animate !== 'function') return;
   if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
   const dx = from.getBoundingClientRect().left - to.getBoundingClientRect().left;
-  to.animate(
+  value.animate(
     [
       { transform: `translateX(${dx}px)` },
       { transform: `translate(${dx / 2}px, -0.6rem)`, offset: 0.5 },
@@ -28,6 +31,7 @@ const PuzzleArray = ({ values, fixed, onSwap }: Props) => {
   const [selected, setSelected] = useState<number | null>(null);
   const [announcement, setAnnouncement] = useState('');
   const slots = useRef<(HTMLButtonElement | null)[]>([]);
+  const valueEls = useRef<(HTMLSpanElement | null)[]>([]);
   const focusAfterSwap = useRef<number | null>(null);
 
   useLayoutEffect(() => {
@@ -39,9 +43,11 @@ const PuzzleArray = ({ values, fixed, onSwap }: Props) => {
   const swap = (a: number, b: number) => {
     const first = slots.current[a];
     const second = slots.current[b];
-    if (first && second) {
-      slideFrom(first, second);
-      slideFrom(second, first);
+    const firstValue = valueEls.current[a];
+    const secondValue = valueEls.current[b];
+    if (first && second && firstValue && secondValue) {
+      slideFrom(firstValue, first, second);
+      slideFrom(secondValue, second, first);
     }
     setAnnouncement(`Swapped ${values[a]} and ${values[b]}`);
     onSwap(a, b);
@@ -95,7 +101,14 @@ const PuzzleArray = ({ values, fixed, onSwap }: Props) => {
               onClick={() => handleClick(index)}
               onKeyDown={(event) => handleKeyDown(event, index)}
             >
-              <span className={styles.value}>{value}</span>
+              <span
+                ref={(element) => {
+                  valueEls.current[index] = element;
+                }}
+                className={styles.value}
+              >
+                {value}
+              </span>
               {locked && <LockIcon size={14} className={styles.lock} />}
             </button>
           );

@@ -32,6 +32,10 @@ const PuzzleView = ({ puzzle }: { puzzle: Puzzle }) => {
           Tap two free values to swap them. Fixed values, marked with a lock, can’t move. Aim for
           par, the number of comparisons to reach.
         </p>
+        <p className={styles.keys}>
+          Keyboard: Enter or Space selects a value, the arrow keys move it past fixed values, and
+          Escape clears.
+        </p>
       </section>
       <section className={styles.play}>
         <p className={`${styles.column} ${styles.par}`}>
