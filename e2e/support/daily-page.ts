@@ -24,6 +24,11 @@ export class DailyPage {
   private get arrayGroup(): Locator { return this.page.getByRole('group', { name: 'Puzzle array' }); }
   private get slots(): Locator { return this.arrayGroup.getByRole('button'); }
   private slot(index: number): Locator { return this.slots.nth(index); }
+  private get pivotMarker(): Locator {
+    return this.arrayGroup
+      .getByText('Pivot', { exact: true })
+      .and(this.page.locator('xpath=self::*[not(ancestor-or-self::button)]'));
+  }
   private button(name: string): Locator { return this.page.getByRole('button', { name, exact: true }); }
   private get playback(): Locator { return this.page.getByRole('toolbar', { name: 'Playback' }); }
   private playbackButton(name: string): Locator { return this.playback.getByRole('button', { name }); }
@@ -52,6 +57,49 @@ export class DailyPage {
   async expectRulesToContain(expected: string, context: string): Promise<void> {
     await expect(this.rulesRegion, `${context}: /daily should show a Puzzle rules region`).toBeVisible();
     await expect(this.rulesRegion, `${context}: Puzzle rules region should contain "${expected}"`).toContainText(expected);
+  }
+
+  /** Asserts the rules say quicksort picks the first number in each range as the pivot. */
+  async expectRulesToExplainPivot(context: string): Promise<void> {
+    await expect(this.rulesRegion, `${context}: /daily should show a Puzzle rules region`).toBeVisible();
+    await expect(
+      this.rulesRegion,
+      `${context}: Puzzle rules region must state that quicksort picks the first number in each range as the pivot (expected text matching /first number.*pivot/i)`,
+    ).toContainText(/first number.*pivot/i);
+  }
+
+  /**
+   * Asserts a visible `Pivot` indicator in Puzzle array, outside the slot buttons,
+   * horizontally aligned with slot 0 and not overflowing the viewport width.
+   */
+  async expectPivotMarkerOnFirstSlot(context: string): Promise<void> {
+    const marker = this.pivotMarker;
+    await expect(
+      marker,
+      `${context}: Puzzle array should contain exactly one element with text "Pivot" outside the slot buttons`,
+    ).toHaveCount(1);
+    await expect(marker, `${context}: the Pivot indicator in Puzzle array should be visible`).toBeVisible();
+    const firstText = ((await this.slot(0).textContent()) ?? '').trim();
+    expect(
+      firstText,
+      `${context}: slot 0's button text must still start with its number (the Pivot indicator belongs outside the button); got "${firstText}"`,
+    ).toMatch(/^-?\d+/);
+    const markerBox = await marker.boundingBox();
+    const slotBox = await this.slot(0).boundingBox();
+    if (!markerBox || !slotBox) {
+      throw new Error(`${context}: could not measure the Pivot indicator (${JSON.stringify(markerBox)}) or slot 0 (${JSON.stringify(slotBox)})`);
+    }
+    const centre = markerBox.x + markerBox.width / 2;
+    const slotRange = `${Math.round(slotBox.x)}..${Math.round(slotBox.x + slotBox.width)}`;
+    expect(
+      centre >= slotBox.x - 1 && centre <= slotBox.x + slotBox.width + 1,
+      `${context}: the Pivot indicator's horizontal centre (${Math.round(centre)}px) should lie within slot 0's box (x ${slotRange}px)`,
+    ).toBe(true);
+    const viewportWidth = await this.page.evaluate(() => window.innerWidth);
+    expect(
+      markerBox.x >= -1 && markerBox.x + markerBox.width <= viewportWidth + 1,
+      `${context}: the Pivot indicator (x ${Math.round(markerBox.x)}..${Math.round(markerBox.x + markerBox.width)}px) must fit within the viewport width ${viewportWidth}px`,
+    ).toBe(true);
   }
 
   /** The values shown in Puzzle array from left to right. */

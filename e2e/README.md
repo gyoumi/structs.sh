@@ -108,9 +108,16 @@ rest of the e2e tests drive `/daily` only through ARIA roles and accessible
 names:
 
 - **Rules:** `region` named `Puzzle rules`. It must contain the sentence
-  `Reorder the numbers so quicksort makes as many comparisons as you can.`
+  `Reorder the numbers so quicksort makes as many comparisons as possible.`
+  It also explains that quicksort picks the first number in each range as the
+  pivot (the text mentions `pivot`).
 - **Puzzle array:** `group` named `Puzzle array`, containing one `button` per
   slot in left-to-right order.
+  - Slot 0 has a visible `Pivot` indicator: an element inside the group whose
+    text is exactly `Pivot`. It sits outside the slot button's text, so the
+    button still starts with its number. It lines up horizontally with slot 0
+    (its centre is within slot 0's left and right edges) and fits within a
+    390x844 screen without clipping.
   - Each slot button's text starts with its numeric value (for example `8`).
     Hide any lock icon with `aria-hidden="true"`.
   - Fixed slots are disabled (`disabled` or `aria-disabled="true"`). Clicking or

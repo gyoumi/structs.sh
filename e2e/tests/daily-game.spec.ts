@@ -2,7 +2,7 @@ import { test, expect } from '../support/test';
 import { DAILY_7, DAILY_12 } from '../support/daily-fixtures';
 
 const fmt = (values: readonly number[]) => `[${values.join(', ')}]`;
-const RULES_SENTENCE = 'Reorder the numbers so quicksort makes as many comparisons as you can.';
+const RULES_SENTENCE = 'Reorder the numbers so quicksort makes as many comparisons as possible.';
 
 test.describe('daily game', () => {
   test('the puzzle shows its rules, goal and fixed values', async ({ dailyPage }) => {
@@ -12,6 +12,8 @@ test.describe('daily game', () => {
 
     const startCtx = `DAILY_7 (#7, served goal ${servedPuzzle.par}, formula goal ${DAILY_7.puzzle.par}, no best field) ${fmt(DAILY_7.start.values)}`;
     await dailyPage.expectRulesToContain(RULES_SENTENCE, startCtx);
+    await dailyPage.expectRulesToExplainPivot(startCtx);
+    await dailyPage.expectPivotMarkerOnFirstSlot(startCtx);
     expect(
       await dailyPage.goal(startCtx),
       `${startCtx}: Goal status must show the served goal ${servedPuzzle.par} rather than work out the formula goal ${DAILY_7.puzzle.par}`,
