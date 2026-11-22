@@ -124,7 +124,7 @@ See "The goal, step by step".
 
 ```
 1a. Tests ──┬─► 1b. Rust scores quicksort ──► 1c. Wasm in the client ──► 1d. Parity ──┐
-            └─► 1e. Puzzle page ─────────────────────────────────────────────────────┴─► 1f. Run and score ──► 1g. Playtest
+            └─► 1e. Puzzle page ─────────────────────────────────────────────────────┴─► 1f. Run and score ──► 1g. Layout ──► 1h. Playtest
 ```
 
 1b to 1d and 1e don't depend on each other, so they can be built at the
@@ -156,7 +156,7 @@ same time. 1f needs both.
   a try the array stays as the player left it, so the next try starts from
   there. Reaching par is announced and the next try is still offered.
   Reaching the best ends the puzzle early. After the third try the puzzle
-  ends and reveals the best. Three is a starting number that 1g can change.
+  ends and reveals the best. Three is a starting number that 1h can change.
 - **Playback controls from the first run.** `/daily` has a Skip button that
   jumps to the final count, and the visualiser's controls: play and pause,
   rewind, replay, step back and forward, the timeline, and speeds from 0.25x
@@ -267,7 +267,33 @@ the best, and offers the share text.
 
 **You'll know it's done when** 12/12 game tests pass.
 
-### 1g. Playtest
+### 1g. Layout
+
+`/daily` is rearranged to follow the [layout mockup](daily-game-layout.png).
+The mockup shows a later Dijkstra puzzle, so this step takes its layout, not
+its content:
+
+- A small uppercase line above the title gives the puzzle number, the date
+  and the algorithm. The title is the puzzle's name, and the rules follow in
+  one or two sentences with the goal in bold.
+- The array sits in a large panel. Beside it, a score card shows the
+  comparison count in large figures next to the target, with the tries used
+  and the player's highest score under it. A second card shows what the sort
+  is doing as it runs, such as the current range and pivot.
+- One line under the panel says how to play. The actions follow in a row:
+  Run first and filled, then Skip.
+- On a 390-pixel phone screen the cards move under the array, and the whole
+  array still fits without scrolling sideways.
+
+The streak badge waits for 3b, and the "This week" strip waits for a
+schedule in 2c. The mockup's Submit best and Hint buttons aren't in the
+decisions above, so they stay out unless a decision adds them.
+
+**You'll know it's done when** the 12 game tests still pass, and screenshots
+at desktop and phone widths and a video of a full puzzle have been reviewed
+and approved.
+
+### 1h. Playtest
 
 Three people who haven't seen the game play the puzzle with no help. Write
 down where each one got stuck and what they tried, then fix the page before
