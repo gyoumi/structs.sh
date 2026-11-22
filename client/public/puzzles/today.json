@@ -1,0 +1,8 @@
+{
+  "number": 12,
+  "template": "quicksort-most-comparisons",
+  "values": [8, 1, 6, 3, 2, 7, 4, 5],
+  "fixed": [1, 4, 6],
+  "par": 34,
+  "best": 36
+}

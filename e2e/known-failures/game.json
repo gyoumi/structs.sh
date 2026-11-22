@@ -1,8 +1,4 @@
 {
-  "daily game › the puzzle shows its rules, par and fixed values": "Opening /daily shows the 404 page instead of the puzzle rules, par and fixed array slots because the daily game page is not built yet.",
-  "daily game › tapping two free values swaps them, and fixed values cannot be selected": "Opening /daily shows the 404 page with no interactive puzzle array because the daily game page is not built yet.",
-  "daily game › free values can be swapped with the keyboard": "Opening /daily shows the 404 page with no keyboard-selectable array slots because the daily game page is not built yet.",
-  "daily game › on a phone › swapping works on a phone-sized screen": "Opening /daily on a 390x844 touch viewport shows the 404 page with no tappable puzzle array because the daily game page is not built yet.",
   "daily game › Run animates the sort, and the counter goes up with each comparison": "Opening /daily shows the 404 page with no Run button or comparison counter because the daily game page is not built yet.",
   "daily game › the final count matches the score shown, and both match the hand-worked count": "Opening /daily shows the 404 page with no quicksort animation or wasm scoring because the daily game page and scoring are not built yet.",
   "daily game › Skip jumps straight to the final count": "Opening /daily shows the 404 page with no Skip button or playback animation because the daily game page is not built yet.",

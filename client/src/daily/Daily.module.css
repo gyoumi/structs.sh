@@ -1,0 +1,88 @@
+.page {
+  min-height: 100svh;
+  background-color: var(--hero-bg);
+  background-image: radial-gradient(var(--hero-dot) 1.5px, transparent 1.5px);
+  background-size: 28px 28px;
+}
+
+.main {
+  width: 100%;
+  max-width: calc(var(--wrap) + var(--gutter) * 2);
+  margin-inline: auto;
+  padding-bottom: 4rem;
+  box-sizing: border-box;
+}
+
+.column {
+  padding-inline: var(--gutter);
+}
+
+.page .title {
+  margin: 0.5rem 0 1.25rem;
+  padding-inline: var(--gutter);
+  font-size: clamp(2.25rem, 8vw, 4.5rem);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.brandLine {
+  display: block;
+  font-weight: 700;
+}
+
+.numberLine {
+  display: block;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.rules {
+  display: grid;
+  gap: 0.5rem;
+  max-width: 38rem;
+  color: var(--muted);
+}
+
+.page .rules p {
+  margin: 0;
+}
+
+.page .lede {
+  color: var(--ink);
+  font-size: 1.25rem;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.play {
+  margin-top: 1.5rem;
+}
+
+.par {
+  display: flex;
+  align-items: baseline;
+  gap: 0.625rem;
+  margin: 0;
+  color: var(--muted);
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.parValue {
+  color: var(--ink);
+  font-size: 2rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The array gets the full phone width so its slots stay big enough to tap. */
+@media (max-width: 639px) {
+  .play {
+    padding-inline: 0.5rem;
+  }
+
+  .play .par {
+    padding-inline: calc(var(--gutter) - 0.5rem);
+  }
+}

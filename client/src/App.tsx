@@ -2,6 +2,7 @@ import Box from '@mui/material/Box';
 import { ThemeProvider } from '@mui/material/styles';
 import { AnimatePresence } from 'framer-motion';
 import { Route, Routes, useLocation, useNavigationType } from 'react-router-dom';
+import Daily from '@/daily/Daily';
 import FeedbackRedirect from '@/landing/FeedbackRedirect';
 import Landing from '@/landing/Landing';
 import NotFound from '@/landing/NotFound';
@@ -44,6 +45,9 @@ const App = () => {
 
             {/* Visualiser routes */}
             <Route path="/visualiser/:topic/:data?" element={<Visualiser />} />
+
+            {/* Daily puzzle */}
+            <Route path="/daily" element={<Daily />} />
 
             {/* Feedback and feature request page */}
             <Route path="/feedback" element={<FeedbackRedirect />} />

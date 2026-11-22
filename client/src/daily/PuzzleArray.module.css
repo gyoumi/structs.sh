@@ -1,0 +1,105 @@
+.array {
+  display: grid;
+  grid-template-columns: repeat(var(--slots), minmax(0, 5rem));
+  justify-content: center;
+  gap: 3px;
+  margin: 0;
+  padding: 1rem 0 1.25rem;
+}
+
+.slot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  aspect-ratio: 3 / 4;
+  padding: 0;
+  border: 2.5px solid var(--edge);
+  border-radius: 12px;
+  background: var(--sand);
+  box-shadow: 0 var(--drop) 0 var(--shadow);
+  color: var(--button-ink);
+  font: inherit;
+  cursor: pointer;
+  box-sizing: border-box;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    translate 120ms ease-out,
+    box-shadow 120ms ease-out,
+    background-color 140ms ease-out;
+}
+
+.value {
+  font-size: clamp(1.25rem, 5.5vw, 2rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+@media (hover: hover) {
+  .slot:enabled:not([aria-pressed='true']):hover {
+    background: var(--sand-hover);
+  }
+}
+
+.slot:enabled:active {
+  translate: 0 var(--drop);
+  box-shadow: 0 0 0 var(--shadow);
+}
+
+.slot[aria-pressed='true'] {
+  z-index: 1;
+  border-color: var(--button-ink);
+  background: var(--indigo);
+  box-shadow: 0 calc(var(--drop) + 0.5rem) 0 var(--shadow);
+  color: #fff;
+  translate: 0 -0.5rem;
+  outline: 3px solid var(--steel);
+  outline-offset: 2px;
+}
+
+.slot:disabled {
+  border-style: dashed;
+  border-color: var(--dash);
+  background-color: var(--surface);
+  background-image: repeating-linear-gradient(
+    135deg,
+    transparent 0 6px,
+    color-mix(in srgb, var(--dash) 45%, transparent) 6px 8px
+  );
+  box-shadow: none;
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+.lock {
+  position: absolute;
+  bottom: 0.3rem;
+  left: 50%;
+  translate: -50% 0;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (min-width: 640px) {
+  .array {
+    justify-content: start;
+    gap: 0.75rem;
+    padding-inline: var(--gutter);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slot {
+    transition: none;
+  }
+}
