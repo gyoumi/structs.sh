@@ -150,23 +150,121 @@ pub mod quicksort {
         const ID: &'static str = "quicksort-most-comparisons";
 
         fn rules(&self, _instance: &Self::Instance) -> String {
-            todo!()
+            "Arrange the free values so quicksort makes as many comparisons as possible. \
+             Fixed values stay where they are."
+                .to_owned()
         }
 
         fn run(
             &self,
-            _instance: &Self::Instance,
-            _input: &Self::Input,
+            instance: &Self::Instance,
+            input: &Self::Input,
         ) -> Result<Vec<Self::Step>, InputError> {
-            todo!()
+            validate(instance, input)?;
+            let mut run = Run {
+                a: input.clone(),
+                steps: Vec::new(),
+            };
+            if let Some(hi) = input.len().checked_sub(1) {
+                run.quicksort(0, hi);
+            }
+            Ok(run.steps)
         }
 
-        fn score(
-            &self,
-            _instance: &Self::Instance,
-            _input: &Self::Input,
-        ) -> Result<u32, InputError> {
-            todo!()
+        fn score(&self, instance: &Self::Instance, input: &Self::Input) -> Result<u32, InputError> {
+            let compares = self
+                .run(instance, input)?
+                .iter()
+                .filter(|step| matches!(step, Step::Compare { .. }))
+                .count();
+            Ok(u32::try_from(compares).unwrap_or(u32::MAX))
+        }
+    }
+
+    fn validate(instance: &Instance, input: &[i32]) -> Result<(), InputError> {
+        let expected = instance.values.len();
+        if input.len() != expected {
+            return Err(InputError::WrongLength {
+                expected,
+                got: input.len(),
+            });
+        }
+        if let Some(index) = instance
+            .fixed
+            .iter()
+            .copied()
+            .filter(|&index| input[index] != instance.values[index])
+            .min()
+        {
+            return Err(InputError::FixedValueMoved { index });
+        }
+        let mut got = input.to_vec();
+        let mut want = instance.values.clone();
+        got.sort_unstable();
+        want.sort_unstable();
+        if got != want {
+            return Err(InputError::NotAPermutation);
+        }
+        Ok(())
+    }
+
+    struct Run {
+        a: Vec<i32>,
+        steps: Vec<Step>,
+    }
+
+    impl Run {
+        fn quicksort(&mut self, lo: usize, hi: usize) {
+            if hi <= lo {
+                return;
+            }
+            let j = self.partition(lo, hi);
+            // `j - 1 < lo` and `j - 1 == lo` both return immediately, so
+            // skipping the call when `j <= lo + 1` is exact and avoids
+            // underflow when `j == lo == 0`.
+            if j > lo + 1 {
+                self.quicksort(lo, j - 1);
+            }
+            self.quicksort(j + 1, hi);
+        }
+
+        fn partition(&mut self, lo: usize, hi: usize) -> usize {
+            let v = self.a[lo];
+            let mut i = lo + 1;
+            let mut j = hi;
+            loop {
+                while self.le(i, v) && i < j {
+                    i += 1;
+                }
+                while self.lt_pivot(j, v) && j > i {
+                    j -= 1;
+                }
+                if i == j {
+                    break;
+                }
+                self.swap(i, j);
+            }
+            self.steps.push(Step::Compare { index: i, pivot: v });
+            // `a[i] < v` means the pivot's final slot is `i`; otherwise `i > lo`
+            // always holds here, so `i - 1` cannot underflow.
+            let j = if self.a[i] < v { i } else { i - 1 };
+            self.swap(lo, j);
+            j
+        }
+
+        fn le(&mut self, index: usize, pivot: i32) -> bool {
+            self.steps.push(Step::Compare { index, pivot });
+            self.a[index] <= pivot
+        }
+
+        fn lt_pivot(&mut self, index: usize, pivot: i32) -> bool {
+            self.steps.push(Step::Compare { index, pivot });
+            pivot < self.a[index]
+        }
+
+        fn swap(&mut self, i: usize, j: usize) {
+            self.steps.push(Step::Swap { i, j });
+            self.a.swap(i, j);
         }
     }
 }
