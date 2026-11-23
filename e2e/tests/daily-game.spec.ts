@@ -5,7 +5,7 @@ import { DAILY_7, DAILY_12 } from '../support/daily-fixtures';
 // stepping, scoring, tries and the share text) is in daily-game-run.spec.ts.
 
 const fmt = (values: readonly number[]) => `[${values.join(', ')}]`;
-const RULES_SENTENCE = 'Reorder the numbers so quicksort makes as many comparisons as possible.';
+const RULES_SENTENCE = 'Swap the numbers to make as many comparisons as possible.';
 
 test.describe('daily game', () => {
   test('the puzzle shows its rules, goal and fixed values', async ({ dailyPage }) => {
