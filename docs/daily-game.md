@@ -57,7 +57,7 @@ written by a different agent from the code.
 ## Checkpoints
 
 ```
-Today ──► 1. One puzzle plays ──► 2. Every day is new ──► 3. It runs daily ──► Goal: launched ──► Tidy ──► Into dev
+Today ──► 1. One puzzle plays ──► 2. Every day is new ──► 3. It runs daily ──► Tidy ──► Goal: launched
            └ tidy step at the end of each checkpoint and of the goal ┘
 ```
 

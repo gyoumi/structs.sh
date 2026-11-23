@@ -48,9 +48,9 @@ const DEBUGGER_TESTS = /(\.test\.tsx?$|\/fixtures\/)/;
 // cargo's tests/*.rs, Vitest's client/src/**/*.test.ts(x), and node --test's
 // scripts/*.test.mjs.
 const TEST_FILE =
-  /^(e2e\/tests\/.*\.(spec|test)\.[cm]?[jt]sx?|(instrumenter|crates\/[^/]+)\/tests\/[^/]+\.rs|client\/src\/.*\.test\.tsx?|scripts\/[^/]+\.test\.mjs)$/;
+  /^(e2e\/tests\/.*\.(spec|test)\.[cm]?[jt]sx?|(instrumenter|crates\/[^/]+)\/tests\/([^/]+\.rs|[^/]+\/main\.rs)|client\/src\/.*\.test\.tsx?|scripts\/[^/]+\.test\.mjs)$/;
 const TEST_CHANGE =
-  /^(e2e\/tests\/|e2e\/programs\/|e2e\/known-failures\/[^/]+\.json$|(instrumenter|crates\/[^/]+)\/tests\/([^/]+\.rs|fixtures\/.*(?<!\.md))$|client\/src\/.*\.test\.tsx?$)/;
+  /^(e2e\/tests\/|e2e\/programs\/|e2e\/known-failures\/[^/]+\.json$|instrumenter\/tests\/([^/]+\.rs|[^/]+\/main\.rs|fixtures\/.*(?<!\.md))$|client\/src\/.*\.test\.tsx?$)/;
 const SHRINK_CHECKED = /^((client\/src|e2e|instrumenter\/src|instrumenter\/tests|crates\/[^/]+\/(src|tests))\/|scripts\/[^/]+\.test\.mjs$)/;
 
 const basename = (path) => path.slice(path.lastIndexOf('/') + 1);

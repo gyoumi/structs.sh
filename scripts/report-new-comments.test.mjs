@@ -253,7 +253,7 @@ describe('findNewComments: only scope source files', () => {
 // --- annotation ---------------------------------------------------------------
 
 const MESSAGE =
-  "Checkpoint 5 keeps only API docs, licence headers and notes about outside constraints in the debugger's code. If this explains our own code, say it with a name, type or shape instead (see the no-comments skill).";
+  'Keep only API docs, licence headers and notes about outside constraints in checked source files. If this explains our own code, say it with a name, type or shape instead (see the no-comments skill).';
 const warning = (escapedPath, line) => `::warning file=${escapedPath},line=${line},title=New comment::${MESSAGE}`;
 
 function expectAnnotation(entry, expected, what) {
@@ -345,8 +345,8 @@ function runCli(cwd, base, head) {
 
 const sorted = (list) => [...list].sort();
 const lines = (...rows) => `${rows.join('\n')}\n`;
-const NONE = "No new comments in the debugger's code.";
-const some = (n) => `${n} new comment(s) in the debugger's code. Each needs a reviewer's OK.`;
+const NONE = 'No new comments in checked source files.';
+const some = (n) => `${n} new comment(s) in checked source files. Each needs a reviewer's OK.`;
 
 describe('CLI in a temporary git repo', () => {
   it('prints an annotation per new comment in scope source files, then the count, and exits 0', () => {

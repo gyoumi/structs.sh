@@ -9,7 +9,7 @@ import { commentStartLines, isPlainComment, languageOf } from './comment-scanner
 import { findTargetBranch } from './target-branch.mjs';
 
 const MESSAGE =
-  "Checkpoint 5 keeps only API docs, licence headers and notes about outside constraints in the debugger's code. If this explains our own code, say it with a name, type or shape instead (see the no-comments skill).";
+  'Keep only API docs, licence headers and notes about outside constraints in checked source files. If this explains our own code, say it with a name, type or shape instead (see the no-comments skill).';
 
 const languageFor = (path) => (inScope(path) && kindOf(path) === 'source' ? languageOf(path) : undefined);
 
@@ -145,8 +145,8 @@ function main() {
   for (const comment of comments) console.log(annotation(comment));
   console.log(
     comments.length === 0
-      ? "No new comments in the debugger's code."
-      : `${comments.length} new comment(s) in the debugger's code. Each needs a reviewer's OK.`,
+      ? 'No new comments in checked source files.'
+      : `${comments.length} new comment(s) in checked source files. Each needs a reviewer's OK.`,
   );
 }
 
