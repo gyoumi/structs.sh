@@ -67,6 +67,7 @@ pub fn score_request(request: &[u8]) -> Result<String, String> {
     let arrangement = &request.arrangement;
     let reply = match request.template.as_str() {
         Quicksort::ID => {
+            reject_target_passes(&request)?;
             let score = Quicksort
                 .score(&quicksort::Instance { values, fixed }, arrangement)
                 .map_err(|error| describe(&error))?;
@@ -92,6 +93,7 @@ pub fn score_request(request: &[u8]) -> Result<String, String> {
             })
         }
         InsertionBeatsMerge::ID => {
+            reject_target_passes(&request)?;
             let instance = insertion_beats_merge::Instance { values, fixed };
             let outcome = InsertionBeatsMerge
                 .evaluate(&instance, arrangement)
@@ -107,6 +109,15 @@ pub fn score_request(request: &[u8]) -> Result<String, String> {
         _ => unreachable!("templates were checked above"),
     };
     reply.map_err(|error| format!("The puzzle reply could not be written: {error}."))
+}
+
+fn reject_target_passes(request: &Request) -> Result<(), String> {
+    if request.target_passes.is_some() {
+        return Err(
+            "The puzzle request could not be read: unexpected field `targetPasses`.".to_owned(),
+        );
+    }
+    Ok(())
 }
 
 fn check_fixed(request: &Request) -> Result<(), String> {

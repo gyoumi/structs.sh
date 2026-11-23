@@ -12,24 +12,32 @@ type Link = { status: 'unlinked' } | { status: 'linked'; unlink: () => void };
 
 const timeOf = (snapshot: VisualiserSnapshot) => (snapshot.progress / 100) * snapshot.duration;
 
+const isStageComplete = (stage: VisualiserSnapshot): boolean =>
+  stage.playback === 'complete' || (stage.duration === 0 && stage.lastRun !== null);
+
+const mergedStepTimes = (left: VisualiserSnapshot, right: VisualiserSnapshot): number[] =>
+  [...left.stepTimes, ...right.stepTimes]
+    .sort((a, b) => a - b)
+    .filter((t, i, sorted) => i === 0 || t - sorted[i - 1] > 2);
+
 const playbackOf = (left: VisualiserSnapshot, right: VisualiserSnapshot): PlaybackStage => {
   if (left.playback === 'playing' || right.playback === 'playing') return 'playing';
-  const ran = Math.max(left.duration, right.duration) > 0;
-  return ran && left.playback === 'complete' && right.playback === 'complete'
-    ? 'complete'
-    : 'paused';
+  const ran = left.lastRun !== null && right.lastRun !== null;
+  return ran && isStageComplete(left) && isStageComplete(right) ? 'complete' : 'paused';
 };
 
 const combine = (left: VisualiserSnapshot, right: VisualiserSnapshot): DualSnapshot => {
   const duration = Math.max(left.duration, right.duration);
   const playback = playbackOf(left, right);
-  const reached = duration > 0 ? (Math.max(timeOf(left), timeOf(right)) / duration) * 100 : 0;
+  const playhead = Math.min(duration, Math.max(timeOf(left), timeOf(right)));
+  const stepTimes = mergedStepTimes(left, right);
+  const reached = duration > 0 ? (playhead / duration) * 100 : 0;
   return {
     stages: [left, right],
     playback,
     progress: playback === 'complete' ? 100 : Math.min(reached, 99.9),
-    step: left.step + right.step,
-    stepCount: left.stepCount + right.stepCount,
+    step: stepTimes.filter((t) => t <= playhead + 1).length,
+    stepCount: stepTimes.length,
     duration,
     speed: left.speed,
   };
@@ -81,22 +89,38 @@ export class DualSession implements Playback {
   };
 
   play = (): void => {
-    if (this.getSnapshot().playback === 'complete') this.sessions.forEach((s) => s.rewind());
+    if (this.getSnapshot().playback === 'complete') this.rewind();
+    else this.seekToTime(this.playhead());
     this.sessions.forEach((session) => {
-      if (session.getSnapshot().playback !== 'complete') session.play();
+      const { duration, playback } = session.getSnapshot();
+      if (duration > 0 && playback !== 'complete') session.play();
     });
   };
 
-  pause = (): void => this.sessions.forEach((session) => session.pause());
+  pause = (): void => this.seekToTime(this.playhead());
 
   togglePlay = (): void => {
     if (this.getSnapshot().playback === 'playing') this.pause();
     else this.play();
   };
 
-  stepForward = (): void => this.sessions.forEach((session) => session.stepForward());
+  stepForward = (): void => {
+    const snapshot = this.getSnapshot();
+    if (snapshot.playback === 'complete' || snapshot.duration === 0) return;
+    const steps = mergedStepTimes(snapshot.stages[0], snapshot.stages[1]);
+    const now = this.playhead();
+    const next = steps.find((t) => t > now + 1) ?? snapshot.duration;
+    this.seekToTime(next);
+  };
 
-  stepBackward = (): void => this.sessions.forEach((session) => session.stepBackward());
+  stepBackward = (): void => {
+    const snapshot = this.getSnapshot();
+    if (snapshot.duration === 0) return;
+    const steps = mergedStepTimes(snapshot.stages[0], snapshot.stages[1]);
+    const now = this.playhead();
+    const prev = [...steps].reverse().find((t) => t + 25 < now) ?? 0;
+    this.seekToTime(prev);
+  };
 
   rewind = (): void => this.sessions.forEach((session) => session.rewind());
 
@@ -104,14 +128,25 @@ export class DualSession implements Playback {
 
   /** Seeks both stages to the same time: `percent` of the longer run. */
   seekToPercent = (percent: number): void => {
-    const time = (percent / 100) * this.getSnapshot().duration;
-    this.sessions.forEach((session) => {
-      const { duration } = session.getSnapshot();
-      session.seekToPercent(duration > 0 ? Math.min(100, (time / duration) * 100) : 0);
-    });
+    this.seekToTime((percent / 100) * this.getSnapshot().duration);
   };
 
   setSpeed = (speed: number): void => this.sessions.forEach((session) => session.setSpeed(speed));
+
+  private playhead(): number {
+    const snapshot = this.getSnapshot();
+    const [left, right] = snapshot.stages;
+    return Math.min(snapshot.duration, Math.max(timeOf(left), timeOf(right)));
+  }
+
+  private seekToTime(time: number): void {
+    const clamped = Math.max(0, Math.min(time, this.getSnapshot().duration));
+    this.sessions.forEach((session) => {
+      const { duration } = session.getSnapshot();
+      if (duration > 0) session.seekToPercent(Math.min(100, (clamped / duration) * 100));
+      else session.pause();
+    });
+  }
 
   private refresh(): boolean {
     const left = this.left.getSnapshot();

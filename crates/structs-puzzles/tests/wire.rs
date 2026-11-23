@@ -271,3 +271,24 @@ fn insertion_merge_slower_insertion_reply_has_null_score() {
     });
     assert_reply(&request, expected, "insertion 20 > merge 17 is unsolved");
 }
+
+#[test]
+fn non_bubble_templates_reject_target_passes() {
+    for template in [QUICKSORT, INSERTION_MERGE] {
+        let raw = serde_json::json!({
+            "template": template,
+            "values": [1, 2],
+            "fixed": [],
+            "targetPasses": 1,
+            "arrangement": [2, 1],
+        })
+        .to_string()
+        .into_bytes();
+        let reply = score_request(&raw);
+        let message = reply.clone().err().unwrap_or_default();
+        assert!(
+            reply.is_err() && message.contains("targetPasses"),
+            "score_request({template} with targetPasses): should reject unexpected targetPasses, got {reply:?}"
+        );
+    }
+}

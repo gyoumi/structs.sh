@@ -57,15 +57,23 @@ const requestReply = async (request: object): Promise<unknown> => {
   return callWasm(puzzles, new TextEncoder().encode(JSON.stringify(request)));
 };
 
-/** The score of playing `arrangement` (the whole array, in slot order) on `puzzle`, computed by the Rust code in the wasm build. */
+const MULTI_OUTCOME_TEMPLATES = new Set(['bubble-exact-passes', 'insertion-beats-merge']);
+
+/** The score of playing `arrangement` (the whole array, in slot order) on a numeric-score `puzzle`, computed by the Rust code in the wasm build. */
 export const scorePuzzle = async (
   puzzle: PuzzleInstance,
   arrangement: number[]
 ): Promise<number> => {
   const { template, values, fixed } = puzzle;
+  if (MULTI_OUTCOME_TEMPLATES.has(template)) {
+    throw new Error(`Use evaluatePuzzle for "${template}".`);
+  }
   const reply = (await requestReply({ template, values, fixed, arrangement })) as {
-    score: number;
+    score?: unknown;
   };
+  if (typeof reply.score !== 'number') {
+    throw new Error(`Template "${template}" did not return a numeric score; use evaluatePuzzle.`);
+  }
   return reply.score;
 };
 

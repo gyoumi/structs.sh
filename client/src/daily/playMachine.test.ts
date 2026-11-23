@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { initialPlayState, MAX_TRIES, playReducer, PlayState } from './playMachine';
+import {
+  initialPlayState,
+  latestMiss,
+  MAX_TRIES,
+  playReducer,
+  PlayState,
+  shownScore,
+} from './playMachine';
+import { Puzzle } from './puzzle';
+import { tryScoreOf } from './templates';
 
 const completeTry = (state: PlayState, runId: number, arrangement: number[], score: number) => {
   const running = playReducer(state, { type: 'run', arrangement, runId, focusSkip: false });
@@ -146,5 +155,37 @@ describe('playReducer', () => {
       scores: [10, 20, 30],
       share: 'failed',
     });
+  });
+
+  it('consumes a try as unsolved on a singleton 0-0 insertion-vs-merge tie', () => {
+    const singleton: Puzzle = {
+      number: 99,
+      date: '2026-04-20',
+      template: 'insertion-beats-merge',
+      values: [42],
+      fixed: [],
+      par: 1,
+    };
+    const score = tryScoreOf(singleton, {
+      template: 'insertion-beats-merge',
+      solved: false,
+      score: null,
+      insertionComparisons: 0,
+      mergeComparisons: 0,
+      inversions: 0,
+    });
+    const running = playReducer(initialPlayState, {
+      type: 'run',
+      arrangement: [42],
+      runId: 1,
+      focusSkip: false,
+    });
+    const scoring = playReducer(running, { type: 'animation-completed', runId: 1 });
+    const afterTie = playReducer(scoring, { type: 'scored', score });
+
+    expect(afterTie.stage, 'unsolved tie should return to ready with 1 try spent').toBe('ready');
+    expect(afterTie.scores, 'unsolved tie must consume a try').toHaveLength(1);
+    expect(shownScore(afterTie), 'unsolved tie must not display a numeric score').toBeUndefined();
+    expect(latestMiss(afterTie), 'unsolved tie should explain the 0-0 tie').toContain('0');
   });
 });

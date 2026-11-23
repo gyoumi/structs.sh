@@ -35,13 +35,17 @@ export const useReadoutValue = (rig: Rig, value: ReadoutValue): number => {
   );
 };
 
+const isStageComplete = (snapshot: VisualiserSnapshot) =>
+  snapshot.playback === 'complete' || (snapshot.duration === 0 && snapshot.lastRun !== null);
+
 /** The id of the run every stage has finished playing, or null while one still plays. */
 export const useCompletedRunId = (rig: Rig): number | null =>
-  useSyncExternalStore(rig.playback.subscribe, () =>
-    rig.playback.getSnapshot().playback === 'complete'
-      ? (rig.stages[0].session.getSnapshot().lastRun?.id ?? null)
-      : null
-  );
+  useSyncExternalStore(rig.playback.subscribe, () => {
+    const done =
+      rig.playback.getSnapshot().playback === 'complete' ||
+      rig.stages.every(({ session }) => isStageComplete(session.getSnapshot()));
+    return done ? (rig.stages[0].session.getSnapshot().lastRun?.id ?? null) : null;
+  });
 
 /** Whether any stage holds a run's timeline. */
 export const useHasTimeline = (rig: Rig): boolean =>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { evaluatePuzzle, type EvalPuzzleInstance } from './puzzles';
+import { evaluatePuzzle, scorePuzzle, type EvalPuzzleInstance } from './puzzles';
 
 /** Needs the puzzles wasm built first: `pnpm run puzzles` from the repo root. Counts are worked by hand in e2e/support/daily-sorting-fixtures.ts. */
 
@@ -127,6 +127,19 @@ const CASES: Case[] = [
       inversions: 15,
     },
   },
+  {
+    label: 'insertion-beats-merge singleton [42]: 0 = 0 tie is unsolved with score null',
+    puzzle: { template: 'insertion-beats-merge', values: [42], fixed: [] },
+    arrangement: [42],
+    expected: {
+      template: 'insertion-beats-merge',
+      solved: false,
+      score: null,
+      insertionComparisons: 0,
+      mergeComparisons: 0,
+      inversions: 0,
+    },
+  },
 ];
 
 describe('evaluatePuzzle — results through the wasm build', () => {
@@ -193,4 +206,14 @@ describe('evaluatePuzzle — invalid arrangements', () => {
       `after a rejected bubble call, ${describeCall(BUBBLE_21, [4, 2, 8, 1, 5, 3, 7, 6])} should still resolve to the solved 4 passes / 11 swaps result, got ${JSON.stringify(result)}`
     ).toEqual({ template: 'bubble-exact-passes', solved: true, score: 11, passes: 4, swaps: 11 });
   });
+
+  it.each([
+    { label: 'bubble-exact-passes', puzzle: BUBBLE_21, arrangement: BUBBLE_21.values },
+    { label: 'insertion-beats-merge', puzzle: INSERTION_22, arrangement: INSERTION_22.values },
+  ])(
+    'scorePuzzle rejects $label instead of returning null as a number',
+    async ({ puzzle, arrangement }) => {
+      await expect(scorePuzzle(puzzle, arrangement)).rejects.toThrow(/evaluatePuzzle/i);
+    }
+  );
 });
