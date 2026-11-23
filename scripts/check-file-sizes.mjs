@@ -15,9 +15,11 @@ const SCOPE = [
   'scripts/',
   'client/src/visualiser-debugger/Types/annotationType.ts',
   'client/src/visualiser-debugger/Component/Configuration/Configuration.tsx',
+  'client/src/visualiser-debugger/Component/Configuration/CollapsibleSection.tsx',
   'client/src/visualiser-debugger/Component/Configuration/StackVarAnnotation.tsx',
   'client/src/visualiser-debugger/Component/Configuration/RoleAnnotation/LinkedListNodeAnnotation.tsx',
   'client/src/visualiser-debugger/Component/Control/Controls.tsx',
+  'client/src/visualiser-debugger/Component/Control/Controls.test.tsx',
   'client/src/visualiser-debugger/DevelopmentMode.tsx',
   'client/src/visualiser-debugger/Component/Console/useCursor.ts',
 ];

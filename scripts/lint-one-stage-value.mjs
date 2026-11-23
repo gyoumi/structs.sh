@@ -1,12 +1,13 @@
 const NULLISH = new Set(['TSUndefinedKeyword', 'TSNullKeyword']);
 
-function isBooleanType(annotation) {
-  const type = annotation?.typeAnnotation;
+function isBooleanTypeNode(type) {
   if (!type) return false;
   if (type.type === 'TSBooleanKeyword') return true;
   if (type.type !== 'TSUnionType') return false;
   return type.types.some((t) => t.type === 'TSBooleanKeyword') && type.types.every((t) => t.type === 'TSBooleanKeyword' || NULLISH.has(t.type));
 }
+
+const isBooleanType = (annotation) => isBooleanTypeNode(annotation?.typeAnnotation);
 
 const isBooleanLiteral = (node) => node?.type === 'Literal' && typeof node.value === 'boolean';
 
@@ -25,6 +26,32 @@ function isBooleanClassProperty(member) {
 
 const isBooleanDeclarator = (declarator) =>
   declarator.id.type === 'Identifier' && (isBooleanType(declarator.id.typeAnnotation) || isBooleanLiteral(declarator.init));
+
+const BOOLEAN_HOOKS = new Set(['useState', 'useRef']);
+
+function hookName(callee) {
+  if (callee.type === 'Identifier') return callee.name;
+  if (callee.type === 'MemberExpression' && !callee.computed && callee.object.type === 'Identifier' && callee.object.name === 'React') return callee.property.name;
+  return undefined;
+}
+
+function isBooleanHookCall(init) {
+  if (init?.type !== 'CallExpression' || !BOOLEAN_HOOKS.has(hookName(init.callee))) return false;
+  return isBooleanTypeNode(init.typeArguments?.params[0]) || isBooleanLiteral(init.arguments[0]);
+}
+
+function booleanHookFlagName(declarator) {
+  if (!isBooleanHookCall(declarator.init)) return undefined;
+  const { id } = declarator;
+  if (id.type === 'Identifier') return id.name;
+  if (id.type === 'ArrayPattern' && hookName(declarator.init.callee) === 'useState' && id.elements[0]?.type === 'Identifier') return id.elements[0].name;
+  return undefined;
+}
+
+function flagName(declarator, kind) {
+  if (kind === 'let' && isBooleanDeclarator(declarator)) return declarator.id.name;
+  return booleanHookFlagName(declarator);
+}
 
 const SCOPES = new Set(['Program', 'BlockStatement', 'StaticBlock', 'SwitchStatement', 'ForStatement', 'ForInStatement', 'ForOfStatement', 'TSModuleBlock']);
 
@@ -57,22 +84,25 @@ export default {
       );
     const checkClass = (node) => checkMembers(node, node.body.body, isBooleanClassProperty);
 
-    const letsByScope = new Map();
+    const flagsByScope = new Map();
     return {
       TSInterfaceDeclaration: (node) => checkMembers(node, node.body.body, isBooleanSignature),
       TSTypeLiteral: (node) => checkMembers(node, node.members, isBooleanSignature),
       ClassDeclaration: checkClass,
       ClassExpression: checkClass,
       VariableDeclaration(node) {
-        if (node.kind !== 'let') return;
+        if (node.kind !== 'let' && node.kind !== 'const') return;
         const scope = scopeOf(node);
-        const lets = letsByScope.get(scope) ?? [];
-        for (const declarator of node.declarations.filter(isBooleanDeclarator)) lets.push({ name: declarator.id.name, declaration: node });
-        letsByScope.set(scope, lets);
+        const flags = flagsByScope.get(scope) ?? [];
+        for (const declarator of node.declarations) {
+          const name = flagName(declarator, node.kind);
+          if (name !== undefined) flags.push({ name, declaration: node });
+        }
+        flagsByScope.set(scope, flags);
       },
       'Program:exit'() {
-        for (const lets of letsByScope.values()) {
-          if (lets.length >= 2) reportFlags(lets[1].declaration, lets.map(({ name }) => name));
+        for (const flags of flagsByScope.values()) {
+          if (flags.length >= 2) reportFlags(flags[1].declaration, flags.map(({ name }) => name));
         }
       },
     };
