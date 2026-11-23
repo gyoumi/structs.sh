@@ -4,6 +4,7 @@
 // into errors, so a broken convention fails CI instead of relying on review.
 import playwright from 'eslint-plugin-playwright';
 import tseslint from 'typescript-eslint';
+import oneStageValue from './scripts/lint-one-stage-value.mjs';
 import { retiredNames, studentFreeIdentifier } from './scripts/retired-names.mjs';
 
 const pageInternals = ['locator', 'evaluate', '$', '$$', '$eval', '$$eval', 'getByTestId'];
@@ -17,7 +18,9 @@ export default tseslint.config(
       parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
     },
     linterOptions: { reportUnusedDisableDirectives: 'error' },
+    plugins: { structs: { rules: { 'one-stage-value': oneStageValue } } },
     rules: {
+      'structs/one-stage-value': 'error',
       // Wait on something the user can see, never on the clock.
       'playwright/no-wait-for-timeout': 'error',
       // Expected failures go in e2e/known-failures/<debugger>.json, with a reason.
