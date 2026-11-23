@@ -16,6 +16,10 @@ export interface TimelineSegment {
   line: number | null;
 }
 
+export type PlaybackStage = 'paused' | 'playing' | 'complete';
+
+type PlaybackMode = 'idle' | 'playing' | 'stepping' | 'paused';
+
 class VisualiserController {
   private dataStructure?: GraphicalDataStructure;
 
@@ -31,7 +35,7 @@ class VisualiserController {
 
   private speed: number = 1;
 
-  private isStepMode: boolean = false;
+  private mode: PlaybackMode = 'idle';
 
   private segments: TimelineSegment[] = [];
 
@@ -90,15 +94,17 @@ class VisualiserController {
       }
       if (runnerInfo.isTimestamped) {
         maxRunner.after(() => {
-          if (this.isStepMode) {
-            this.currentTimeline.pause();
+          if (this.mode === 'stepping') {
+            this.pause();
           }
         });
         this.timestamps.push(this.timelineDuration + 1);
       }
     });
-    this.timestamps.push(this.timelineDuration);
-    this.currentTimeline.play();
+    if (this.timelineDuration > 0) {
+      this.timestamps.push(this.timelineDuration);
+      this.play();
+    }
   }
 
   public resetTimeline(updateSlider: (val: number) => void) {
@@ -108,26 +114,26 @@ class VisualiserController {
         updateSlider((Math.min(evt.detail, this.timelineDuration) / this.timelineDuration) * 100);
       }
     });
-    this.isStepMode = false;
+    this.mode = 'idle';
     this.currentTimeline.speed(this.speed);
     this.clearRecording();
   }
 
   public play(): void {
-    this.isStepMode = false;
+    this.mode = 'playing';
     this.currentTimeline.play();
   }
 
   public pause(): void {
+    this.mode = 'paused';
     this.currentTimeline.pause();
   }
 
   public seekPercent(position: number): void {
     const timeSeek: number = (position * this.timelineDuration) / 100;
     this.currentTimeline.time(timeSeek);
-    if (this.isStepMode) {
+    if (this.mode === 'stepping') {
       this.pause();
-      this.isStepMode = false;
     }
   }
 
@@ -138,6 +144,7 @@ class VisualiserController {
 
   public finish(): void {
     this.currentTimeline.finish();
+    this.mode = 'paused';
   }
 
   public stepBackwards(): void {
@@ -145,7 +152,7 @@ class VisualiserController {
   }
 
   public stepForwards(): void {
-    this.isStepMode = true;
+    this.mode = 'stepping';
     this.currentTimeline.play();
   }
 
@@ -193,6 +200,7 @@ class VisualiserController {
     this.currentTimeline.finish();
     this.currentTimeline.time(0);
     this.currentTimeline = new Timeline().persist(true);
+    this.mode = 'idle';
     this.clearRecording();
   }
 
@@ -243,8 +251,10 @@ class VisualiserController {
     return this.track.traceAt(time);
   }
 
-  public get isPaused(): boolean {
-    return (this.currentTimeline as unknown as { _paused: boolean })._paused;
+  public get playback(): PlaybackStage {
+    if (this.timelineDuration === 0) return 'paused';
+    if (this.currentTime >= this.timelineDuration - 1) return 'complete';
+    return this.mode === 'playing' || this.mode === 'stepping' ? 'playing' : 'paused';
   }
 
   public get code(): string {

@@ -1,7 +1,9 @@
-import { CSSProperties, KeyboardEvent, useLayoutEffect, useRef, useState } from 'react';
+import { CSSProperties, KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { LockIcon } from '@/ui/icons';
 import { nextFreeSlot } from './puzzle';
 import styles from './PuzzleArray.module.css';
+
+type Selection = { kind: 'idle' } | { kind: 'selected'; index: number; focusNonce: number };
 
 type Props = {
   values: number[];
@@ -26,19 +28,21 @@ const slideValueBetweenSlots = (value: HTMLElement, to: HTMLElement, from: HTMLE
 };
 
 const PuzzleArray = ({ values, fixed, frozen = false, onSwap }: Props) => {
-  const [selected, setSelected] = useState<number | null>(null);
+  const [selection, setSelection] = useState<Selection>({ kind: 'idle' });
   const [announcement, setAnnouncement] = useState('');
   const slots = useRef<(HTMLButtonElement | null)[]>([]);
   const valueEls = useRef<(HTMLSpanElement | null)[]>([]);
-  const focusAfterSwap = useRef<number | null>(null);
 
-  if (frozen && selected !== null) setSelected(null);
+  const selected = !frozen && selection.kind === 'selected' ? selection.index : null;
+
+  useEffect(() => {
+    if (frozen) setSelection({ kind: 'idle' });
+  }, [frozen]);
 
   useLayoutEffect(() => {
-    if (focusAfterSwap.current === null) return;
-    slots.current[focusAfterSwap.current]?.focus();
-    focusAfterSwap.current = null;
-  });
+    if (selection.kind !== 'selected' || selection.focusNonce === 0) return;
+    slots.current[selection.index]?.focus();
+  }, [selection]);
 
   const swap = (a: number, b: number) => {
     const first = slots.current[a];
@@ -54,17 +58,17 @@ const PuzzleArray = ({ values, fixed, frozen = false, onSwap }: Props) => {
   };
 
   const handleClick = (index: number) => {
-    if (selected === null) setSelected(index);
-    else if (selected === index) setSelected(null);
+    if (selected === null) setSelection({ kind: 'selected', index, focusNonce: 0 });
+    else if (selected === index) setSelection({ kind: 'idle' });
     else {
       swap(selected, index);
-      setSelected(null);
+      setSelection({ kind: 'idle' });
     }
   };
 
   const handleKeyDown = (event: KeyboardEvent, index: number) => {
     if (event.key === 'Escape') {
-      setSelected(null);
+      setSelection({ kind: 'idle' });
       return;
     }
     if (selected !== index) return;
@@ -73,8 +77,11 @@ const PuzzleArray = ({ values, fixed, frozen = false, onSwap }: Props) => {
     const target = nextFreeSlot(fixed, values.length, index, event.key === 'ArrowRight' ? 1 : -1);
     if (target === null) return;
     swap(index, target);
-    setSelected(target);
-    focusAfterSwap.current = target;
+    setSelection((prev) => ({
+      kind: 'selected',
+      index: target,
+      focusNonce: prev.kind === 'selected' ? prev.focusNonce + 1 : 1,
+    }));
   };
 
   return (
