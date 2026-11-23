@@ -7,6 +7,9 @@ import { boxWidth } from '../util/constants';
 import { canvasTheme } from '../../common/canvasTheme';
 import { StepComparison, StepTrace } from '../../common/AnimationProducer';
 
+const DIMMED_BAR_OPACITY = 0.28;
+const DIMMED_LABEL_OPACITY = 0.78;
+
 export default class SortsQuickAnimationProducer extends SortsAnimationProducer {
   private comparisonCount = 0;
 
@@ -102,10 +105,9 @@ export default class SortsQuickAnimationProducer extends SortsAnimationProducer 
   public greyOut(array: GraphicalSortsElement[], lo: number, hi: number) {
     array.forEach((x, i) => {
       if (i < lo || i > hi) {
-        // Keep dimmed labels in theme ink (WCAG AA+) while the bar fades.
-        this.addSequenceAnimation(x.boxTarget.animate(300).attr({ opacity: 0.28 }));
+        this.addSequenceAnimation(x.boxTarget.animate(300).attr({ opacity: DIMMED_BAR_OPACITY }));
         this.addSequenceAnimation(
-          x.numberTarget.animate(300).attr({ opacity: 0.78, fill: canvasTheme.ink })
+          x.numberTarget.animate(300).attr({ opacity: DIMMED_LABEL_OPACITY, fill: canvasTheme.ink })
         );
       } else {
         this.addSequenceAnimation(x.boxTarget.animate(300).attr({ opacity: 1 }));

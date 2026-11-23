@@ -5,6 +5,7 @@ import { Documentation } from '@/visualiser-src/common/typedefs';
 import { defaultSpeed } from '../common/constants';
 import AnimationProducer, { StepTrace } from '../common/AnimationProducer';
 import TimelineTrack from './TimelineTrack';
+import { parseOperationArgs, validateOperationArgs } from './operationArgs';
 
 interface TimeEvent extends Event {
   detail?: number;
@@ -43,17 +44,14 @@ class VisualiserController {
     }
   }
 
-  // Return data in form of integer array
   public get data(): number[] {
     return this.dataStructure?.data || [];
   }
 
-  // Return the current topic/data structure
   public get topic(): string | null {
     return this.topicTitle || null;
   }
 
-  // Set data structure to loaded data
   public loadData(data: number[]): void {
     this.resetDataStructure();
     this.dataStructure?.load(data);
@@ -106,7 +104,6 @@ class VisualiserController {
   public resetTimeline(updateSlider: (val: number) => void) {
     this.currentTimeline = new Timeline().persist(true);
     this.currentTimeline.on('time', (evt: TimeEvent) => {
-      // avoid division by 0
       if (this.timelineDuration !== 0 && evt.detail) {
         updateSlider((Math.min(evt.detail, this.timelineDuration) / this.timelineDuration) * 100);
       }
@@ -135,16 +132,10 @@ class VisualiserController {
   }
 
   public setSpeed(speed: number): void {
-    // we need to keep a member variable since
-    // a new timeline is created for each animation sequence,
-    // so the speed would be reset to 1
     this.speed = speed;
-
-    // incase we are setting the speed without doing another operation
     this.currentTimeline.speed(this.speed);
   }
 
-  // Finish playing the timeline
   public finish(): void {
     this.currentTimeline.finish();
   }
@@ -161,47 +152,7 @@ class VisualiserController {
   public applyTopicTitle(topicTitle: string) {
     this.topicTitle = topicTitle;
     this.dataStructure = GraphicalDataStructureFactory.create(topicTitle);
-    this.currentTimeline.finish();
-    this.currentTimeline.time(0);
-    this.currentTimeline = new Timeline().persist(true);
-    this.clearRecording();
-  }
-
-  private getErrorMessageIfInvalidInput(command: string, args: string[]): string {
-    if (!this.dataStructure) {
-      return 'Invalid data structure';
-    }
-    const expectedArgs = this.dataStructure.documentation[command].args;
-    if (args.length !== expectedArgs.length) {
-      return `Invalid arguments. Please provide ${args.join(', ')}`;
-    }
-    if (args.includes('') || (expectedArgs.length > 0 && args.some((arg) => !arg.match(/\d/)))) {
-      return 'Argument(s) missing';
-    }
-    if (
-      !args.every((value, idx) =>
-        expectedArgs[idx].endsWith('s')
-          ? value
-              .split(/,| /g)
-              .filter((str) => str !== '')
-              .every((el) => /^\d+$/.test(el))
-          : /^\d+$/.test(value)
-      )
-    ) {
-      return 'Argument(s) must be a positive integer';
-    }
-    let valueIndex = expectedArgs.indexOf('value');
-    valueIndex = valueIndex === -1 ? expectedArgs.indexOf('values') : valueIndex;
-    if (
-      valueIndex !== -1 &&
-      !args[valueIndex]
-        .split(/,|\s+/g)
-        .filter((str) => str !== '')
-        .every((arg) => Number(arg) >= 0 && Number(arg) <= 99)
-    ) {
-      return 'Values must be between 0 and 99';
-    }
-    return '';
+    this.clearTimeline();
   }
 
   public doOperation(
@@ -209,7 +160,11 @@ class VisualiserController {
     updateSlider: (val: number) => void,
     ...args: string[]
   ): string {
-    const errMessage = this.getErrorMessageIfInvalidInput(command, args);
+    if (!this.dataStructure) {
+      return 'Invalid data structure';
+    }
+    const expectedArgs = this.dataStructure.documentation[command].args;
+    const errMessage = validateOperationArgs(expectedArgs, args);
     if (errMessage !== '') {
       return errMessage;
     }
@@ -217,15 +172,7 @@ class VisualiserController {
     this.finish();
     // @ts-ignore
     const animationProducer: AnimationProducer = this.dataStructure[command](
-      ...args.map((arg, idx) => {
-        if (this.dataStructure?.documentation[command].args[idx].endsWith('s')) {
-          return arg
-            .split(/,| /g)
-            .filter((str) => str !== '')
-            .map((el) => Number(el));
-        }
-        return Number(arg);
-      })
+      ...parseOperationArgs(expectedArgs, args)
     );
     this.constructTimeline(animationProducer, updateSlider);
     return '';
@@ -239,6 +186,10 @@ class VisualiserController {
     if (this.topicTitle) {
       this.dataStructure = GraphicalDataStructureFactory.create(this.topicTitle);
     }
+    this.clearTimeline();
+  }
+
+  private clearTimeline(): void {
     this.currentTimeline.finish();
     this.currentTimeline.time(0);
     this.currentTimeline = new Timeline().persist(true);
@@ -282,12 +233,12 @@ class VisualiserController {
     return this.currentTime;
   }
 
-  // The producer's running count (for quicksort, the comparisons made) once the steps up to `time` are done.
+  /** The producer's running count once the steps up to `time` are done. */
   public counterAt(time: number): number {
     return this.track.counterAt(time);
   }
 
-  // The sort's pivot and comparison for the step playing at `time`, or null outside a partition.
+  /** The sort's pivot and comparison for the step playing at `time`, or null outside a partition. */
   public traceAt(time: number): StepTrace | null {
     return this.track.traceAt(time);
   }
@@ -300,7 +251,7 @@ class VisualiserController {
     return this.operationCode;
   }
 
-  // Times the timeline pauses at when stepping, ending with the full duration.
+  /** Times the timeline pauses at when stepping, ending with the full duration. */
   public get stepTimes(): number[] {
     return [...this.timestamps]
       .sort((a, b) => a - b)

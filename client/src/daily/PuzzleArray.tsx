@@ -11,11 +11,7 @@ type Props = {
   onSwap: (a: number, b: number) => void;
 };
 
-/**
- * Slides the value inside `to` in from where `from` sits, so the eye can follow the value that
- * moved. The buttons stay put so tap targets never move.
- */
-const slideFrom = (value: HTMLElement, to: HTMLElement, from: HTMLElement) => {
+const slideValueBetweenSlots = (value: HTMLElement, to: HTMLElement, from: HTMLElement) => {
   if (typeof value.animate !== 'function') return;
   if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
   const dx = from.getBoundingClientRect().left - to.getBoundingClientRect().left;
@@ -50,8 +46,8 @@ const PuzzleArray = ({ values, fixed, frozen = false, onSwap }: Props) => {
     const firstValue = valueEls.current[a];
     const secondValue = valueEls.current[b];
     if (first && second && firstValue && secondValue) {
-      slideFrom(firstValue, first, second);
-      slideFrom(secondValue, second, first);
+      slideValueBetweenSlots(firstValue, first, second);
+      slideValueBetweenSlots(secondValue, second, first);
     }
     setAnnouncement(`Swapped ${values[a]} and ${values[b]}`);
     onSwap(a, b);
@@ -92,7 +88,6 @@ const PuzzleArray = ({ values, fixed, frozen = false, onSwap }: Props) => {
         {values.map((value, index) => {
           const locked = fixed.has(index);
           return (
-            // Slots are positions, so the index is their identity.
             <button
               key={index}
               ref={(element) => {

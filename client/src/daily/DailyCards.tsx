@@ -7,7 +7,6 @@ import cards from './DailyCards.module.css';
 
 export const MAX_TRIES = 3;
 
-/** The eyebrow, title and rules above the game. */
 export const PuzzleIntro = ({ puzzle }: { puzzle: Puzzle }) => (
   <>
     <div className={styles.eyebrow}>
@@ -36,8 +35,7 @@ const opSymbol = (op: StepComparison['op']) => {
   return op;
 };
 
-/** "3 < 2" with an inline ✓ or ✗, drawn in the tone of the bar being compared. */
-export const ComparisonText = ({ comparison }: { comparison: StepComparison }) => (
+const ComparisonText = ({ comparison }: { comparison: StepComparison }) => (
   <>
     <span>
       {comparison.left} {opSymbol(comparison.op)} {comparison.right}
@@ -85,28 +83,22 @@ export const MobileHud = ({
   </div>
 );
 
+export type ScoreCardStage = 'ready' | 'running' | 'ended';
+
 type ScoreCardProps = {
   puzzle: Puzzle;
   comparisons: number;
   scores: number[];
-  running: boolean;
-  ended: boolean;
-  goalReached: boolean;
-  score: number | undefined;
-  highest: number;
+  stage: ScoreCardStage;
 };
 
-export const ScoreCard = ({
-  puzzle,
-  comparisons,
-  scores,
-  running,
-  ended,
-  goalReached,
-  score,
-  highest,
-}: ScoreCardProps) => {
+export const ScoreCard = ({ puzzle, comparisons, scores, stage }: ScoreCardProps) => {
+  const ended = stage === 'ended';
+  const running = stage === 'running';
   const triesLeft = ended ? 0 : MAX_TRIES - scores.length;
+  const highest = Math.max(0, ...scores);
+  const score = ended ? highest : scores.at(-1);
+  const goalReached = score !== undefined && score >= puzzle.par;
 
   const chip = (index: number) => {
     if (index < scores.length) {

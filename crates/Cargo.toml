@@ -2,6 +2,11 @@
 members = ["structs-puzzles"]
 resolver = "3"
 
+# Clippy reads the thresholds from clippy.toml, not from here.
+[workspace.lints.clippy]
+struct_excessive_bools = "warn"
+fn_params_excessive_bools = "warn"
+
 [profile.release]
 opt-level = "s"
 lto = true

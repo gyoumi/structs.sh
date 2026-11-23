@@ -57,7 +57,8 @@ written by a different agent from the code.
 ## Checkpoints
 
 ```
-Today ──► 1. One puzzle plays ──► 2. Every day is new ──► 3. It runs daily ──► Goal: launched
+Today ──► 1. One puzzle plays ──► 2. Every day is new ──► 3. It runs daily ──► Goal: launched ──► Tidy ──► Into dev
+           └ tidy step at the end of each checkpoint and of the goal ┘
 ```
 
 ### 1. One puzzle plays
@@ -124,7 +125,7 @@ See "The goal, step by step".
 
 ```
 1a. Tests ──┬─► 1b. Rust scores quicksort ──► 1c. Wasm in the client ──► 1d. Parity ──┐
-            └─► 1e. Puzzle page ─────────────────────────────────────────────────────┴─► 1f. Run and score ──► 1g. Layout ──► 1h. Playtest
+            └─► 1e. Puzzle page ─────────────────────────────────────────────────────┴─► 1f. Run and score ──► 1g. Layout ──► 1h. Playtest ──► 1i. Tidy
 ```
 
 1b to 1d and 1e don't depend on each other, so they can be built at the
@@ -198,6 +199,8 @@ same time. 1f needs both.
 
 ### 1a. Tests
 
+**Done in #64.**
+
 A different agent from the one writing the code writes checkpoint 1's game
 tests and adds them to `e2e/known-failures/game.json`. It works from the
 decisions above. Each test serves its own puzzle, with the goal and
@@ -230,6 +233,8 @@ known failures, and CI is green.
 
 ### 1b. Rust scores quicksort
 
+**Done in #65.**
+
 A `crates/` Cargo workspace with `structs-puzzles` in it. It holds the
 `Template` trait, the instance, input and step log types, and the quicksort
 template's `run`, `score` and `rules`. This step only builds it for the
@@ -239,10 +244,9 @@ computer it runs on. CI gains a job like the instrumenter's: `cargo fmt`,
 **You'll know it's done when** `cargo test` passes in CI, including inputs
 whose comparisons were counted by hand.
 
-Follow-up: the file-size check and the PR rules for Rust tests cover
-`instrumenter/` but not `crates/` yet.
-
 ### 1c. Wasm in the client
+
+**Done in #66.**
 
 `structs-puzzles` is built for `wasm32-unknown-unknown`, and its exports
 follow the instrumenter's (`alloc`, `result_ptr` and the rest, without
@@ -255,6 +259,8 @@ the wasm build, and the Docker image builds.
 
 ### 1d. Parity
 
+**Done in #68.**
+
 The TypeScript quicksort reports how many comparisons it made. A Vitest
 test runs it and the wasm build on the same inputs, fixed ones and random
 ones, and checks the counts match.
@@ -263,6 +269,8 @@ ones, and checks the counts match.
 
 ### 1e. Puzzle page
 
+**Done in #67.**
+
 `/daily` loads the puzzle file and shows the rules, goal and the array, with
 fixed values locked. The player can swap free values by tapping, with the
 keyboard, and on a phone.
@@ -270,6 +278,8 @@ keyboard, and on a phone.
 **You'll know it's done when** 4/12 game tests pass: tests 1 to 4 in 1a.
 
 ### 1f. Run and score
+
+**Done in #70.**
 
 Run animates the sort with the comparison counter and the playback
 controls, then shows the score from the wasm build next to the goal. The page
@@ -280,6 +290,8 @@ shows a best score.
 **You'll know it's done when** 12/12 game tests pass.
 
 ### 1g. Layout
+
+**Done in #72.**
 
 `/daily` is rearranged to follow the [layout mockup](docs/images/daily-game-layout.png).
 The mockup shows a later Dijkstra puzzle, so this step takes its layout, not
@@ -322,15 +334,28 @@ and approved.
 
 Three people who haven't seen the game play the puzzle with no help. Write
 down where each one got stuck and what they tried, then fix the page before
-checkpoint 2.
+checkpoint 2 (skipped for now while checkpoint 2 starts).
 
 **You'll know it's done when** the notes are in this document, and each
 problem they found is fixed or is listed as a follow-up.
 
+### 1i. Tidy
+
+Tidy the code checkpoint 1 added or changed against the four rules (size,
+stages, comments, tests) without changing what a player sees, and extend the
+CI tidy checks (`scripts/check-file-sizes.mjs`, `scripts/pr-rules.mjs`,
+`crates/clippy.toml`) to cover `client/src/daily/`, `client/src/Services/puzzles/`,
+and `crates/`.
+
+**You'll know it's done when** every checkpoint 1 file is within its line
+limit, stage flags and plain comments are cleaned up, the CI tidy checks cover
+the daily game and `crates/`, and all unit, Rust, script and e2e tests pass
+unchanged.
+
 ## Checkpoint 2, step by step
 
 ```
-2a. The other templates ──► 2b. Solver and checks ──► 2c. Schedule
+2a. The other templates ──► 2b. Solver and checks ──► 2c. Schedule ──► 2d. Tidy
 ```
 
 ### Decisions
@@ -382,10 +407,15 @@ on the server.
 **You'll know it's done when** one run fills three weeks of dates, and every
 stored puzzle loads and plays on the game page.
 
+### 2d. Tidy
+
+Tidy the code checkpoint 2 added or changed against the four rules (size,
+stages, comments, tests) without changing what a player sees.
+
 ## Checkpoint 3, step by step
 
 ```
-3a. Game server ──► 3b. Streaks ──► 3c. The whole stack
+3a. Game server ──► 3b. Streaks ──► 3c. The whole stack ──► 3d. Tidy
 ```
 
 ### Decisions
@@ -427,7 +457,22 @@ the clock set by the test.
 
 **You'll know it's done when** every game test passes in CI.
 
+### 3d. Tidy
+
+Tidy the code checkpoint 3 added or changed against the four rules (size,
+stages, comments, tests) without changing what a player sees.
+
 ## The goal, step by step
+
+```
+Tidy ──► 4a. Into dev ──► 4b. Deployment ──► 4c. Launch
+```
+
+### Tidy (before merging into dev)
+
+Before `daily-game` goes into `dev`, run a full tidy checkpoint (`Ta. Structure`,
+`Tb. Comments`, `Tc. Tests`, `Td. Checks`) across everything the daily game
+added or changed.
 
 ### 4a. Into dev
 

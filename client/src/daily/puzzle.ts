@@ -34,7 +34,6 @@ export const parsePuzzle = (data: unknown): Puzzle => {
   if (date !== undefined && (typeof date !== 'string' || date.trim() === '')) {
     throw new Error('The puzzle date is not in the expected format.');
   }
-  // Copy only the known fields, so nothing extra in the file (such as a best score) reaches the page.
   const { number, template, values, fixed, par } = puzzle as Puzzle;
   return date === undefined
     ? { number, template, values, fixed, par }
