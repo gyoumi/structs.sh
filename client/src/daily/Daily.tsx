@@ -1,5 +1,5 @@
 import '@fontsource-variable/fredoka';
-import { useEffect, useEffectEvent, useRef, useState } from 'react';
+import { useEffect, useReducer, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import logo from '@/assets/img/structs.png';
 import hero from '@/landing/HeroSection.module.css';
@@ -17,14 +17,8 @@ import {
   useSession,
   useSnapshot,
 } from '@/visualiser/useVisualiser';
-import {
-  MAX_TRIES,
-  MobileHud,
-  PuzzleIntro,
-  ScoreCard,
-  ScoreCardStage,
-  StepCard,
-} from './DailyCards';
+import { MobileHud, PuzzleIntro, ScoreCard, StepCard } from './DailyCards';
+import { initialPlayState, MAX_TRIES, playReducer } from './playMachine';
 import PuzzleArray from './PuzzleArray';
 import { Puzzle, shareText, usePuzzle } from './puzzle';
 import styles from './Daily.module.css';
@@ -33,8 +27,6 @@ const sorting = findTopic('sorting-algorithms');
 if (!sorting) throw new Error('The sorting topic is missing.');
 
 const DEFAULT_PLAYBACK_SPEED = 2;
-
-type Phase = 'ready' | 'running' | 'scoring' | 'score-failed';
 
 const swapValues = (values: number[], a: number, b: number) =>
   values.map((value, index) => (index === a ? values[b] : index === b ? values[a] : value));
@@ -49,79 +41,77 @@ type PlayProps = {
 
 const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
   const session = useSession();
-  const complete = useSnapshot((s) => s.playback === 'complete');
+  const completedRunId = useSnapshot((s) =>
+    s.playback === 'complete' ? (s.lastRun?.id ?? null) : null
+  );
+  const hasTimeline = useSnapshot((s) => s.duration > 0);
   const comparisons = useSnapshot((s) => s.comparisons ?? 0);
   const trace = useSnapshot((s) => s.trace);
-  const [scores, setScores] = useState<number[]>([]);
-  const [phase, setPhase] = useState<Phase>('ready');
-  const [shared, setShared] = useState<'copied' | 'failed' | null>(null);
-  const arrangement = useRef(values);
+  const [play, dispatch] = useReducer(playReducer, initialPlayState);
   const runner = useRef<HTMLDivElement>(null);
   const runButton = useRef<HTMLButtonElement>(null);
   const skipButton = useRef<HTMLButtonElement>(null);
-  const focusSkipWhenRunDisables = useRef(false);
   const reducedMotion = usePrefersReducedMotion();
-  const drawnTheme = useRef(theme);
   const [stageTheme, setStageTheme] = useState(theme);
-
-  const markDrawn = (drawn: Theme) => {
-    drawnTheme.current = drawn;
-    setStageTheme(drawn);
-  };
 
   useEffect(() => {
     loadPuzzles().catch(() => {});
   }, []);
 
-  const busy = phase === 'running' || phase === 'scoring';
+  const busy = play.stage === 'running' || play.stage === 'scoring';
 
-  const applyTheme = useEffectEvent(() => {
-    if (drawnTheme.current === theme) return;
-    if (busy || session.getSnapshot().duration > 0) return;
-    markDrawn(theme);
+  useEffect(() => {
+    if (stageTheme === theme || busy || hasTimeline) return;
+    setStageTheme(theme);
     session.retheme(canvasThemes[theme]);
-  });
-
-  useEffect(() => applyTheme(), [theme]);
+  }, [stageTheme, theme, busy, hasTimeline, session]);
 
   const draw = (arrangementValues: number[]) => {
-    markDrawn(theme);
+    setStageTheme(theme);
     session.loadData(arrangementValues, canvasThemes[theme], true);
   };
 
   useEffect(() => {
-    if (!focusSkipWhenRunDisables.current) return;
-    focusSkipWhenRunDisables.current = false;
-    if (phase === 'running') skipButton.current?.focus({ preventScroll: true });
-  }, [phase]);
+    if (play.stage === 'running' && play.focusSkip) {
+      skipButton.current?.focus({ preventScroll: true });
+    }
+  }, [play]);
 
   useEffect(() => {
-    if (phase !== 'running' || !complete) return;
-    setPhase('scoring');
-    scorePuzzle(puzzle, arrangement.current)
+    if (play.stage === 'running' && completedRunId === play.runId) {
+      dispatch({ type: 'animation-completed', runId: play.runId });
+    }
+  }, [play, completedRunId]);
+
+  useEffect(() => {
+    if (play.stage !== 'scoring') return undefined;
+    let cancelled = false;
+    scorePuzzle(puzzle, play.arrangement)
       .then((score) => {
-        setScores((current) => [...current, score]);
-        setPhase('ready');
+        if (!cancelled) dispatch({ type: 'scored', score });
       })
       .catch((error) => {
         console.error(error);
-        setPhase('score-failed');
+        if (!cancelled) dispatch({ type: 'score-failed' });
       });
-  }, [phase, complete, puzzle]);
+    return () => {
+      cancelled = true;
+    };
+  }, [play, puzzle]);
 
-  const ended = scores.length >= MAX_TRIES;
-  const triesLeft = ended ? 0 : MAX_TRIES - scores.length;
-  const highest = Math.max(0, ...scores);
-  const score = ended ? highest : scores.at(-1);
+  const ended = play.stage === 'ended';
+  const triesLeft = ended ? 0 : MAX_TRIES - play.scores.length;
+  const highest = Math.max(0, ...play.scores);
+  const score = ended ? highest : play.scores.at(-1);
   const goalReached = score !== undefined && score >= puzzle.par;
-  const scoreCardStage: ScoreCardStage = ended ? 'ended' : busy ? 'running' : 'ready';
 
   const run = () => {
-    focusSkipWhenRunDisables.current = document.activeElement === runButton.current;
-    arrangement.current = values;
-    setPhase('running');
+    const focusSkip = document.activeElement === runButton.current;
     draw(values);
-    session.run('quick', []);
+    const error = session.run('quick', []);
+    if (error) return;
+    const runId = session.getSnapshot().lastRun?.id ?? 0;
+    dispatch({ type: 'run', arrangement: values, runId, focusSkip });
     runner.current?.scrollIntoView?.({
       behavior: reducedMotion ? 'auto' : 'smooth',
       block: 'nearest',
@@ -136,19 +126,20 @@ const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
   const share = () => {
     const clipboard = navigator.clipboard as Clipboard | undefined;
     if (!clipboard?.writeText) {
-      setShared('failed');
+      dispatch({ type: 'share-failed' });
       return;
     }
     clipboard
-      .writeText(shareText(puzzle, scores))
-      .then(() => setShared('copied'))
-      .catch(() => setShared('failed'));
+      .writeText(shareText(puzzle, play.scores))
+      .then(() => dispatch({ type: 'share-copied' }))
+      .catch(() => dispatch({ type: 'share-failed' }));
   };
 
   let message = '';
   if (busy) message = '';
-  else if (phase === 'score-failed') message = 'Couldn’t score that try. Press Run to try again.';
-  else if (ended) {
+  else if (play.stage === 'score-failed') {
+    message = 'Couldn’t score that try. Press Run to try again.';
+  } else if (ended) {
     message = `${highest >= puzzle.par ? 'You reached the goal!' : 'Out of tries.'} Your highest score was ${highest}.`;
   } else if (goalReached) message = 'Goal reached! Swap and run again to go higher.';
 
@@ -189,7 +180,7 @@ const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
             type="button"
             className={`${landing.secondary} ${styles.action}`}
             onClick={session.finish}
-            disabled={phase !== 'running'}
+            disabled={play.stage !== 'running'}
           >
             Skip
           </button>
@@ -203,8 +194,8 @@ const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
                 Share
               </button>
               <span aria-live="polite" className={styles.note}>
-                {shared === 'copied' && 'Copied!'}
-                {shared === 'failed' && 'Couldn’t copy — try again.'}
+                {play.share === 'copied' && 'Copied!'}
+                {play.share === 'failed' && 'Couldn’t copy — try again.'}
               </span>
             </>
           )}
@@ -214,12 +205,7 @@ const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
         </span>
       </div>
       <aside className={styles.sidebar}>
-        <ScoreCard
-          puzzle={puzzle}
-          comparisons={comparisons}
-          scores={scores}
-          stage={scoreCardStage}
-        />
+        <ScoreCard puzzle={puzzle} comparisons={comparisons} play={play} />
         <StepCard trace={trace} stageTheme={stageTheme} />
       </aside>
     </div>

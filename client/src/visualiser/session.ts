@@ -1,63 +1,16 @@
 import { SVG } from '@svgdotjs/svg.js';
 import VisualiserController from '@/visualiser-src/controller/VisualiserController';
-import { Documentation } from '@/visualiser-src/common/typedefs';
 import { defaultSpeed, VISUALISER_CANVAS } from '@/visualiser-src/common/constants';
 import { CanvasTheme, setCanvasTheme } from '@/visualiser-src/common/canvasTheme';
-import type { StepTrace } from '@/visualiser-src/common/AnimationProducer';
+import {
+  initialSnapshot,
+  type InitialDataSource,
+  type VisualiserSnapshot,
+} from './sessionSnapshot';
 
+export type { PlaybackStage } from '@/visualiser-src/controller/VisualiserController';
 export type { StepComparison, StepTrace } from '@/visualiser-src/common/AnimationProducer';
-
-export interface LastRun {
-  id: number;
-  command: string;
-  args: string[];
-}
-
-export type PlaybackStage = 'paused' | 'playing' | 'complete';
-
-export interface VisualiserSnapshot {
-  topicTitle: string | null;
-  documentation: Documentation;
-  playback: PlaybackStage;
-  progress: number;
-  step: number;
-  stepCount: number;
-  stepTimes: number[];
-  duration: number;
-  line: number | null;
-  code: string[];
-  lastRun: LastRun | null;
-  speed: number;
-  layoutVersion: number;
-  /** The running count of the sort being shown (quicksort's comparisons) at the current step. */
-  comparisons?: number;
-  /** The sort's pivot and active comparison at the current step, or null outside a partition. */
-  trace: StepTrace | null;
-  /** How many values the structure holds, including a run that is still playing. */
-  size: number;
-}
-
-const initialSnapshot: VisualiserSnapshot = {
-  topicTitle: null,
-  documentation: {},
-  playback: 'paused',
-  progress: 0,
-  step: 0,
-  stepCount: 0,
-  stepTimes: [],
-  duration: 0,
-  line: null,
-  code: [],
-  size: 0,
-  lastRun: null,
-  speed: 1,
-  layoutVersion: 0,
-  comparisons: 0,
-  trace: null,
-};
-
-/** Picks the random data a topic starts with, or returns undefined to use the engine's own. */
-export type InitialDataSource = (topicTitle: string) => number[] | undefined;
+export type { InitialDataSource, LastRun, VisualiserSnapshot } from './sessionSnapshot';
 
 const IDLE_FRAMES_BEFORE_SLEEP = 20;
 
@@ -67,6 +20,10 @@ const finishDrawing = (): void => {
     .forEach((element) => element.timeline().finish());
 };
 
+type TickerState =
+  | { status: 'sleeping' }
+  | { status: 'running'; frame: number; idleFrames: number };
+
 export class VisualiserSession {
   private controller = new VisualiserController();
 
@@ -74,9 +31,7 @@ export class VisualiserSession {
 
   private listeners = new Set<() => void>();
 
-  private frame: number | null = null;
-
-  private idleFrames = 0;
+  private ticker: TickerState = { status: 'sleeping' };
 
   private runCounter = 0;
 
@@ -139,7 +94,7 @@ export class VisualiserSession {
       duration: this.controller.duration,
       code: this.controller.code ? this.controller.code.split('\n') : [],
       layoutVersion: noTimeline ? this.snapshot.layoutVersion + 1 : this.snapshot.layoutVersion,
-      size: this.controller.data.length,
+      ...this.sampleController(this.controller.duration, stepTimes),
     });
     this.wake();
     return '';
@@ -148,11 +103,13 @@ export class VisualiserSession {
   play = (): void => {
     if (this.snapshot.playback === 'complete') this.controller.seekPercent(0);
     this.controller.play();
+    this.syncFromController(true);
     this.wake();
   };
 
   pause = (): void => {
     this.controller.pause();
+    this.syncFromController(true);
     this.wake();
   };
 
@@ -164,30 +121,35 @@ export class VisualiserSession {
   stepForward = (): void => {
     if (this.snapshot.playback === 'complete') return;
     this.controller.stepForwards();
+    this.syncFromController(true);
     this.wake();
   };
 
   stepBackward = (): void => {
     this.controller.pause();
     this.controller.stepBackwards();
+    this.syncFromController(true);
     this.wake();
   };
 
   rewind = (): void => {
     this.controller.pause();
     this.controller.seekPercent(0);
+    this.syncFromController(true);
     this.wake();
   };
 
   finish = (): void => {
     this.controller.seekPercent(100);
     this.controller.pause();
+    this.syncFromController(true);
     this.wake();
   };
 
   seekToPercent = (percent: number): void => {
     this.controller.pause();
     this.controller.seekPercent(percent);
+    this.syncFromController(true);
     this.wake();
   };
 
@@ -250,48 +212,62 @@ export class VisualiserSession {
   }
 
   private wake(): void {
-    this.idleFrames = 0;
-    if (this.frame === null) this.frame = requestAnimationFrame(this.tick);
+    if (this.ticker.status === 'sleeping') {
+      this.ticker = { status: 'running', frame: requestAnimationFrame(this.tick), idleFrames: 0 };
+    } else {
+      this.ticker.idleFrames = 0;
+    }
   }
 
   private sleep(): void {
-    if (this.frame !== null) cancelAnimationFrame(this.frame);
-    this.frame = null;
+    if (this.ticker.status === 'running') {
+      cancelAnimationFrame(this.ticker.frame);
+      this.ticker = { status: 'sleeping' };
+    }
+  }
+
+  private sampleController(duration: number, stepTimes: number[]) {
+    const { controller } = this;
+    const { time } = controller;
+    return {
+      playback: controller.playback,
+      progress: duration > 0 ? Math.min(100, (time / duration) * 100) : 0,
+      step: stepTimes.filter((t) => t <= time + 1).length,
+      line: duration > 0 ? controller.currentLine : null,
+      size: controller.data.length,
+      comparisons: controller.counterAt(time),
+      trace: duration > 0 ? controller.traceAt(time) : null,
+    };
+  }
+
+  private syncFromController(exact = false): boolean {
+    const { snapshot } = this;
+    const sample = this.sampleController(snapshot.duration, snapshot.stepTimes);
+    const progressChanged = exact
+      ? sample.progress !== snapshot.progress
+      : Math.abs(sample.progress - snapshot.progress) > 0.05;
+    const changed =
+      sample.playback !== snapshot.playback ||
+      progressChanged ||
+      sample.step !== snapshot.step ||
+      sample.line !== snapshot.line ||
+      sample.size !== snapshot.size ||
+      sample.comparisons !== (snapshot.comparisons ?? 0) ||
+      sample.trace !== snapshot.trace;
+
+    if (changed) this.update(sample);
+    return changed;
   }
 
   private tick = (): void => {
-    const { controller, snapshot } = this;
-    const { duration } = snapshot;
-    const { time } = controller;
-    let playback: PlaybackStage = 'paused';
-    if (duration > 0 && time >= duration - 1) playback = 'complete';
-    else if (duration > 0 && !controller.isPaused) playback = 'playing';
-    const progress = duration > 0 ? Math.min(100, (time / duration) * 100) : 0;
-    const step = snapshot.stepTimes.filter((t) => t <= time + 1).length;
-    const line = duration > 0 ? controller.currentLine : null;
-    const size = controller.data.length;
-    const comparisons = controller.counterAt(time);
-    const trace = duration > 0 ? controller.traceAt(time) : null;
+    const changed = this.syncFromController();
+    const prevIdle = this.ticker.status === 'running' ? this.ticker.idleFrames : 0;
+    const idleFrames = changed ? 0 : prevIdle + 1;
 
-    const changed =
-      playback !== snapshot.playback ||
-      Math.abs(progress - snapshot.progress) > 0.05 ||
-      step !== snapshot.step ||
-      line !== snapshot.line ||
-      size !== snapshot.size ||
-      comparisons !== (snapshot.comparisons ?? 0) ||
-      trace !== snapshot.trace;
-
-    if (changed) {
-      this.idleFrames = 0;
-      this.update({ playback, progress, step, line, size, comparisons, trace });
+    if (this.snapshot.playback === 'playing' || idleFrames < IDLE_FRAMES_BEFORE_SLEEP) {
+      this.ticker = { status: 'running', frame: requestAnimationFrame(this.tick), idleFrames };
     } else {
-      this.idleFrames += 1;
+      this.ticker = { status: 'sleeping' };
     }
-
-    this.frame =
-      playback === 'playing' || this.idleFrames < IDLE_FRAMES_BEFORE_SLEEP
-        ? requestAnimationFrame(this.tick)
-        : null;
   };
 }

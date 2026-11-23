@@ -1,11 +1,10 @@
 import { Theme } from '@/ui/theme';
 import { canvasThemes } from '@/visualiser/canvasThemes';
 import type { StepComparison, StepTrace } from '@/visualiser/session';
+import { MAX_TRIES, PlayState } from './playMachine';
 import { Puzzle, puzzleTitle } from './puzzle';
 import styles from './Daily.module.css';
 import cards from './DailyCards.module.css';
-
-export const MAX_TRIES = 3;
 
 export const PuzzleIntro = ({ puzzle }: { puzzle: Puzzle }) => (
   <>
@@ -83,18 +82,16 @@ export const MobileHud = ({
   </div>
 );
 
-export type ScoreCardStage = 'ready' | 'running' | 'ended';
-
 type ScoreCardProps = {
   puzzle: Puzzle;
   comparisons: number;
-  scores: number[];
-  stage: ScoreCardStage;
+  play: PlayState;
 };
 
-export const ScoreCard = ({ puzzle, comparisons, scores, stage }: ScoreCardProps) => {
-  const ended = stage === 'ended';
-  const running = stage === 'running';
+export const ScoreCard = ({ puzzle, comparisons, play }: ScoreCardProps) => {
+  const { scores } = play;
+  const ended = play.stage === 'ended';
+  const running = play.stage === 'running' || play.stage === 'scoring';
   const triesLeft = ended ? 0 : MAX_TRIES - scores.length;
   const highest = Math.max(0, ...scores);
   const score = ended ? highest : scores.at(-1);
