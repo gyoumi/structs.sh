@@ -12,6 +12,7 @@ import prettierPlugin from 'eslint-plugin-prettier';
 import vitestPlugin from '@vitest/eslint-plugin';
 
 import { inScope, kindOf } from '../scripts/check-file-sizes.mjs';
+import conciseUiCopy from '../scripts/lint-concise-ui-copy.mjs';
 import oneStageValue from '../scripts/lint-one-stage-value.mjs';
 import { retiredNames, studentFreeIdentifier } from '../scripts/retired-names.mjs';
 
@@ -142,6 +143,7 @@ const overrideConfig = defineConfig([
 const HEX_COLOUR = /#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})\b/;
 const structsPlugin = {
   rules: {
+    'concise-ui-copy': conciseUiCopy,
     'one-stage-value': oneStageValue,
     'no-hardcoded-colour': {
       meta: {
@@ -176,6 +178,26 @@ const coloursConfig = defineConfig([
     ignores: ['src/structsThemes.ts', 'src/**/palette.ts', 'src/**/constants.ts'],
     plugins: { structs: structsPlugin },
     rules: { 'structs/no-hardcoded-colour': 'warn' },
+  },
+]);
+
+// Interface copy stays short (scripts/lint-concise-ui-copy.mjs). It fails CI
+// in the newer feature folders and warns elsewhere, where older copy predates it.
+const CONCISE_COPY_STRICT = ['src/daily/**/*.tsx', 'src/landing/**/*.tsx', 'src/visualiser/**/*.tsx', 'src/ui/**/*.tsx'];
+const copyConfig = defineConfig([
+  {
+    name: 'structs/concise-ui-copy',
+    files: ['src/**/*.tsx'],
+    ignores: ['**/*.test.tsx', ...CONCISE_COPY_STRICT],
+    plugins: { structs: structsPlugin },
+    rules: { 'structs/concise-ui-copy': 'warn' },
+  },
+  {
+    name: 'structs/concise-ui-copy-strict',
+    files: CONCISE_COPY_STRICT,
+    ignores: ['**/*.test.tsx'],
+    plugins: { structs: structsPlugin },
+    rules: { 'structs/concise-ui-copy': 'error' },
   },
 ]);
 
@@ -221,5 +243,6 @@ export default defineConfig([
   ...prettierConfig,
   ...overrideConfig,
   ...coloursConfig,
+  ...copyConfig,
   ...debuggerConfig,
 ]);
