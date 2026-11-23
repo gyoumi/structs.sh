@@ -36,10 +36,13 @@ export class DailyStages {
     return describeTree(treeFromNodes((await this.nodes(name)).sort((a, b) => a.x - b.x)));
   }
 
-  /** Every drawn value with its rounded position and fill, so any move or highlight changes it. */
+  /** Every drawn value with its stage-local rounded position and fill, so page scroll never looks like playback. */
   async signature(name: string): Promise<string> {
+    const origin = (await this.region(name).locator('svg').first().boundingBox()) ?? { x: 0, y: 0 };
     const nodes = (await this.nodes(name)).sort((a, b) => a.x - b.x || a.y - b.y);
-    return nodes.map((node) => `${node.value}@${Math.round(node.x)},${Math.round(node.y)} ${node.fill}`).join('; ');
+    return nodes
+      .map((node) => `${node.value}@${Math.round(node.x - origin.x)},${Math.round(node.y - origin.y)} ${node.fill}`)
+      .join('; ');
   }
 
   async expectValues(name: string, expected: readonly number[], message: string): Promise<void> {
@@ -80,22 +83,29 @@ export class DailyStages {
     }
   }
 
-  /** At the end of a run, presses Replay and waits until every stage redraws away from its final drawing while Animation progress is below 100. */
+  /**
+   * At the end of a run, presses Replay and waits until every stage advances through at least two
+   * distinct non-final frames while Animation progress is below 100 (a reset followed by a frozen drawing fails).
+   */
   async expectReplayRedrawsEveryStage(names: readonly string[], context: string): Promise<void> {
     expect(await this.ui.roundedProgress(context), `${context}: Replay is checked from the end of the run`).toBe(100);
     const end = await this.signatures(names);
-    const replayed = new Set<string>();
+    const frames = new Map(names.map((name) => [name, new Set<string>()]));
     await this.ui.clickWhenReady(this.ui.playbackButton('Replay'), `${context}: Replay button in Playback toolbar`, 'replaying both stages');
     await expect
       .poll(
         async () => {
           const now = await this.signatures(names);
-          if ((await this.ui.progress(context)) < 100) names.forEach((name, i) => now[i] !== end[i] && replayed.add(name));
-          return names.filter((name) => !replayed.has(name));
+          if ((await this.ui.progress(context)) < 100) {
+            names.forEach((name, i) => {
+              if (now[i] !== end[i]) frames.get(name)?.add(now[i]);
+            });
+          }
+          return names.filter((name) => (frames.get(name)?.size ?? 0) < 2);
         },
         {
-          intervals: [50],
-          message: `${context}: after Replay on the shared Playback toolbar, every stage should redraw away from its final drawing while Animation progress is below 100 (stages that never did)`,
+          intervals: [25],
+          message: `${context}: after Replay on the shared Playback toolbar, every stage should reset and advance through at least two distinct non-final frames while Animation progress is below 100 (stages that stayed frozen)`,
         },
       )
       .toEqual([]);

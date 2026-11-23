@@ -23,7 +23,14 @@ test.describe('daily index drift', () => {
       await dailyPage.expectStatusNumber(name, 0, `${ctx}: ${name} should start at 0 before Run`);
     }
     await dailyPage.run();
-    await dailyTemplate.expectCountersAnimate([{ name: 'Nodes walked', final: costly.walked }], ctx);
+    await dailyTemplate.expectCountersAnimate(
+      [
+        { name: 'Operations', final: costly.count },
+        { name: 'Nodes walked', final: costly.walked },
+        { name: 'Cost', final: costly.cost },
+      ],
+      ctx,
+    );
     await dailyPage.skip(ctx);
     await dailyPage.expectStatusNumber('Operations', costly.count, `${ctx}: Operations should be ${costly.count}`);
     await dailyPage.expectStatusNumber('Nodes walked', costly.walked, `${ctx}: Nodes walked should be ${costly.walked} (delete(3) 4 + delete(0) 1 + insert(5, 2) 2 + insert(1, 3) 3)`);

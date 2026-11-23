@@ -326,14 +326,16 @@ skipped). Nothing else in a stage's `<svg>` may be a bare whole number.
   rotations.
 - From `Back to the start`, pressing `Next step` repeatedly changes both drawings
   (a value moves, is highlighted, or a key appears) before `Animation progress`
-  reaches 100. From the end, `Replay` redraws both stages away from their final
-  drawings while it plays. Single-stage templates keep `#visualiser-container`, and Run
+  reaches 100. From the end, `Replay` resets and advances both stages through
+  multiple non-final frames while it plays. Single-stage templates keep `#visualiser-container`, and Run
 scrolls it and `Playback` into view as in checkpoint 1.
 
 **Target tree** (`bst-forced-order`): a `figure` named `Target tree` (for example
-`<figure aria-label="Target tree">`) draws the tree in an `<svg>` and contains its
-preorder as text joined by `, ` (for example `Preorder: 6, 3, 1, 2, 5, 4, 9, 7, 8,
-10`, visible or visually hidden). It stays visible after each try.
+`<figure aria-label="Target tree">`) draws the target BST in an `<svg>` (using
+visible `<text>` nodes positioned left to right in order with each subtree root
+above its children, as in the BST visualiser) and contains its preorder as text
+joined by `, ` (for example `Preorder: 6, 3, 1, 2, 5, 4, 9, 7, 8, 10`, visible
+or visually hidden). It stays visible after each try.
 
 **Operation builder** (`linked-list-index-drift`, which has no `Puzzle array`):
 

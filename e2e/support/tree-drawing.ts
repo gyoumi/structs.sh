@@ -20,6 +20,17 @@ export const treeFromNodes = (nodes: DrawnNode[]): TreeNode | undefined => {
 export const readTree = async (page: Page): Promise<TreeNode | undefined> =>
   treeFromNodes((await readDrawing(page)).sort((a, b) => a.x - b.x));
 
+/** Rebuilds a BST from its preorder traversal. */
+export const bstFromPreorder = (preorder: readonly number[]): TreeNode | undefined => {
+  if (preorder.length === 0) return undefined;
+  const [value, ...rest] = preorder;
+  return {
+    value,
+    left: bstFromPreorder(rest.filter((v) => v < value)),
+    right: bstFromPreorder(rest.filter((v) => v > value)),
+  };
+};
+
 /** Writes a tree as value(left, right), e.g. "50(30(20, 40), 70)"; a leaf is just its value. */
 export const describeTree = (node?: TreeNode): string => {
   if (!node) return '';

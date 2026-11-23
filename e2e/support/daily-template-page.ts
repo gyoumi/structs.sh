@@ -3,6 +3,8 @@ import type { DailyPage } from './daily-page';
 import { DailyLocators } from './daily-locators';
 import { DailyOperationBuilder } from './daily-operations';
 import { DailyStages, type Counter } from './daily-stages';
+import { bstFromPreorder, describeTree, treeFromNodes } from './tree-drawing';
+import { readDrawnTexts } from './visualiser-drawing';
 
 const fmt = (values: readonly number[]) => `[${values.join(', ')}]`;
 const wholeNumber = (n: number) => new RegExp(`(?<![\\d.])${n}(?![\\d.])`);
@@ -161,7 +163,7 @@ export class DailyTemplatePage {
     }
   }
 
-  /** The `Target tree` figure is visible, draws an <svg>, and lists the target's preorder as `6, 3, 1, ...`. */
+  /** The `Target tree` figure is visible, draws the target BST in its <svg>, and lists its preorder as `6, 3, 1, ...`. */
   async expectTargetTree(preorder: readonly number[], context: string): Promise<void> {
     const figure = this.page.getByRole('figure', { name: 'Target tree', exact: true });
     await expect(figure, `${context}: /daily should show a figure named "Target tree"`).toBeVisible();
@@ -170,6 +172,13 @@ export class DailyTemplatePage {
       figure,
       `${context}: the Target tree figure should include its preorder "${preorder.join(', ')}" as text (a caption or visually hidden text)`,
     ).toContainText(preorder.join(', '));
+    const expectedTree = describeTree(bstFromPreorder(preorder));
+    await expect
+      .poll(
+        async () => describeTree(treeFromNodes((await readDrawnTexts(figure.locator('svg text'))).sort((a, b) => a.x - b.x))),
+        { message: `${context}: the Target tree <svg> should draw the target BST ${expectedTree} (rebuilt from visible <text> node positions)` },
+      )
+      .toBe(expectedTree);
   }
 
   /** Swaps free slots until Puzzle array reads `target`, then checks it does. */
