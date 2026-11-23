@@ -1,7 +1,7 @@
 import { expect, type Locator } from '@playwright/test';
 import type { DailyLocators } from './daily-locators';
 import { describeTree, treeFromNodes } from './tree-drawing';
-import { readDrawnTexts, type DrawnNode } from './visualiser-drawing';
+import { readSvgDrawnTexts, type DrawnNode } from './visualiser-drawing';
 
 /** A counter readout and the count it should finish at. */
 export interface Counter {
@@ -23,7 +23,7 @@ export class DailyStages {
   }
 
   private nodes(name: string): Promise<DrawnNode[]> {
-    return readDrawnTexts(this.region(name).locator('svg text'));
+    return readSvgDrawnTexts(this.region(name).locator('svg').first());
   }
 
   /** The values drawn in the stage, left to right (top to bottom on ties). */
@@ -36,12 +36,11 @@ export class DailyStages {
     return describeTree(treeFromNodes((await this.nodes(name)).sort((a, b) => a.x - b.x)));
   }
 
-  /** Every drawn value with its stage-local rounded position and fill, so page scroll never looks like playback. */
+  /** Every drawn value with its stage-local rounded position and fill, read atomically so page scroll never looks like playback. */
   async signature(name: string): Promise<string> {
-    const origin = (await this.region(name).locator('svg').first().boundingBox()) ?? { x: 0, y: 0 };
     const nodes = (await this.nodes(name)).sort((a, b) => a.x - b.x || a.y - b.y);
     return nodes
-      .map((node) => `${node.value}@${Math.round(node.x - origin.x)},${Math.round(node.y - origin.y)} ${node.fill}`)
+      .map((node) => `${node.value}@${Math.round(node.x)},${Math.round(node.y)} ${node.fill}`)
       .join('; ');
   }
 
