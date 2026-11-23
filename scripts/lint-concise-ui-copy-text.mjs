@@ -120,35 +120,41 @@ export const narrationIn = (text) =>
     .map(collapse)
     .flatMap((segment) => NARRATION_PATTERNS.map((pattern) => pattern.exec(segment)?.[0]).filter(Boolean));
 
-// Dedupe, then bound the list while never evicting the worst cases: per guard
-// signature, the most words, the most sentences, and a narrating variant.
+// Dedupe, then cap the list at MAX_VARIANTS. The worst cases across the whole
+// list go in first (most words, most sentences, one per narration pattern),
+// then the worst variant per guard signature, then the wordiest of the rest.
 function prune(list) {
   const seen = new Map();
   for (const variant of list) {
     const id = `${signature(variant.guards)}|${variant.text}`;
     if (!seen.has(id)) seen.set(id, variant);
   }
-  const deduped = [...seen.values()];
-  if (deduped.length <= MAX_VARIANTS) return deduped;
-  const scored = deduped.map((variant) => {
+  const unique = [...seen.values()];
+  if (unique.length <= MAX_VARIANTS) return unique;
+  const scored = unique.map((variant) => {
     const text = flatText(variant.text);
-    return { variant, sig: signature(variant.guards), words: wordCount(text), sentences: sentenceCount(text), narrates: narrationIn(variant.text).length > 0 };
+    const segments = variant.text.split(BREAK).map(collapse);
+    const patterns = NARRATION_PATTERNS.flatMap((pattern, i) => (segments.some((segment) => pattern.test(segment)) ? [i] : []));
+    return { variant, sig: signature(variant.guards), words: wordCount(text), sentences: sentenceCount(text), patterns };
   });
+  const byWords = (a, b) => b.words - a.words || b.sentences - a.sentences;
+  const bySentences = (a, b) => b.sentences - a.sentences || b.words - a.words;
   const keep = new Set();
+  const add = (item) => item && keep.size < MAX_VARIANTS && keep.add(item);
+  add([...scored].sort(byWords)[0]);
+  add([...scored].sort(bySentences)[0]);
+  NARRATION_PATTERNS.forEach((_, i) => add(scored.filter((item) => item.patterns.includes(i)).sort(byWords)[0]));
   const bySig = new Map();
   for (const item of scored) {
     const best = bySig.get(item.sig) ?? {};
-    if (!best.words || item.words > best.words.words) best.words = item;
-    if (!best.sentences || item.sentences > best.sentences.sentences) best.sentences = item;
-    if (!best.narrates && item.narrates) best.narrates = item;
+    if (!best.words || byWords(item, best.words) < 0) best.words = item;
+    if (!best.sentences || bySentences(item, best.sentences) < 0) best.sentences = item;
     bySig.set(item.sig, best);
   }
-  for (const best of bySig.values()) Object.values(best).forEach((item) => keep.add(item));
-  const rest = scored.filter((item) => !keep.has(item)).sort((a, b) => b.words - a.words || b.sentences - a.sentences);
-  for (const item of rest) {
-    if (keep.size >= MAX_VARIANTS) break;
-    keep.add(item);
-  }
+  const total = (item) => item.words + item.sentences;
+  const perSig = [...bySig.values()].flatMap((best) => [best.words, best.sentences]).sort((a, b) => total(b) - total(a));
+  perSig.forEach(add);
+  [...scored].sort(byWords).forEach(add);
   return scored.filter((item) => keep.has(item)).map((item) => item.variant);
 }
 

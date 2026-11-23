@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { RuleTester } from 'eslint';
 import tseslint from 'typescript-eslint';
+import { flatText, staticVariants, wordCount } from './lint-concise-ui-copy-text.mjs';
 
 // Edge cases of the ESLint rule `concise-ui-copy` (scripts/lint-concise-ui-copy.mjs),
 // kept apart from lint-concise-ui-copy.test.mjs so each file stays under the
@@ -37,6 +38,9 @@ const long = (code, needle) => ({ messageId: 'longParagraph', line: lineOf(code,
 // Wrap JSX in a component so each case is a whole .tsx module.
 const tsx = (...jsx) => lines('export function View() {', '  return (', ...jsx.map((row) => `    ${row}`), '  );', '}');
 
+// 12 independent ternaries: {c0 ? 'a ' : 'one two three '}...{c11 ? ...}.
+const twelveTernaries = Array.from({ length: 12 }, (_, i) => `{c${i} ? 'a ' : 'one two three '}`).join('');
+
 const valid = [
   {
     name: 'complementary guards {ready && <p>} {!ready && <p>} plus 1 plain <p> in a <section>: at most 2 <p> render, so no stackedParagraphs',
@@ -61,6 +65,10 @@ const valid = [
   {
     name: 'a guard inside a fragment pairs with its complement outside: <section><p>Intro.</p>{ready && <p>}<>{!ready && <p>}</></section> renders at most 2 <p>, so no stackedParagraphs',
     code: tsx('<section><p>Intro.</p>{ready && <p>Go.</p>}<>{!ready && <p>Wait.</p>}</></section>'),
+  },
+  {
+    name: 'a ternary guard pairs with its complementary && sibling: <section><p>Intro.</p>{ready ? <p> : null}{!ready && <p>}</section> renders at most 2 <p>, so no stackedParagraphs',
+    code: tsx('<section><p>Intro.</p>{ready ? <p>Go.</p> : null}{!ready && <p>Wait.</p>}</section>'),
   },
 ];
 
@@ -139,6 +147,14 @@ const invalid = [
     };
   })(),
   (() => {
+    const code = tsx(`<p>${twelveTernaries}</p>`);
+    return {
+      name: "12 independent ternaries of 'a ' or 'one two three ' in a <p> can render 36 words, so longParagraph on the <p>",
+      code,
+      errors: [long(code, '<p>')],
+    };
+  })(),
+  (() => {
     const code = tsx('<>Press <kbd>Enter</kbd> to pick.</>');
     return {
       name: "a standalone root fragment is still checked: <>Press <kbd>Enter</kbd> to pick.</> is uiNarration once, on the <>",
@@ -160,3 +176,15 @@ if (loadError) {
   });
   ruleTester.run('concise-ui-copy edges', rule, { valid, invalid });
 }
+
+describe('concise-ui-copy staticVariants bound', () => {
+  it('12 independent ternaries in a <p> give at most 32 variants (not 4096), and the worst one still has 36 words', () => {
+    const { ast } = tseslint.parser.parseForESLint(`const view = <p>${twelveTernaries}</p>;`, { ecmaFeatures: { jsx: true }, range: true, loc: true });
+    const p = ast.body[0].declarations[0].init;
+    assert.equal(p.type, 'JSXElement', 'test setup: expected the <p> JSXElement');
+    const variants = staticVariants(p);
+    assert.ok(variants.length <= 32, `expected at most 32 variants, got ${variants.length}`);
+    const worst = Math.max(...variants.map((variant) => wordCount(flatText(variant.text))));
+    assert.equal(worst, 36, `expected the worst-case variant to keep 36 words, got ${worst}`);
+  });
+});

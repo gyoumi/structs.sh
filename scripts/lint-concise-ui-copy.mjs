@@ -7,15 +7,25 @@ const MAX_STACKED = 2;
 // Wrappers that sit between a JSX parent and the JSX it renders.
 const TRANSPARENT_PARENTS = new Set(['JSXExpressionContainer', 'LogicalExpression', 'ConditionalExpression']);
 
-// `C && ...` is a positive guard on C and `!C && ...` a negative one.
-const guardOf = (expr) => (expr?.type === 'LogicalExpression' && expr.operator === '&&' ? guardInfo(expr.left) : null);
+const MAX_STATES = 16;
 
-// Unconditional fragments render their children in place, so they share the parent's guards.
-const flattenFragments = (children) =>
-  children.flatMap((child) => {
-    const inner = child.type === 'JSXExpressionContainer' ? child.expression : child;
-    return inner.type === 'JSXFragment' ? flattenFragments(inner.children) : [child];
-  });
+// --- Execution states for counting <p>s: `{ count, guards }`, guards as key -> truthy. ---
+
+const signature = (guards) => [...guards].map(([k, v]) => `${v ? '' : '!'}${k}`).sort().join('&');
+
+// The states that can run while `key` has the given truthiness, with that recorded.
+const applyGuard = (states, { key, polarity }) =>
+  states.filter((state) => state.guards.get(key) !== !polarity).map((state) => ({ count: state.count, guards: new Map(state.guards).set(key, polarity) }));
+
+// Keep the highest count per guard signature (it dominates the rest), then the top MAX_STATES.
+const pruneStates = (states) => {
+  const best = new Map();
+  for (const state of states) {
+    const sig = signature(state.guards);
+    if (!best.has(sig) || best.get(sig).count < state.count) best.set(sig, state);
+  }
+  return [...best.values()].sort((a, b) => b.count - a.count).slice(0, MAX_STATES);
+};
 
 export default {
   meta: {
@@ -49,45 +59,49 @@ export default {
       if (phrase) context.report({ node, messageId: 'uiNarration', data: { phrase } });
     };
 
-    // Returns the running <p> count, reporting each one past the limit.
-    // Branches of a ternary, `||` or `??` are mutually exclusive, so they start
-    // from the same count and the worst case carries on.
-    const countExpression = (expr, count) => {
-      if (!expr) return count;
-      if (expr.type === 'JSXElement' || expr.type === 'JSXFragment') return countNode(expr, count);
-      if (expr.type === 'ConditionalExpression') {
-        return Math.max(countExpression(expr.consequent, count), countExpression(expr.alternate, count));
+    // Walks the direct children, flattening fragments and conditionals but not
+    // nested elements, and returns the possible states after them. A <p> adds
+    // one to every state that can reach it; each <p> past the limit is reported.
+    // A pure guard (`C`, `!C`) splits the states, so `{C && ...}` and
+    // `{!C && ...}` never count together, even across a ternary.
+    const reported = new Set();
+    const countExpr = (expr, states) => {
+      if (!expr || states.length === 0) return states;
+      switch (expr.type) {
+        case 'JSXExpressionContainer':
+          return countExpr(expr.expression, states);
+        case 'JSXFragment':
+          return countChildren(expr.children, states);
+        case 'JSXElement': {
+          if (elementName(expr) !== 'p' || isExempt(expr)) return states;
+          const next = states.map((state) => ({ count: state.count + 1, guards: state.guards }));
+          if (Math.max(...next.map((state) => state.count)) > MAX_STACKED && !reported.has(expr)) {
+            reported.add(expr);
+            context.report({ node: expr, messageId: 'stackedParagraphs' });
+          }
+          return next;
+        }
+        case 'ConditionalExpression': {
+          const guard = guardInfo(expr.test);
+          if (!guard) return pruneStates([...countExpr(expr.consequent, states), ...countExpr(expr.alternate, states)]);
+          const whenTrue = countExpr(expr.consequent, applyGuard(states, guard));
+          const whenFalse = countExpr(expr.alternate, applyGuard(states, { key: guard.key, polarity: !guard.polarity }));
+          return pruneStates([...whenTrue, ...whenFalse]);
+        }
+        case 'LogicalExpression': {
+          if (expr.operator !== '&&') return pruneStates([...countExpr(expr.left, states), ...countExpr(expr.right, states)]);
+          const guard = guardInfo(expr.left);
+          if (!guard) return pruneStates([...countExpr(expr.right, states), ...states]);
+          const taken = countExpr(expr.right, applyGuard(states, guard));
+          const skipped = applyGuard(states, { key: guard.key, polarity: !guard.polarity });
+          return pruneStates([...taken, ...skipped]);
+        }
+        default:
+          return states;
       }
-      if (expr.type === 'LogicalExpression') {
-        if (expr.operator === '&&') return countExpression(expr.right, count);
-        return Math.max(countExpression(expr.left, count), countExpression(expr.right, count));
-      }
-      return count;
     };
-    // Siblings `{C && ...}` and `{!C && ...}` never render together: each side
-    // counts on from a base without either side's <p>s, and the worst side carries on.
-    const countChildren = (children, start) => {
-      const guards = new Map();
-      return flattenFragments(children).reduce((count, child) => {
-        const guard = child.type === 'JSXExpressionContainer' ? guardOf(child.expression) : null;
-        if (!guard) return countNode(child, count);
-        const pair = guards.get(guard.key) ?? { pos: 0, neg: 0 };
-        guards.set(guard.key, pair);
-        const side = guard.polarity ? 'pos' : 'neg';
-        const base = count - Math.max(pair.pos, pair.neg);
-        const from = base + pair[side];
-        pair[side] += countExpression(child.expression.right, from) - from;
-        return base + Math.max(pair.pos, pair.neg);
-      }, start);
-    };
-    const countNode = (node, count) => {
-      if (node.type === 'JSXFragment') return countChildren(node.children, count);
-      if (node.type === 'JSXExpressionContainer') return countExpression(node.expression, count);
-      if (elementName(node) !== 'p' || isExempt(node)) return count;
-      if (count + 1 > MAX_STACKED) context.report({ node, messageId: 'stackedParagraphs' });
-      return count + 1;
-    };
-    const checkStacked = (node) => countChildren(node.children, 0);
+    const countChildren = (children, states) => children.reduce((acc, child) => countExpr(child, acc), states);
+    const checkStacked = (node) => countChildren(node.children, [{ count: 0, guards: new Map() }]);
 
     return {
       JSXElement(node) {
