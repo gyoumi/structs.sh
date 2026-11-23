@@ -201,6 +201,139 @@ structs.sh daily #12 · Quicksort · Goal 34
 structs.sh/daily
 ```
 
+### Checkpoint 2 templates
+
+The checkpoint 2 tests (`tests/daily-game-sorting.spec.ts`, `daily-game-trees.spec.ts`,
+`daily-game-forced-order.spec.ts` and `daily-game-linked-list.spec.ts`) serve one
+puzzle per template. Everything above still applies to every template unless this
+section says otherwise: `Puzzle rules`, `Puzzle array` and its slots (swapping by
+tap, keyboard and phone), `Run`, `Skip`, `Share`, the `Playback` toolbar, `Goal`,
+`Score`, `Tries left` and `Goal reached`, three tries, and no best score anywhere.
+`Comparisons` belongs to quicksort only. The JSON shapes are the ones in
+`docs/daily-game.md` (Checkpoint 2, Decisions); `bst-forced-order` has no `fixed`
+field, so none of its slots is locked.
+
+**Rules.** `Puzzle rules` describes the served template and must contain no text
+matching `/quicksort|pivot/i`. It must contain:
+
+| Template | Text the rules must match |
+|---|---|
+| `bubble-exact-passes` | `/exactly <targetPasses> passes/i` (for example `exactly 4 passes`) and `/swaps/i` |
+| `insertion-beats-merge` | `/insertion sort/i` and `/merge sort/i` |
+| `avl-most-rotations` | `/rotations/i` |
+| `bst-forced-order` | `/target tree/i` |
+| `upset-bst-beats-avl` | `/\bBST\b/` and `/\bAVL\b/` |
+| `linked-list-index-drift` | `/target list/i` |
+
+**Readouts** (`role="status"` or `<output>`, named as in checkpoint 1). Counters
+start at `0`, rise as the animation plays (not only at the end), follow the
+timeline (`Back to the start` resets them to `0`, `Skip` and `Skip to the end`
+bring them to the final count) and stay at the final count after a try.
+Arrangement readouts show the current arrangement and update on every swap.
+
+| Template | Counters | Other readouts | Score of a solved try |
+|---|---|---|---|
+| `bubble-exact-passes` | `Passes`, `Swaps` | `Target passes` (`targetPasses`) | swaps |
+| `insertion-beats-merge` | `Insertion comparisons`, `Merge comparisons` | `Out-of-order pairs` (arrangement) | out-of-order pairs |
+| `avl-most-rotations` | `Rotations` | | rotations (always solved) |
+| `bst-forced-order` | | `Increasing run` (arrangement) | longest increasing run |
+| `upset-bst-beats-avl` | `BST nodes passed`, `AVL nodes passed` | | `AVL nodes passed - BST nodes passed` |
+| `linked-list-index-drift` | `Operations`, `Nodes walked`, `Cost` | | cost (lower wins) |
+
+How each count works:
+
+- **Passes:** each run of `bubble.ts`'s outer loop, including the final pass that
+  makes no swaps, at most `n - 1`. Solved when `Passes` equals `targetPasses`.
+- **Insertion comparisons:** each evaluation of `val >= a[j - 1]` in
+  `insertion.ts`. **Merge comparisons:** each comparison of the two halves in
+  `merge.ts` (split at `floor((lo + hi) / 2)`, left wins ties). Solved only when
+  insertion compares strictly less; a tie is unsolved.
+- **Out-of-order pairs:** pairs `i < j` with `a[i] > a[j]`.
+- **Rotations:** single rotations while inserting the keys in slot order into an
+  empty AVL tree. LL and RR count 1; LR and RL are double rotations and count 2.
+- **Increasing run:** the longest run of neighbouring slots that strictly
+  increases. Solved when inserting the slots in order into an empty BST gives a
+  tree whose preorder equals `targetTree`.
+- **Nodes passed:** each existing node an insert compares against on its way down,
+  so the first key passes 0. Rotations are not counted. Solved when the BST passes
+  fewer nodes than the AVL tree.
+- **Cost:** `Operations + Nodes walked`. `insert(value, i)` walks
+  `min(i, length before)` nodes and `delete(i)` walks `i + 1`. Solved when the final
+  list equals `target`.
+
+**Solved and unsolved tries.** Bubble, insertion beats merge, forced order, upset
+and index drift tries can be unsolved. An unsolved try still uses a try and leaves
+its counters at their final counts, and:
+
+- `status` `Try result` is visible and says why. It must mention:
+  - bubble: the pass count and `targetPasses` as numbers, and `pass` (for example
+    `Took 5 passes — needed 4`);
+  - insertion beats merge: the insertion count, and `insertion` and `merge`
+    (for example `Insertion made 16 comparisons — merge made 16`);
+  - upset: both node counts, and `BST` and `AVL`;
+  - forced order and index drift: `target` (for example `That order builds a
+    different tree from the target.`).
+- `Score` shows no number (hidden, or text without digits such as `–` or `✗`).
+- `Goal reached` is hidden, whatever the secondary count.
+
+A solved try always outranks an unsolved one. While tries remain, `Score` shows
+the last try's score when it was solved. Once the puzzle ends, `Score` shows the
+best solved try: the highest score, or for index drift the lowest cost. With no
+solved try, `Score` shows no number. `Goal reached` shows only when the try
+`Score` reports is solved and meets the goal (`score >= par`, or `cost <= par` for
+index drift).
+
+**Try chips:** `list` `Tries` holds 3 `listitem`s. A spent chip reads `✗` when
+unsolved, and `<score>` or `<score> ⭐` (at or beyond the goal) when solved.
+
+**Two stages** (`insertion-beats-merge`: `region` `Insertion sort` and `region`
+`Merge sort`; `upset-bst-beats-avl`: `region` `BST` and `region` `AVL tree`). Each
+region draws its algorithm in an `<svg>`. On desktop the first region sits fully to
+the left of the second, on the same row; on a 390x844 phone the first is stacked
+above the second and both fit the screen's width. There is exactly one `toolbar`
+`Playback`, and it drives both: `Skip`, stepping, rewind, replay and speed act on
+both stages together. Single-stage templates keep `#visualiser-container`, and Run
+scrolls it and `Playback` into view as in checkpoint 1.
+
+**Target tree** (`bst-forced-order`): a `figure` named `Target tree` (for example
+`<figure aria-label="Target tree">`) draws the tree in an `<svg>` and contains its
+preorder as text joined by `, ` (for example `Preorder: 6, 3, 1, 2, 5, 4, 9, 7, 8,
+10`, visible or visually hidden). It stays visible after each try.
+
+**Operation builder** (`linked-list-index-drift`, which has no `Puzzle array`):
+
+- `list` `Start list` and `list` `Target list`, one `listitem` per node, front to
+  back, each starting with its number.
+- `group` `Operation builder` containing `combobox` `Operation` with options
+  `insert` and `delete` (a native `<select>` or a listbox), `spinbutton` `Value`
+  and `spinbutton` `Index` (`<input type="number">`), and `button` `Add operation`.
+  Value is only used for `insert`.
+- `list` `Operation list` with one `listitem` per added operation, in order, whose
+  text contains `insert(<value>, <index>)` or `delete(<index>)`.
+- `button` `Clear operations` empties the list.
+- `Run` is disabled while the list is empty. Run animates the operations on the
+  start list. After a try the operation list stays as the player left it.
+
+**Share text.** The header names the template and the goal; each try line is
+`✗` for an unsolved try, or the score with ` ⭐` at or beyond the goal:
+
+| Template | Header |
+|---|---|
+| `bubble-exact-passes` | `structs.sh daily #21 · Bubble sort · Goal 11` |
+| `insertion-beats-merge` | `structs.sh daily #22 · Insertion beats merge · Goal 10` |
+| `avl-most-rotations` | `structs.sh daily #23 · AVL tree · Goal 6` |
+| `bst-forced-order` | `structs.sh daily #24 · Forced order · Goal 5` |
+| `upset-bst-beats-avl` | `structs.sh daily #25 · Upset · Goal 4` |
+| `linked-list-index-drift` | `structs.sh daily #26 · Index drift · Goal 6` |
+
+```text
+structs.sh daily #26 · Index drift · Goal 6
+✗
+5 ⭐
+14
+structs.sh/daily
+```
+
 ## Changing the debugger
 
 The suite was the spec for rewriting the debugger to run in the browser, and

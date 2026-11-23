@@ -1,6 +1,7 @@
 import { test as base, expect } from '@playwright/test';
 import { readdirSync, readFileSync } from 'node:fs';
 import { DailyPage } from './daily-page';
+import { DailyTemplatePage } from './daily-template-page';
 import { DebuggerPage } from './debugger-page';
 import { LandingPage } from './landing-page';
 import { DetailedVisualiserPage } from './visualiser-details';
@@ -28,6 +29,7 @@ export const testKey = (titlePath: string[]) => titlePath.slice(1).join(' › ')
 
 export const test = base.extend<{
   dailyPage: DailyPage;
+  dailyTemplate: DailyTemplatePage;
   debuggerPage: DebuggerPage;
   landingPage: LandingPage;
   visualiser: DetailedVisualiserPage;
@@ -43,6 +45,9 @@ export const test = base.extend<{
   ],
   dailyPage: async ({ page }, use) => {
     await use(new DailyPage(page));
+  },
+  dailyTemplate: async ({ page }, use) => {
+    await use(new DailyTemplatePage(page));
   },
   debuggerPage: async ({ page }, use) => {
     await use(new DebuggerPage(page));
