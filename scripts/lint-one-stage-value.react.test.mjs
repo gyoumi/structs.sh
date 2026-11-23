@@ -292,6 +292,30 @@ accepted(
   'useRef(() => false) is not counted (useRef has no lazy form, so its value is a function): with one boolean state, not reported',
   insideComponent('const factory = useRef(() => false);', 'const [open, setOpen] = useState(false);'),
 );
+accepted(
+  "a type argument alone decides: useState<boolean | 'auto'>(false) is not only a boolean, so it is not counted despite the false: with one boolean state, not reported",
+  insideComponent("const [mode, setMode] = useState<boolean | 'auto'>(false);", 'const [open, setOpen] = useState(false);'),
+);
+accepted(
+  'a type argument alone decides: useRef<string | boolean>(true) is not only a boolean, so it is not counted despite the true: with one boolean state, not reported',
+  insideComponent('const label = useRef<string | boolean>(true);', 'const [open, setOpen] = useState(false);'),
+);
+accepted(
+  'an async lazy initialiser (useState(async () => false)) holds a promise, so it is not counted: with one boolean state, not reported',
+  insideComponent('const [ready, setReady] = useState(async () => false);', 'const [open, setOpen] = useState(false);'),
+);
+accepted(
+  'an async lazy initialiser with React.useState (React.useState(async () => true)) is not counted: with one boolean state, not reported',
+  insideComponent('const [ready, setReady] = React.useState(async () => true);', 'const [open, setOpen] = useState(false);'),
+);
+{
+  const code = insideComponent('const [ready, setReady] = useState<boolean>(false);', 'const [ended, setEnded] = useState(true);');
+  reported(
+    "a boolean type argument with a boolean first argument (useState<boolean>(false)) still counts: with useState(true), names 'ready, ended', on the second declaration",
+    code,
+    ['ready, ended', 'const [ended, setEnded] = useState(true);'],
+  );
+}
 
 describe('one-stage-value counts boolean React state and refs', () => {
   for (const testCase of cases) it(testCase.name, () => check(testCase));
