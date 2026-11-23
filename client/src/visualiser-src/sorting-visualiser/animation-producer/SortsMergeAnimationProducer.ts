@@ -8,6 +8,13 @@ import { canvasTheme } from '../../common/canvasTheme';
 export default class SortsMergeAnimationProducer extends SortsAnimationProducer {
   private comparisonCount = 0;
 
+  private readonly drop: number;
+
+  public constructor(drop = 120 * canvasTheme.sortBarScale) {
+    super();
+    this.drop = drop;
+  }
+
   /** Comparisons of the two halves' values so far. */
   public get comparisons(): number {
     return this.comparisonCount;
@@ -37,9 +44,8 @@ export default class SortsMergeAnimationProducer extends SortsAnimationProducer 
   public moveDown(element: GraphicalSortsElement, index: number) {
     const xTo = getX(index);
     const cxTo = getCx(index);
-    const drop = 120 * canvasTheme.sortBarScale;
-    const yTo = getY(element.data.value) + drop;
-    const cyTo = textCy + drop;
+    const yTo = getY(element.data.value) + this.drop;
+    const cyTo = textCy + this.drop;
 
     this.addSequenceAnimation(element.boxTarget.animate().x(xTo).y(yTo));
     this.addSequenceAnimation(element.numberTarget.animate().cx(cxTo).cy(cyTo));

@@ -5,19 +5,18 @@ import {
   ReactNode,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from 'react';
 import { CanvasTarget, DEFAULT_CANVAS_TARGET } from '@/visualiser-src/common/canvasTarget';
+import { insetOf, visibleBounds } from './stageBounds';
 import { useSnapshot } from './useVisualiser';
 import styles from './Stage.module.css';
 
-interface View {
-  x: number;
-  y: number;
-  scale: number;
-  transition: 'instant' | 'smooth';
-}
+type View =
+  | { status: 'unfitted' }
+  | { status: 'fitted'; x: number; y: number; scale: number; transition: 'instant' | 'smooth' };
 
 const MIN_SCALE = 0.3;
 const MIN_FIT_SCALE = 0.05;
@@ -25,55 +24,6 @@ const MAX_SCALE = 3;
 const FIT_PADDING = 56;
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
-
-const SHAPES = 'circle, ellipse, line, path, polygon, polyline, rect, text, image';
-
-const isShown = (element: Element, root: Element) => {
-  if (element.closest('defs, marker, clipPath, mask, pattern, symbol')) return false;
-  for (let node: Element | null = element; node && node !== root; node = node.parentElement) {
-    const style = getComputedStyle(node);
-    if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) {
-      return false;
-    }
-  }
-  return true;
-};
-
-/**
- * The bounds of what is visible in the drawing, in its own units. Deleted nodes are faded out rather
- * than removed so playback can rewind, and `getBBox()` would still count them.
- */
-const visibleBounds = (svg: SVGSVGElement) => {
-  const toSvg = svg.getCTM()?.inverse();
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
-  svg.querySelectorAll<SVGGraphicsElement>(SHAPES).forEach((shape) => {
-    if (!isShown(shape, svg)) return;
-    const box = shape.getBBox();
-    const ctm = shape.getCTM();
-    if (!ctm || !toSvg || (box.width === 0 && box.height === 0)) return;
-    const matrix = toSvg.multiply(ctm);
-    [
-      [box.x, box.y],
-      [box.x + box.width, box.y],
-      [box.x, box.y + box.height],
-      [box.x + box.width, box.y + box.height],
-    ].forEach(([x, y]) => {
-      const point = new DOMPoint(x, y).matrixTransform(matrix);
-      minX = Math.min(minX, point.x);
-      minY = Math.min(minY, point.y);
-      maxX = Math.max(maxX, point.x);
-      maxY = Math.max(maxY, point.y);
-    });
-  });
-  if (minX === Infinity) return null;
-  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
-};
-
-const insetOf = (element: Element, side: 'top' | 'right') =>
-  parseFloat(getComputedStyle(element).getPropertyValue(`--fit-inset-${side}`)) || 0;
 
 export interface StageView {
   zoomIn: () => void;
@@ -102,7 +52,7 @@ const Stage = ({
 }: StageProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
-  const [view, setView] = useState<View>({ x: 0, y: 0, scale: 1, transition: 'instant' });
+  const [view, setView] = useState<View>({ status: 'unfitted' });
   const [dragging, setDragging] = useState(false);
   const userMoved = useRef(false);
   const lastPointer = useRef<{ x: number; y: number } | null>(null);
@@ -115,9 +65,16 @@ const Stage = ({
     userMoved.current = true;
     const transition = animate ? 'smooth' : 'instant';
     setView((prev) => {
+      if (prev.status !== 'fitted') return prev;
       const scale = clamp(prev.scale * factor, Math.min(MIN_SCALE, prev.scale), MAX_SCALE);
       const ratio = scale / prev.scale;
-      return { scale, x: cx - (cx - prev.x) * ratio, y: cy - (cy - prev.y) * ratio, transition };
+      return {
+        status: 'fitted',
+        scale,
+        x: cx - (cx - prev.x) * ratio,
+        y: cy - (cy - prev.y) * ratio,
+        transition,
+      };
     });
   }, []);
 
@@ -130,7 +87,7 @@ const Stage = ({
     [zoomAround]
   );
 
-  const fit = useCallback((onlyIfOverflowing = false) => {
+  const fit = useCallback((onlyIfOverflowing = false, animate = true) => {
     const svg = svgRef.current;
     const container = containerRef.current;
     if (!svg || !container) return;
@@ -140,7 +97,7 @@ const Stage = ({
     const insetTop = insetOf(container, 'top');
     const insetRight = insetOf(container, 'right');
     setView((prev) => {
-      if (onlyIfOverflowing) {
+      if (onlyIfOverflowing && prev.status === 'fitted') {
         const left = prev.x + box.x * prev.scale;
         const top = prev.y + box.y * prev.scale;
         const right = left + box.width * prev.scale;
@@ -161,29 +118,40 @@ const Stage = ({
         1.25
       );
       return {
+        status: 'fitted',
         scale,
         x: availableWidth / 2 - scale * (box.x + box.width / 2),
         y: insetTop + availableHeight / 2 - scale * (box.y + box.height / 2),
-        transition: 'smooth',
+        transition: animate && prev.status === 'fitted' ? 'smooth' : 'instant',
       };
     });
     userMoved.current = false;
   }, []);
 
-  useEffect(() => {
-    const id = requestAnimationFrame(() => requestAnimationFrame(() => fit()));
-    return () => cancelAnimationFrame(id);
+  useLayoutEffect(() => {
+    fit(false, false);
   }, [layoutVersion, fit]);
 
   useEffect(() => {
-    if (!userMoved.current) fit(true);
+    let second = 0;
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => fit(false, false));
+    });
+    return () => {
+      cancelAnimationFrame(first);
+      cancelAnimationFrame(second);
+    };
+  }, [layoutVersion, fit]);
+
+  useEffect(() => {
+    if (!userMoved.current) fit(!complete, true);
   }, [step, complete, fit]);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return undefined;
     const observer = new ResizeObserver(() => {
-      if (!userMoved.current) fit();
+      if (!userMoved.current) fit(false, false);
     });
     observer.observe(container);
     return () => observer.disconnect();
@@ -220,7 +188,11 @@ const Stage = ({
     const dy = event.clientY - last.y;
     lastPointer.current = { x: event.clientX, y: event.clientY };
     userMoved.current = true;
-    setView((prev) => ({ ...prev, x: prev.x + dx, y: prev.y + dy, transition: 'instant' }));
+    setView((prev) =>
+      prev.status === 'fitted'
+        ? { ...prev, x: prev.x + dx, y: prev.y + dy, transition: 'instant' }
+        : prev
+    );
   };
 
   const endDrag = () => {
@@ -230,7 +202,9 @@ const Stage = ({
 
   const panBy = (dx: number, dy: number) => {
     userMoved.current = true;
-    setView((p) => ({ ...p, x: p.x + dx, y: p.y + dy, transition: 'smooth' }));
+    setView((p) =>
+      p.status === 'fitted' ? { ...p, x: p.x + dx, y: p.y + dy, transition: 'smooth' } : p
+    );
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -256,7 +230,7 @@ const Stage = ({
     zoomIn: () => zoomFromCentre(1.2),
     zoomOut: () => zoomFromCentre(1 / 1.2),
     fit: () => fit(),
-    scale: view.scale,
+    scale: view.status === 'fitted' ? view.scale : 1,
   };
 
   return (
@@ -282,8 +256,12 @@ const Stage = ({
           id={idOf(target.canvas)}
           ref={svgRef}
           className={styles.canvas}
-          data-smooth={view.transition === 'smooth' || undefined}
-          style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }}
+          data-smooth={(view.status === 'fitted' && view.transition === 'smooth') || undefined}
+          style={
+            view.status === 'fitted'
+              ? { transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }
+              : { opacity: 0 }
+          }
         />
       </div>
       <div id={target.codeContainer} className={styles.hiddenCode} aria-hidden="true">
