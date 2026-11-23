@@ -11,6 +11,7 @@ const SCOPE = [
   'client/src/Services/useDebugger.ts',
   'client/src/Services/puzzles/',
   'client/src/daily/',
+  'client/src/visualiser-src/controller/',
   'instrumenter/src/',
   'instrumenter/tests/',
   'e2e/',

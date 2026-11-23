@@ -342,10 +342,11 @@ problem they found is fixed or is listed as a follow-up.
 ### 1i. Tidy
 
 Tidy the code checkpoint 1 added or changed against the four rules (size,
-stages, comments, tests) without changing what a player sees, and extend the
-CI tidy checks (`scripts/check-file-sizes.mjs`, `scripts/pr-rules.mjs`,
+stages, comments, tests) without changing what a player sees, extend
+`structs/one-stage-value` to cover React `useState` boolean flags, and extend
+the CI tidy checks (`scripts/check-file-sizes.mjs`, `scripts/pr-rules.mjs`,
 `crates/clippy.toml`) to cover `client/src/daily/`, `client/src/Services/puzzles/`,
-and `crates/`.
+`client/src/visualiser-src/controller/`, and `crates/`.
 
 **You'll know it's done when** every checkpoint 1 file is within its line
 limit, stage flags and plain comments are cleaned up, the CI tidy checks cover

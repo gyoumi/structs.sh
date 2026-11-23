@@ -1,12 +1,13 @@
 const NULLISH = new Set(['TSUndefinedKeyword', 'TSNullKeyword']);
 
-function isBooleanType(annotation) {
-  const type = annotation?.typeAnnotation;
+function isBooleanTypeNode(type) {
   if (!type) return false;
   if (type.type === 'TSBooleanKeyword') return true;
   if (type.type !== 'TSUnionType') return false;
   return type.types.some((t) => t.type === 'TSBooleanKeyword') && type.types.every((t) => t.type === 'TSBooleanKeyword' || NULLISH.has(t.type));
 }
+
+const isBooleanType = (annotation) => isBooleanTypeNode(annotation?.typeAnnotation);
 
 const isBooleanLiteral = (node) => node?.type === 'Literal' && typeof node.value === 'boolean';
 
@@ -25,6 +26,27 @@ function isBooleanClassProperty(member) {
 
 const isBooleanDeclarator = (declarator) =>
   declarator.id.type === 'Identifier' && (isBooleanType(declarator.id.typeAnnotation) || isBooleanLiteral(declarator.init));
+
+const isUseStateCallee = (callee) =>
+  (callee?.type === 'Identifier' && callee.name === 'useState') ||
+  (callee?.type === 'MemberExpression' && !callee.computed && callee.property.type === 'Identifier' && callee.property.name === 'useState');
+
+const isBooleanUseStateCall = (init) => {
+  if (init?.type !== 'CallExpression' || !isUseStateCallee(init.callee)) return false;
+  const typeArg = (init.typeArguments ?? init.typeParameters)?.params?.[0];
+  if (typeArg) return isBooleanTypeNode(typeArg);
+  const firstArg = init.arguments?.[0];
+  if (isBooleanLiteral(firstArg)) return true;
+  return firstArg?.type === 'ArrowFunctionExpression' && isBooleanLiteral(firstArg.body);
+};
+
+const useStateFlagName = (declarator) => {
+  if (!isBooleanUseStateCall(declarator.init)) return undefined;
+  if (declarator.id.type === 'ArrayPattern' && declarator.id.elements[0]?.type === 'Identifier') {
+    return declarator.id.elements[0].name;
+  }
+  return declarator.id.type === 'Identifier' ? declarator.id.name : undefined;
+};
 
 const SCOPES = new Set(['Program', 'BlockStatement', 'StaticBlock', 'SwitchStatement', 'ForStatement', 'ForInStatement', 'ForOfStatement', 'TSModuleBlock']);
 
@@ -64,11 +86,15 @@ export default {
       ClassDeclaration: checkClass,
       ClassExpression: checkClass,
       VariableDeclaration(node) {
-        if (node.kind !== 'let') return;
+        const names =
+          node.kind === 'let'
+            ? node.declarations.filter(isBooleanDeclarator).map((d) => d.id.name)
+            : node.declarations.map(useStateFlagName).filter(Boolean);
+        if (names.length === 0) return;
         const scope = scopeOf(node);
-        const lets = letsByScope.get(scope) ?? [];
-        for (const declarator of node.declarations.filter(isBooleanDeclarator)) lets.push({ name: declarator.id.name, declaration: node });
-        letsByScope.set(scope, lets);
+        const flags = letsByScope.get(scope) ?? [];
+        for (const name of names) flags.push({ name, declaration: node });
+        letsByScope.set(scope, flags);
       },
       'Program:exit'() {
         for (const lets of letsByScope.values()) {
