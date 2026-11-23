@@ -98,7 +98,12 @@ export const evaluatePuzzle = async (
   puzzle: EvalPuzzleInstance,
   arrangement: number[]
 ): Promise<PuzzleEvaluation> => {
-  const reply = await requestReply({ ...puzzle, arrangement });
+  const { template, values, fixed } = puzzle;
+  const request =
+    puzzle.template === 'bubble-exact-passes'
+      ? { template, values, fixed, targetPasses: puzzle.targetPasses, arrangement }
+      : { template, values, fixed, arrangement };
+  const reply = await requestReply(request);
   if (puzzle.template === 'quicksort-most-comparisons') {
     const { score } = reply as { score: number };
     return { template: puzzle.template, solved: true, score };

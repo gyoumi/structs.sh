@@ -59,12 +59,20 @@ const parseBase = (data: unknown): PuzzleBase => {
     : { number, values, fixed, par, date: date.trim() };
 };
 
+const MAX_U32 = 0xffffffff;
+
 export const parsePuzzle = (data: unknown): Puzzle => {
   const { template, targetPasses } = (data ?? {}) as { template?: unknown; targetPasses?: unknown };
   if (!isTemplate(template)) throw formatError();
   const base = parseBase(data);
   if (template !== 'bubble-exact-passes') return { template, ...base };
-  if (!Number.isInteger(targetPasses) || (targetPasses as number) < 0) throw formatError();
+  if (
+    !Number.isInteger(targetPasses) ||
+    (targetPasses as number) < 0 ||
+    (targetPasses as number) > MAX_U32
+  ) {
+    throw formatError();
+  }
   return { template, ...base, targetPasses: targetPasses as number };
 };
 

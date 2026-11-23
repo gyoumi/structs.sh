@@ -151,6 +151,27 @@ describe('evaluatePuzzle — results through the wasm build', () => {
     ).toEqual(expected);
   });
 
+  it('ignores extra daily-puzzle metadata fields when evaluating a full Puzzle object', async () => {
+    const bubbleDaily = { ...BUBBLE_21, number: 21, par: 11, date: '2026-11-24' };
+    const insertionDaily = { ...INSERTION_22, number: 22, par: 10, date: '2026-11-24' };
+
+    await expect(evaluate(bubbleDaily, [4, 2, 8, 1, 5, 3, 7, 6])).resolves.toEqual({
+      template: 'bubble-exact-passes',
+      solved: true,
+      score: 11,
+      passes: 4,
+      swaps: 11,
+    });
+    await expect(evaluate(insertionDaily, [5, 3, 2, 6, 7, 1, 4, 8])).resolves.toEqual({
+      template: 'insertion-beats-merge',
+      solved: true,
+      score: 11,
+      insertionComparisons: 15,
+      mergeComparisons: 16,
+      inversions: 11,
+    });
+  });
+
   it('gives the same results when every case runs concurrently', async () => {
     const results = await Promise.all(
       CASES.map(({ puzzle, arrangement }) => evaluate(puzzle, arrangement))
