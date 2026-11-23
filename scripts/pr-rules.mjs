@@ -30,7 +30,7 @@ const MANIFEST = /^(client\/)?package\.json$/;
 // \uXXXX and \UXXXXXXXX escapes, so those are decoded first.
 const CARGO_MANIFEST = /^(instrumenter|crates(\/[^/]+)?)\/Cargo\.toml$/;
 const CARGO_TEST_SETTING = /\b(autotests|autobenches|test|harness|doctest|required-features|path)\b/;
-const CARGO_LINT_SETTING = /\blints\b|["'](allow|warn|deny|forbid)["']/;
+const CARGO_LINT_SETTING = /\blints\b|["'](allow|warn|deny|forbid)["']|^\s*["']?workspace["']?\s*=/;
 const decodeTomlEscapes = (text) =>
   text.replace(/\\u([0-9a-fA-F]{4})|\\U([0-9a-fA-F]{8})/g, (escape, short, long) => {
     const code = parseInt(short ?? long, 16);
