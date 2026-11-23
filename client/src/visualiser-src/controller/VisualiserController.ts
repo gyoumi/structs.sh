@@ -108,14 +108,20 @@ class VisualiserController {
   }
 
   public resetTimeline(updateSlider: (val: number) => void) {
-    this.currentTimeline = new Timeline().persist(true);
-    this.currentTimeline.on('time', (evt: TimeEvent) => {
+    const timeline = new Timeline().persist(true);
+    this.currentTimeline = timeline;
+    timeline.on('time', (evt: TimeEvent) => {
       if (this.timelineDuration !== 0 && evt.detail) {
         updateSlider((Math.min(evt.detail, this.timelineDuration) / this.timelineDuration) * 100);
       }
     });
+    timeline.on('finished', () => {
+      if (this.currentTimeline === timeline) {
+        this.mode = 'paused';
+      }
+    });
     this.mode = 'idle';
-    this.currentTimeline.speed(this.speed);
+    timeline.speed(this.speed);
     this.clearRecording();
   }
 

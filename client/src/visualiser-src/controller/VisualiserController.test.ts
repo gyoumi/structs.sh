@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import AnimationProducer from '@/visualiser-src/common/AnimationProducer';
 import { CODE_CANVAS, CODE_CONTAINER, VISUALISER_CANVAS } from '@/visualiser-src/common/constants';
 import GraphicalSortsElement from '@/visualiser-src/sorting-visualiser/data-structure/GraphicalSortsElement';
@@ -29,6 +29,15 @@ beforeAll(() => {
 class EmptyProducer extends AnimationProducer {}
 
 describe('VisualiserController playback state', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.advanceTimersByTime(100);
+    vi.useRealTimers();
+  });
+
   it('starts paused, enters playing on constructTimeline, and transitions across pause, seek, step, and complete', () => {
     const { producer, controller } = setupController([3, 1, 2]);
     expect(controller.playback, 'fresh controller with no timeline should report paused').toBe(
@@ -65,6 +74,26 @@ describe('VisualiserController playback state', () => {
     expect(controller.playback, 'rewinding to 0% while paused should return to paused').toBe(
       'paused'
     );
+  });
+
+  it('transitions to paused after natural completion so a subsequent backward seek stays paused', () => {
+    const { producer, controller } = setupController([3, 1, 2]);
+    controller.setSpeed(1);
+    controller.constructTimeline(producer, () => {});
+    expect(controller.playback, 'timeline should start playing after constructTimeline').toBe(
+      'playing'
+    );
+
+    vi.advanceTimersByTime(controller.duration + 1000);
+    expect(controller.playback, 'timeline should report complete after natural finish').toBe(
+      'complete'
+    );
+
+    controller.seekPercent(0);
+    expect(
+      controller.playback,
+      'seeking back to 0% after natural completion without calling pause() must report paused'
+    ).toBe('paused');
   });
 
   it('stays paused when constructTimeline receives a producer with no runners', () => {

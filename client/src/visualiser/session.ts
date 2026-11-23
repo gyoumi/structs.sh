@@ -103,13 +103,13 @@ export class VisualiserSession {
   play = (): void => {
     if (this.snapshot.playback === 'complete') this.controller.seekPercent(0);
     this.controller.play();
-    this.syncFromController();
+    this.syncFromController(true);
     this.wake();
   };
 
   pause = (): void => {
     this.controller.pause();
-    this.syncFromController();
+    this.syncFromController(true);
     this.wake();
   };
 
@@ -121,35 +121,35 @@ export class VisualiserSession {
   stepForward = (): void => {
     if (this.snapshot.playback === 'complete') return;
     this.controller.stepForwards();
-    this.syncFromController();
+    this.syncFromController(true);
     this.wake();
   };
 
   stepBackward = (): void => {
     this.controller.pause();
     this.controller.stepBackwards();
-    this.syncFromController();
+    this.syncFromController(true);
     this.wake();
   };
 
   rewind = (): void => {
     this.controller.pause();
     this.controller.seekPercent(0);
-    this.syncFromController();
+    this.syncFromController(true);
     this.wake();
   };
 
   finish = (): void => {
     this.controller.seekPercent(100);
     this.controller.pause();
-    this.syncFromController();
+    this.syncFromController(true);
     this.wake();
   };
 
   seekToPercent = (percent: number): void => {
     this.controller.pause();
     this.controller.seekPercent(percent);
-    this.syncFromController();
+    this.syncFromController(true);
     this.wake();
   };
 
@@ -240,12 +240,15 @@ export class VisualiserSession {
     };
   }
 
-  private syncFromController(): boolean {
+  private syncFromController(exact = false): boolean {
     const { snapshot } = this;
     const sample = this.sampleController(snapshot.duration, snapshot.stepTimes);
+    const progressChanged = exact
+      ? sample.progress !== snapshot.progress
+      : Math.abs(sample.progress - snapshot.progress) > 0.05;
     const changed =
       sample.playback !== snapshot.playback ||
-      Math.abs(sample.progress - snapshot.progress) > 0.05 ||
+      progressChanged ||
       sample.step !== snapshot.step ||
       sample.line !== snapshot.line ||
       sample.size !== snapshot.size ||
