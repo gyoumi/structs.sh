@@ -37,7 +37,7 @@ fn run_ok(instance: &Instance, input: &[i32]) -> Vec<Step> {
 fn check(instance: &Instance, input: &[i32], passes: u32, swaps: u32, solved: bool) {
     let ctx = call(instance, input);
     let outcome = Bubble
-        .evaluate(instance, &input.to_vec())
+        .evaluate(instance, input)
         .unwrap_or_else(|e| panic!("{ctx}: evaluate returned error {e:?}"));
     assert_eq!(
         outcome.passes, passes,

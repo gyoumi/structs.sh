@@ -41,7 +41,7 @@ fn check(instance: &Instance, input: &[i32], insertion: u32, merge: u32, inversi
     let ctx = call(instance, input);
     let solved = insertion < merge;
     let outcome = InsertionBeatsMerge
-        .evaluate(instance, &input.to_vec())
+        .evaluate(instance, input)
         .unwrap_or_else(|e| panic!("{ctx}: evaluate returned error {e:?}"));
     assert_eq!(
         outcome.insertion_comparisons, insertion,
