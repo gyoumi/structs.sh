@@ -151,6 +151,34 @@ const valid = [
       '}',
     ),
   },
+  {
+    name: 'one boolean useState alongside a union stage useState is not reported',
+    code: lines(
+      "type Phase = 'ready' | 'running' | 'ended';",
+      'function Play() {',
+      "  const [phase, setPhase] = useState<Phase>('ready');",
+      '  const [visible, setVisible] = useState(false);',
+      '  return [phase, setPhase, visible, setVisible];',
+      '}',
+    ),
+  },
+  {
+    name: 'one boolean useState in each of two components is not reported',
+    code: lines(
+      'function First() { const [open, setOpen] = useState(false); return [open, setOpen]; }',
+      'function Second() { const [open, setOpen] = useState(true); return [open, setOpen]; }',
+    ),
+  },
+  {
+    name: 'useState typed as a non-boolean union initialised to false (useState<boolean | string>(false)) is not counted',
+    code: lines(
+      'function Play() {',
+      '  const [a, setA] = useState<boolean | string>(false);',
+      '  const [b, setB] = useState(true);',
+      '  return [a, setA, b, setB];',
+      '}',
+    ),
+  },
 ];
 
 const invalid = [
@@ -301,6 +329,39 @@ const invalid = [
     name: "a let initialised to a boolean literal counts even with a non-boolean annotation (let ready: unknown = false; let ended = true): names 'ready, ended', on the second let (line 3, column 3)",
     code: lines('function step() {', '  let ready: unknown = false;', '  let ended = true;', '  return [ready, ended];', '}'),
     errors: [flags('ready, ended', { type: 'VariableDeclaration', line: 3, column: 3 })],
+  },
+  {
+    name: "two boolean useState calls in one component (loading, failed) are reported on the second declaration (line 3, column 3)",
+    code: lines(
+      'function Play() {',
+      '  const [loading, setLoading] = useState(false);',
+      '  const [failed, setFailed] = useState(true);',
+      '  return [loading, setLoading, failed, setFailed];',
+      '}',
+    ),
+    errors: [flags('loading, failed', { type: 'VariableDeclaration', line: 3, column: 3 })],
+  },
+  {
+    name: "React.useState<boolean> and lazy useState(() => false) in one hook are reported on the second declaration (line 3, column 3)",
+    code: lines(
+      'function usePlay() {',
+      '  const [ready, setReady] = React.useState<boolean | undefined>();',
+      '  const [ended, setEnded] = useState(() => false);',
+      '  return [ready, setReady, ended, setEnded];',
+      '}',
+    ),
+    errors: [flags('ready, ended', { type: 'VariableDeclaration', line: 3, column: 3 })],
+  },
+  {
+    name: "a boolean let and a boolean useState in the same scope are reported together on the second declaration (line 3, column 3)",
+    code: lines(
+      'function Play() {',
+      '  let running = false;',
+      '  const [ended, setEnded] = useState(false);',
+      '  return [running, ended, setEnded];',
+      '}',
+    ),
+    errors: [flags('running, ended', { type: 'VariableDeclaration', line: 3, column: 3 })],
   },
 ];
 

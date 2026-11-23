@@ -26,6 +26,8 @@ describe('large-removal', () => {
     ['instrumenter/src/lib.rs', 400, 10, ['no-test-needed']],
     ['instrumenter/tests/instrument.rs', 400, 10, ['no-test-needed']],
     ['instrumenter/tests/instrument.rs', 400, 40, []],
+    ['crates/structs-puzzles/src/lib.rs', 400, 10, []],
+    ['crates/structs-puzzles/tests/quicksort.rs', 400, 40, []],
     ['scripts/pr-rules.test.mjs', 400, 10, ['no-test-needed']],
     ['scripts/pr-rules.test.mjs', 300, 20, []],
   ];
@@ -54,6 +56,9 @@ describe('large-removal', () => {
     'e2e/tests/stepping.spec.ts',
     'client/src/Services/debugger/wasm/recording.test.ts',
     'instrumenter/tests/instrument.rs',
+    'instrumenter/tests/suite/main.rs',
+    'crates/structs-puzzles/tests/quicksort.rs',
+    'crates/structs-puzzles/tests/suite/main.rs',
     'scripts/pr-rules.test.mjs',
   ];
   for (const path of deletedTests) {
@@ -79,6 +84,8 @@ describe('large-removal', () => {
     ['client/src/Services/debugger/wasm/recording.test.ts', 'client/src/Services/debugger/wasm/recording.ts.bak', 'renamed so Vitest no longer runs it'],
     ['e2e/tests/stepping.spec.ts', 'e2e/tests/stepping.spec.ts.bak', 'renamed in its folder so Playwright skips it'],
     ['instrumenter/tests/instrument.rs', 'instrumenter/tests/instrument.rs.bak', 'renamed in its folder so cargo skips it'],
+    ['crates/structs-puzzles/tests/quicksort.rs', 'crates/structs-puzzles/tests/quicksort.rs.bak', 'renamed in its crate folder so cargo skips it'],
+    ['crates/structs-puzzles/tests/suite/main.rs', 'crates/structs-puzzles/tests/suite/helper.rs', 'renamed out of Cargo main.rs integration test layout'],
   ];
   for (const [oldPath, path, how] of skippedTests) {
     it(`rejects a test ${how}: ${oldPath} to ${path}`, () => {

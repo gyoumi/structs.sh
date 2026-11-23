@@ -341,4 +341,29 @@ describe('protected-paths', () => {
       assert.deepEqual(result, [], `${what} in ${CARGO} should hit no rule. Got findings: ${show(result)}`);
     }
   });
+
+  it('protects test and lint settings in crates Cargo.toml files and clippy.toml', () => {
+    for (const path of ['crates/Cargo.toml', 'crates/structs-puzzles/Cargo.toml']) {
+      const added = checkPr(pr({ files: [{ status: 'M', path }], addedLines: [{ path, line: 5, text: 'autotests = false' }] }));
+      assert.deepEqual(rulesHit(added), ['protected-paths'], `adding autotests = false to ${path} should hit protected-paths`);
+      const removedLint = checkPr(pr({ files: [{ status: 'M', path }], removedLines: [{ path, line: 8, text: '[lints.clippy]' }] }));
+      assert.deepEqual(rulesHit(removedLint), ['protected-paths'], `removing [lints.clippy] from ${path} should hit protected-paths`);
+      const removedInherit = checkPr(pr({ files: [{ status: 'M', path }], removedLines: [{ path, line: 17, text: 'workspace = true' }] }));
+      assert.deepEqual(rulesHit(removedInherit), ['protected-paths'], `removing bare workspace = true from ${path} should hit protected-paths`);
+      const escapedInherit = checkPr(pr({ files: [{ status: 'M', path }], addedLines: [{ path, line: 17, text: '"\\u0077orkspace" = false' }] }));
+      assert.deepEqual(rulesHit(escapedInherit), ['protected-paths'], `escaped workspace = false in ${path} should hit protected-paths`);
+      const depBump = checkPr(
+        pr({
+          files: [{ status: 'M', path }],
+          addedLines: [
+            { path, line: 12, text: 'serde = "1.0.220"' },
+            { path, line: 13, text: 'serde_json = { workspace = true }' },
+          ],
+        }),
+      );
+      assert.deepEqual(depBump, [], `dependency bump in ${path} should hit no rule`);
+    }
+    const clippy = checkPr(pr({ files: [{ status: 'A', path: 'crates/clippy.toml' }] }));
+    assert.deepEqual(rulesHit(clippy), ['protected-paths'], 'adding crates/clippy.toml should hit protected-paths');
+  });
 });

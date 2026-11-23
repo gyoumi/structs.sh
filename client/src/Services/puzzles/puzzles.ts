@@ -39,17 +39,7 @@ export const loadPuzzles = (): Promise<unknown> => {
   return puzzlesLoad;
 };
 
-/** The score of playing `arrangement` (the whole array, in slot order) on `puzzle`, computed by the Rust code in the wasm build. */
-export const scorePuzzle = async (
-  puzzle: PuzzleInstance,
-  arrangement: number[]
-): Promise<number> => {
-  const puzzles = (await loadPuzzles()) as PuzzlesExports;
-  const { template, values, fixed } = puzzle;
-  const request = new TextEncoder().encode(
-    JSON.stringify({ template, values, fixed, arrangement })
-  );
-  // Nothing awaits below, so concurrent calls can't interleave in the wasm.
+const scoreInWasm = (puzzles: PuzzlesExports, request: Uint8Array): number => {
   const pointer = puzzles.alloc(request.length);
   new Uint8Array(puzzles.memory.buffer, pointer, request.length).set(request);
   const status = puzzles.score(pointer, request.length);
@@ -60,4 +50,17 @@ export const scorePuzzle = async (
   puzzles.free_result();
   if (status !== 0) throw new Error(reply);
   return (JSON.parse(reply) as { score: number }).score;
+};
+
+/** The score of playing `arrangement` (the whole array, in slot order) on `puzzle`, computed by the Rust code in the wasm build. */
+export const scorePuzzle = async (
+  puzzle: PuzzleInstance,
+  arrangement: number[]
+): Promise<number> => {
+  const puzzles = (await loadPuzzles()) as PuzzlesExports;
+  const { template, values, fixed } = puzzle;
+  const request = new TextEncoder().encode(
+    JSON.stringify({ template, values, fixed, arrangement })
+  );
+  return scoreInWasm(puzzles, request);
 };

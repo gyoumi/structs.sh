@@ -17,7 +17,14 @@ import {
   useSession,
   useSnapshot,
 } from '@/visualiser/useVisualiser';
-import { MAX_TRIES, MobileHud, PuzzleIntro, ScoreCard, StepCard } from './DailyCards';
+import {
+  MAX_TRIES,
+  MobileHud,
+  PuzzleIntro,
+  ScoreCard,
+  ScoreCardStage,
+  StepCard,
+} from './DailyCards';
 import PuzzleArray from './PuzzleArray';
 import { Puzzle, shareText, usePuzzle } from './puzzle';
 import styles from './Daily.module.css';
@@ -25,7 +32,9 @@ import styles from './Daily.module.css';
 const sorting = findTopic('sorting-algorithms');
 if (!sorting) throw new Error('The sorting topic is missing.');
 
-type Phase = 'ready' | 'running' | 'scoring';
+const DEFAULT_PLAYBACK_SPEED = 2;
+
+type Phase = 'ready' | 'running' | 'scoring' | 'score-failed';
 
 const swapValues = (values: number[], a: number, b: number) =>
   values.map((value, index) => (index === a ? values[b] : index === b ? values[a] : value));
@@ -45,18 +54,13 @@ const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
   const trace = useSnapshot((s) => s.trace);
   const [scores, setScores] = useState<number[]>([]);
   const [phase, setPhase] = useState<Phase>('ready');
-  const [scoreFailed, setScoreFailed] = useState(false);
   const [shared, setShared] = useState<'copied' | 'failed' | null>(null);
   const arrangement = useRef(values);
   const runner = useRef<HTMLDivElement>(null);
   const runButton = useRef<HTMLButtonElement>(null);
   const skipButton = useRef<HTMLButtonElement>(null);
-  // Run disables itself when pressed, which would drop keyboard focus to the page.
-  const focusSkip = useRef(false);
+  const focusSkipWhenRunDisables = useRef(false);
   const reducedMotion = usePrefersReducedMotion();
-  // The theme the canvas was last drawn in. Colours are fixed when drawn, so a theme switch
-  // waits for the next arrangement unless nothing has run yet. The stage background follows it
-  // so the bars stay readable until they are redrawn.
   const drawnTheme = useRef(theme);
   const [stageTheme, setStageTheme] = useState(theme);
 
@@ -69,9 +73,11 @@ const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
     loadPuzzles().catch(() => {});
   }, []);
 
+  const busy = phase === 'running' || phase === 'scoring';
+
   const applyTheme = useEffectEvent(() => {
     if (drawnTheme.current === theme) return;
-    if (phase !== 'ready' || session.getSnapshot().duration > 0) return;
+    if (busy || session.getSnapshot().duration > 0) return;
     markDrawn(theme);
     session.retheme(canvasThemes[theme]);
   });
@@ -83,42 +89,39 @@ const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
     session.loadData(arrangementValues, canvasThemes[theme], true);
   };
 
-  // Hand focus from Run to Skip once Skip is enabled, without fighting the scroll to the drawing.
   useEffect(() => {
-    if (!focusSkip.current) return;
-    focusSkip.current = false;
+    if (!focusSkipWhenRunDisables.current) return;
+    focusSkipWhenRunDisables.current = false;
     if (phase === 'running') skipButton.current?.focus({ preventScroll: true });
   }, [phase]);
 
-  // A try is over once its animation reaches the end, however it got there (playing, Skip or the slider).
   useEffect(() => {
     if (phase !== 'running' || !complete) return;
     setPhase('scoring');
     scorePuzzle(puzzle, arrangement.current)
-      .then((score) => setScores((current) => [...current, score]))
+      .then((score) => {
+        setScores((current) => [...current, score]);
+        setPhase('ready');
+      })
       .catch((error) => {
         console.error(error);
-        setScoreFailed(true);
-      })
-      .finally(() => setPhase('ready'));
+        setPhase('score-failed');
+      });
   }, [phase, complete, puzzle]);
 
   const ended = scores.length >= MAX_TRIES;
-  const busy = phase !== 'ready';
   const triesLeft = ended ? 0 : MAX_TRIES - scores.length;
   const highest = Math.max(0, ...scores);
   const score = ended ? highest : scores.at(-1);
-  const scored = score !== undefined;
-  const goalReached = scored && score >= puzzle.par;
+  const goalReached = score !== undefined && score >= puzzle.par;
+  const scoreCardStage: ScoreCardStage = ended ? 'ended' : busy ? 'running' : 'ready';
 
   const run = () => {
-    focusSkip.current = document.activeElement === runButton.current;
+    focusSkipWhenRunDisables.current = document.activeElement === runButton.current;
     arrangement.current = values;
-    setScoreFailed(false);
     setPhase('running');
     draw(values);
     session.run('quick', []);
-    // Bring the drawing and its controls into view so the player can watch the sort.
     runner.current?.scrollIntoView?.({
       behavior: reducedMotion ? 'auto' : 'smooth',
       block: 'nearest',
@@ -144,7 +147,7 @@ const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
 
   let message = '';
   if (busy) message = '';
-  else if (scoreFailed) message = 'Couldn’t score that try. Press Run to try again.';
+  else if (phase === 'score-failed') message = 'Couldn’t score that try. Press Run to try again.';
   else if (ended) {
     message = `${highest >= puzzle.par ? 'You reached the goal!' : 'Out of tries.'} Your highest score was ${highest}.`;
   } else if (goalReached) message = 'Goal reached! Swap and run again to go higher.';
@@ -215,11 +218,7 @@ const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
           puzzle={puzzle}
           comparisons={comparisons}
           scores={scores}
-          running={phase !== 'ready'}
-          ended={ended}
-          goalReached={goalReached}
-          score={score}
-          highest={highest}
+          stage={scoreCardStage}
         />
         <StepCard trace={trace} stageTheme={stageTheme} />
       </aside>
@@ -230,13 +229,19 @@ const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
 const PuzzleView = ({ puzzle, theme }: { puzzle: Puzzle; theme: Theme }) => {
   const [values, setValues] = useState(puzzle.values);
   const [fixed] = useState(() => new Set(puzzle.fixed));
-  // The session is created with the first theme and values only. Play redraws on later changes,
-  // so a theme switch never drops a try that is still running.
-  const [initial] = useState(() => ({ theme: canvasThemes[theme], values: puzzle.values }));
-  const session = useCreateSession(sorting, initial.theme, initial.values, undefined, true);
+  const [initialSessionArgs] = useState(() => ({
+    theme: canvasThemes[theme],
+    values: puzzle.values,
+  }));
+  const session = useCreateSession(
+    sorting,
+    initialSessionArgs.theme,
+    initialSessionArgs.values,
+    undefined,
+    true
+  );
 
-  // A full quicksort at 1x takes about a minute, so tries start at the fastest speed.
-  useEffect(() => session.setSpeed(2), [session]);
+  useEffect(() => session.setSpeed(DEFAULT_PLAYBACK_SPEED), [session]);
 
   return (
     <>

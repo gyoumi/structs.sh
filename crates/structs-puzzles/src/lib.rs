@@ -233,9 +233,6 @@ pub mod quicksort {
                 return;
             }
             let j = self.partition(lo, hi);
-            // `j - 1 < lo` and `j - 1 == lo` both return immediately, so
-            // skipping the call when `j <= lo + 1` is exact and avoids
-            // underflow when `j == lo == 0`.
             if j > lo + 1 {
                 self.quicksort(lo, j - 1);
             }
@@ -259,8 +256,6 @@ pub mod quicksort {
                 self.swap(i, j);
             }
             self.steps.push(Step::Compare { index: i, pivot: v });
-            // `a[i] < v` means the pivot's final slot is `i`; otherwise `i > lo`
-            // always holds here, so `i - 1` cannot underflow.
             let j = if self.a[i] < v { i } else { i - 1 };
             self.swap(lo, j);
             j

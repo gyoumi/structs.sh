@@ -14,26 +14,12 @@ const without = <K extends keyof Puzzle>(key: K) => {
   return rest;
 };
 
-const expectInvalid = (label: string, input: unknown) => {
-  const call = `parsePuzzle(${JSON.stringify(input)}) [${label}]`;
-  let outcome: { threw: false; result: Puzzle } | { threw: true; error: unknown };
+const parseOutcome = (input: unknown) => {
   try {
-    outcome = { threw: false, result: parsePuzzle(input) };
+    return { threw: false as const, result: parsePuzzle(input) };
   } catch (error: unknown) {
-    outcome = { threw: true, error };
+    return { threw: true as const, error };
   }
-
-  expect(
-    outcome.threw,
-    `${call}: expected parsePuzzle to throw an Error, but it returned ${
-      outcome.threw ? 'an error' : JSON.stringify(outcome.result)
-    }`
-  ).toBe(true);
-  if (!outcome.threw) return;
-
-  expect(outcome.error, `${call}: expected thrown value to be an Error instance`).toBeInstanceOf(
-    Error
-  );
 };
 
 describe('parsePuzzle — valid puzzles', () => {
@@ -90,7 +76,20 @@ describe('parsePuzzle — invalid fixed indices', () => {
       input: { ...DAILY_12, fixed: [null] },
     },
   ])('throws an Error for $label', ({ label, input }) => {
-    expectInvalid(label, input);
+    const call = `parsePuzzle(${JSON.stringify(input)}) [${label}]`;
+    const outcome = parseOutcome(input);
+    expect(
+      outcome.threw,
+      `${call}: expected parsePuzzle to throw an Error, but it returned ${
+        outcome.threw ? 'an error' : JSON.stringify(outcome.result)
+      }`
+    ).toBe(true);
+    if (outcome.threw) {
+      expect(
+        outcome.error,
+        `${call}: expected thrown value to be an Error instance`
+      ).toBeInstanceOf(Error);
+    }
   });
 });
 
@@ -125,7 +124,20 @@ describe('parsePuzzle — broken shapes', () => {
       input: { ...DAILY_12, date: '   ' },
     },
   ])('throws an Error for $label', ({ label, input }) => {
-    expectInvalid(label, input);
+    const call = `parsePuzzle(${JSON.stringify(input)}) [${label}]`;
+    const outcome = parseOutcome(input);
+    expect(
+      outcome.threw,
+      `${call}: expected parsePuzzle to throw an Error, but it returned ${
+        outcome.threw ? 'an error' : JSON.stringify(outcome.result)
+      }`
+    ).toBe(true);
+    if (outcome.threw) {
+      expect(
+        outcome.error,
+        `${call}: expected thrown value to be an Error instance`
+      ).toBeInstanceOf(Error);
+    }
   });
 });
 

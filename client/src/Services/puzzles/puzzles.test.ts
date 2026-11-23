@@ -60,12 +60,7 @@ const describeCall = (puzzle: PuzzleInstance, arrangement: number[], label?: str
   return `${prefix}scorePuzzle({ template: "${puzzle.template}", values: ${formatArray(puzzle.values)}, fixed: ${formatArray(puzzle.fixed)} }, ${formatArray(arrangement)})`;
 };
 
-const expectRejection = async (
-  puzzle: PuzzleInstance,
-  arrangement: number[],
-  expectedPattern: RegExp,
-  label: string
-) => {
+const rejectionMessage = async (puzzle: PuzzleInstance, arrangement: number[], label: string) => {
   const call = describeCall(puzzle, arrangement, label);
   const outcome = await scorePuzzle(puzzle, arrangement).then(
     (score) => ({ rejected: false as const, score }),
@@ -74,22 +69,18 @@ const expectRejection = async (
 
   expect(
     outcome.rejected,
-    `${call}: should reject with an Error matching ${expectedPattern}, but resolved with ${
+    `${call}: should reject with an Error, but resolved with ${
       outcome.rejected ? 'a rejection' : outcome.score
     }`
   ).toBe(true);
-  if (!outcome.rejected) return;
+  if (!outcome.rejected) return '';
 
   expect(outcome.error, `${call}: rejection reason should be an Error instance`).toBeInstanceOf(
     Error
   );
-  expect(
-    (outcome.error as Error).message,
-    `${call}: error message should match ${expectedPattern}`
-  ).toMatch(expectedPattern);
+  return (outcome.error as Error).message;
 };
 
-// All expected comparison counts below were computed with `/tmp/qsteps.py`.
 const FIXED_CASES: ScoreCase[] = [
   {
     label: 'DAILY_12 starting arrangement',
@@ -258,7 +249,11 @@ describe('scorePuzzle — invalid inputs and recovery', () => {
   it('rejects when the template id is unknown, naming the id in the Error message', async () => {
     const unknownId = 'unknown-puzzle-template';
     const puzzle: PuzzleInstance = { template: unknownId, values: [2, 1], fixed: [] };
-    await expectRejection(puzzle, [2, 1], new RegExp(unknownId), 'unknown template id');
+    const message = await rejectionMessage(puzzle, [2, 1], 'unknown template id');
+    expect(
+      message,
+      `${describeCall(puzzle, [2, 1], 'unknown template id')}: error message should name ${unknownId}`
+    ).toMatch(new RegExp(unknownId));
   });
 
   it.each([
@@ -271,7 +266,11 @@ describe('scorePuzzle — invalid inputs and recovery', () => {
       arrangement: [8, 1, 6, 3, 2, 7, 4, 5, 9],
     },
   ])('rejects with "length" when $label', async ({ label, arrangement }) => {
-    await expectRejection(DAILY_12, arrangement, /length/i, label);
+    const message = await rejectionMessage(DAILY_12, arrangement, label);
+    expect(
+      message,
+      `${describeCall(DAILY_12, arrangement, label)}: error message should match /length/i`
+    ).toMatch(/length/i);
   });
 
   it.each([
@@ -284,7 +283,11 @@ describe('scorePuzzle — invalid inputs and recovery', () => {
       arrangement: [8, 1, 6, 3, 2, 7, 5, 4],
     },
   ])('rejects with "fixed" when $label', async ({ label, arrangement }) => {
-    await expectRejection(DAILY_12, arrangement, /fixed/i, label);
+    const message = await rejectionMessage(DAILY_12, arrangement, label);
+    expect(
+      message,
+      `${describeCall(DAILY_12, arrangement, label)}: error message should match /fixed/i`
+    ).toMatch(/fixed/i);
   });
 
   it.each([
@@ -297,7 +300,11 @@ describe('scorePuzzle — invalid inputs and recovery', () => {
       arrangement: [99, 1, 6, 3, 2, 7, 4, 5],
     },
   ])('rejects with "permutation" when $label', async ({ label, arrangement }) => {
-    await expectRejection(DAILY_12, arrangement, /permutation/i, label);
+    const message = await rejectionMessage(DAILY_12, arrangement, label);
+    expect(
+      message,
+      `${describeCall(DAILY_12, arrangement, label)}: error message should match /permutation/i`
+    ).toMatch(/permutation/i);
   });
 
   it('scores valid puzzles correctly immediately after each rejection kind', async () => {
@@ -341,7 +348,11 @@ describe('scorePuzzle — invalid inputs and recovery', () => {
     await recoverySteps.reduce(
       (chain, { badLabel, badPuzzle, badArrangement, pattern, goodCase }) =>
         chain.then(async () => {
-          await expectRejection(badPuzzle, badArrangement, pattern, badLabel);
+          const message = await rejectionMessage(badPuzzle, badArrangement, badLabel);
+          expect(
+            message,
+            `${describeCall(badPuzzle, badArrangement, badLabel)}: error message should match ${pattern}`
+          ).toMatch(pattern);
           const score = await scorePuzzle(goodCase.puzzle, goodCase.arrangement);
           expect(
             score,

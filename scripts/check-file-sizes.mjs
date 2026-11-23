@@ -9,6 +9,9 @@ const LIMITS = { source: 300, test: 500 };
 const SCOPE = [
   'client/src/Services/debugger/',
   'client/src/Services/useDebugger.ts',
+  'client/src/Services/puzzles/',
+  'client/src/daily/',
+  'client/src/visualiser-src/controller/',
   'instrumenter/src/',
   'instrumenter/tests/',
   'e2e/',
@@ -26,6 +29,8 @@ const CODE_EXTENSIONS = ['.ts', '.tsx', '.rs', '.mjs', '.js'];
 const IGNORED_FOLDERS = new Set(['fixtures', 'generated']);
 const TEST_SUFFIXES = ['.test.ts', '.test.tsx', '.spec.ts', '.test.mjs'];
 const TEST_FOLDERS = ['instrumenter/tests/', 'e2e/'];
+const CRATE_CODE = /^crates\/[^/]+\/(src|tests)\//;
+const CRATE_TESTS = /^crates\/[^/]+\/tests\//;
 
 const LINKED_LIST_FOLDER = 'client/src/visualiser-debugger/Component/Visualizer/Parser/';
 
@@ -39,7 +44,9 @@ const isLinkedListParserFile = (path) => {
 
 /** Whether the size check covers this repo-relative path. */
 export function inScope(path) {
-  if (!SCOPE.some((entry) => matches(path, entry)) && !isLinkedListParserFile(path)) return false;
+  if (!SCOPE.some((entry) => matches(path, entry)) && !isLinkedListParserFile(path) && !CRATE_CODE.test(path)) {
+    return false;
+  }
   if (!CODE_EXTENSIONS.some((ext) => path.endsWith(ext))) return false;
   return !path.split('/').slice(0, -1).some((folder) => IGNORED_FOLDERS.has(folder));
 }
@@ -48,7 +55,8 @@ export function inScope(path) {
 export function kindOf(path) {
   const isTest =
     TEST_SUFFIXES.some((suffix) => path.endsWith(suffix)) ||
-    TEST_FOLDERS.some((folder) => path.startsWith(folder));
+    TEST_FOLDERS.some((folder) => path.startsWith(folder)) ||
+    CRATE_TESTS.test(path);
   return isTest ? 'test' : 'source';
 }
 
