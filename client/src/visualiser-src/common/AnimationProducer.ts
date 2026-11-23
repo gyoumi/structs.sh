@@ -3,12 +3,28 @@ import { CodeLine } from './typedefs';
 import { showLineNumbers, CODE_CANVAS, CODE_CONTAINER } from './constants';
 import { canvasTheme } from './canvasTheme';
 
+export interface StepComparison {
+  left: number;
+  op: '<' | '<=' | '>' | '>=';
+  right: number;
+  result: boolean;
+  tone: 'pointer' | 'danger' | 'compare';
+}
+
+/** What the sort is doing at a step: its pivot and, while comparing, the comparison. */
+export interface StepTrace {
+  pivot: number;
+  comparison?: StepComparison;
+}
+
 interface RunnerInfo {
   runners: Runner[];
   isTimestamped: boolean;
   line: number | null;
   /** The producer's running count once this step is done, if it keeps one. */
   counter?: number;
+  /** The producer's step trace for this step, if it keeps one. */
+  trace?: StepTrace | null;
 }
 export default abstract class AnimationProducer {
   private _allRunners: RunnerInfo[] = [];
@@ -33,6 +49,11 @@ export default abstract class AnimationProducer {
 
   /** A running count the page shows beside the animation. Producers that count something override this. */
   protected get counter(): number | undefined {
+    return undefined;
+  }
+
+  /** What the sort is doing now (its pivot and comparison). Producers that trace steps override this. */
+  protected get stepTrace(): StepTrace | null | undefined {
     return undefined;
   }
 
@@ -170,6 +191,7 @@ export default abstract class AnimationProducer {
         isTimestamped,
         line: this._currentLine,
         counter: this.counter,
+        trace: this.stepTrace,
       });
     }
 

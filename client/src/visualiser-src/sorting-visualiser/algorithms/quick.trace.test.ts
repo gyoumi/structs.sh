@@ -54,18 +54,23 @@ describe('quicksort step trace metadata', () => {
     //   8. i === j -> break
     //   9. placement: 1 < 2 (true, compare) -> swap 2 and 1 -> [1, 2, 3]
     const { producer, controller } = runController([3, 1, 2]);
-    const comparisons = producer.allRunners
-      .filter((r) => r.counter !== undefined)
-      .reduce<Array<{ pivot: number; left: number; op: string; right: number; result: boolean; tone: string }>>(
-        (acc, runner, idx) => {
-          const prev = idx > 0 ? producer.allRunners.filter((r) => r.counter !== undefined)[idx - 1].counter : 0;
-          if (runner.counter !== prev && runner.trace?.comparison) {
-            acc.push({ pivot: runner.trace.pivot, ...runner.trace.comparison });
-          }
-          return acc;
-        },
-        []
-      );
+    const counterRunners = producer.allRunners.filter((r) => r.counter !== undefined);
+    const comparisons = counterRunners.reduce<
+      Array<{
+        pivot: number;
+        left: number;
+        op: string;
+        right: number;
+        result: boolean;
+        tone: string;
+      }>
+    >((acc, runner, idx) => {
+      const prev = idx > 0 ? counterRunners[idx - 1].counter : 0;
+      if (runner.counter !== prev && runner.trace?.comparison) {
+        acc.push({ pivot: runner.trace.pivot, ...runner.trace.comparison });
+      }
+      return acc;
+    }, []);
 
     expect(
       comparisons,
@@ -106,7 +111,7 @@ describe('quicksort step trace metadata', () => {
     const { producer } = runController([8, 1, 6, 3, 2, 7, 4, 5]);
     let prevCounter = 0;
     let tracedComparisons = 0;
-    for (const runner of producer.allRunners) {
+    producer.allRunners.forEach((runner) => {
       const nextCounter = runner.counter ?? prevCounter;
       if (nextCounter > prevCounter) {
         expect(
@@ -116,7 +121,7 @@ describe('quicksort step trace metadata', () => {
         tracedComparisons += 1;
         prevCounter = nextCounter;
       }
-    }
+    });
     expect(
       tracedComparisons,
       `DAILY_12: expected ${producer.comparisons} traced comparisons, got ${tracedComparisons}`

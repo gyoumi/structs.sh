@@ -32,6 +32,7 @@ const initial: VisualiserSnapshot = {
   lastRun: null,
   speed: 1,
   layoutVersion: 0,
+  trace: null,
 };
 
 /** Stands in for the engine-backed session, which needs a real SVG layout. */

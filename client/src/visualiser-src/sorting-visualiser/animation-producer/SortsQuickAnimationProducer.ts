@@ -5,9 +5,12 @@ import GraphicalSortsElement from '../data-structure/GraphicalSortsElement';
 import SortsAnimationProducer from './SortsAnimationProducer';
 import { boxWidth } from '../util/constants';
 import { canvasTheme } from '../../common/canvasTheme';
+import { StepComparison, StepTrace } from '../../common/AnimationProducer';
 
 export default class SortsQuickAnimationProducer extends SortsAnimationProducer {
   private comparisonCount = 0;
+
+  private currentTrace: StepTrace | null = null;
 
   /** Number of value comparisons made by the quicksort that built this producer. */
   public get comparisons(): number {
@@ -18,6 +21,15 @@ export default class SortsQuickAnimationProducer extends SortsAnimationProducer 
     return this.comparisonCount;
   }
 
+  protected get stepTrace(): StepTrace | null {
+    return this.currentTrace;
+  }
+
+  /** Sets the pivot of the partition in progress, or clears the trace when the sort is done. */
+  public setPivot(pivot: number | null): void {
+    this.currentTrace = pivot === null ? null : { pivot };
+  }
+
   /**
    * Records one value comparison and passes its result through. Each comparison gets a timeline
    * step of its own that marks the compared element, so the count changes by one per step.
@@ -26,9 +38,13 @@ export default class SortsQuickAnimationProducer extends SortsAnimationProducer 
     result: boolean,
     line: number,
     element: GraphicalSortsElement,
-    colour: string
+    colour: string,
+    comparison?: StepComparison
   ): boolean {
     this.comparisonCount += 1;
+    if (comparison && this.currentTrace) {
+      this.currentTrace = { pivot: this.currentTrace.pivot, comparison };
+    }
     this.doAnimationAndHighlightTimestamp(line, true, this.markCompared, element, colour);
     return result;
   }
@@ -84,8 +100,9 @@ export default class SortsQuickAnimationProducer extends SortsAnimationProducer 
   public greyOut(array: GraphicalSortsElement[], lo: number, hi: number) {
     array.forEach((x, i) => {
       if (i < lo || i > hi) {
-        this.addSequenceAnimation(x.boxTarget.animate(300).attr({ opacity: 0.3 }));
-        this.addSequenceAnimation(x.numberTarget.animate(300).attr({ opacity: 0.3 }));
+        // The label stays readable (WCAG AA) while the bar fades.
+        this.addSequenceAnimation(x.boxTarget.animate(300).attr({ opacity: 0.28 }));
+        this.addSequenceAnimation(x.numberTarget.animate(300).attr({ opacity: 0.72 }));
       } else {
         this.addSequenceAnimation(x.boxTarget.animate(300).attr({ opacity: 1 }));
         this.addSequenceAnimation(x.numberTarget.animate(300).attr({ opacity: 1 }));

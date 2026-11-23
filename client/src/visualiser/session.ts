@@ -3,6 +3,9 @@ import VisualiserController from '@/visualiser-src/controller/VisualiserControll
 import { Documentation } from '@/visualiser-src/common/typedefs';
 import { defaultSpeed, VISUALISER_CANVAS } from '@/visualiser-src/common/constants';
 import { CanvasTheme, setCanvasTheme } from '@/visualiser-src/common/canvasTheme';
+import type { StepTrace } from '@/visualiser-src/common/AnimationProducer';
+
+export type { StepComparison, StepTrace } from '@/visualiser-src/common/AnimationProducer';
 
 export interface LastRun {
   id: number;
@@ -27,6 +30,8 @@ export interface VisualiserSnapshot {
   layoutVersion: number;
   /** The running count of the sort being shown (quicksort's comparisons) at the current step. */
   comparisons?: number;
+  /** The sort's pivot and active comparison at the current step, or null outside a partition. */
+  trace: StepTrace | null;
   /** How many values the structure holds, including a run that is still playing. */
   size: number;
 }
@@ -48,12 +53,19 @@ const initialSnapshot: VisualiserSnapshot = {
   speed: 1,
   layoutVersion: 0,
   comparisons: 0,
+  trace: null,
 };
 
 /** Picks the random data a topic starts with, or returns undefined to use the engine's own. */
 export type InitialDataSource = (topicTitle: string) => number[] | undefined;
 
 const IDLE_FRAMES_BEFORE_SLEEP = 20;
+
+const finishDrawing = (): void => {
+  SVG(VISUALISER_CANVAS)
+    .find('*')
+    .forEach((element) => element.timeline().finish());
+};
 
 export class VisualiserSession {
   private controller = new VisualiserController();
@@ -98,11 +110,9 @@ export class VisualiserSession {
     setCanvasTheme(canvasTheme);
     this.getInitialData = getInitialData;
     this.controller.applyTopicTitle(topicTitle);
-    if (data) {
-      this.controller.loadData(data);
-    } else {
-      this.loadInitialValues(topicTitle);
-    }
+    if (data) this.controller.loadData(data);
+    else this.loadInitialValues(topicTitle);
+    finishDrawing();
     this.update({
       ...initialSnapshot,
       speed: this.snapshot.speed,
@@ -118,9 +128,7 @@ export class VisualiserSession {
     const { data } = this;
     setCanvasTheme(canvasTheme);
     this.controller.loadData(data);
-    SVG(VISUALISER_CANVAS)
-      .find('*')
-      .forEach((element) => element.timeline().finish());
+    finishDrawing();
     this.resetPlayback();
   }
 
@@ -205,6 +213,7 @@ export class VisualiserSession {
   loadData = (data: number[], canvasTheme?: Partial<CanvasTheme>): void => {
     if (canvasTheme) setCanvasTheme(canvasTheme);
     this.controller.loadData(data);
+    finishDrawing();
     this.resetPlayback();
   };
 
@@ -266,6 +275,7 @@ export class VisualiserSession {
     const line = duration > 0 ? controller.currentLine : null;
     const size = controller.data.length;
     const comparisons = controller.counterAt(time);
+    const trace = duration > 0 ? controller.traceAt(time) : null;
 
     const changed =
       playing !== snapshot.playing ||
@@ -274,11 +284,12 @@ export class VisualiserSession {
       step !== snapshot.step ||
       line !== snapshot.line ||
       size !== snapshot.size ||
-      comparisons !== (snapshot.comparisons ?? 0);
+      comparisons !== (snapshot.comparisons ?? 0) ||
+      trace !== snapshot.trace;
 
     if (changed) {
       this.idleFrames = 0;
-      this.update({ playing, complete, progress, step, line, size, comparisons });
+      this.update({ playing, complete, progress, step, line, size, comparisons, trace });
     } else {
       this.idleFrames += 1;
     }

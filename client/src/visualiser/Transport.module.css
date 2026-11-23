@@ -243,3 +243,30 @@
     animation: none;
   }
 }
+
+/* Narrow phones, as in the daily puzzle's panel: tighten so the controls never overflow. */
+@media (max-width: 420px) {
+  .transport {
+    padding: 10px 10px 12px;
+    gap: 4px 8px;
+  }
+
+  .toolbar {
+    gap: 4px;
+  }
+
+  .tool {
+    width: 32px;
+    height: 34px;
+  }
+
+  .play {
+    width: 42px;
+    height: 40px;
+  }
+
+  .speed {
+    min-width: 72px;
+    height: 34px;
+  }
+}

@@ -12,6 +12,7 @@ function partition(
   jpointer: Polygon
 ) {
   const v = elements[lo].data.value; // pivot
+  producer.setPivot(v);
   // Highligh pivot
   producer.doAnimationAndHighlightTimestamp(
     11,
@@ -36,7 +37,13 @@ function partition(
   for (;;) {
     // Shift i pointer
     while (
-      producer.countComparison(elements[i].data.value <= v, 14, elements[i], canvasTheme.pointer) &&
+      producer.countComparison(elements[i].data.value <= v, 14, elements[i], canvasTheme.pointer, {
+        left: elements[i].data.value,
+        op: '<=',
+        right: v,
+        result: elements[i].data.value <= v,
+        tone: 'pointer',
+      }) &&
       i < j
     ) {
       i += 1;
@@ -44,7 +51,13 @@ function partition(
     }
     // Shift j pointer
     while (
-      producer.countComparison(v < elements[j].data.value, 15, elements[j], canvasTheme.danger) &&
+      producer.countComparison(v < elements[j].data.value, 15, elements[j], canvasTheme.danger, {
+        left: v,
+        op: '<',
+        right: elements[j].data.value,
+        result: v < elements[j].data.value,
+        tone: 'danger',
+      }) &&
       j > i
     ) {
       j -= 1;
@@ -85,7 +98,13 @@ function partition(
   }
 
   // Swap Pivot with number at the center of partition that is less than it
-  j = producer.countComparison(elements[i].data.value < v, 19, elements[i], canvasTheme.compare)
+  j = producer.countComparison(elements[i].data.value < v, 19, elements[i], canvasTheme.compare, {
+    left: elements[i].data.value,
+    op: '<',
+    right: v,
+    result: elements[i].data.value < v,
+    tone: 'compare',
+  })
     ? i
     : i - 1;
   producer.doAnimationAndHighlightTimestamp(19, true, producer.movePointer, jpointer, j);
@@ -197,6 +216,7 @@ export function quickSort(elements: GraphicalSortsElement[]): SortsQuickAnimatio
 
   // End quicksort
   producer.hidePointers(ipointer, jpointer);
+  producer.setPivot(null);
   producer.doAnimationAndHighlight(4, producer.makeSolved, elements);
   return producer;
 }
