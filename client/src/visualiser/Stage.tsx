@@ -94,7 +94,10 @@ const Stage = ({
     const box = visibleBounds(svg);
     const { width, height } = container.getBoundingClientRect();
     if (!box || box.width === 0 || box.height === 0 || width === 0) {
-      if (!onlyIfOverflowing) setView({ status: 'unfitted' });
+      if (!onlyIfOverflowing) {
+        userMoved.current = false;
+        setView({ status: 'unfitted' });
+      }
       return;
     }
     const insetTop = insetOf(container, 'top');
@@ -147,8 +150,8 @@ const Stage = ({
   }, [layoutVersion, fit]);
 
   useEffect(() => {
-    if (!userMoved.current) fit(!complete, true);
-  }, [step, complete, fit]);
+    if (!userMoved.current || view.status === 'unfitted') fit(!complete, true);
+  }, [step, complete, fit, view.status]);
 
   useEffect(() => {
     const container = containerRef.current;

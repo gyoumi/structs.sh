@@ -1,10 +1,11 @@
 import { Line, Marker } from '@svgdotjs/svg.js';
-import { lineDiffY, canvasPadding } from '../../common/settings';
+import { lineDiffY } from '../../common/settings';
 import { getPointerStartEndCoordinates } from '../../common/helpers';
 import AnimationProducer from '../../common/AnimationProducer';
-import { treeCanvasWidth } from '../util/helpers';
 import GraphicalBSTNode from '../data-structure/GraphicalBSTNode';
 import { canvasTheme } from '../../common/canvasTheme';
+
+const DEFAULT_STUB_X = 32;
 
 export default class BSTAnimationProducer extends AnimationProducer {
   public highlightNode(node: GraphicalBSTNode): void {
@@ -116,29 +117,23 @@ export default class BSTAnimationProducer extends AnimationProducer {
   }
 
   public updateNodeLines(node: GraphicalBSTNode): void {
-    const lineDiffX = BSTAnimationProducer.getLineDiffX(node);
+    const [lx, ly] = BSTAnimationProducer.childCoords(node, 'left');
+    const [rx, ry] = BSTAnimationProducer.childCoords(node, 'right');
 
     this.addSequenceAnimation(
-      node.leftLineTarget
-        .animate(400)
-        .plot(getPointerStartEndCoordinates(node.x, node.y, node.x - lineDiffX, node.y + lineDiffY))
+      node.leftLineTarget.animate(400).plot(getPointerStartEndCoordinates(node.x, node.y, lx, ly))
     );
 
     this.addSequenceAnimation(
-      node.rightLineTarget
-        .animate(400)
-        .plot(getPointerStartEndCoordinates(node.x, node.y, node.x + lineDiffX, node.y + lineDiffY))
+      node.rightLineTarget.animate(400).plot(getPointerStartEndCoordinates(node.x, node.y, rx, ry))
     );
   }
 
-  // returns the difference in x coordinates with the node
-  // and it's two child nodes
-  public static getLineDiffX(node: GraphicalBSTNode): number {
-    const canvasWidth = treeCanvasWidth();
-    const depth: number = (node.y - canvasPadding) / 75;
-    const baseDiff = canvasWidth / 4;
-
-    return baseDiff / 2 ** depth;
+  /** Target endpoint for a node's left or right edge: its child's position, or a short stub when absent. */
+  public static childCoords(node: GraphicalBSTNode, side: 'left' | 'right'): [number, number] {
+    const child = node[side];
+    if (child !== null) return [child.x, child.y];
+    return [node.x + (side === 'left' ? -DEFAULT_STUB_X : DEFAULT_STUB_X), node.y + lineDiffY];
   }
 
   public unhighlightBST(root: GraphicalBSTNode): void {

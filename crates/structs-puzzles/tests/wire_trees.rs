@@ -110,6 +110,17 @@ fn forced_order_replies() {
         expected,
         "#24 longRun has a longer run but a different tree, so it is unsolved",
     );
+    let duplicates = json!({
+        "template": FORCED,
+        "values": [1, 2, 2, 3],
+        "targetTree": [1, 2, 3],
+        "arrangement": [1, 2, 2, 3],
+    });
+    assert_reply(
+        &duplicates,
+        json!({"solved": true, "score": 2, "longestIncreasingRun": 2}),
+        "duplicate input values match a distinct-key targetTree preorder",
+    );
 }
 
 #[test]
@@ -176,6 +187,16 @@ fn forced_order_rejects_bad_fields() {
             }),
             "targetTree",
             "a targetTree missing a key from values should fail",
+        ),
+        (
+            json!({
+                "template": FORCED,
+                "values": [1, 2, 3],
+                "targetTree": [1, 2, 3, 4],
+                "arrangement": [1, 2, 3],
+            }),
+            "targetTree",
+            "a targetTree with an extra key not in values should fail",
         ),
     ];
     for (request, needle, behaviour) in cases {
