@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { namedCanvasTarget } from '@/visualiser-src/common/canvasTarget';
 import { canvasThemes } from './canvasThemes';
 import { DualSession } from './dualSession';
@@ -31,6 +31,14 @@ describe('DualSession shared timeline', () => {
   const sorting = findTopic('sorting-algorithms');
   if (!sorting) throw new Error('The sorting topic is missing.');
 
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('completes a singleton insertion-vs-merge run where merge schedules no timeline', () => {
     const [leftTarget, rightTarget] = mountTargets(['left-single', 'right-single']);
     const left = new VisualiserSession(leftTarget);
@@ -43,16 +51,123 @@ describe('DualSession shared timeline', () => {
       'paused'
     );
 
-    expect(left.run('insertion', []), 'insertion on [42] should start without error').toBe('');
-    expect(right.run('merge', []), 'merge on [42] should start without error').toBe('');
+    expect(dual.run('insertion', 'merge'), 'singleton dual run should start without error').toBe(
+      ''
+    );
     expect(right.getSnapshot().duration, 'merge on [42] has 0 duration').toBe(0);
+    expect(dual.getSnapshot().playback, 'singleton dual run starts playing insertion').toBe(
+      'playing'
+    );
 
+    vi.advanceTimersByTime(5000);
+    expect(
+      dual.getSnapshot().playback,
+      'singleton insertion-vs-merge must complete naturally once insertion finishes'
+    ).toBe('complete');
+
+    dual.rewind();
     dual.finish();
     expect(
       dual.getSnapshot().playback,
-      'singleton insertion-vs-merge must reach complete once insertion finishes even when merge has 0 duration'
+      'singleton insertion-vs-merge must also reach complete via Skip/finish'
     ).toBe('complete');
 
+    dual.dispose();
+    left.dispose();
+    right.dispose();
+  });
+
+  it('drives both stages from one shared clock through Run, Pause, and Resume with zero jump', () => {
+    const [leftTarget, rightTarget] = mountTargets(['left-clock', 'right-clock']);
+    const left = new VisualiserSession(leftTarget);
+    const right = new VisualiserSession(rightTarget);
+    const dual = new DualSession(left, right);
+    const data = [5, 3, 8, 1, 7, 2, 6, 4];
+
+    left.attach(sorting.title, canvasThemes.light, data, undefined, true);
+    right.attach(sorting.title, canvasThemes.light, data, undefined, true);
+    dual.setSpeed(2);
+
+    expect(dual.run('insertion', 'merge')).toBe('');
+    expect(stageTime(left), 'left starts at 0ms on Run').toBe(0);
+    expect(stageTime(right), 'right starts at 0ms on Run').toBe(0);
+
+    for (let i = 0; i < 10; i += 1) {
+      vi.advanceTimersByTime(16);
+      const leftMs = stageTime(left);
+      const rightMs = stageTime(right);
+      expect(
+        Math.abs(leftMs - rightMs),
+        `frame ${i + 1}: left (${leftMs}ms) and right (${rightMs}ms) must share one clock`
+      ).toBeLessThan(0.01);
+    }
+
+    const beforePauseLeft = stageTime(left);
+    const beforePauseRight = stageTime(right);
+    expect(beforePauseLeft, 'clock should have advanced during Run').toBeGreaterThan(100);
+
+    dual.pause();
+    expect(dual.getSnapshot().playback).toBe('paused');
+    expect(
+      Math.abs(stageTime(left) - beforePauseLeft),
+      'Pause must not jump the left stage'
+    ).toBeLessThan(0.01);
+    expect(
+      Math.abs(stageTime(right) - beforePauseRight),
+      'Pause must not jump the right stage'
+    ).toBeLessThan(0.01);
+
+    vi.advanceTimersByTime(500);
+    expect(stageTime(left), 'paused left stage must stay frozen').toBe(beforePauseLeft);
+    expect(stageTime(right), 'paused right stage must stay frozen').toBe(beforePauseRight);
+
+    dual.play();
+    expect(dual.getSnapshot().playback).toBe('playing');
+    for (let i = 0; i < 10; i += 1) {
+      vi.advanceTimersByTime(16);
+      const leftMs = stageTime(left);
+      const rightMs = stageTime(right);
+      expect(
+        Math.abs(leftMs - rightMs),
+        `resumed frame ${i + 1}: left (${leftMs}ms) and right (${rightMs}ms) must stay aligned`
+      ).toBeLessThan(0.01);
+    }
+    expect(stageTime(left), 'Resume must advance past the paused time').toBeGreaterThan(
+      beforePauseLeft + 100
+    );
+
+    dual.dispose();
+    left.dispose();
+    right.dispose();
+  });
+
+  it('round-trips scrubbing near the end without jumping backward', () => {
+    const [leftTarget, rightTarget] = mountTargets(['left-end', 'right-end']);
+    const left = new VisualiserSession(leftTarget);
+    const right = new VisualiserSession(rightTarget);
+    const dual = new DualSession(left, right);
+    const data = [5, 3, 8, 1, 7, 2, 6, 4];
+
+    left.attach(sorting.title, canvasThemes.light, data, undefined, true);
+    right.attach(sorting.title, canvasThemes.light, data, undefined, true);
+    dual.run('insertion', 'merge');
+
+    dual.seekToPercent(99.98);
+    const snap = dual.getSnapshot();
+    const beforeLeft = stageTime(left);
+    const beforeRight = stageTime(right);
+
+    dual.seekToPercent(snap.progress);
+    expect(
+      Math.abs(stageTime(left) - beforeLeft),
+      'seeking to the reported progress near 100% must not move left'
+    ).toBeLessThan(0.01);
+    expect(
+      Math.abs(stageTime(right) - beforeRight),
+      'seeking to the reported progress near 100% must not move right'
+    ).toBeLessThan(0.01);
+
+    dual.dispose();
     left.dispose();
     right.dispose();
   });
@@ -66,8 +181,7 @@ describe('DualSession shared timeline', () => {
     const data = [4, 2, 3, 1];
     left.attach(sorting.title, canvasThemes.light, data, undefined, true);
     right.attach(sorting.title, canvasThemes.light, data, undefined, true);
-    left.run('insertion', []);
-    right.run('merge', []);
+    dual.run('insertion', 'merge');
     dual.rewind();
 
     dual.stepForward();
@@ -76,7 +190,7 @@ describe('DualSession shared timeline', () => {
     expect(
       Math.abs(afterStep1Left - afterStep1Right),
       `after 1 stepForward, left (${afterStep1Left}ms) and right (${afterStep1Right}ms) must sit at the same playhead time`
-    ).toBeLessThan(2);
+    ).toBeLessThan(0.01);
 
     dual.stepForward();
     const afterStep2Left = stageTime(left);
@@ -85,24 +199,25 @@ describe('DualSession shared timeline', () => {
     expect(
       Math.abs(afterStep2Left - afterStep2Right),
       `after 2 stepForwards, left (${afterStep2Left}ms) and right (${afterStep2Right}ms) must stay aligned`
-    ).toBeLessThan(2);
+    ).toBeLessThan(0.01);
 
     dual.seekToPercent(displayedProgress);
     expect(
       Math.abs(stageTime(left) - afterStep2Left),
       'seeking to the displayed progress must not jump the left stage'
-    ).toBeLessThan(2);
+    ).toBeLessThan(0.01);
     expect(
       Math.abs(stageTime(right) - afterStep2Right),
       'seeking to the displayed progress must not jump the right stage'
-    ).toBeLessThan(2);
+    ).toBeLessThan(0.01);
 
     dual.stepBackward();
     expect(
       Math.abs(stageTime(left) - stageTime(right)),
       'stepBackward must keep both stages at the same playhead time'
-    ).toBeLessThan(2);
+    ).toBeLessThan(0.01);
 
+    dual.dispose();
     left.dispose();
     right.dispose();
   });

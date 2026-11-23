@@ -275,20 +275,41 @@ fn insertion_merge_slower_insertion_reply_has_null_score() {
 #[test]
 fn non_bubble_templates_reject_target_passes() {
     for template in [QUICKSORT, INSERTION_MERGE] {
-        let raw = serde_json::json!({
-            "template": template,
-            "values": [1, 2],
-            "fixed": [],
-            "targetPasses": 1,
-            "arrangement": [2, 1],
-        })
-        .to_string()
-        .into_bytes();
-        let reply = score_request(&raw);
-        let message = reply.clone().err().unwrap_or_default();
-        assert!(
-            reply.is_err() && message.contains("targetPasses"),
-            "score_request({template} with targetPasses): should reject unexpected targetPasses, got {reply:?}"
-        );
+        for target_passes in [serde_json::json!(1), serde_json::Value::Null] {
+            let raw = serde_json::json!({
+                "template": template,
+                "values": [1, 2],
+                "fixed": [],
+                "targetPasses": target_passes,
+                "arrangement": [2, 1],
+            })
+            .to_string()
+            .into_bytes();
+            let reply = score_request(&raw);
+            let message = reply.clone().err().unwrap_or_default();
+            assert!(
+                reply.is_err() && message.contains("targetPasses"),
+                "score_request({template} with targetPasses={target_passes}): should reject unexpected targetPasses, got {reply:?}"
+            );
+        }
     }
+}
+
+#[test]
+fn bubble_with_null_target_passes_is_an_error() {
+    let raw = serde_json::json!({
+        "template": BUBBLE,
+        "values": [1, 2],
+        "fixed": [],
+        "targetPasses": null,
+        "arrangement": [2, 1],
+    })
+    .to_string()
+    .into_bytes();
+    let reply = score_request(&raw);
+    let message = reply.clone().err().unwrap_or_default();
+    assert!(
+        reply.is_err() && message.contains("targetPasses"),
+        "score_request(bubble with targetPasses=null): should fail naming \"targetPasses\", got {reply:?}"
+    );
 }

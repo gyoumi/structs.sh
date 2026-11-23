@@ -88,18 +88,16 @@ export class VisualiserSession {
 
   /** Redraws the current values in another theme, at once. Colours are fixed when drawn, so the last run's playback is dropped. */
   retheme(canvasTheme: Partial<CanvasTheme>): void {
-    const { data } = this;
-    setCanvasTheme(canvasTheme);
-    this.draw(() => {
-      this.controller.loadData(data);
-      finishDrawing(this.target);
-    });
-    this.resetPlayback();
+    this.loadData(this.data, canvasTheme, true);
   }
 
-  run(command: string, args: string[]): string {
+  run(command: string, args: string[], autoPlay = true): string {
     const error = this.draw(() => this.controller.doOperation(command, () => {}, ...args));
     if (error) return error;
+    if (!autoPlay) {
+      this.controller.pause();
+      this.controller.seekTime(0);
+    }
     this.runCounter += 1;
     const { stepTimes } = this.controller;
     const noTimeline = this.snapshot.documentation[command]?.noTimeline ?? false;
@@ -112,21 +110,19 @@ export class VisualiserSession {
       layoutVersion: noTimeline ? this.snapshot.layoutVersion + 1 : this.snapshot.layoutVersion,
       ...this.sampleController(this.controller.duration, stepTimes),
     });
-    this.wake();
+    if (autoPlay) this.wake();
     return '';
   }
 
   play = (): void => {
     if (this.snapshot.playback === 'complete') this.controller.seekPercent(0);
     this.controller.play();
-    this.syncFromController(true);
-    this.wake();
+    this.syncAndWake();
   };
 
   pause = (): void => {
     this.controller.pause();
-    this.syncFromController(true);
-    this.wake();
+    this.syncAndWake();
   };
 
   togglePlay = (): void => {
@@ -137,37 +133,43 @@ export class VisualiserSession {
   stepForward = (): void => {
     if (this.snapshot.playback === 'complete') return;
     this.controller.stepForwards();
-    this.syncFromController(true);
-    this.wake();
+    this.syncAndWake();
   };
 
   stepBackward = (): void => {
     this.controller.pause();
     this.controller.stepBackwards();
-    this.syncFromController(true);
-    this.wake();
+    this.syncAndWake();
   };
 
   rewind = (): void => {
     this.controller.pause();
     this.controller.seekPercent(0);
-    this.syncFromController(true);
-    this.wake();
+    this.syncAndWake();
   };
 
   finish = (): void => {
     this.controller.seekPercent(100);
     this.controller.pause();
+    this.syncAndWake();
+  };
+
+  seekToTime = (time: number): void => {
+    this.controller.pause();
+    this.controller.seekTime(time);
     this.syncFromController(true);
-    this.wake();
   };
 
   seekToPercent = (percent: number): void => {
     this.controller.pause();
     this.controller.seekPercent(percent);
+    this.syncAndWake();
+  };
+
+  private syncAndWake(): void {
     this.syncFromController(true);
     this.wake();
-  };
+  }
 
   seekToStep = (step: number): void => {
     const { stepTimes, duration } = this.snapshot;

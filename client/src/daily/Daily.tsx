@@ -116,8 +116,7 @@ const Play = ({ puzzle, rig, theme, values, fixed, onSwap }: PlayProps) => {
   const run = () => {
     const focusSkip = document.activeElement === runButton.current;
     draw(values);
-    const failed = rig.stages.some(({ session, command }) => Boolean(session.run(command, [])));
-    if (failed) return;
+    if (!rig.run()) return;
     const runId = firstStage.session.getSnapshot().lastRun?.id ?? 0;
     dispatch({ type: 'run', arrangement: values, runId, focusSkip });
     runner.current?.scrollIntoView?.({

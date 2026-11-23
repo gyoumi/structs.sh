@@ -15,7 +15,7 @@ export type StageRig = {
 };
 
 /** The stages a puzzle plays, and what the shared `Playback` toolbar drives. */
-export type Rig = { playback: Playback; stages: StageRig[] };
+export type Rig = { playback: Playback; stages: StageRig[]; run: () => boolean };
 
 const countOf = (snapshot: VisualiserSnapshot, key: CounterSource['key']) =>
   key === 'comparisons' ? (snapshot.comparisons ?? 0) : (snapshot.counters?.[key] ?? 0);

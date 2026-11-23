@@ -1,3 +1,4 @@
+import { defaultSpeed } from '@/visualiser-src/common/constants';
 import type { PlaybackStage } from '@/visualiser-src/controller/VisualiserController';
 import type { Playback, PlaybackSnapshot } from './playback';
 import type { VisualiserSession } from './session';
@@ -10,7 +11,9 @@ export interface DualSnapshot extends PlaybackSnapshot {
 
 type Link = { status: 'unlinked' } | { status: 'linked'; unlink: () => void };
 
-const timeOf = (snapshot: VisualiserSnapshot) => (snapshot.progress / 100) * snapshot.duration;
+type ClockState =
+  | { status: 'stopped' }
+  | { status: 'playing'; frame: number; lastFrameTime: number };
 
 const isStageComplete = (stage: VisualiserSnapshot): boolean =>
   stage.playback === 'complete' || (stage.duration === 0 && stage.lastRun !== null);
@@ -20,22 +23,29 @@ const mergedStepTimes = (left: VisualiserSnapshot, right: VisualiserSnapshot): n
     .sort((a, b) => a - b)
     .filter((t, i, sorted) => i === 0 || t - sorted[i - 1] > 2);
 
-const playbackOf = (left: VisualiserSnapshot, right: VisualiserSnapshot): PlaybackStage => {
-  if (left.playback === 'playing' || right.playback === 'playing') return 'playing';
-  const ran = left.lastRun !== null && right.lastRun !== null;
-  return ran && isStageComplete(left) && isStageComplete(right) ? 'complete' : 'paused';
-};
-
-const combine = (left: VisualiserSnapshot, right: VisualiserSnapshot): DualSnapshot => {
+const combine = (
+  left: VisualiserSnapshot,
+  right: VisualiserSnapshot,
+  playheadMs: number,
+  clock: ClockState['status']
+): DualSnapshot => {
   const duration = Math.max(left.duration, right.duration);
-  const playback = playbackOf(left, right);
-  const playhead = Math.min(duration, Math.max(timeOf(left), timeOf(right)));
+  const ran = left.lastRun !== null && right.lastRun !== null;
+  const complete = ran && isStageComplete(left) && isStageComplete(right);
+  const playback: PlaybackStage =
+    clock === 'playing' || left.playback === 'playing' || right.playback === 'playing'
+      ? 'playing'
+      : complete
+        ? 'complete'
+        : 'paused';
+  const playhead = Math.max(0, Math.min(duration, playheadMs));
   const stepTimes = mergedStepTimes(left, right);
-  const reached = duration > 0 ? (playhead / duration) * 100 : 0;
+  const progress =
+    playback === 'complete' ? 100 : duration > 0 ? Math.min(100, (playhead / duration) * 100) : 0;
   return {
     stages: [left, right],
     playback,
-    progress: playback === 'complete' ? 100 : Math.min(reached, 99.9),
+    progress,
     step: stepTimes.filter((t) => t <= playhead + 1).length,
     stepCount: stepTimes.length,
     duration,
@@ -44,9 +54,9 @@ const combine = (left: VisualiserSnapshot, right: VisualiserSnapshot): DualSnaps
 };
 
 /**
- * Two sessions on one shared timeline, for a page that plays two algorithms side by side. Both
- * start together and run at one speed, so a time on the shared timeline is the same time in each.
- * The shared run is complete only once both are.
+ * Two sessions driven by one shared clock and timeline, for a page that plays two algorithms side
+ * by side. Both advance from the same playhead every frame and stay aligned across pause, resume,
+ * stepping, and scrubbing. The shared run is complete only once both stages are.
  */
 export class DualSession implements Playback {
   readonly left: VisualiserSession;
@@ -59,10 +69,16 @@ export class DualSession implements Playback {
 
   private link: Link = { status: 'unlinked' };
 
+  private clock: ClockState = { status: 'stopped' };
+
+  private playheadMs = 0;
+
+  private batchDepth = 0;
+
   constructor(left: VisualiserSession, right: VisualiserSession) {
     this.left = left;
     this.right = right;
-    this.snapshot = combine(left.getSnapshot(), right.getSnapshot());
+    this.snapshot = combine(left.getSnapshot(), right.getSnapshot(), 0, 'stopped');
   }
 
   private get sessions(): VisualiserSession[] {
@@ -78,6 +94,7 @@ export class DualSession implements Playback {
     return () => {
       this.listeners.delete(listener);
       if (this.listeners.size > 0 || this.link.status === 'unlinked') return;
+      this.stopClock();
       this.link.unlink();
       this.link = { status: 'unlinked' };
     };
@@ -88,16 +105,35 @@ export class DualSession implements Playback {
     return this.snapshot;
   };
 
-  play = (): void => {
-    if (this.getSnapshot().playback === 'complete') this.rewind();
-    else this.seekToTime(this.playhead());
-    this.sessions.forEach((session) => {
-      const { duration, playback } = session.getSnapshot();
-      if (duration > 0 && playback !== 'complete') session.play();
+  /** Builds both stages' timelines paused at 0 and starts them together on the shared clock. */
+  run = (leftCommand: string, rightCommand: string): string => {
+    this.stopClock();
+    let error = '';
+    this.batch(() => {
+      error = this.left.run(leftCommand, [], false);
+      if (error) return;
+      error = this.right.run(rightCommand, [], false);
     });
+    if (error) return error;
+    this.playheadMs = 0;
+    if (this.duration() > 0) this.startClock();
+    this.emit();
+    return '';
   };
 
-  pause = (): void => this.seekToTime(this.playhead());
+  play = (): void => {
+    if (this.clock.status === 'playing') return;
+    const snapshot = this.getSnapshot();
+    if (snapshot.duration === 0) return;
+    if (snapshot.playback === 'complete') this.applyPlayhead(0);
+    this.startClock();
+    this.emit();
+  };
+
+  pause = (): void => {
+    this.stopClock();
+    this.emit();
+  };
 
   togglePlay = (): void => {
     if (this.getSnapshot().playback === 'playing') this.pause();
@@ -105,59 +141,149 @@ export class DualSession implements Playback {
   };
 
   stepForward = (): void => {
+    this.stopClock();
     const snapshot = this.getSnapshot();
     if (snapshot.playback === 'complete' || snapshot.duration === 0) return;
     const steps = mergedStepTimes(snapshot.stages[0], snapshot.stages[1]);
-    const now = this.playhead();
-    const next = steps.find((t) => t > now + 1) ?? snapshot.duration;
-    this.seekToTime(next);
+    const next = steps.find((t) => t > this.playheadMs + 1) ?? snapshot.duration;
+    this.applyPlayhead(next);
+    this.emit();
   };
 
   stepBackward = (): void => {
+    this.stopClock();
     const snapshot = this.getSnapshot();
     if (snapshot.duration === 0) return;
     const steps = mergedStepTimes(snapshot.stages[0], snapshot.stages[1]);
-    const now = this.playhead();
-    const prev = [...steps].reverse().find((t) => t + 25 < now) ?? 0;
-    this.seekToTime(prev);
+    const prev = [...steps].reverse().find((t) => t + 25 < this.playheadMs) ?? 0;
+    this.applyPlayhead(prev);
+    this.emit();
   };
 
-  rewind = (): void => this.sessions.forEach((session) => session.rewind());
+  rewind = (): void => {
+    this.stopClock();
+    this.applyPlayhead(0);
+    this.emit();
+  };
 
-  finish = (): void => this.sessions.forEach((session) => session.finish());
+  finish = (): void => {
+    this.stopClock();
+    this.applyPlayhead(this.duration());
+    this.emit();
+  };
 
   /** Seeks both stages to the same time: `percent` of the longer run. */
   seekToPercent = (percent: number): void => {
-    this.seekToTime((percent / 100) * this.getSnapshot().duration);
+    this.stopClock();
+    this.applyPlayhead((percent / 100) * this.duration());
+    this.emit();
   };
 
-  setSpeed = (speed: number): void => this.sessions.forEach((session) => session.setSpeed(speed));
+  setSpeed = (speed: number): void => {
+    this.batch(() => this.sessions.forEach((session) => session.setSpeed(speed)));
+    this.emit();
+  };
 
-  private playhead(): number {
-    const snapshot = this.getSnapshot();
-    const [left, right] = snapshot.stages;
-    return Math.min(snapshot.duration, Math.max(timeOf(left), timeOf(right)));
+  dispose = (): void => {
+    this.stopClock();
+    if (this.link.status === 'linked') {
+      this.link.unlink();
+      this.link = { status: 'unlinked' };
+    }
+  };
+
+  private duration(): number {
+    return Math.max(this.left.getSnapshot().duration, this.right.getSnapshot().duration);
   }
 
-  private seekToTime(time: number): void {
-    const clamped = Math.max(0, Math.min(time, this.getSnapshot().duration));
-    this.sessions.forEach((session) => {
-      const { duration } = session.getSnapshot();
-      if (duration > 0) session.seekToPercent(Math.min(100, (clamped / duration) * 100));
-      else session.pause();
+  private startClock(): void {
+    if (this.clock.status === 'playing') return;
+    this.clock = {
+      status: 'playing',
+      frame: requestAnimationFrame(this.tick),
+      lastFrameTime: performance.now(),
+    };
+  }
+
+  private stopClock(): void {
+    if (this.clock.status !== 'playing') return;
+    cancelAnimationFrame(this.clock.frame);
+    this.clock = { status: 'stopped' };
+  }
+
+  private tick = (now: number): void => {
+    if (this.clock.status !== 'playing') return;
+    const dt = Math.max(0, now - this.clock.lastFrameTime);
+    const rate = this.left.getSnapshot().speed * defaultSpeed;
+    const total = this.duration();
+    const next = Math.min(total, this.playheadMs + dt * rate);
+    if (next >= total - 1) {
+      this.stopClock();
+      this.applyPlayhead(total);
+      this.emit();
+      return;
+    }
+    this.clock = {
+      status: 'playing',
+      frame: requestAnimationFrame(this.tick),
+      lastFrameTime: now,
+    };
+    this.applyPlayhead(next);
+    this.emit();
+  };
+
+  private applyPlayhead(time: number): void {
+    const total = this.duration();
+    const clamped = Math.max(0, Math.min(time, total));
+    this.playheadMs = total > 0 && clamped >= total - 1 ? total : clamped;
+    this.batch(() => {
+      this.sessions.forEach((session) => {
+        if (session.getSnapshot().duration > 0) session.seekToTime(this.playheadMs);
+        else session.pause();
+      });
     });
+  }
+
+  private batch(work: () => void): void {
+    this.batchDepth += 1;
+    try {
+      work();
+    } finally {
+      this.batchDepth -= 1;
+    }
   }
 
   private refresh(): boolean {
     const left = this.left.getSnapshot();
     const right = this.right.getSnapshot();
-    const [shownLeft, shownRight] = this.snapshot.stages;
-    if (left === shownLeft && right === shownRight) return false;
-    this.snapshot = combine(left, right);
+    if (left.lastRun === null || right.lastRun === null) {
+      this.stopClock();
+      this.playheadMs = 0;
+    }
+    const next = combine(left, right, this.playheadMs, this.clock.status);
+    const prev = this.snapshot;
+    if (
+      prev.stages[0] === next.stages[0] &&
+      prev.stages[1] === next.stages[1] &&
+      prev.playback === next.playback &&
+      prev.progress === next.progress &&
+      prev.step === next.step &&
+      prev.stepCount === next.stepCount &&
+      prev.duration === next.duration &&
+      prev.speed === next.speed
+    ) {
+      return false;
+    }
+    this.snapshot = next;
     return true;
   }
 
-  private onStageChange = (): void => {
+  private emit(): void {
     if (this.refresh()) this.listeners.forEach((listener) => listener());
+  }
+
+  private onStageChange = (): void => {
+    if (this.batchDepth > 0) return;
+    this.emit();
   };
 }

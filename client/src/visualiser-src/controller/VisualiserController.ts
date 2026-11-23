@@ -138,12 +138,16 @@ class VisualiserController {
     this.currentTimeline.pause();
   }
 
-  public seekPercent(position: number): void {
-    const timeSeek: number = (position * this.timelineDuration) / 100;
-    this.currentTimeline.time(timeSeek);
+  public seekTime(time: number): void {
+    const clamped = Math.max(0, Math.min(time, this.timelineDuration));
+    this.currentTimeline.time(clamped);
     if (this.mode === 'stepping') {
       this.pause();
     }
+  }
+
+  public seekPercent(position: number): void {
+    this.seekTime((position * this.timelineDuration) / 100);
   }
 
   public setSpeed(speed: number): void {

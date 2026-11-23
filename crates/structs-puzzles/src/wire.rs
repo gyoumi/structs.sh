@@ -26,8 +26,16 @@ struct Request {
     values: Vec<i32>,
     fixed: Vec<usize>,
     arrangement: Vec<i32>,
-    #[serde(default)]
-    target_passes: Option<u32>,
+    #[serde(default, deserialize_with = "present")]
+    target_passes: Option<Option<u32>>,
+}
+
+fn present<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    T::deserialize(deserializer).map(Some)
 }
 
 #[derive(Serialize)]
@@ -74,7 +82,7 @@ pub fn score_request(request: &[u8]) -> Result<String, String> {
             serde_json::to_string(&QuicksortReply { score })
         }
         Bubble::ID => {
-            let target_passes = request.target_passes.ok_or_else(|| {
+            let target_passes = request.target_passes.flatten().ok_or_else(|| {
                 "The puzzle is broken: a bubble-exact-passes puzzle needs targetPasses.".to_owned()
             })?;
             let instance = bubble::Instance {

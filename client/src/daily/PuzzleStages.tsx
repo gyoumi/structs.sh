@@ -30,6 +30,7 @@ const SingleRig = ({ stage, theme, values, children }: RigProps & { stage: Stage
   const [rig] = useState<Rig>(() => ({
     playback: session,
     stages: [{ ...stage, session, target: DEFAULT_CANVAS_TARGET }],
+    run: () => !session.run(stage.command, []),
   }));
   useEffect(() => session.setSpeed(DEFAULT_PLAYBACK_SPEED), [session]);
   return children(rig);
@@ -55,14 +56,17 @@ const DualRig = ({ stages: [left, right], theme, values, children }: DualRigProp
     true,
     right.target
   );
+  const [dual] = useState(() => new DualSession(leftSession, rightSession));
   const [rig] = useState<Rig>(() => ({
-    playback: new DualSession(leftSession, rightSession),
+    playback: dual,
     stages: [
       { ...left, session: leftSession },
       { ...right, session: rightSession },
     ],
+    run: () => !dual.run(left.command, right.command),
   }));
-  useEffect(() => rig.playback.setSpeed(DEFAULT_PLAYBACK_SPEED), [rig]);
+  useEffect(() => dual.setSpeed(DEFAULT_PLAYBACK_SPEED), [dual]);
+  useEffect(() => () => dual.dispose(), [dual]);
   return children(rig);
 };
 
