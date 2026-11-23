@@ -15,6 +15,7 @@ export const NARRATION_PATTERNS = [
   /\bpress\s+(?:enter|space|tab|escape)\b/i,
   /\byou have\s+\d+\s+(?:tries|attempts)\b/i,
 ];
+const NARRATION_HINT = /\b(?:tap|click|press|enter|space|tab|escape|you|have|tries|attempts)\b/i;
 
 export const elementName = (node) => (node?.type === 'JSXElement' && node.openingElement.name.type === 'JSXIdentifier' ? node.openingElement.name.name : null);
 
@@ -120,30 +121,54 @@ export const narrationIn = (text) =>
     .map(collapse)
     .flatMap((segment) => NARRATION_PATTERNS.map((pattern) => pattern.exec(segment)?.[0]).filter(Boolean));
 
-// Dedupe, then cap the list at MAX_VARIANTS. The worst cases across the whole
-// list go in first (most words, most sentences, one per narration pattern),
-// then the worst variant per guard signature, then the wordiest of the rest.
-function prune(list) {
+const guardsOf = (list) => new Set(list.flatMap((variant) => [...variant.guards.keys()]));
+const restrictGuards = (guards, live) => {
+  if (!live || guards.size === 0 || [...guards.keys()].every((key) => live.has(key))) return guards;
+  const kept = new Map([...guards].filter(([key]) => live.has(key)));
+  return kept.size ? kept : NO_GUARDS;
+};
+const scoreVariant = (variant) => {
+  const text = flatText(variant.text);
+  const segments = variant.text.split(BREAK).map(collapse);
+  const patterns = NARRATION_PATTERNS.flatMap((pattern, i) => (segments.some((segment) => pattern.test(segment)) ? [i] : []));
+  return { variant, words: wordCount(text), sentences: sentenceCount(text), patterns, hasHint: segments.some((s) => NARRATION_HINT.test(s)) };
+};
+
+// Dedupe, then cap at MAX_VARIANTS using lookahead over remaining siblings so
+// shorter prefixes whose guards unlock longer or narrating continuations survive.
+function prune(list, future = []) {
   const seen = new Map();
-  for (const variant of list) {
-    const id = `${signature(variant.guards)}|${variant.text}`;
-    if (!seen.has(id)) seen.set(id, variant);
-  }
+  for (const variant of list) seen.set(`${signature(variant.guards)}|${variant.text}`, variant);
   const unique = [...seen.values()];
   if (unique.length <= MAX_VARIANTS) return unique;
-  const scored = unique.map((variant) => {
-    const text = flatText(variant.text);
-    const segments = variant.text.split(BREAK).map(collapse);
-    const patterns = NARRATION_PATTERNS.flatMap((pattern, i) => (segments.some((segment) => pattern.test(segment)) ? [i] : []));
-    return { variant, sig: signature(variant.guards), words: wordCount(text), sentences: sentenceCount(text), patterns };
-  });
-  const byWords = (a, b) => b.words - a.words || b.sentences - a.sentences;
-  const bySentences = (a, b) => b.sentences - a.sentences || b.words - a.words;
+  const futureScored = future.map((entries) => entries.map(scoreVariant));
+  const scored = [];
+  for (const variant of unique) {
+    const base = scoreVariant(variant);
+    let potWords = base.words;
+    let potSentences = base.sentences;
+    const potPatterns = new Set(base.patterns);
+    let potHints = base.hasHint ? 1 : 0;
+    let reachable = true;
+    for (const entries of futureScored) {
+      const compat = entries.filter((next) => compatible(variant.guards, next.variant.guards));
+      if (compat.length === 0) { reachable = false; break; }
+      potWords += Math.max(...compat.map((next) => next.words));
+      potSentences += Math.max(...compat.map((next) => next.sentences));
+      if (compat.some((next) => next.hasHint)) potHints += 1;
+      for (const next of compat) for (const p of next.patterns) potPatterns.add(p);
+    }
+    if (reachable) scored.push({ ...base, sig: signature(variant.guards), potWords, potSentences, potPatterns, potHints });
+  }
+  const byWords = (a, b) => b.potWords - a.potWords || b.words - a.words || b.potSentences - a.potSentences;
+  const bySentences = (a, b) => b.potSentences - a.potSentences || b.sentences - a.sentences || b.potWords - a.potWords;
+  const byHints = (a, b) => b.potHints - a.potHints || b.potWords - a.potWords;
   const keep = new Set();
   const add = (item) => item && keep.size < MAX_VARIANTS && keep.add(item);
   add([...scored].sort(byWords)[0]);
   add([...scored].sort(bySentences)[0]);
-  NARRATION_PATTERNS.forEach((_, i) => add(scored.filter((item) => item.patterns.includes(i)).sort(byWords)[0]));
+  NARRATION_PATTERNS.forEach((_, i) => add(scored.filter((item) => item.potPatterns.has(i)).sort(byWords)[0]));
+  add(scored.filter((item) => item.potHints > 0).sort(byHints)[0]);
   const bySig = new Map();
   for (const item of scored) {
     const best = bySig.get(item.sig) ?? {};
@@ -151,9 +176,8 @@ function prune(list) {
     if (!best.sentences || bySentences(item, best.sentences) < 0) best.sentences = item;
     bySig.set(item.sig, best);
   }
-  const total = (item) => item.words + item.sentences;
-  const perSig = [...bySig.values()].flatMap((best) => [best.words, best.sentences]).sort((a, b) => total(b) - total(a));
-  perSig.forEach(add);
+  const total = (item) => item.potWords + item.potSentences;
+  [...bySig.values()].flatMap((best) => [best.words, best.sentences]).sort((a, b) => total(b) - total(a)).forEach(add);
   [...scored].sort(byWords).forEach(add);
   return scored.filter((item) => keep.has(item)).map((item) => item.variant);
 }
@@ -161,12 +185,21 @@ function prune(list) {
 // One of the lists renders: the union of their variants.
 const either = (...lists) => prune(lists.flat());
 // Each list renders in turn: every compatible combination of their variants.
-const sequence = (lists) =>
-  lists.reduce(
-    (acc, list) =>
-      prune(acc.flatMap((a) => list.filter((b) => compatible(a.guards, b.guards)).map((b) => ({ text: a.text + b.text, guards: mergeGuards(a.guards, b.guards) })))),
-    [plain('')],
-  );
+// At the root element, guards unused by remaining siblings are dropped early.
+function sequence(lists, isRoot = false) {
+  let acc = [plain('')];
+  for (let i = 0; i < lists.length; i += 1) {
+    const future = lists.slice(i + 1);
+    const live = isRoot ? new Set(future.flatMap((next) => [...guardsOf(next)])) : null;
+    const combined = acc.flatMap((a) =>
+      lists[i]
+        .filter((b) => compatible(a.guards, b.guards))
+        .map((b) => ({ text: a.text + b.text, guards: restrictGuards(mergeGuards(a.guards, b.guards), live) })),
+    );
+    acc = prune(combined, future);
+  }
+  return acc;
+}
 // The variants that can render while `key` has the given truthiness.
 const underGuard = (list, key, polarity) => {
   const guard = new Map([[key, polarity]]);
@@ -181,17 +214,23 @@ function expressionVariants(expr, all) {
     case 'TemplateLiteral':
       return [plain(expr.quasis.map((quasi) => quasi.value.cooked ?? quasi.value.raw).join(BREAK))];
     case 'JSXElement':
-      return (all ? !isExemptSelf(expr) : isInline(expr)) ? staticVariants(expr, all) : [plain(BREAK)];
+      if (isSrOnly(expr)) return [plain('')];
+      return (all ? !EXEMPT_CONTAINERS.has(elementName(expr)) : isInline(expr)) ? collectVariants(expr, all, false) : [plain(BREAK)];
     case 'JSXFragment':
-      return staticVariants(expr, all);
+      return collectVariants(expr, all, false);
     case 'JSXEmptyExpression':
       return [plain('')];
     case 'LogicalExpression': {
       const right = expressionVariants(expr.right, all);
-      if (expr.operator !== '&&') return either(expressionVariants(expr.left, all), right);
-      // A pure guard renders nothing when false; otherwise check the rendered case.
       const guard = guardInfo(expr.left);
-      if (!guard) return right;
+      if (expr.operator === '||') {
+        const left = expressionVariants(expr.left, all);
+        if (!guard) return either(left, right);
+        return either(underGuard(left, guard.key, guard.polarity), underGuard(right, guard.key, !guard.polarity));
+      }
+      if (expr.operator !== '&&') return either(expressionVariants(expr.left, all), right);
+      // A pure guard splits true/false; an unknown guard may render right or nothing.
+      if (!guard) return either([plain('')], right);
       return either([{ text: '', guards: new Map([[guard.key, !guard.polarity]]) }], underGuard(right, guard.key, guard.polarity));
     }
     case 'ConditionalExpression': {
@@ -206,17 +245,19 @@ function expressionVariants(expr, all) {
   }
 }
 
-// Possible renderings of an element's children, skipping exempt ones.
-// Block children become a BREAK unless `all` is set (used for word counts).
-export function staticVariants(node, all = false) {
-  return sequence(
+const collectVariants = (node, all, isRoot) =>
+  sequence(
     node.children.map((child) => {
       if (child.type === 'JSXText') return [plain(child.value)];
       if (child.type === 'JSXExpressionContainer') return expressionVariants(child.expression, all);
       return expressionVariants(child, all);
     }),
+    isRoot,
   );
-}
+
+// Possible renderings of an element's children, skipping exempt ones.
+// Block children become a BREAK unless `all` is set (used for word counts).
+export const staticVariants = (node, all = false) => collectVariants(node, all, true);
 
 // Non-exempt inline child elements, looking through fragments and conditional expressions.
 export function inlineChildren(node) {

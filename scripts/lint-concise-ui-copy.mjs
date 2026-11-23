@@ -62,11 +62,28 @@ export default {
     // Walks the direct children, flattening fragments and conditionals but not
     // nested elements, and returns the possible states after them. A <p> adds
     // one to every state that can reach it; each <p> past the limit is reported.
-    // A pure guard (`C`, `!C`) splits the states, so `{C && ...}` and
-    // `{!C && ...}` never count together, even across a ternary.
+    // Pure guards (`C`, `!C`) split states across `&&`, `||`, and `? :`, so
+    // mutually exclusive branches never count together.
+    const hasParagraph = (expr) => {
+      if (!expr) return false;
+      switch (expr.type) {
+        case 'JSXExpressionContainer':
+          return hasParagraph(expr.expression);
+        case 'JSXFragment':
+          return expr.children.some(hasParagraph);
+        case 'JSXElement':
+          return elementName(expr) === 'p' && !isExempt(expr);
+        case 'ConditionalExpression':
+          return hasParagraph(expr.consequent) || hasParagraph(expr.alternate);
+        case 'LogicalExpression':
+          return hasParagraph(expr.left) || hasParagraph(expr.right);
+        default:
+          return false;
+      }
+    };
     const reported = new Set();
     const countExpr = (expr, states) => {
-      if (!expr || states.length === 0) return states;
+      if (!expr || states.length === 0 || !hasParagraph(expr)) return states;
       switch (expr.type) {
         case 'JSXExpressionContainer':
           return countExpr(expr.expression, states);
@@ -89,8 +106,14 @@ export default {
           return pruneStates([...whenTrue, ...whenFalse]);
         }
         case 'LogicalExpression': {
-          if (expr.operator !== '&&') return pruneStates([...countExpr(expr.left, states), ...countExpr(expr.right, states)]);
           const guard = guardInfo(expr.left);
+          if (expr.operator === '||') {
+            if (!guard) return pruneStates([...countExpr(expr.left, states), ...countExpr(expr.right, states)]);
+            const whenTrue = countExpr(expr.left, applyGuard(states, guard));
+            const whenFalse = countExpr(expr.right, applyGuard(states, { key: guard.key, polarity: !guard.polarity }));
+            return pruneStates([...whenTrue, ...whenFalse]);
+          }
+          if (expr.operator !== '&&') return pruneStates([...countExpr(expr.left, states), ...countExpr(expr.right, states)]);
           if (!guard) return pruneStates([...countExpr(expr.right, states), ...states]);
           const taken = countExpr(expr.right, applyGuard(states, guard));
           const skipped = applyGuard(states, { key: guard.key, polarity: !guard.polarity });

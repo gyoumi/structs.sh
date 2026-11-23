@@ -40,6 +40,11 @@ const tsx = (...jsx) => lines('export function View() {', '  return (', ...jsx.m
 
 // 12 independent ternaries: {c0 ? 'a ' : 'one two three '}...{c11 ? ...}.
 const twelveTernaries = Array.from({ length: 12 }, (_, i) => `{c${i} ? 'a ' : 'one two three '}`).join('');
+// Coupled ternaries + && siblings sharing the same guards: short prefix enables longer continuation.
+const pairedGuards = (names) =>
+  names.map((g) => `{${g} ? 'a ' : 'one two three '}`).join('') + names.map((g) => `{${g} && 'one two three four five '}`).join('');
+const fivePairedGuards = pairedGuards(['a', 'b', 'c', 'd', 'e']);
+const twelvePairedGuards = pairedGuards(Array.from({ length: 12 }, (_, i) => `c${i}`));
 
 const valid = [
   {
@@ -69,6 +74,14 @@ const valid = [
   {
     name: 'a ternary guard pairs with its complementary && sibling: <section><p>Intro.</p>{ready ? <p> : null}{!ready && <p>}</section> renders at most 2 <p>, so no stackedParagraphs',
     code: tsx('<section><p>Intro.</p>{ready ? <p>Go.</p> : null}{!ready && <p>Wait.</p>}</section>'),
+  },
+  {
+    name: 'an || guard pairs with its complementary && sibling: <section><p>Intro.</p>{ready || <p>Wait.</p>}{ready && <p>Go.</p>}</section> renders at most 2 <p>, so no stackedParagraphs',
+    code: tsx('<section><p>Intro.</p>{ready || <p>Wait.</p>}{ready && <p>Go.</p>}</section>'),
+  },
+  {
+    name: "an || guard pairs with its complementary && sibling in text: <p>{ready || 'One. Two. '}{ready && 'Three. Four.'}</p> renders at most 2 sentences, so no longParagraph",
+    code: tsx("<p>{ready || 'One. Two. '}{ready && 'Three. Four.'}</p>"),
   },
 ];
 
@@ -162,6 +175,30 @@ const invalid = [
       errors: [narration(code, '<>')],
     };
   })(),
+  (() => {
+    const code = tsx(`<p>${fivePairedGuards}</p>`);
+    return {
+      name: 'five paired ternaries and && siblings sharing guards a..e can render 30 words, so longParagraph on the <p>',
+      code,
+      errors: [long(code, '<p>')],
+    };
+  })(),
+  (() => {
+    const code = tsx('<p>Press <span className="sr-only">the key</span>Enter to start.</p>');
+    return {
+      name: "a screen-reader-only inline span does not split visible phrases: <p>Press <span className='sr-only'>the key</span>Enter to start.</p> is uiNarration on the <p>",
+      code,
+      errors: [narration(code, '<p>')],
+    };
+  })(),
+  (() => {
+    const code = tsx("<p>Tap or {count > 0 && 'double '}click</p>");
+    return {
+      name: "an unrecognized && guard still includes its false (empty) branch: <p>Tap or {count > 0 && 'double '}click</p> renders 'Tap or click' when count <= 0, so uiNarration on the <p>",
+      code,
+      errors: [narration(code, '<p>')],
+    };
+  })(),
 ];
 
 if (loadError) {
@@ -178,13 +215,31 @@ if (loadError) {
 }
 
 describe('concise-ui-copy staticVariants bound', () => {
-  it('12 independent ternaries in a <p> give at most 32 variants (not 4096), and the worst one still has 36 words', () => {
-    const { ast } = tseslint.parser.parseForESLint(`const view = <p>${twelveTernaries}</p>;`, { ecmaFeatures: { jsx: true }, range: true, loc: true });
+  const parseParagraph = (jsx) => {
+    const { ast } = tseslint.parser.parseForESLint(`const view = ${jsx};`, { ecmaFeatures: { jsx: true }, range: true, loc: true });
     const p = ast.body[0].declarations[0].init;
     assert.equal(p.type, 'JSXElement', 'test setup: expected the <p> JSXElement');
-    const variants = staticVariants(p);
+    return p;
+  };
+
+  it('12 independent ternaries in a <p> give at most 32 variants (not 4096), and the worst one still has 36 words', () => {
+    const variants = staticVariants(parseParagraph(`<p>${twelveTernaries}</p>`));
     assert.ok(variants.length <= 32, `expected at most 32 variants, got ${variants.length}`);
     const worst = Math.max(...variants.map((variant) => wordCount(flatText(variant.text))));
     assert.equal(worst, 36, `expected the worst-case variant to keep 36 words, got ${worst}`);
+  });
+
+  it('5 paired ternaries + && siblings stay bounded and keep the 30-word continuation', () => {
+    const variants = staticVariants(parseParagraph(`<p>${fivePairedGuards}</p>`));
+    assert.ok(variants.length <= 32, `expected at most 32 variants, got ${variants.length}`);
+    const worst = Math.max(...variants.map((variant) => wordCount(flatText(variant.text))));
+    assert.equal(worst, 30, `expected the worst-case variant to keep 30 words, got ${worst}`);
+  });
+
+  it('12 paired ternaries + && siblings stay bounded (<= 32 variants) and keep the 72-word continuation', () => {
+    const variants = staticVariants(parseParagraph(`<p>${twelvePairedGuards}</p>`));
+    assert.ok(variants.length <= 32, `expected at most 32 variants, got ${variants.length}`);
+    const worst = Math.max(...variants.map((variant) => wordCount(flatText(variant.text))));
+    assert.equal(worst, 72, `expected the worst-case variant to keep 72 words, got ${worst}`);
   });
 });
