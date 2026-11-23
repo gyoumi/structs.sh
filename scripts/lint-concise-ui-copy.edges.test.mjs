@@ -32,6 +32,7 @@ const lineOf = (code, needle) => {
 
 const narration = (code, needle) => ({ messageId: 'uiNarration', line: lineOf(code, needle) });
 const stacked = (code, needle) => ({ messageId: 'stackedParagraphs', line: lineOf(code, needle) });
+const long = (code, needle) => ({ messageId: 'longParagraph', line: lineOf(code, needle) });
 
 // Wrap JSX in a component so each case is a whole .tsx module.
 const tsx = (...jsx) => lines('export function View() {', '  return (', ...jsx.map((row) => `    ${row}`), '  );', '}');
@@ -52,6 +53,14 @@ const valid = [
   {
     name: "ternary branches are not summed: <p>{show ? 'One. Two.' : 'Three. Four.'}</p> renders 2 sentences either way, so no longParagraph",
     code: tsx("<p>{show ? 'One. Two.' : 'Three. Four.'}</p>"),
+  },
+  {
+    name: "complementary && guards are not summed: <p>{ready && 'One. Two. '}{!ready && 'Three. Four.'}</p> renders 2 sentences either way, so no longParagraph",
+    code: tsx("<p>{ready && 'One. Two. '}{!ready && 'Three. Four.'}</p>"),
+  },
+  {
+    name: 'a guard inside a fragment pairs with its complement outside: <section><p>Intro.</p>{ready && <p>}<>{!ready && <p>}</></section> renders at most 2 <p>, so no stackedParagraphs',
+    code: tsx('<section><p>Intro.</p>{ready && <p>Go.</p>}<>{!ready && <p>Wait.</p>}</></section>'),
   },
 ];
 
@@ -118,6 +127,23 @@ const invalid = [
       name: "the alternate branch of a ternary still reads as text: <p>Press {show ? <kbd>F1</kbd> : <kbd>Enter</kbd>} to start.</p> is uiNarration once, on the <p>",
       code,
       errors: [narration(code, '<p>')],
+    };
+  })(),
+  (() => {
+    const branch = (guard) => `{${guard} ? 'ok ' : 'one two three four five six seven '}`;
+    const code = tsx(`<p>${['a', 'b', 'c', 'd'].map(branch).join('')}</p>`);
+    return {
+      name: "more than 8 ternary renderings must not drop the worst one: 4 ternaries of 'ok ' or 7 words in a <p> can render 28 words, so longParagraph on the <p>",
+      code,
+      errors: [long(code, '<p>')],
+    };
+  })(),
+  (() => {
+    const code = tsx('<>Press <kbd>Enter</kbd> to pick.</>');
+    return {
+      name: "a standalone root fragment is still checked: <>Press <kbd>Enter</kbd> to pick.</> is uiNarration once, on the <>",
+      code,
+      errors: [narration(code, '<>')],
     };
   })(),
 ];
