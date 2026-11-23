@@ -17,13 +17,13 @@ import Folder from './Folder';
 import './css/WorkspaceSelector.css';
 import { IFileDirNode, IFileFileNode, IFileType } from './FS/IFileSystem';
 
+type DialogState = { kind: 'closed' } | { kind: 'create'; type: IFileType } | { kind: 'delete' };
+
 const WorkspaceSelector = () => {
   const { fileSystem, currFocusDirPath, currFocusFilePath } = useUserFsStateStore.getState();
   let currFocus = currFocusFilePath || currFocusDirPath;
-  const [open, setOpen] = useState(false);
+  const [dialog, setDialog] = useState<DialogState>({ kind: 'closed' });
   const [newItemName, setNewItemName] = useState('');
-  const [type, setType] = useState<IFileType | null>(null);
-  const [deleteOpen, setDeleteOpen] = useState(false);
   const [, forceRerender] = useReducer((x) => x + 1, 0);
   const fileButtonStyle = {
     maxWidth: '30px',
@@ -33,21 +33,20 @@ const WorkspaceSelector = () => {
   };
 
   const handleClickOpen = (buttonType: IFileType) => {
-    setType(buttonType);
-    setOpen(true);
+    setDialog({ kind: 'create', type: buttonType });
   };
 
   const handleClose = () => {
-    setOpen(false);
+    setDialog({ kind: 'closed' });
     setNewItemName('');
   };
 
   const handleDeleteOpen = () => {
-    setDeleteOpen(true);
+    setDialog({ kind: 'delete' });
   };
 
   const handleDeleteClose = () => {
-    setDeleteOpen(false);
+    setDialog({ kind: 'closed' });
   };
 
   const handleCreate = () => {
@@ -57,7 +56,7 @@ const WorkspaceSelector = () => {
       return;
     }
     const newPath = `${currFocusDirPath}/${newItemName}`;
-    if (type === 'File') {
+    if (dialog.kind === 'create' && dialog.type === 'File') {
       const newFile: IFileFileNode = {
         name: newItemName,
         path: newPath,
@@ -68,7 +67,7 @@ const WorkspaceSelector = () => {
       if (!fileSystem.addFile(newFile)) {
         alert('File already exists.');
       }
-    } else if (type === 'Folder') {
+    } else if (dialog.kind === 'create' && dialog.type === 'Folder') {
       const newFolder: IFileDirNode = {
         name: newItemName,
         path: newPath,
@@ -158,14 +157,16 @@ const WorkspaceSelector = () => {
       </div>
 
       <Dialog
-        open={open}
+        open={dialog.kind === 'create'}
         onClose={handleClose}
         aria-labelledby="alert-dialog-title"
         aria-describedby="alert-dialog-description"
       >
-        <DialogTitle>Create New {type}</DialogTitle>
+        <DialogTitle>Create New {dialog.kind === 'create' ? dialog.type : null}</DialogTitle>
         <DialogContent>
-          <DialogContentText>Please enter the name for the new {type}:</DialogContentText>
+          <DialogContentText>
+            Please enter the name for the new {dialog.kind === 'create' ? dialog.type : null}:
+          </DialogContentText>
           <TextField
             autoFocus
             margin="dense"
@@ -194,7 +195,7 @@ const WorkspaceSelector = () => {
       </Dialog>
 
       <Dialog
-        open={deleteOpen}
+        open={dialog.kind === 'delete'}
         onClose={handleDeleteClose}
         aria-labelledby="alert-dialog-title"
         aria-describedby="alert-dialog-description"

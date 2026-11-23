@@ -49,7 +49,7 @@ type PlayProps = {
 
 const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
   const session = useSession();
-  const complete = useSnapshot((s) => s.complete);
+  const complete = useSnapshot((s) => s.playback === 'complete');
   const comparisons = useSnapshot((s) => s.comparisons ?? 0);
   const trace = useSnapshot((s) => s.trace);
   const [scores, setScores] = useState<number[]>([]);
