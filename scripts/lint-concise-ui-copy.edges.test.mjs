@@ -1,0 +1,245 @@
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import { RuleTester } from 'eslint';
+import tseslint from 'typescript-eslint';
+import { flatText, staticVariants, wordCount } from './lint-concise-ui-copy-text.mjs';
+
+// Edge cases of the ESLint rule `concise-ui-copy` (scripts/lint-concise-ui-copy.mjs),
+// kept apart from lint-concise-ui-copy.test.mjs so each file stays under the
+// 500-line limit. Same setup and conventions: each case's name says what it
+// checks and where the report should be, and RuleTester prints the expected
+// and actual errors.
+
+RuleTester.describe = describe;
+RuleTester.it = it;
+RuleTester.itOnly = it.only;
+
+let rule;
+let loadError;
+try {
+  rule = (await import('./lint-concise-ui-copy.mjs')).default;
+} catch (error) {
+  loadError = error;
+}
+
+const lines = (...rows) => rows.join('\n');
+
+// 1-based line of the first occurrence of needle in code.
+const lineOf = (code, needle) => {
+  const index = code.indexOf(needle);
+  if (index === -1) throw new Error(`test setup: ${needle} not found`);
+  return code.slice(0, index).split('\n').length;
+};
+
+const narration = (code, needle) => ({ messageId: 'uiNarration', line: lineOf(code, needle) });
+const stacked = (code, needle) => ({ messageId: 'stackedParagraphs', line: lineOf(code, needle) });
+const long = (code, needle) => ({ messageId: 'longParagraph', line: lineOf(code, needle) });
+
+// Wrap JSX in a component so each case is a whole .tsx module.
+const tsx = (...jsx) => lines('export function View() {', '  return (', ...jsx.map((row) => `    ${row}`), '  );', '}');
+
+// 12 independent ternaries: {c0 ? 'a ' : 'one two three '}...{c11 ? ...}.
+const twelveTernaries = Array.from({ length: 12 }, (_, i) => `{c${i} ? 'a ' : 'one two three '}`).join('');
+// Coupled ternaries + && siblings sharing the same guards: short prefix enables longer continuation.
+const pairedGuards = (names) =>
+  names.map((g) => `{${g} ? 'a ' : 'one two three '}`).join('') + names.map((g) => `{${g} && 'one two three four five '}`).join('');
+const fivePairedGuards = pairedGuards(['a', 'b', 'c', 'd', 'e']);
+const twelvePairedGuards = pairedGuards(Array.from({ length: 12 }, (_, i) => `c${i}`));
+
+const valid = [
+  {
+    name: 'complementary guards {ready && <p>} {!ready && <p>} plus 1 plain <p> in a <section>: at most 2 <p> render, so no stackedParagraphs',
+    code: tsx('<section><p>Intro.</p>{ready && <p>Go.</p>}{!ready && <p>Wait.</p>}</section>'),
+  },
+  {
+    name: "sibling blocks do not merge: <div><p>Press</p> <p>Enter a value.</p></div> is not uiNarration ('Press' and 'Enter' are in different <p>)",
+    code: tsx('<div><p>Press</p> <p>Enter a value.</p></div>'),
+  },
+  {
+    name: 'a template literal does not join text across ${...}: {`Tap ${action} or click a tile.`} in a <p> is not uiNarration',
+    code: tsx('<p>{`Tap ${action} or click a tile.`}</p>'),
+  },
+  {
+    name: "ternary branches are not summed: <p>{show ? 'One. Two.' : 'Three. Four.'}</p> renders 2 sentences either way, so no longParagraph",
+    code: tsx("<p>{show ? 'One. Two.' : 'Three. Four.'}</p>"),
+  },
+  {
+    name: "complementary && guards are not summed: <p>{ready && 'One. Two. '}{!ready && 'Three. Four.'}</p> renders 2 sentences either way, so no longParagraph",
+    code: tsx("<p>{ready && 'One. Two. '}{!ready && 'Three. Four.'}</p>"),
+  },
+  {
+    name: 'a guard inside a fragment pairs with its complement outside: <section><p>Intro.</p>{ready && <p>}<>{!ready && <p>}</></section> renders at most 2 <p>, so no stackedParagraphs',
+    code: tsx('<section><p>Intro.</p>{ready && <p>Go.</p>}<>{!ready && <p>Wait.</p>}</></section>'),
+  },
+  {
+    name: 'a ternary guard pairs with its complementary && sibling: <section><p>Intro.</p>{ready ? <p> : null}{!ready && <p>}</section> renders at most 2 <p>, so no stackedParagraphs',
+    code: tsx('<section><p>Intro.</p>{ready ? <p>Go.</p> : null}{!ready && <p>Wait.</p>}</section>'),
+  },
+  {
+    name: 'an || guard pairs with its complementary && sibling: <section><p>Intro.</p>{ready || <p>Wait.</p>}{ready && <p>Go.</p>}</section> renders at most 2 <p>, so no stackedParagraphs',
+    code: tsx('<section><p>Intro.</p>{ready || <p>Wait.</p>}{ready && <p>Go.</p>}</section>'),
+  },
+  {
+    name: "an || guard pairs with its complementary && sibling in text: <p>{ready || 'One. Two. '}{ready && 'Three. Four.'}</p> renders at most 2 sentences, so no longParagraph",
+    code: tsx("<p>{ready || 'One. Two. '}{ready && 'Three. Four.'}</p>"),
+  },
+];
+
+const invalid = [
+  (() => {
+    const code = tsx('<p className="sr-only" {...props}>Tap or click a tile.</p>');
+    return {
+      name: "a spread after className='sr-only' ({...props}) can override it, so the <p> is not exempt: 'Tap or click' is uiNarration",
+      code,
+      errors: [narration(code, 'Tap or click')],
+    };
+  })(),
+  (() => {
+    const code = tsx('<p>Press {showKey && <kbd>Enter</kbd>} to start.</p>');
+    return {
+      name: "a conditional inline <kbd> still reads as text: <p>Press {showKey && <kbd>Enter</kbd>} to start.</p> is uiNarration once, on the <p>",
+      code,
+      errors: [narration(code, '<p>')],
+    };
+  })(),
+  (() => {
+    const code = tsx('<section>', '  Press Enter to continue.', '  <p>Tap or click a tile.</p>', '</section>');
+    return {
+      name: "the parent's own text is still checked when a child block also matches: uiNarration twice, on <section> ('Press Enter') and on the <p> ('Tap or click')",
+      code,
+      errors: [narration(code, '<section>'), narration(code, '<p>')],
+    };
+  })(),
+  (() => {
+    const code = tsx('<p>{`Tap or click ${target}`}</p>');
+    return {
+      name: 'contrast with the ${action} case: {`Tap or click ${target}`} in a <p> is uiNarration (the phrase is whole before the ${...})',
+      code,
+      errors: [narration(code, 'Tap or click')],
+    };
+  })(),
+  (() => {
+    const code = tsx('<section>{ready && <p>A.</p>}{ready && <p>B.</p>}{!ready && <p>C.</p>}{!ready && <p>D.</p>}{!ready && <p>E.</p>}</section>');
+    return {
+      name: 'guards only pair off one-to-one: 2 {ready && <p>} then 3 {!ready && <p>} in a <section> can render 3 <p>, so stackedParagraphs on the 3rd !ready <p> (<p>E.</p>)',
+      code,
+      errors: [stacked(code, '<p>E.</p>')],
+    };
+  })(),
+  (() => {
+    const code = tsx('<section><p>A.</p>{queue.shift() && <p>B.</p>}{!queue.shift() && <p>C.</p>}</section>');
+    return {
+      name: 'a call guard is not pure: {queue.shift() && <p>} and {!queue.shift() && <p>} can both render, so stackedParagraphs on <p>C.</p>',
+      code,
+      errors: [stacked(code, '<p>C.</p>')],
+    };
+  })(),
+  (() => {
+    const code = tsx('<p>', '  Tap or', '  click a tile.', '</p>');
+    return {
+      name: "a JSX text newline is plain whitespace: 'Tap or' / 'click a tile.' on two lines of one <p> is uiNarration, on the <p>",
+      code,
+      errors: [narration(code, '<p>')],
+    };
+  })(),
+  (() => {
+    const code = tsx('<p>Press {show ? <kbd>F1</kbd> : <kbd>Enter</kbd>} to start.</p>');
+    return {
+      name: "the alternate branch of a ternary still reads as text: <p>Press {show ? <kbd>F1</kbd> : <kbd>Enter</kbd>} to start.</p> is uiNarration once, on the <p>",
+      code,
+      errors: [narration(code, '<p>')],
+    };
+  })(),
+  (() => {
+    const branch = (guard) => `{${guard} ? 'ok ' : 'one two three four five six seven '}`;
+    const code = tsx(`<p>${['a', 'b', 'c', 'd'].map(branch).join('')}</p>`);
+    return {
+      name: "more than 8 ternary renderings must not drop the worst one: 4 ternaries of 'ok ' or 7 words in a <p> can render 28 words, so longParagraph on the <p>",
+      code,
+      errors: [long(code, '<p>')],
+    };
+  })(),
+  (() => {
+    const code = tsx(`<p>${twelveTernaries}</p>`);
+    return {
+      name: "12 independent ternaries of 'a ' or 'one two three ' in a <p> can render 36 words, so longParagraph on the <p>",
+      code,
+      errors: [long(code, '<p>')],
+    };
+  })(),
+  (() => {
+    const code = tsx('<>Press <kbd>Enter</kbd> to pick.</>');
+    return {
+      name: "a standalone root fragment is still checked: <>Press <kbd>Enter</kbd> to pick.</> is uiNarration once, on the <>",
+      code,
+      errors: [narration(code, '<>')],
+    };
+  })(),
+  (() => {
+    const code = tsx(`<p>${fivePairedGuards}</p>`);
+    return {
+      name: 'five paired ternaries and && siblings sharing guards a..e can render 30 words, so longParagraph on the <p>',
+      code,
+      errors: [long(code, '<p>')],
+    };
+  })(),
+  (() => {
+    const code = tsx('<p>Press <span className="sr-only">the key</span>Enter to start.</p>');
+    return {
+      name: "a screen-reader-only inline span does not split visible phrases: <p>Press <span className='sr-only'>the key</span>Enter to start.</p> is uiNarration on the <p>",
+      code,
+      errors: [narration(code, '<p>')],
+    };
+  })(),
+  (() => {
+    const code = tsx("<p>Tap or {count > 0 && 'double '}click</p>");
+    return {
+      name: "an unrecognized && guard still includes its false (empty) branch: <p>Tap or {count > 0 && 'double '}click</p> renders 'Tap or click' when count <= 0, so uiNarration on the <p>",
+      code,
+      errors: [narration(code, '<p>')],
+    };
+  })(),
+];
+
+if (loadError) {
+  describe('concise-ui-copy edges', () => {
+    for (const { name } of [...valid, ...invalid]) {
+      it(name, () => assert.fail(`could not import scripts/lint-concise-ui-copy.mjs, so this case could not run: ${loadError.message}`));
+    }
+  });
+} else {
+  const ruleTester = new RuleTester({
+    languageOptions: { parser: tseslint.parser, parserOptions: { ecmaFeatures: { jsx: true } } },
+  });
+  ruleTester.run('concise-ui-copy edges', rule, { valid, invalid });
+}
+
+describe('concise-ui-copy staticVariants bound', () => {
+  const parseParagraph = (jsx) => {
+    const { ast } = tseslint.parser.parseForESLint(`const view = ${jsx};`, { ecmaFeatures: { jsx: true }, range: true, loc: true });
+    const p = ast.body[0].declarations[0].init;
+    assert.equal(p.type, 'JSXElement', 'test setup: expected the <p> JSXElement');
+    return p;
+  };
+
+  it('12 independent ternaries in a <p> give at most 32 variants (not 4096), and the worst one still has 36 words', () => {
+    const variants = staticVariants(parseParagraph(`<p>${twelveTernaries}</p>`));
+    assert.ok(variants.length <= 32, `expected at most 32 variants, got ${variants.length}`);
+    const worst = Math.max(...variants.map((variant) => wordCount(flatText(variant.text))));
+    assert.equal(worst, 36, `expected the worst-case variant to keep 36 words, got ${worst}`);
+  });
+
+  it('5 paired ternaries + && siblings stay bounded and keep the 30-word continuation', () => {
+    const variants = staticVariants(parseParagraph(`<p>${fivePairedGuards}</p>`));
+    assert.ok(variants.length <= 32, `expected at most 32 variants, got ${variants.length}`);
+    const worst = Math.max(...variants.map((variant) => wordCount(flatText(variant.text))));
+    assert.equal(worst, 30, `expected the worst-case variant to keep 30 words, got ${worst}`);
+  });
+
+  it('12 paired ternaries + && siblings stay bounded (<= 32 variants) and keep the 72-word continuation', () => {
+    const variants = staticVariants(parseParagraph(`<p>${twelvePairedGuards}</p>`));
+    assert.ok(variants.length <= 32, `expected at most 32 variants, got ${variants.length}`);
+    const worst = Math.max(...variants.map((variant) => wordCount(flatText(variant.text))));
+    assert.equal(worst, 72, `expected the worst-case variant to keep 72 words, got ${worst}`);
+  });
+});
