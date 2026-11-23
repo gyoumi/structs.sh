@@ -20,16 +20,30 @@ import {
 
 const BUFFER_THRESHOLD = 30;
 
-type ControlsStage = 'idle' | 'fetchingStep' | 'playRequested' | 'buffering';
+type ControlsStage =
+  | 'idle'
+  | 'fetchingStep'
+  | 'fetchingStepThenPlay'
+  | 'playRequested'
+  | 'buffering';
 
-const togglePlayRequest = (stage: ControlsStage): ControlsStage => {
-  if (stage === 'idle') return 'playRequested';
+const PLAY_TOGGLED: Partial<Record<ControlsStage, ControlsStage>> = {
+  idle: 'playRequested',
+  playRequested: 'idle',
+  fetchingStep: 'fetchingStepThenPlay',
+  fetchingStepThenPlay: 'fetchingStep',
+};
+
+const togglePlayRequest = (stage: ControlsStage): ControlsStage => PLAY_TOGGLED[stage] ?? stage;
+
+const cancelPlayRequest = (stage: ControlsStage): ControlsStage => {
   if (stage === 'playRequested') return 'idle';
+  if (stage === 'fetchingStepThenPlay') return 'fetchingStep';
   return stage;
 };
 
-const cancelPlayRequest = (stage: ControlsStage): ControlsStage =>
-  stage === 'playRequested' ? 'idle' : stage;
+const afterStepFetched = (stage: ControlsStage): ControlsStage =>
+  stage === 'fetchingStepThenPlay' ? 'playRequested' : 'idle';
 
 const Controls = () => {
   const { latestProgramState } = useGlobalStore();
@@ -40,7 +54,7 @@ const Controls = () => {
 
   const [stage, setStage] = useState<ControlsStage>('idle');
   const isBuffering = stage === 'buffering';
-  const isFetchingStep = stage === 'fetchingStep';
+  const isFetchingStep = stage === 'fetchingStep' || stage === 'fetchingStepThenPlay';
   const atLatestState = currentIndex >= states.length - 1;
 
   const { setToastMessage: setMessage } = useToastStateStore();
@@ -72,7 +86,7 @@ const Controls = () => {
   const fetchNextStep = async () => {
     setStage('fetchingStep');
     const gotState = await requestNextStep();
-    setStage('idle');
+    setStage(afterStepFetched);
     if (gotState) stepForward();
   };
 

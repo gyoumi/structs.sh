@@ -3,20 +3,6 @@ import { describe, it } from 'node:test';
 import { Linter } from 'eslint';
 import tseslint from 'typescript-eslint';
 
-// React-state cases of the ESLint rule `one-stage-value`
-// (scripts/lint-one-stage-value.mjs), kept apart from
-// lint-one-stage-value.test.mjs so each file stays under the 500-line limit.
-//
-// Boolean React state (useState / React.useState with a boolean type argument
-// or a literal true/false first argument) and boolean refs (useRef /
-// React.useRef, same test) count as flags in the same per-scope count as
-// boolean lets. A scope with two or more flags gets one looseFlags report, on
-// the declaration of the second flag, naming the flags in source order.
-//
-// Each case lints its code as a .tsx module and compares every report the rule
-// makes (names, node type, start and end) with the expected ones. A failure
-// prints the case, the numbered code, and the expected and received reports.
-
 let rule;
 let loadError;
 try {
@@ -26,14 +12,11 @@ try {
 }
 
 const lines = (...rows) => rows.join('\n');
-// Wrap body rows in a function component so each case is a whole .tsx module.
-const component = (...body) => lines('function View() {', ...body.map((row) => `  ${row}`), '  return null;', '}');
+const insideComponent = (...body) => lines('function View() {', ...body.map((row) => `  ${row}`), '  return null;', '}');
 
 const MESSAGE_TAIL = ' are separate boolean flags that have to agree.';
 
-// Where `declaration` (the exact text of the second flag's declaration,
-// semicolon included) sits in code: 1-based line and column, start and end.
-function spanOf(code, declaration) {
+function spanOfDeclarationText(code, declaration) {
   const index = code.indexOf(declaration);
   if (index === -1 || code.indexOf(declaration, index + 1) !== -1) {
     throw new Error(`test setup: ${JSON.stringify(declaration)} must occur exactly once in the case's code`);
@@ -47,7 +30,7 @@ function spanOf(code, declaration) {
   return { line, column, endLine, endColumn };
 }
 
-const report = (code, names, declaration) => ({ names, nodeType: 'VariableDeclaration', ...spanOf(code, declaration) });
+const report = (code, names, declaration) => ({ names, nodeType: 'VariableDeclaration', ...spanOfDeclarationText(code, declaration) });
 
 function lint(code) {
   const linter = new Linter();
@@ -97,16 +80,12 @@ function check({ name, code, expected }) {
   );
 }
 
-// Each case: name, code, and the reports the rule should make (none for the
-// cases that should pass).
 const cases = [];
 const reported = (name, code, ...reports) => cases.push({ name, code, expected: reports.map((r) => report(code, ...r)) });
 const accepted = (name, code) => cases.push({ name, code, expected: [] });
 
-// What counts as boolean state or a boolean ref.
-
 {
-  const code = component('const [open, setOpen] = useState(false);', 'const [busy, setBusy] = useState(true);');
+  const code = insideComponent('const [open, setOpen] = useState(false);', 'const [busy, setBusy] = useState(true);');
   reported(
     "two useState with literal false/true (const [open, setOpen] = useState(false); const [busy, setBusy] = useState(true)): names 'open, busy', on the second declaration",
     code,
@@ -114,7 +93,7 @@ const accepted = (name, code) => cases.push({ name, code, expected: [] });
   );
 }
 {
-  const code = component('const [ready, setReady] = useState<boolean>(load());', 'const [ended, setEnded] = useState<boolean>(check());');
+  const code = insideComponent('const [ready, setReady] = useState<boolean>(load());', 'const [ended, setEnded] = useState<boolean>(check());');
   reported(
     "useState<boolean>(call()) twice counts by the type argument alone: names 'ready, ended', on the second declaration",
     code,
@@ -122,7 +101,7 @@ const accepted = (name, code) => cases.push({ name, code, expected: [] });
   );
 }
 {
-  const code = component(
+  const code = insideComponent(
     'const [ready, setReady] = useState<boolean | undefined>(undefined);',
     'const [ended, setEnded] = useState<boolean | null>(null);',
   );
@@ -133,7 +112,7 @@ const accepted = (name, code) => cases.push({ name, code, expected: [] });
   );
 }
 {
-  const code = component('const [ready, setReady] = useState<boolean>(() => read());', 'const [ended, setEnded] = useState(false);');
+  const code = insideComponent('const [ready, setReady] = useState<boolean>(() => read());', 'const [ended, setEnded] = useState(false);');
   reported(
     "a lazy initialiser with a boolean type argument (useState<boolean>(() => read())) counts: with useState(false), names 'ready, ended'",
     code,
@@ -141,7 +120,7 @@ const accepted = (name, code) => cases.push({ name, code, expected: [] });
   );
 }
 {
-  const code = component('const [open, setOpen] = React.useState(false);', 'const [busy, setBusy] = React.useState<boolean>(initial);');
+  const code = insideComponent('const [open, setOpen] = React.useState(false);', 'const [busy, setBusy] = React.useState<boolean>(initial);');
   reported(
     "React.useState(false) and React.useState<boolean>(initial) count like useState: names 'open, busy', on the second declaration",
     code,
@@ -149,7 +128,7 @@ const accepted = (name, code) => cases.push({ name, code, expected: [] });
   );
 }
 {
-  const code = component('const pending = useRef(false);', 'const mounted = useRef<boolean>(isMounted());');
+  const code = insideComponent('const pending = useRef(false);', 'const mounted = useRef<boolean>(isMounted());');
   reported(
     "boolean refs useRef(false) and useRef<boolean>(isMounted()) count, named by the variable: names 'pending, mounted'",
     code,
@@ -157,7 +136,7 @@ const accepted = (name, code) => cases.push({ name, code, expected: [] });
   );
 }
 {
-  const code = component('const pending = React.useRef(true);', 'const mounted = React.useRef<boolean | null>(null);');
+  const code = insideComponent('const pending = React.useRef(true);', 'const mounted = React.useRef<boolean | null>(null);');
   reported(
     "React.useRef(true) and React.useRef<boolean | null>(null) count: names 'pending, mounted', on the second declaration",
     code,
@@ -165,7 +144,7 @@ const accepted = (name, code) => cases.push({ name, code, expected: [] });
   );
 }
 {
-  const code = component('const open = useState(false);', 'const [busy, setBusy] = useState(true);');
+  const code = insideComponent('const open = useState(false);', 'const [busy, setBusy] = useState(true);');
   reported(
     "a non-destructured useState (const open = useState(false)) is named by the variable: with [busy] = useState(true), names 'open, busy'",
     code,
@@ -173,7 +152,7 @@ const accepted = (name, code) => cases.push({ name, code, expected: [] });
   );
 }
 {
-  const code = component('let [open, setOpen] = useState(false);', 'let busy = useState<boolean>(initial);');
+  const code = insideComponent('let [open, setOpen] = useState(false);', 'let busy = useState<boolean>(initial);');
   reported(
     "state declared with let counts once (let [open] = useState(false); let busy = useState<boolean>(initial)): names 'open, busy', not repeated",
     code,
@@ -181,10 +160,8 @@ const accepted = (name, code) => cases.push({ name, code, expected: [] });
   );
 }
 
-// Mixing with boolean lets: one count per scope, in source order.
-
 {
-  const code = component('let ready = false;', 'const [open, setOpen] = useState(false);');
+  const code = insideComponent('let ready = false;', 'const [open, setOpen] = useState(false);');
   reported(
     "a boolean let then a boolean state in one function body share the count: names 'ready, open', on the state's declaration",
     code,
@@ -192,7 +169,7 @@ const accepted = (name, code) => cases.push({ name, code, expected: [] });
   );
 }
 {
-  const code = component('const [open, setOpen] = useState(false);', 'let ready: boolean = compute();');
+  const code = insideComponent('const [open, setOpen] = useState(false);', 'let ready: boolean = compute();');
   reported(
     "a boolean state then a boolean let in one function body: names 'open, ready' in source order, on the let",
     code,
@@ -200,7 +177,7 @@ const accepted = (name, code) => cases.push({ name, code, expected: [] });
   );
 }
 {
-  const code = component(
+  const code = insideComponent(
     'const [open, setOpen] = useState(false);',
     'const [count, setCount] = useState(0);',
     'const pending = useRef(false);',
@@ -212,8 +189,6 @@ const accepted = (name, code) => cases.push({ name, code, expected: [] });
     ['open, pending, ready', 'const pending = useRef(false);'],
   );
 }
-
-// Separate scopes: nested functions and sibling components count apart.
 
 accepted(
   'one boolean state in each of two components (View: open; Panel: busy) is not reported',
@@ -230,10 +205,10 @@ accepted(
 );
 accepted(
   'a boolean state in a component and one in a nested function (a custom hook inside it) are separate scopes, not reported',
-  component('const [open, setOpen] = useState(false);', 'function useInner() {', '  const [busy, setBusy] = useState(true);', '  return busy;', '}'),
+  insideComponent('const [open, setOpen] = useState(false);', 'function useInner() {', '  const [busy, setBusy] = useState(true);', '  return busy;', '}'),
 );
 {
-  const code = component(
+  const code = insideComponent(
     'const [open, setOpen] = useState(false);',
     'const Inner = () => {',
     '  const [busy, setBusy] = useState(true);',
@@ -248,39 +223,37 @@ accepted(
   );
 }
 
-// What doesn't count.
-
 accepted(
   'useState(0) next to one boolean state (useState(false)) is not counted: not reported',
-  component('const [open, setOpen] = useState(false);', 'const [count, setCount] = useState(0);'),
+  insideComponent('const [open, setOpen] = useState(false);', 'const [count, setCount] = useState(0);'),
 );
 accepted(
   "useState<Stage>('idle') next to one boolean state is not counted: not reported",
-  component("const [stage, setStage] = useState<Stage>('idle');", 'const [open, setOpen] = useState(false);'),
+  insideComponent("const [stage, setStage] = useState<Stage>('idle');", 'const [open, setOpen] = useState(false);'),
 );
 accepted(
   'useRef<HTMLInputElement>(null) next to one boolean state is not counted: not reported',
-  component('const input = useRef<HTMLInputElement>(null);', 'const [open, setOpen] = useState(false);'),
+  insideComponent('const input = useRef<HTMLInputElement>(null);', 'const [open, setOpen] = useState(false);'),
 );
 accepted(
   'useState() with no argument and no type argument next to one boolean state is not counted: not reported',
-  component('const [value, setValue] = useState();', 'const [open, setOpen] = useState(false);'),
+  insideComponent('const [value, setValue] = useState();', 'const [open, setOpen] = useState(false);'),
 );
 accepted(
   "useState<boolean | 'auto'>('auto') is not a boolean type argument (not only boolean and nullish): with one boolean state, not reported",
-  component("const [mode, setMode] = useState<boolean | 'auto'>('auto');", 'const [open, setOpen] = useState(false);'),
+  insideComponent("const [mode, setMode] = useState<boolean | 'auto'>('auto');", 'const [open, setOpen] = useState(false);'),
 );
 accepted(
   'an array pattern starting with a hole (const [, setOpen] = useState(false)) is not counted: with one boolean state, not reported',
-  component('const [, setOpen] = useState(false);', 'const [busy, setBusy] = useState(true);'),
+  insideComponent('const [, setOpen] = useState(false);', 'const [busy, setBusy] = useState(true);'),
 );
 accepted(
   'an array pattern starting with a non-identifier (const [{ open }] = useState(false)) is not counted: with one boolean state, not reported',
-  component('const [{ open }] = useState(false);', 'const [busy, setBusy] = useState(true);'),
+  insideComponent('const [{ open }] = useState(false);', 'const [busy, setBusy] = useState(true);'),
 );
 accepted(
   'other calls with false (useFlag(false), useMemo(() => false, []), Boolean(false)) are not counted: with one boolean state, not reported',
-  component(
+  insideComponent(
     'const shown = useFlag(false);',
     'const hidden = useMemo(() => false, []);',
     'const off = Boolean(false);',
@@ -289,7 +262,7 @@ accepted(
 );
 accepted(
   'const booleans that are not hook calls (const a = false; const b: boolean = true) are not counted: with one boolean state, not reported',
-  component('const a = false;', 'const b: boolean = true;', 'const [open, setOpen] = useState(false);'),
+  insideComponent('const a = false;', 'const b: boolean = true;', 'const [open, setOpen] = useState(false);'),
 );
 
 describe('one-stage-value counts boolean React state and refs', () => {
