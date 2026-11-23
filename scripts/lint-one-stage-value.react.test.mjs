@@ -316,6 +316,18 @@ accepted(
     ['ready, ended', 'const [ended, setEnded] = useState(true);'],
   );
 }
+accepted(
+  "an arrow's return type decides: useState((): boolean | 'auto' => false) is not only a boolean, so it is not counted despite the false: with one boolean state, not reported",
+  insideComponent("const [mode, setMode] = useState((): boolean | 'auto' => false);", 'const [open] = useState(false);'),
+);
+{
+  const code = insideComponent('const [ready, setReady] = useState((): boolean => false);', 'const [ended, setEnded] = useState(true);');
+  reported(
+    "an arrow with a boolean return type (useState((): boolean => false)) still counts: with useState(true), names 'ready, ended', on the second declaration",
+    code,
+    ['ready, ended', 'const [ended, setEnded] = useState(true);'],
+  );
+}
 
 describe('one-stage-value counts boolean React state and refs', () => {
   for (const testCase of cases) it(testCase.name, () => check(testCase));

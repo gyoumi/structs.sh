@@ -35,15 +35,18 @@ function hookName(callee) {
   return undefined;
 }
 
-const returnsBooleanLiteral = (node) =>
-  node?.type === 'ArrowFunctionExpression' && !node.async && node.expression && isBooleanLiteral(node.body);
+function returnsBoolean(node) {
+  if (node?.type !== 'ArrowFunctionExpression' || node.async) return false;
+  if (node.returnType) return isBooleanType(node.returnType);
+  return node.expression && isBooleanLiteral(node.body);
+}
 
 function isBooleanHookCall(init) {
   if (init?.type !== 'CallExpression' || !BOOLEAN_HOOKS.has(hookName(init.callee))) return false;
   const typeArgument = init.typeArguments?.params[0];
   if (typeArgument) return isBooleanTypeNode(typeArgument);
   const [initial] = init.arguments;
-  return isBooleanLiteral(initial) || (hookName(init.callee) === 'useState' && returnsBooleanLiteral(initial));
+  return isBooleanLiteral(initial) || (hookName(init.callee) === 'useState' && returnsBoolean(initial));
 }
 
 function booleanHookFlagName(declarator) {
