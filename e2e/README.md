@@ -226,9 +226,12 @@ matching `/quicksort|pivot/i`. It must contain:
 | `linked-list-index-drift` | `/target list/i` |
 
 **Readouts** (`role="status"` or `<output>`, named as in checkpoint 1). Counters
-start at `0`, rise as the animation plays (not only at the end), follow the
-timeline (`Back to the start` resets them to `0`, `Skip` and `Skip to the end`
-bring them to the final count) and stay at the final count after a try.
+start at `0` and rise as the animation plays by itself after `Run`: while
+`Animation progress` is still below 100, each counter passes through values
+strictly between `0` and its final count, so a counter that jumps straight to its
+final count on `Run` fails. Counters follow the timeline (`Back to the start`
+resets them to `0`, `Skip` and `Skip to the end` bring them to the final count)
+and stay at the final count after a try.
 Arrangement readouts show the current arrangement and update on every swap.
 
 | Template | Counters | Other readouts | Score of a solved try |
@@ -242,8 +245,12 @@ Arrangement readouts show the current arrangement and update on every swap.
 
 How each count works:
 
-- **Passes:** each run of `bubble.ts`'s outer loop, including the final pass that
-  makes no swaps, at most `n - 1`. Solved when `Passes` equals `targetPasses`.
+- **Passes:** each run of `bubble.ts`'s outer loop that makes at least one
+  comparison, including the final pass that makes no swaps. An outer iteration
+  that makes no comparison is not a pass: when all `n - 1` passes swap,
+  `bubble.ts` still runs an `n`-th iteration (`i = n - 1`, so `j < n - i` is
+  `1 < 1`) that compares nothing, and `Passes` stays at `n - 1`. So there are at
+  most `n - 1` passes. Solved when `Passes` equals `targetPasses`.
 - **Insertion comparisons:** each evaluation of `val >= a[j - 1]` in
   `insertion.ts`. **Merge comparisons:** each comparison of the two halves in
   `merge.ts` (split at `floor((lo + hi) / 2)`, left wins ties). Solved only when
@@ -273,15 +280,23 @@ its counters at their final counts, and:
   - upset: both node counts, and `BST` and `AVL`;
   - forced order and index drift: `target` (for example `That order builds a
     different tree from the target.`).
-- `Score` shows no number (hidden, or text without digits such as `–` or `✗`).
-- `Goal reached` is hidden, whatever the secondary count.
+- While tries remain, `Score` shows no number (hidden, or text without digits
+  such as `–` or `✗`) and `Goal reached` is hidden, whatever the secondary count.
 
-A solved try always outranks an unsolved one. While tries remain, `Score` shows
-the last try's score when it was solved. Once the puzzle ends, `Score` shows the
-best solved try: the highest score, or for index drift the lowest cost. With no
-solved try, `Score` shows no number. `Goal reached` shows only when the try
-`Score` reports is solved and meets the goal (`score >= par`, or `cost <= par` for
-index drift).
+A solved try always outranks an unsolved one. What `Try result`, `Score` and
+`Goal reached` describe depends on whether the puzzle has ended:
+
+- **While tries remain** (after try 1 or 2), all three describe the try that just
+  finished. A solved try hides `Try result`, shows its score in `Score`, and shows
+  `Goal reached` when it meets the goal. An unsolved try shows `Try result`,
+  leaves `Score` with no number and hides `Goal reached`.
+- **Once the third try finishes** (the puzzle has ended), `Try result` still
+  describes that third try: visible when it was unsolved, hidden when it was
+  solved. `Score` and `Goal reached` instead describe the best solved try across
+  all three tries (the highest score, or for index drift the lowest cost), even
+  when the third try was unsolved. `Goal reached` shows when that best solved try
+  meets the goal (`score >= par`, or `cost <= par` for index drift). If all three
+  tries were unsolved, `Score` has no number and `Goal reached` stays hidden.
 
 **Try chips:** `list` `Tries` holds 3 `listitem`s. A spent chip reads `✗` when
 unsolved, and `<score>` or `<score> ⭐` (at or beyond the goal) when solved.
@@ -292,7 +307,27 @@ region draws its algorithm in an `<svg>`. On desktop the first region sits fully
 the left of the second, on the same row; on a 390x844 phone the first is stacked
 above the second and both fit the screen's width. There is exactly one `toolbar`
 `Playback`, and it drives both: `Skip`, stepping, rewind, replay and speed act on
-both stages together. Single-stage templates keep `#visualiser-container`, and Run
+both stages together.
+
+The tests read each stage's drawing from its `<svg>`: every visible `<text>` whose
+content is a whole number is a drawn value (as in the single-stage visualisers,
+anything hidden with `opacity: 0`, `visibility: hidden` or `display: none` is
+skipped). Nothing else in a stage's `<svg>` may be a bare whole number.
+
+- Sorting stages draw one value per slot, read left to right: the arrangement
+  before `Run` and after `Back to the start`, and the sorted values after `Skip`
+  and `Skip to the end`. During a merge, a value may move down a row; it is back
+  in the top row by the end.
+- Tree stages draw one node per inserted key, laid out so that left to right is
+  in order and each subtree's root is drawn above it (as in the BST and AVL
+  visualisers). Neither tree draws a key before `Run` or after `Back to the
+  start`. After `Skip` and `Skip to the end`, the BST stage draws the plain BST
+  of every key in slot order and the AVL tree stage draws the AVL tree after its
+  rotations.
+- From `Back to the start`, pressing `Next step` repeatedly changes both drawings
+  (a value moves, is highlighted, or a key appears) before `Animation progress`
+  reaches 100. From the end, `Replay` redraws both stages away from their final
+  drawings while it plays. Single-stage templates keep `#visualiser-container`, and Run
 scrolls it and `Playback` into view as in checkpoint 1.
 
 **Target tree** (`bst-forced-order`): a `figure` named `Target tree` (for example

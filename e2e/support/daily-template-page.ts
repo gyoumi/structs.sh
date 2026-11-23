@@ -2,31 +2,30 @@ import { expect, type Locator, type Page } from '@playwright/test';
 import type { DailyPage } from './daily-page';
 import { DailyLocators } from './daily-locators';
 import { DailyOperationBuilder } from './daily-operations';
+import { DailyStages, type Counter } from './daily-stages';
 
 const fmt = (values: readonly number[]) => `[${values.join(', ')}]`;
 const wholeNumber = (n: number) => new RegExp(`(?<![\\d.])${n}(?![\\d.])`);
 
 /**
  * Checkpoint 2 additions to the /daily page object: the template-specific readouts, try outcomes
- * (solved or unsolved), the two-stage layout, the target tree and the Index drift operation builder.
+ * (solved or unsolved), the two-stage layout and drawings, the target tree and the Index drift operation builder.
  * Checkpoint 1 behaviour (slots, Run, Skip, Playback, Goal, Score, Tries left) stays in `DailyPage`.
  * See "The daily game" in e2e/README.md for the contract these locators rely on.
  */
 export class DailyTemplatePage {
   private readonly ui: DailyLocators;
   readonly operations: DailyOperationBuilder;
+  readonly stages: DailyStages;
 
   constructor(readonly page: Page) {
     this.ui = new DailyLocators(page);
     this.operations = new DailyOperationBuilder(page);
+    this.stages = new DailyStages(this.ui);
   }
 
   private get tryChips(): Locator {
     return this.page.getByRole('list', { name: 'Tries', exact: true }).getByRole('listitem');
-  }
-
-  private stage(name: string): Locator {
-    return this.page.getByRole('region', { name, exact: true });
   }
 
   /** The first number in the named status readout, after checking it is visible. */
@@ -34,14 +33,33 @@ export class DailyTemplatePage {
     return this.ui.readNumber(this.ui.status(name), `"${name}" status readout`, context);
   }
 
-  /** Polls the named readout until its first number rises above `floor`, for counters that animate after Run. */
-  async expectStatusRisesAbove(name: string, floor: number, context: string): Promise<void> {
+  /**
+   * Right after Run, samples each counter while playback plays by itself until every counter has been read
+   * strictly between 0 and its final count while Animation progress was still below 100.
+   * A counter that jumps straight to its final count on Run, or only updates at the end, never passes.
+   */
+  async expectCountersAnimate(counters: readonly Counter[], context: string): Promise<void> {
+    const seen = new Set<string>();
+    const last = new Map<string, string>();
     await expect
-      .poll(() => this.statusNumber(name, context), {
-        intervals: [50],
-        message: `${context}: after Run, the "${name}" readout should animate above ${floor} by itself, before the try ends`,
-      })
-      .toBeGreaterThan(floor);
+      .poll(
+        async () => {
+          for (const { name, final } of counters) {
+            const value = await this.statusNumber(name, context);
+            const progress = await this.ui.progress(context);
+            if (value > 0 && value < final && progress < 100) seen.add(name);
+            last.set(name, `${value} at progress ${Math.round(progress)}`);
+          }
+          return counters
+            .filter(({ name }) => !seen.has(name))
+            .map(({ name, final }) => `"${name}" never read between 0 and ${final} mid-run (last ${last.get(name)})`);
+        },
+        {
+          intervals: [50],
+          message: `${context}: after Run, each counter should animate by itself through a value strictly between 0 and its final count while Animation progress is below 100`,
+        },
+      )
+      .toEqual([]);
   }
 
   /** Puzzle rules must include each pattern, and must not still describe the quicksort puzzle. */
@@ -170,7 +188,7 @@ export class DailyTemplatePage {
   private async stageBoxes(first: string, second: string, context: string) {
     const boxes = [];
     for (const name of [first, second]) {
-      const region = this.stage(name);
+      const region = this.stages.region(name);
       await expect(region, `${context}: a region named "${name}" should show that algorithm's stage`).toBeVisible();
       await expect(region.locator('svg').first(), `${context}: the "${name}" stage should draw into an <svg>`).toBeVisible();
       const box = await region.boundingBox();

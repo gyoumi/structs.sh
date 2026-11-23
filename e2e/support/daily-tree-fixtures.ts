@@ -68,7 +68,8 @@ export const FORCED_24 = {
  * Nodes passed per insert, in insert order:
  * - start [3, 2, 13, 6, 14, 1, 8, 10, 5, 12, 11, 7, 4, 9]:
  *     BST 0+1+1+2+2+2+3+4+3+5+6+4+4+5 = 42; AVL 0+1+1+2+2+2+3+4+4+4+4+3+4+4 = 38 (6 rotations, not counted).
- *     Unsolved (42 >= 38).
+ *     Unsolved (42 >= 38). Final trees, as value(left, right):
+ *     BST 3(2(1, ), 13(6(5(4, ), 8(7, 10(9, 12(11, )))), 14)); AVL 8(3(2(1, ), 6(5(4, ), 7)), 11(10(9, ), 13(12, 14))).
  * - solved [3, 2, 8, 13, 14, 1, 10, 9, 6, 12, 11, 7, 4, 5]:
  *     BST 0+1+1+2+3+2+3+4+2+4+5+3+3+4 = 37; AVL 0+1+1+2+3+2+3+4+4+4+4+4+4+5 = 41 (11 rotations, not counted).
  *     Solved; margin 41 - 37 = 4 reaches the goal of 4. Counting rotations would wrongly give AVL 52 and margin 15.
@@ -82,6 +83,12 @@ export const UPSET_25 = {
     fixed: [0, 1, 5, 9, 11, 12],
     par: 4,
   } satisfies UpsetPuzzle,
-  start: { values: [3, 2, 13, 6, 14, 1, 8, 10, 5, 12, 11, 7, 4, 9], bst: 42, avl: 38 },
+  start: {
+    values: [3, 2, 13, 6, 14, 1, 8, 10, 5, 12, 11, 7, 4, 9],
+    bst: 42,
+    avl: 38,
+    bstTree: '3(2(1, ), 13(6(5(4, ), 8(7, 10(9, 12(11, )))), 14))',
+    avlTree: '8(3(2(1, ), 6(5(4, ), 7)), 11(10(9, ), 13(12, 14)))',
+  },
   solved: { values: [3, 2, 8, 13, 14, 1, 10, 9, 6, 12, 11, 7, 4, 5], bst: 37, avl: 41, margin: 4 },
 } as const;

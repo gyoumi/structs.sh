@@ -6,7 +6,7 @@ import { BUBBLE_21, INSERTION_22 } from '../support/daily-sorting-fixtures';
 const fmt = (values: readonly number[]) => `[${values.join(', ')}]`;
 
 test.describe('daily bubble: exactly k passes', () => {
-  const { puzzle, start, solved, moreSwaps } = BUBBLE_21;
+  const { puzzle, start, solved, mostPasses } = BUBBLE_21;
 
   test('loads and plays, counting passes and swaps', async ({ dailyPage, dailyTemplate }) => {
     await dailyPage.serve(puzzle);
@@ -22,7 +22,7 @@ test.describe('daily bubble: exactly k passes', () => {
     await dailyPage.expectStatusNumber('Swaps', 0, `${ctx}: Swaps should start at 0 before Run`);
 
     await dailyPage.run();
-    await dailyTemplate.expectStatusRisesAbove('Swaps', 0, ctx);
+    await dailyTemplate.expectCountersAnimate([{ name: 'Passes', final: start.passes }, { name: 'Swaps', final: start.swaps }], ctx);
     await dailyPage.skip(ctx);
     await dailyPage.expectStatusNumber('Passes', start.passes, `${ctx}: after Skip, Passes should be ${start.passes} (4 passes with swaps, then a pass with none)`);
     await dailyPage.expectStatusNumber('Swaps', start.swaps, `${ctx}: after Skip, Swaps should be ${start.swaps} (6 + 4 + 3 + 1 + 0)`);
@@ -61,16 +61,22 @@ test.describe('daily bubble: exactly k passes', () => {
     await dailyTemplate.expectGoalReached(true, `${try2}: solved with ${solved.swaps} swaps >= goal ${puzzle.par}`);
     await dailyTemplate.expectTryChips(['✗', `${solved.swaps} ⭐`], try2);
 
-    const try3 = `${BUBBLE_21.name} try 3 ${fmt(moreSwaps.values)} (${moreSwaps.passes} passes, ${moreSwaps.swaps} swaps: unsolved)`;
-    await dailyTemplate.arrange(dailyPage, moreSwaps.values, try3);
+    const try3 = `${BUBBLE_21.name} try 3 ${fmt(mostPasses.values)} (${mostPasses.passes} passes = n - 1, ${mostPasses.swaps} swaps: unsolved)`;
+    await dailyTemplate.arrange(dailyPage, mostPasses.values, try3);
     await dailyPage.run();
     await dailyPage.skip(try3);
     await dailyPage.expectStatusNumber('Tries left', 0, `${try3}: Tries left should be 0`);
-    await dailyPage.expectStatusNumber('Swaps', moreSwaps.swaps, `${try3}: Swaps should be ${moreSwaps.swaps}`);
+    await dailyPage.expectStatusNumber(
+      'Passes',
+      mostPasses.passes,
+      `${try3}: Passes should be ${mostPasses.passes} (n - 1, every pass swapping); bubble.ts's 8th outer iteration makes no comparisons and is not a pass, so 8 is wrong`,
+    );
+    await dailyPage.expectStatusNumber('Swaps', mostPasses.swaps, `${try3}: Swaps should be ${mostPasses.swaps} (7 + 4 + 2 + 2 + 1 + 1 + 1)`);
+    await dailyTemplate.expectTryResult([mostPasses.passes, puzzle.targetPasses], [/pass/i], `${try3}: Try result still describes this final try`);
 
-    const end = `${BUBBLE_21.name} after tries [✗ ${start.swaps} swaps, ${solved.swaps} solved, ✗ ${moreSwaps.swaps} swaps]`;
-    await dailyPage.expectStatusNumber('Score', solved.swaps, `${end}: the only solved try (${solved.swaps}) must outrank unsolved tries with more swaps (${start.swaps}, ${moreSwaps.swaps})`);
-    await dailyTemplate.expectGoalReached(true, `${end}: the winning try is solved and meets the goal`);
+    const end = `${BUBBLE_21.name} after tries [✗ ${start.swaps} swaps, ${solved.swaps} solved, ✗ ${mostPasses.swaps} swaps]`;
+    await dailyPage.expectStatusNumber('Score', solved.swaps, `${end}: the only solved try (${solved.swaps}) must outrank unsolved tries with more swaps (${start.swaps}, ${mostPasses.swaps})`);
+    await dailyTemplate.expectGoalReached(true, `${end}: once the puzzle ends, Goal reached reports the best solved try, which meets the goal`);
     await dailyTemplate.expectTryChips(['✗', `${solved.swaps} ⭐`, '✗'], end);
     expect(await dailyPage.canShare(), `${end}: Share should be offered once the puzzle ends`).toBe(true);
     const expected = [`structs.sh daily #21 · Bubble sort · Goal ${puzzle.par}`, '✗', `${solved.swaps} ⭐`, '✗', 'structs.sh/daily'].join('\n');
@@ -80,6 +86,12 @@ test.describe('daily bubble: exactly k passes', () => {
 
 test.describe('daily insertion beats merge', () => {
   const { puzzle, start, tie, solved } = INSERTION_22;
+  const stages = ['Insertion sort', 'Merge sort'];
+  const sorted = [...start.values].sort((a, b) => a - b);
+  const counters = [
+    { name: 'Insertion comparisons', final: start.insertion },
+    { name: 'Merge comparisons', final: start.merge },
+  ];
 
   test('loads and plays both sorts side by side on one Playback toolbar', async ({ dailyPage, dailyTemplate }) => {
     await dailyPage.serve(puzzle);
@@ -93,19 +105,27 @@ test.describe('daily insertion beats merge', () => {
     await dailyTemplate.expectStagesSideBySide('Insertion sort', 'Merge sort', ctx);
     await dailyTemplate.expectOnePlaybackToolbar(ctx);
 
+    for (const stage of stages) await dailyTemplate.stages.expectValues(stage, start.values, `${ctx}: before Run the "${stage}" stage should draw the arrangement`);
+
     await dailyPage.run();
-    await dailyTemplate.expectStatusRisesAbove('Insertion comparisons', 0, ctx);
-    await dailyTemplate.expectStatusRisesAbove('Merge comparisons', 0, ctx);
+    await dailyTemplate.expectCountersAnimate(counters, ctx);
     await dailyPage.skip(ctx);
     await dailyPage.expectStatusNumber('Insertion comparisons', start.insertion, `${ctx}: Skip should finish insertion sort at ${start.insertion} comparisons (1+1+3+2+5+3+5)`);
     await dailyPage.expectStatusNumber('Merge comparisons', start.merge, `${ctx}: Skip should finish merge sort at ${start.merge} comparisons (1+1+3+1+1+3+7)`);
+    for (const stage of stages) await dailyTemplate.stages.expectValues(stage, sorted, `${ctx}: after Skip the "${stage}" stage should draw the sorted values`);
 
     await dailyPage.rewind();
     await dailyPage.expectStatusNumber('Insertion comparisons', 0, `${ctx}: Back to the start on the shared toolbar should reset Insertion comparisons to 0`);
     await dailyPage.expectStatusNumber('Merge comparisons', 0, `${ctx}: Back to the start on the shared toolbar should reset Merge comparisons to 0`);
+    for (const stage of stages) await dailyTemplate.stages.expectValues(stage, start.values, `${ctx}: Back to the start should redraw the arrangement in the "${stage}" stage`);
+    await dailyTemplate.stages.stepUntilEveryStageChanges(stages, counters, ctx);
     await dailyPage.skipToEnd(ctx);
     await dailyPage.expectStatusNumber('Insertion comparisons', start.insertion, `${ctx}: Skip to the end should finish insertion sort at ${start.insertion}`);
     await dailyPage.expectStatusNumber('Merge comparisons', start.merge, `${ctx}: Skip to the end should finish merge sort at ${start.merge}`);
+    for (const stage of stages) await dailyTemplate.stages.expectValues(stage, sorted, `${ctx}: Skip to the end should draw the sorted values in the "${stage}" stage`);
+    await dailyTemplate.stages.expectReplayRedrawsEveryStage(stages, ctx);
+    await dailyPage.skipToEnd(`${ctx} after Replay`);
+    for (const stage of stages) await dailyTemplate.stages.expectValues(stage, sorted, `${ctx}: after Replay, Skip to the end should draw the sorted values in the "${stage}" stage`);
   });
 
   test('an unsolved try is marked, and a solved try scores its out-of-order pairs', async ({ dailyPage, dailyTemplate }) => {

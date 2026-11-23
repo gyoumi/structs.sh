@@ -9,7 +9,9 @@ import type { BubblePuzzle, InsertionMergePuzzle } from './daily-puzzle-shapes';
 
 /**
  * Puzzle #21, `bubble-exact-passes`: 8 values, fixed slots [1, 4, 6] (values 2, 5, 7), target 4 passes.
- * A pass is one run of bubble.ts's outer loop, counting the final pass that makes no swaps; at most n - 1 = 7.
+ * A pass is one run of bubble.ts's outer loop that makes at least one comparison, counting the final pass that
+ * makes no swaps; at most n - 1 = 7. When all 7 passes swap, bubble.ts still runs an 8th outer iteration
+ * (i = 7, so `j < len - i` is `1 < 1`) that compares nothing: it is not a pass.
  * Of the 5! = 120 fills, 20 take exactly 4 passes: swaps median 8, best 12, so par 11.
  *
  * Pass by pass (swaps in that pass, then the array after it):
@@ -17,8 +19,9 @@ import type { BubblePuzzle, InsertionMergePuzzle } from './daily-puzzle-shapes';
  *     1 [1..8]; 0 -> 5 passes, 14 swaps. Unsolved (5 != 4) even though 14 swaps beats the goal of 11.
  * - solved (swap slots 0 and 7) [4, 2, 8, 1, 5, 3, 7, 6]: 6 [2,4,1,5,3,7,6,8]; 3 [2,1,4,3,5,6,7,8];
  *     2 [1..8]; 0 -> 4 passes, 11 swaps. Solved, and 11 swaps reaches the goal of 11.
- * - moreSwaps [8, 2, 6, 1, 5, 3, 7, 4]: 7 [2,6,1,5,3,7,4,8]; 4 [2,1,5,3,6,4,7,8]; 3 [1,2,3,5,4,6,7,8];
- *     1 [1..8]; 0 -> 5 passes, 15 swaps. Unsolved, with more swaps than the solved try.
+ * - mostPasses [8, 2, 6, 4, 5, 3, 7, 1]: 7 [2,6,4,5,3,7,1,8]; 4 [2,4,5,3,6,1,7,8]; 2 [2,4,3,5,1,6,7,8];
+ *     2 [2,3,4,1,5,6,7,8]; 1 [2,3,1,4..8]; 1 [2,1,3..8]; 1 [1..8] -> 7 passes (n - 1, every one swapping), 18 swaps.
+ *     Then the empty 8th outer iteration, which must not count: 8 would be wrong. Unsolved, with more swaps than the solved try.
  */
 export const BUBBLE_21 = {
   name: 'BUBBLE_21 (#21, bubble sort, exactly 4 passes, goal 11 swaps)',
@@ -32,7 +35,7 @@ export const BUBBLE_21 = {
   } satisfies BubblePuzzle,
   start: { values: [6, 2, 8, 1, 5, 3, 7, 4], passes: 5, swaps: 14 },
   solved: { values: [4, 2, 8, 1, 5, 3, 7, 6], passes: 4, swaps: 11 },
-  moreSwaps: { values: [8, 2, 6, 1, 5, 3, 7, 4], passes: 5, swaps: 15 },
+  mostPasses: { values: [8, 2, 6, 4, 5, 3, 7, 1], passes: 7, swaps: 18 },
 } as const;
 
 /**

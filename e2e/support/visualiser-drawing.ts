@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 
 /** A value in the drawing, with its circle's computed colours. */
 export interface DrawnNode {
@@ -17,9 +17,9 @@ export const isRed = (colour: string): boolean => {
   return Math.abs(hue) < 20;
 };
 
-/** The numbered nodes currently visible in the engine's drawing. */
-export const readDrawing = (page: Page): Promise<DrawnNode[]> =>
-  page.locator('#visualiser-canvas text').evaluateAll((texts) =>
+/** The numbered nodes currently visible among `texts`, the `<text>` elements of one drawing. */
+export const readDrawnTexts = (texts: Locator): Promise<DrawnNode[]> =>
+  texts.evaluateAll((texts) =>
     texts
       .filter((text) => /^\d+$/.test(text.textContent?.trim() ?? ''))
       .filter((text) => {
@@ -38,3 +38,6 @@ export const readDrawing = (page: Page): Promise<DrawnNode[]> =>
       })
       .filter((node) => node.x !== 0 || node.y !== 0),
   );
+
+/** The numbered nodes currently visible in the engine's drawing. */
+export const readDrawing = (page: Page): Promise<DrawnNode[]> => readDrawnTexts(page.locator('#visualiser-canvas text'));
