@@ -85,13 +85,10 @@ function useCursor(content: string, clearInput: () => void, scrollToBottom: () =
     handleKeyAction(key, ctrlKey);
   }
 
-  function handleKeyUp() {}
-
   return {
     handleOnFocus,
     handleOnBlur,
     handleKeyDown,
-    handleKeyUp,
     shifts: cursorOffsetFromEnd,
     paused: isBlinkPaused,
   };

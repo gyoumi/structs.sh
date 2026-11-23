@@ -35,9 +35,13 @@ function hookName(callee) {
   return undefined;
 }
 
+const returnsBooleanLiteral = (node) => node?.type === 'ArrowFunctionExpression' && node.expression && isBooleanLiteral(node.body);
+
 function isBooleanHookCall(init) {
   if (init?.type !== 'CallExpression' || !BOOLEAN_HOOKS.has(hookName(init.callee))) return false;
-  return isBooleanTypeNode(init.typeArguments?.params[0]) || isBooleanLiteral(init.arguments[0]);
+  const [initial] = init.arguments;
+  if (isBooleanTypeNode(init.typeArguments?.params[0]) || isBooleanLiteral(initial)) return true;
+  return hookName(init.callee) === 'useState' && returnsBooleanLiteral(initial);
 }
 
 function booleanHookFlagName(declarator) {

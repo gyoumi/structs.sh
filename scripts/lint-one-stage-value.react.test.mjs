@@ -120,6 +120,22 @@ const accepted = (name, code) => cases.push({ name, code, expected: [] });
   );
 }
 {
+  const code = insideComponent('const [ready] = useState(() => false);', 'const [ended] = useState(false);');
+  reported(
+    "an untyped lazy initialiser returning a literal (useState(() => false)) counts: with useState(false), names 'ready, ended', on the second declaration",
+    code,
+    ['ready, ended', 'const [ended] = useState(false);'],
+  );
+}
+{
+  const code = insideComponent('const [open, setOpen] = React.useState(() => true);', 'const [busy, setBusy] = useState(false);');
+  reported(
+    "React.useState(() => true) counts like useState(() => true): with useState(false), names 'open, busy', on the second declaration",
+    code,
+    ['open, busy', 'const [busy, setBusy] = useState(false);'],
+  );
+}
+{
   const code = insideComponent('const [open, setOpen] = React.useState(false);', 'const [busy, setBusy] = React.useState<boolean>(initial);');
   reported(
     "React.useState(false) and React.useState<boolean>(initial) count like useState: names 'open, busy', on the second declaration",
@@ -263,6 +279,18 @@ accepted(
 accepted(
   'const booleans that are not hook calls (const a = false; const b: boolean = true) are not counted: with one boolean state, not reported',
   insideComponent('const a = false;', 'const b: boolean = true;', 'const [open, setOpen] = useState(false);'),
+);
+accepted(
+  'an untyped lazy initialiser returning a non-boolean (useState(() => 0)) is not counted: with one boolean state, not reported',
+  insideComponent('const [count, setCount] = useState(() => 0);', 'const [open, setOpen] = useState(false);'),
+);
+accepted(
+  'an untyped lazy initialiser with a block body (useState(() => { return false; })) is not counted: with one boolean state, not reported',
+  insideComponent('const [ready, setReady] = useState(() => { return false; });', 'const [open, setOpen] = useState(false);'),
+);
+accepted(
+  'useRef(() => false) is not counted (useRef has no lazy form, so its value is a function): with one boolean state, not reported',
+  insideComponent('const factory = useRef(() => false);', 'const [open, setOpen] = useState(false);'),
 );
 
 describe('one-stage-value counts boolean React state and refs', () => {
