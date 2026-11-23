@@ -39,10 +39,11 @@ export const readDrawnTexts = (texts: Locator): Promise<DrawnNode[]> =>
       .filter((node) => node.x !== 0 || node.y !== 0),
   );
 
-/** The numbered nodes currently visible inside `svg`, with coordinates relative to `svg` read atomically. */
+/** The numbered nodes currently visible inside `svg`, in SVG user coordinates read atomically. */
 export const readSvgDrawnTexts = (svg: Locator): Promise<DrawnNode[]> =>
-  svg.evaluate((svgEl) => {
+  svg.evaluate((svgEl: SVGSVGElement) => {
     const origin = svgEl.getBoundingClientRect();
+    const toSvg = svgEl.getScreenCTM()?.inverse();
     return Array.from(svgEl.querySelectorAll('text'))
       .filter((text) => /^\d+$/.test(text.textContent?.trim() ?? ''))
       .filter((text) => {
@@ -55,10 +56,13 @@ export const readSvgDrawnTexts = (svg: Locator): Promise<DrawnNode[]> =>
       .map((text) => {
         const box = text.getBoundingClientRect();
         const shape = getComputedStyle(text.previousElementSibling ?? text);
+        const point = toSvg
+          ? new DOMPoint(box.x + box.width / 2, box.y).matrixTransform(toSvg)
+          : new DOMPoint(box.x + box.width / 2 - origin.x, box.y - origin.y);
         return {
           value: Number(text.textContent),
-          x: box.x + box.width / 2 - origin.x,
-          y: box.y - origin.y,
+          x: point.x,
+          y: point.y,
           fill: shape.fill,
           stroke: shape.stroke,
           zeroRect: box.x === 0 && box.y === 0 && box.width === 0 && box.height === 0,
