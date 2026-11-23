@@ -341,6 +341,8 @@ problem they found is fixed or is listed as a follow-up.
 
 ### 1i. Tidy
 
+**Done in #73** (with follow-up default-on guards in #74 and explicit Checkpoint 1 state machines in #76).
+
 Tidy the code checkpoint 1 added or changed against the four rules (size,
 stages, comments, tests) without changing what a player sees, extend
 `structs/one-stage-value` to cover React `useState` boolean flags, and extend
@@ -356,11 +358,26 @@ unchanged.
 ## Checkpoint 2, step by step
 
 ```
-2a. The other templates ──► 2b. Solver and checks ──► 2c. Schedule ──► 2d. Tidy
+2a-0. Tests ──► 2a-1. Sorting ──► 2a-2. Trees ──► 2a-3. Linked list ──► 2b. Solver and checks ──► 2c. Schedule ──► 2d. Tidy
 ```
 
 ### Decisions
 
+- **Split 2a into four vertical PRs:** `2a-0` writes Checkpoint 2's Playwright tests first (on `e2e/known-failures/game.json`), then `2a-1` ships the two sorting templates (`bubble-exact-passes`, `insertion-beats-merge`), `2a-2` ships the three tree templates (`avl-most-rotations`, `bst-forced-order`, `upset-bst-beats-avl`), and `2a-3` ships the linked list template (`linked-list-index-drift`).
+- **Complete 2a with static fixtures before setting up `structs-forge`:** all of `2a` runs inside `structs.sh` using static test puzzle JSON files (and Playwright network interception in e2e). The private `structs-forge` repo is connected before `2b`.
+- **Template IDs, scoring rules, and puzzle JSON shapes** (`GET /puzzles/today.json`, never carrying `best`):
+  - `quicksort-most-comparisons`: `{ number, template, values, fixed, par, date? }` — Extreme (higher).
+  - `bubble-exact-passes`: `{ number, template, values, fixed, targetPasses, par, date? }` — Exact target (`passes === targetPasses`, where each outer pass up to `n - 1` counts, including the final 0-swap stopping pass), then swaps (higher).
+  - `insertion-beats-merge`: `{ number, template, values, fixed, par, date? }` — Disagree (`insertionComparisons < mergeComparisons`, insertion stops when `val >= a[j - 1]`, merge splits at `floor((lo + hi) / 2)` and takes left on ties), then out-of-order pairs / inversions (higher).
+  - `avl-most-rotations`: `{ number, template, values, fixed, par, date? }` — Extreme, total single rotations from inserting keys in order (higher; each LL/RR counts as 1 rotation and each LR/RL double rotation counts as 2 rotations).
+  - `bst-forced-order`: `{ number, template, values, targetTree, par, date? }` — Exact target (inserting the player's order into an empty BST matches `targetTree`, given as its preorder traversal), then longest contiguous strictly increasing run in the insert order (higher). No fixed slots.
+  - `upset-bst-beats-avl`: `{ number, template, values, fixed, par, date? }` — Disagree (`bstNodesPassed < avlNodesPassed`, counting only existing nodes passed on the way down during each insert, not rotations), then margin `avlNodesPassed - bstNodesPassed` (higher).
+  - `linked-list-index-drift`: `{ number, template, start, target, par, date? }` — Exact target (final list equals `target`), then total cost = `operations + nodesWalked` (**lower wins**, so `cost <= par` reaches the goal). `insert(value, index)` costs `1 + min(index, lengthBefore)`; `delete(index)` costs `1 + (index + 1)`.
+- **Unsolved tries on Exact-target and Disagree puzzles:**
+  - An unsolved try still uses a try, explains clearly why the condition wasn't met (for example *"Took 3 passes — needed 4"* or *"Insertion made 16 comparisons — merge made 15"*), still shows the secondary count so the player can learn, and marks the try unsolved (`✗` in try chips and share text).
+  - Any solved try always outranks any unsolved try (especially important for lower-wins like Index drift, where an incomplete cheap run must not beat a solved one). `Goal reached` appears only when a try is both solved and meets/beats the goal (`score >= par` for higher-wins, `score <= par` for lower-wins). If all three tries are unsolved, the puzzle ends without a winning score and without `Goal reached`.
+  - In share text, solved tries follow Checkpoint 1 (`<score>` or `<score> ⭐`), and unsolved tries appear as `✗`.
+- **Two-algorithm puzzles (`insertion-beats-merge` and `upset-bst-beats-avl`):** render both stages side by side on desktop (stacked on phone) synced to one shared `Playback` toolbar (`Transport`). `Skip` finishes both stages; stepping, rewind, replay, and speed control both together.
 - **`structs-forge` starts in the private repo** in the `devsoc-unsw` org.
   Its first tests are the check scripts from `puzzle-checks/`, rewritten in
   Rust. The figures in `puzzle-ideas.md` become the ranges they expect.
@@ -372,17 +389,54 @@ unchanged.
 - **The weekday schedule** uses the bot player's grades. Forced order is the
   easy-day template, and the upset is the hard-day one, used sparingly.
 
-### 2a. The other templates
+### 2a-0. Tests
 
-The other six launch templates go into `structs-puzzles`, each with a parity
-test. The page gains the inputs they need:
+A separate test writer writes Checkpoint 2's Playwright e2e tests and adds them
+to `e2e/known-failures/game.json`, working from the decisions above and
+`docs/puzzle-ideas.md`. Each test serves its own hand-worked puzzle fixture.
 
-- an operation list for Index drift;
-- an insert order for the BST and AVL templates;
-- both trees side by side for the upset.
+Coverage:
 
-**You'll know it's done when** checkpoint 2's game tests pass, using one puzzle file
-per template.
+1. `Bubble: exactly k passes` loads and plays; an unsolved try explains why the pass count missed `k` while still showing the swap count, and a solved try reaching the goal counts as solved and outranks an unsolved try with more swaps.
+2. `Insertion beats merge` loads and plays with both sorting stages synced to one `Playback` toolbar; an unsolved try (`insertion >= merge`) is marked unsolved while a solved try (`insertion < merge`) scores by out-of-order pairs.
+3. `AVL: most rotations` loads and plays, counting rotations as keys are inserted in order.
+4. `Forced order` shows the target BST, loads and plays, distinguishes a matching vs non-matching tree, and scores a matching insert order by its longest increasing run.
+5. `Upset: BST builds cheaper` loads and plays with BST and AVL stages side by side synced to one `Playback` toolbar, counting nodes passed on the way down (not rotations) and scoring the margin when BST passes fewer nodes than AVL.
+6. `Index drift` loads and plays with an operation-list builder (`insert` / `delete`), shows operations, nodes walked, and total cost, and ranks lower solved cost higher (with any solved try outranking an unsolved try).
+
+**You'll know it's done when** all Checkpoint 2 e2e tests run in CI on
+`e2e/known-failures/game.json`, Checkpoint 1's 14 tests still pass, and CI is
+green.
+
+### 2a-1. Sorting templates (`bubble-exact-passes`, `insertion-beats-merge`)
+
+Add both sorting templates to `structs-puzzles` and the wasm wire layer, add
+counters and Vitest parity tests for bubble, insertion, and merge sort, and add
+exact-target / disagree try outcomes and synced dual-stage playback to `/daily`.
+
+**You'll know it's done when** both sorting parity tests pass, their Checkpoint
+2 e2e tests pass and leave `e2e/known-failures/game.json`, and desktop/phone
+videos are reviewed and approved.
+
+### 2a-2. Tree templates (`avl-most-rotations`, `bst-forced-order`, `upset-bst-beats-avl`)
+
+Add all three tree templates to `structs-puzzles`, add BST/AVL node-pass and
+rotation counters with Vitest parity tests, and add the insert-order, target
+BST, and side-by-side BST/AVL views to `/daily`.
+
+**You'll know it's done when** all three tree parity tests pass, their
+Checkpoint 2 e2e tests pass and leave `e2e/known-failures/game.json`, and
+desktop/phone videos are reviewed and approved.
+
+### 2a-3. Linked list template (`linked-list-index-drift`)
+
+Add `linked-list-index-drift` to `structs-puzzles`, add linked-list operation
+and node-walk counters with Vitest parity tests, and add the operation-list
+builder and lower-wins scoring to `/daily`.
+
+**You'll know it's done when** the linked list parity test passes,
+`e2e/known-failures/game.json` is empty again (all Checkpoint 2 e2e tests
+passing), and desktop/phone videos are reviewed and approved.
 
 ### 2b. Solver and checks
 
