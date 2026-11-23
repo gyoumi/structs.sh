@@ -11,6 +11,14 @@ export type { Input, Recorder } from './wasm/workerRecorder';
 
 const NEARLY_READY: CompilerStatus = { state: 'loading', done: 99, total: 100 };
 
+type LoadingStage = {
+  compiler: CompilerStatus | null;
+  runnerAndFonts: 'loading' | 'settled';
+};
+
+const shownCompilerStatus = ({ compiler, runnerAndFonts }: LoadingStage): CompilerStatus | null =>
+  compiler?.state === 'ready' && runnerAndFonts === 'loading' ? NEARLY_READY : compiler;
+
 type Session = {
   file: SourceFile;
   wasm: Uint8Array<ArrayBuffer>;
@@ -32,9 +40,7 @@ export class WasmDebugger implements Debugger {
 
   private stage: DebuggerStage = { stage: 'idle' };
 
-  private compilerReport: CompilerStatus | null = null;
-
-  private runnerAndFontsSettled = false;
+  private loading: LoadingStage = { compiler: null, runnerAndFonts: 'loading' };
 
   constructor(
     private readonly compiler: Compiler = createWorkerCompiler(),
@@ -42,26 +48,20 @@ export class WasmDebugger implements Debugger {
     loadFonts: () => Promise<unknown> = loadAllFonts
   ) {
     compiler.preload((status) => {
-      this.compilerReport = status;
+      this.loading = { ...this.loading, compiler: status };
       this.reportStatus();
     });
     const runnerAndFonts = [() => recorder.whenReady?.(), loadFonts].map((load) =>
       Promise.resolve().then(load)
     );
     Promise.allSettled(runnerAndFonts).then(() => {
-      this.runnerAndFontsSettled = true;
+      this.loading = { ...this.loading, runnerAndFonts: 'settled' };
       this.reportStatus();
     });
   }
 
-  private get compilerStatus(): CompilerStatus | null {
-    const status = this.compilerReport;
-    if (!status) return null;
-    return status.state === 'ready' && !this.runnerAndFontsSettled ? NEARLY_READY : status;
-  }
-
   private reportStatus() {
-    const status = this.compilerStatus;
+    const status = shownCompilerStatus(this.loading);
     if (status) this.events?.compilerStatus(status);
   }
 
@@ -75,7 +75,7 @@ export class WasmDebugger implements Debugger {
 
   setEvents(events: DebuggerEvents) {
     this.events = events;
-    const status = this.compilerStatus;
+    const status = shownCompilerStatus(this.loading);
     if (status) events.compilerStatus(status);
   }
 

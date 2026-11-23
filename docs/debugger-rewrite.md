@@ -505,7 +505,8 @@ e2e suite and the GDB comparison must pass unchanged at every step.
   - Stages: clippy fails a Rust struct or function with more than one
     `bool` (`instrumenter/clippy.toml`). The `structs/one-stage-value` ESLint
     rule fails an interface, type, class or block in the scope's TypeScript
-    that has two or more boolean fields or `let`s.
+    that has two or more boolean fields or `let`s, counting boolean React
+    state and refs (`useState`, `useRef`) as flags too.
   - Comments: `scripts/report-new-comments.mjs` adds a warning to the PR for
     each new plain comment in the scope's source files. It doesn't fail,
     because only a reviewer can tell an outside constraint from an
