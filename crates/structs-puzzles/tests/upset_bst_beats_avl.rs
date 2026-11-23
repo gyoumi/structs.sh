@@ -279,6 +279,15 @@ fn input_errors_come_in_order_and_agree() {
 }
 
 #[test]
+fn out_of_range_fixed_returns_error_instead_of_panicking() {
+    let broken = inst(&[7], &[1]);
+    let expected = Some(InputError::FixedSlotOutOfRange { index: 1 });
+    assert_eq!(UpsetBstBeatsAvl.run(&broken, &vec![7]).err(), expected);
+    assert_eq!(UpsetBstBeatsAvl.score(&broken, &vec![7]).err(), expected);
+    assert_eq!(UpsetBstBeatsAvl.evaluate(&broken, &[7]).err(), expected);
+}
+
+#[test]
 fn rules_name_both_trees() {
     let rules = UpsetBstBeatsAvl.rules(&upset_25());
     for needle in ["BST", "AVL"] {

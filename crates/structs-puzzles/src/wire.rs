@@ -185,6 +185,12 @@ fn forced_order(request: &Request) -> Result<Reply, String> {
     let target_tree = request.target_tree.clone().flatten().ok_or_else(|| {
         "The puzzle is broken: a bst-forced-order puzzle needs targetTree.".to_owned()
     })?;
+    if !is_valid_target_tree(&request.values, &target_tree) {
+        return Err(
+            "The puzzle is broken: targetTree is not a valid BST preorder of the puzzle's values."
+                .to_owned(),
+        );
+    }
     let instance = bst_forced_order::Instance {
         values: request.values.clone(),
         target_tree,
@@ -199,10 +205,27 @@ fn forced_order(request: &Request) -> Result<Reply, String> {
     }))
 }
 
+fn is_valid_target_tree(values: &[i32], target_tree: &[i32]) -> bool {
+    let built = crate::tree::preorder(&crate::tree::build_bst(target_tree, &mut Vec::new()));
+    if built != target_tree {
+        return false;
+    }
+    let mut want = values.to_vec();
+    want.sort_unstable();
+    want.dedup();
+    let mut got = target_tree.to_vec();
+    got.sort_unstable();
+    got == want
+}
+
 /// Slots are numbered from 1 in messages, as players count them. Indexes widen
 /// to u128 before the add so usize::MAX can't overflow or wrap to 0.
 fn describe(error: &InputError) -> String {
     match error {
+        InputError::FixedSlotOutOfRange { index } => format!(
+            "The puzzle is broken: fixed slot {} is past its last value.",
+            *index as u128 + 1
+        ),
         InputError::WrongLength { expected, got } => {
             format!("The arrangement has the wrong length: it needs {expected} values, not {got}.")
         }

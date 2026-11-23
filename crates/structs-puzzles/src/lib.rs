@@ -62,18 +62,22 @@ pub trait Template {
 /// Reason a player's input is rejected for a puzzle instance.
 ///
 /// Validation checks run in this exact order:
-/// 1. Input length differs from `instance.values.len()` ->
+/// 1. Any fixed index is `>= instance.values.len()` ->
+///    [`InputError::FixedSlotOutOfRange`].
+/// 2. Input length differs from `instance.values.len()` ->
 ///    [`InputError::WrongLength`].
-/// 2. Fixed indices checked in ascending order; the first index whose input
+/// 3. Fixed indices checked in ascending order; the first index whose input
 ///    value differs from `instance.values[index]` ->
 ///    [`InputError::FixedValueMoved`].
-/// 3. The input is not a rearrangement of `instance.values` ->
+/// 4. The input is not a rearrangement of `instance.values` ->
 ///    [`InputError::NotAPermutation`].
 ///
 /// Both [`Template::run`] and [`Template::score`] return the same error for
 /// the same invalid input.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InputError {
+    /// A fixed slot index in the instance is past the end of `values`.
+    FixedSlotOutOfRange { index: usize },
     /// Input length did not match the instance's value count.
     WrongLength { expected: usize, got: usize },
     /// The lowest-indexed fixed slot whose value changed from the instance.

@@ -157,6 +157,26 @@ fn forced_order_rejects_bad_fields() {
             "length",
             "an arrangement of 3 values for a 10-value puzzle should fail",
         ),
+        (
+            json!({
+                "template": FORCED,
+                "values": [1, 2, 3],
+                "targetTree": [2, 3, 1],
+                "arrangement": [2, 1, 3],
+            }),
+            "targetTree",
+            "a targetTree that is not a valid BST preorder should fail",
+        ),
+        (
+            json!({
+                "template": FORCED,
+                "values": [1, 2, 3],
+                "targetTree": [1, 2],
+                "arrangement": [1, 2, 3],
+            }),
+            "targetTree",
+            "a targetTree missing a key from values should fail",
+        ),
     ];
     for (request, needle, behaviour) in cases {
         assert_rejected(&request, needle, behaviour);

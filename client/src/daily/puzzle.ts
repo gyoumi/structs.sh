@@ -51,14 +51,48 @@ const TITLES: Record<Template, string> = {
 const isTemplate = (template: unknown): template is Template =>
   typeof template === 'string' && Object.hasOwn(TITLES, template);
 
+const MIN_I32 = -0x80000000;
+const MAX_I32 = 0x7fffffff;
+
 const isNumbers = (value: unknown): value is number[] =>
-  Array.isArray(value) && value.every((item) => Number.isFinite(item));
+  Array.isArray(value) &&
+  value.every((item) => Number.isInteger(item) && item >= MIN_I32 && item <= MAX_I32);
 
 const isEmptyList = (value: unknown) => Array.isArray(value) && value.length === 0;
 
-const sameValues = (a: number[], b: number[]) => {
-  const sorted = (list: number[]) => [...list].sort((x, y) => x - y);
-  return a.length === b.length && sorted(a).every((value, i) => value === sorted(b)[i]);
+type BstNode = { value: number; left: BstNode | null; right: BstNode | null };
+
+const insertBst = (node: BstNode | null, value: number): BstNode => {
+  if (node === null) return { value, left: null, right: null };
+  if (value < node.value) return { ...node, left: insertBst(node.left, value) };
+  if (value > node.value) return { ...node, right: insertBst(node.right, value) };
+  return node;
+};
+
+const bstPreorder = (values: number[]): number[] => {
+  const root = values.reduce<BstNode | null>((tree, value) => insertBst(tree, value), null);
+  const out: number[] = [];
+  const walk = (node: BstNode | null) => {
+    if (node === null) return;
+    out.push(node.value);
+    walk(node.left);
+    walk(node.right);
+  };
+  walk(root);
+  return out;
+};
+
+const isValidTargetTree = (values: number[], targetTree: number[]) => {
+  const rebuilt = bstPreorder(targetTree);
+  if (rebuilt.length !== targetTree.length || !rebuilt.every((v, i) => v === targetTree[i])) {
+    return false;
+  }
+  const distinct = [...new Set(values)].sort((x, y) => x - y);
+  const targetSorted = [...targetTree].sort((x, y) => x - y);
+  return (
+    distinct.length === targetSorted.length &&
+    distinct.every((value, i) => value === targetSorted[i])
+  );
 };
 
 const formatError = () => new Error('The puzzle file is not in the expected format.');
@@ -100,7 +134,7 @@ const MAX_U32 = 0xffffffff;
 const parseForcedOrder = (data: unknown): ForcedOrderPuzzle => {
   const base = parseBase(data, 'none');
   const { targetTree } = data as { targetTree?: unknown };
-  if (!isNumbers(targetTree) || !sameValues(targetTree, base.values)) throw formatError();
+  if (!isNumbers(targetTree) || !isValidTargetTree(base.values, targetTree)) throw formatError();
   return { template: 'bst-forced-order', ...base, fixed: [], targetTree };
 };
 

@@ -93,7 +93,10 @@ const Stage = ({
     if (!svg || !container) return;
     const box = visibleBounds(svg);
     const { width, height } = container.getBoundingClientRect();
-    if (!box || box.width === 0 || box.height === 0 || width === 0) return;
+    if (!box || box.width === 0 || box.height === 0 || width === 0) {
+      if (!onlyIfOverflowing) setView({ status: 'unfitted' });
+      return;
+    }
     const insetTop = insetOf(container, 'top');
     const insetRight = insetOf(container, 'right');
     setView((prev) => {

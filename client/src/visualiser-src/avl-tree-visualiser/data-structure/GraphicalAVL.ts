@@ -36,7 +36,7 @@ class GraphicalAVL extends GraphicalDataStructure {
       description: 'Executes a postorder traversal on the tree.',
     },
     insertAll: {
-      args: ['values'],
+      args: ['keys'],
       description: 'Inserts the values in order into an empty AVL tree, on one timeline.',
       menu: 'hidden',
     },

@@ -43,7 +43,7 @@ class GraphicalBST extends GraphicalDataStructure {
       description: 'Executes a postorder traversal on the tree.',
     },
     insertAll: {
-      args: ['values'],
+      args: ['keys'],
       description: 'Inserts the values in order into an empty tree, on one timeline.',
       menu: 'hidden',
     },
