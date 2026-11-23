@@ -13,11 +13,15 @@ const latestAt = <T>(entries: Timed<T>[], time: number, fallback: T): T => {
   return value;
 };
 
+const NO_COUNTERS: Record<string, number> = Object.freeze({});
+
 /** Stores per-step counter and trace snapshots recorded along a visualiser timeline. */
 export default class TimelineTrack {
   private counters: Timed<number>[] = [];
 
   private traces: Timed<StepTrace | null>[] = [];
+
+  private namedCounters: Timed<Record<string, number>>[] = [];
 
   public recordTrace(time: number, trace: StepTrace | null): void {
     this.traces.push({ time, value: trace });
@@ -25,6 +29,14 @@ export default class TimelineTrack {
 
   public recordCounter(time: number, counter: number): void {
     this.counters.push({ time, value: counter });
+  }
+
+  public recordCounters(time: number, counters: Record<string, number>): void {
+    this.namedCounters.push({ time, value: Object.freeze({ ...counters }) });
+  }
+
+  public countersAt(time: number): Record<string, number> {
+    return latestAt(this.namedCounters, time, NO_COUNTERS);
   }
 
   public counterAt(time: number): number {
@@ -38,5 +50,6 @@ export default class TimelineTrack {
   public clear(): void {
     this.counters = [];
     this.traces = [];
+    this.namedCounters = [];
   }
 }

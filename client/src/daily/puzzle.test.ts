@@ -123,6 +123,14 @@ describe('parsePuzzle — broken shapes', () => {
       label: 'blank date',
       input: { ...DAILY_12, date: '   ' },
     },
+    {
+      label: 'bubble targetPasses above u32::MAX',
+      input: {
+        ...DAILY_12,
+        template: 'bubble-exact-passes',
+        targetPasses: 4294967296,
+      },
+    },
   ])('throws an Error for $label', ({ label, input }) => {
     const call = `parsePuzzle(${JSON.stringify(input)}) [${label}]`;
     const outcome = parseOutcome(input);

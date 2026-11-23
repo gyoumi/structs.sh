@@ -3,7 +3,7 @@ import AnimationProducer from '@/visualiser-src/common/AnimationProducer';
 import { Documentation } from '@/visualiser-src/common/typedefs';
 import GraphicalDataStructure from '@/visualiser-src/common/GraphicalDataStructure';
 import { injectIds } from '@/visualiser-src/common/helpers';
-import { CANVAS } from '@/visualiser-src/linked-list-visualiser/util/constants';
+import { getCanvasTarget } from '@/visualiser-src/common/canvasTarget';
 import { generateNumbers } from '@/visualiser-src/common/RandomNumGenerator';
 import GraphicalSortsElement from './GraphicalSortsElement';
 import SortsCreateAnimationProducer from '../animation-producer/SortsCreateAnimationProducer';
@@ -74,7 +74,7 @@ export default class GraphicalSortList extends GraphicalDataStructure {
       .filter((x) => !values.includes(x));
 
     // Clear the canvas, and re-insert the existing values in the list into the canvas
-    SVG(CANVAS).clear();
+    SVG(getCanvasTarget().canvas).clear();
     this.elementList = [];
     this.append(listValues);
 

@@ -24,6 +24,8 @@ export interface VisualiserSnapshot {
   layoutVersion: number;
   /** The running count of the sort being shown (quicksort's comparisons) at the current step. */
   comparisons?: number;
+  /** The sort's named running counts at the current step, such as bubble sort's passes and swaps. */
+  counters?: Record<string, number>;
   /** The sort's pivot and active comparison at the current step, or null outside a partition. */
   trace: StepTrace | null;
   /** How many values the structure holds, including a run that is still playing. */
@@ -46,6 +48,7 @@ export const initialSnapshot: VisualiserSnapshot = {
   speed: 1,
   layoutVersion: 0,
   comparisons: 0,
+  counters: {},
   trace: null,
 };
 

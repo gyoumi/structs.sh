@@ -6,7 +6,7 @@ import {
   SliderThumb,
   SliderTrack,
 } from '@ui-sdk/react/slider';
-import { useSession, useSnapshot } from './useVisualiser';
+import { usePlayback, usePlaybackSnapshot } from './playback';
 
 export interface StepScrubberClasses {
   root?: string;
@@ -23,9 +23,9 @@ interface StepScrubberProps {
 }
 
 const StepScrubber = ({ classes, label = 'Animation progress', thumb }: StepScrubberProps) => {
-  const session = useSession();
-  const progress = useSnapshot((s) => s.progress);
-  const duration = useSnapshot((s) => s.duration);
+  const session = usePlayback();
+  const progress = usePlaybackSnapshot((s) => s.progress);
+  const duration = usePlaybackSnapshot((s) => s.duration);
 
   return (
     <Slider

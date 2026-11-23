@@ -8,6 +8,7 @@ import {
   useSyncExternalStore,
 } from 'react';
 import { useShortcut } from '@ui-sdk/react/shortcuts';
+import { CanvasTarget, DEFAULT_CANVAS_TARGET } from '@/visualiser-src/common/canvasTarget';
 import { CanvasTheme } from '@/visualiser-src/common/canvasTheme';
 import { InitialDataSource, VisualiserSession, VisualiserSnapshot } from './session';
 import { Topic } from './topics';
@@ -30,9 +31,10 @@ export const useCreateSession = (
   canvasTheme: Partial<CanvasTheme>,
   data?: number[],
   getInitialData?: InitialDataSource,
-  immediate = false
+  immediate = false,
+  target: CanvasTarget = DEFAULT_CANVAS_TARGET
 ): VisualiserSession => {
-  const [session] = useState(() => new VisualiserSession());
+  const [session] = useState(() => new VisualiserSession(target));
   const dataKey = data ? `data:${data.join(',')}` : 'random';
   const drawnTheme = useRef(canvasTheme);
 

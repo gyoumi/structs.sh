@@ -39,7 +39,7 @@ export const loadPuzzles = (): Promise<unknown> => {
   return puzzlesLoad;
 };
 
-const scoreInWasm = (puzzles: PuzzlesExports, request: Uint8Array): number => {
+const callWasm = (puzzles: PuzzlesExports, request: Uint8Array): unknown => {
   const pointer = puzzles.alloc(request.length);
   new Uint8Array(puzzles.memory.buffer, pointer, request.length).set(request);
   const status = puzzles.score(pointer, request.length);
@@ -49,18 +49,64 @@ const scoreInWasm = (puzzles: PuzzlesExports, request: Uint8Array): number => {
   );
   puzzles.free_result();
   if (status !== 0) throw new Error(reply);
-  return (JSON.parse(reply) as { score: number }).score;
+  return JSON.parse(reply);
 };
 
-/** The score of playing `arrangement` (the whole array, in slot order) on `puzzle`, computed by the Rust code in the wasm build. */
+const requestReply = async (request: object): Promise<unknown> => {
+  const puzzles = (await loadPuzzles()) as PuzzlesExports;
+  return callWasm(puzzles, new TextEncoder().encode(JSON.stringify(request)));
+};
+
+const MULTI_OUTCOME_TEMPLATES = new Set(['bubble-exact-passes', 'insertion-beats-merge']);
+
+/** The score of playing `arrangement` (the whole array, in slot order) on a numeric-score `puzzle`, computed by the Rust code in the wasm build. */
 export const scorePuzzle = async (
   puzzle: PuzzleInstance,
   arrangement: number[]
 ): Promise<number> => {
-  const puzzles = (await loadPuzzles()) as PuzzlesExports;
   const { template, values, fixed } = puzzle;
-  const request = new TextEncoder().encode(
-    JSON.stringify({ template, values, fixed, arrangement })
-  );
-  return scoreInWasm(puzzles, request);
+  if (MULTI_OUTCOME_TEMPLATES.has(template)) {
+    throw new Error(`Use evaluatePuzzle for "${template}".`);
+  }
+  const reply = (await requestReply({ template, values, fixed, arrangement })) as {
+    score?: unknown;
+  };
+  if (typeof reply.score !== 'number') {
+    throw new Error(`Template "${template}" did not return a numeric score; use evaluatePuzzle.`);
+  }
+  return reply.score;
+};
+
+export type EvalPuzzleInstance =
+  | { template: 'quicksort-most-comparisons'; values: number[]; fixed: number[] }
+  | { template: 'bubble-exact-passes'; values: number[]; fixed: number[]; targetPasses: number }
+  | { template: 'insertion-beats-merge'; values: number[]; fixed: number[] };
+
+type Outcome<Counts> = ({ solved: true; score: number } | { solved: false; score: null }) & Counts;
+
+export type PuzzleEvaluation =
+  | { template: 'quicksort-most-comparisons'; solved: true; score: number }
+  | ({ template: 'bubble-exact-passes' } & Outcome<{ passes: number; swaps: number }>)
+  | ({ template: 'insertion-beats-merge' } & Outcome<{
+      insertionComparisons: number;
+      mergeComparisons: number;
+      inversions: number;
+    }>);
+
+/** What playing `arrangement` on `puzzle` did: whether it solved the puzzle, its score, and the counts behind it, from the wasm build. */
+export const evaluatePuzzle = async (
+  puzzle: EvalPuzzleInstance,
+  arrangement: number[]
+): Promise<PuzzleEvaluation> => {
+  const { template, values, fixed } = puzzle;
+  const request =
+    puzzle.template === 'bubble-exact-passes'
+      ? { template, values, fixed, targetPasses: puzzle.targetPasses, arrangement }
+      : { template, values, fixed, arrangement };
+  const reply = await requestReply(request);
+  if (puzzle.template === 'quicksort-most-comparisons') {
+    const { score } = reply as { score: number };
+    return { template: puzzle.template, solved: true, score };
+  }
+  return { template: puzzle.template, ...(reply as object) } as PuzzleEvaluation;
 };

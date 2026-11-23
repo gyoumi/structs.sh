@@ -5,6 +5,32 @@ import SortsAnimationProducer from './SortsAnimationProducer';
 import { canvasTheme } from '../../common/canvasTheme';
 
 export default class SortsBubbleAnimationProducer extends SortsAnimationProducer {
+  private passCount = 0;
+
+  private swapCount = 0;
+
+  /** Outer passes that made at least one comparison so far. */
+  public get passes(): number {
+    return this.passCount;
+  }
+
+  /** Swaps made so far. */
+  public get swaps(): number {
+    return this.swapCount;
+  }
+
+  protected get stepCounters(): Record<string, number> {
+    return { passes: this.passCount, swaps: this.swapCount };
+  }
+
+  public startPass(): void {
+    this.passCount += 1;
+  }
+
+  public countSwap(): void {
+    this.swapCount += 1;
+  }
+
   public renderBubbleCode() {
     this.renderCode(bubbleCodeSnippet);
   }
