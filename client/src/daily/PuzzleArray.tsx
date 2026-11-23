@@ -113,7 +113,7 @@ const PuzzleArray = ({ values, fixed, frozen = false, onSwap }: Props) => {
               >
                 {value}
               </span>
-              {locked && <LockIcon size={14} className={styles.lock} />}
+              {locked && <LockIcon size={12} className={styles.lock} />}
             </button>
           );
         })}

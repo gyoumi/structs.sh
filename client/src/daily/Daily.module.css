@@ -1,68 +1,100 @@
 .page {
+  --wrap: 72rem;
+  --gutter: clamp(1rem, 4vw, 3.5rem);
+  --sand-soft: color-mix(in srgb, var(--sand) 28%, transparent);
+  --disabled-bg: #e6eaf5;
+  --disabled-ink: #6b6f99;
+  --disabled-edge: #a7aed0;
+  --yes: #1d7a4a;
+  --no: #b3361f;
+
   min-height: 100svh;
   background-color: var(--hero-bg);
   background-image: radial-gradient(var(--hero-dot) 1.5px, transparent 1.5px);
   background-size: 28px 28px;
 }
 
+.page[data-theme='dark'] {
+  --disabled-bg: #262463;
+  --disabled-ink: #9a9ed0;
+  --disabled-edge: #403d8f;
+  --yes: #7ddba4;
+  --no: #ff8f7a;
+}
+
+.header {
+  padding-block: 0.9rem 0.35rem;
+}
+
+.page .brand {
+  font-size: 1.05rem;
+  gap: 0.55rem;
+}
+
+.page .brand span {
+  display: inline;
+}
+
+.brand img {
+  width: 34px;
+  height: 34px;
+}
+
 .main {
   width: 100%;
   max-width: calc(var(--wrap) + var(--gutter) * 2);
   margin-inline: auto;
-  padding-bottom: 4rem;
+  padding: 0.35rem var(--gutter) 2rem;
   box-sizing: border-box;
 }
 
-.column {
-  padding-inline: var(--gutter);
+.main p {
+  margin: 0;
+}
+
+.eyebrow {
+  margin: 0 0 0.2rem;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
 }
 
 .page .title {
-  margin: 0.5rem 0 1.25rem;
-  padding-inline: var(--gutter);
-  font-size: clamp(2.25rem, 8vw, 4.5rem);
-  line-height: 1.02;
+  margin: 0 0 0.35rem;
+  font-size: clamp(1.65rem, 3.6vw, 2.55rem);
+  line-height: 1.05;
   letter-spacing: -0.02em;
   text-wrap: balance;
 }
 
-.brandLine {
-  display: block;
-  font-weight: 700;
-}
-
-.numberLine {
-  display: block;
-  color: var(--muted);
-  font-weight: 400;
-}
-
 .rules {
   display: grid;
-  gap: 0.5rem;
-  max-width: 38rem;
+  gap: 0.18rem;
+  max-width: 44rem;
+  margin-bottom: 1.1rem;
   color: var(--muted);
-}
-
-.page .rules p {
-  margin: 0;
+  font-size: 0.95rem;
 }
 
 .page .lede {
   color: var(--ink);
-  font-size: 1.25rem;
+  font-size: 1.02rem;
   font-weight: 500;
   line-height: 1.35;
 }
 
 .page .keys {
-  font-size: 0.875rem;
+  margin-top: 0.15rem;
+  font-size: 0.83rem;
   line-height: 1.4;
 }
 
 .keys summary {
   width: fit-content;
   border-radius: 4px;
+  font-weight: 500;
   cursor: pointer;
 }
 
@@ -81,70 +113,31 @@
   margin-top: 0.25rem;
 }
 
-.play {
-  margin-top: 1.5rem;
+/* The game: the panel and its actions, with the score cards beside it. */
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18.25rem;
+  gap: 1.2rem;
+  align-items: start;
 }
 
-.stats {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.25rem 1.5rem;
+.playColumn {
+  min-width: 0;
 }
 
-.stat {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-  margin: 0;
-  color: var(--muted);
-  font-size: 1.125rem;
-  font-weight: 600;
-}
-
-.value {
+.panel {
+  overflow: hidden;
+  border: 2.5px solid var(--edge);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: 0 var(--drop) 0 var(--shadow);
   color: var(--ink);
-  font-size: 2rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
 }
 
-.badge {
-  padding: 0.125rem 0.75rem;
-  border: 2px solid var(--edge);
-  border-radius: 999px;
-  background: var(--sand);
-  color: var(--button-ink);
-  font-weight: 700;
-}
-
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.75rem 1rem;
-}
-
-.action {
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.action:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.shareNote {
-  color: var(--muted);
-  font-size: 0.875rem;
-}
-
-.page .message {
-  min-height: 3em;
-  margin: 0.75rem 0 0;
-  color: var(--muted);
+.tilesZone {
+  padding: 0.95rem 1.25rem 0.85rem;
+  border-bottom: 2px solid var(--edge);
+  background: color-mix(in srgb, var(--bg) 55%, var(--surface));
 }
 
 .runner {
@@ -156,25 +149,13 @@
   --stage-focus: var(--steel);
 
   display: grid;
-  margin: 1rem var(--gutter) 0;
-  overflow: hidden;
-  border: 2px solid var(--edge);
-  border-radius: 16px;
-  background: var(--surface);
-  box-shadow: 6px 6px 0 var(--shadow);
-  color: var(--ink);
   font-variant-numeric: tabular-nums;
-  /* Run scrolls the card into view; leave room below it for the drop shadow. */
+  /* Run scrolls the drawing and its controls into view; leave room for the panel's drop shadow. */
   scroll-margin-block: 1rem;
 }
 
-.runner .stat {
-  padding: 0.5rem 1rem;
-  border-bottom: 2px solid var(--edge);
-}
-
 .stage {
-  height: 14rem;
+  height: 13.5rem;
   background-color: var(--stage);
   background-image: radial-gradient(var(--dot) 1.2px, transparent 1.4px);
   background-size: 22px 22px;
@@ -192,17 +173,94 @@
   --dot: rgba(255, 255, 255, 0.09);
 }
 
-/* The array gets the full phone width so its slots stay big enough to tap. */
-@media (max-width: 639px) {
-  .play {
-    padding-inline: 0.5rem;
-  }
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.7rem;
+  margin-top: 0.9rem;
+}
 
-  .play .column {
-    padding-inline: calc(var(--gutter) - 0.5rem);
-  }
+.page .action {
+  min-height: 2.75rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 0 var(--shadow);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
 
-  .runner {
-    margin-inline: calc(var(--gutter) - 0.5rem);
-  }
+.page .action:disabled {
+  border-color: var(--disabled-edge);
+  background: var(--disabled-bg);
+  box-shadow: none;
+  color: var(--disabled-ink) !important;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.note,
+.message {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.message {
+  display: block;
+  min-height: 1.4em;
+  margin-top: 0.6rem;
+}
+
+/* Score cards */
+.sidebar {
+  display: grid;
+  gap: 1rem;
+}
+
+/* The playback outlines need more contrast against the dark panel than --edge gives. */
+.page[data-theme='dark'] .runner {
+  --line: #7d79e0;
+}
+
+@media (max-width: 860px) {
+  .eyebrow {
+      font-size: 0.7rem;
+    }
+
+  .rules {
+      gap: 0.12rem;
+      margin-bottom: 0.75rem;
+      font-size: 0.88rem;
+    }
+
+  .page .lede {
+      font-size: 0.94rem;
+    }
+
+  .header {
+      padding-block: 0.65rem 0.2rem;
+    }
+
+  .brand img {
+      width: 28px;
+      height: 28px;
+    }
+
+  .main {
+      padding-top: 0.2rem;
+      padding-bottom: 1.5rem;
+    }
+
+  .workspace {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0.85rem;
+    }
+
+  .tilesZone {
+      padding: 0.75rem 0.5rem 0.6rem;
+    }
+
+  .stage {
+      height: 12rem;
+    }
 }

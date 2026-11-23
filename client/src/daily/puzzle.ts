@@ -8,6 +8,8 @@ export type Puzzle = {
   values: number[];
   fixed: number[];
   par: number;
+  /** The day the puzzle is for, as written in the file. */
+  date?: string;
 };
 
 const isNumbers = (value: unknown): value is number[] =>
@@ -28,9 +30,15 @@ export const parsePuzzle = (data: unknown): Puzzle => {
   ) {
     throw new Error('The puzzle file is not in the expected format.');
   }
+  const { date } = puzzle as { date?: unknown };
+  if (date !== undefined && (typeof date !== 'string' || date.trim() === '')) {
+    throw new Error('The puzzle date is not in the expected format.');
+  }
   // Copy only the known fields, so nothing extra in the file (such as a best score) reaches the page.
   const { number, template, values, fixed, par } = puzzle as Puzzle;
-  return { number, template, values, fixed, par };
+  return date === undefined
+    ? { number, template, values, fixed, par }
+    : { number, template, values, fixed, par, date: date.trim() };
 };
 
 /** "quicksort-most-comparisons" is shown as "Quicksort". */

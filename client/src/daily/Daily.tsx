@@ -17,12 +17,10 @@ import {
   useSession,
   useSnapshot,
 } from '@/visualiser/useVisualiser';
+import { MAX_TRIES, MobileHud, PuzzleIntro, ScoreCard, StepCard } from './DailyCards';
 import PuzzleArray from './PuzzleArray';
-import { Puzzle, puzzleTitle, shareText, usePuzzle } from './puzzle';
+import { Puzzle, shareText, usePuzzle } from './puzzle';
 import styles from './Daily.module.css';
-
-const RULES = 'Reorder the numbers so quicksort makes as many comparisons as possible.';
-const MAX_TRIES = 3;
 
 const sorting = findTopic('sorting-algorithms');
 if (!sorting) throw new Error('The sorting topic is missing.');
@@ -44,6 +42,7 @@ const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
   const session = useSession();
   const complete = useSnapshot((s) => s.complete);
   const comparisons = useSnapshot((s) => s.comparisons ?? 0);
+  const trace = useSnapshot((s) => s.trace);
   const [scores, setScores] = useState<number[]>([]);
   const [phase, setPhase] = useState<Phase>('ready');
   const [scoreFailed, setScoreFailed] = useState(false);
@@ -81,7 +80,7 @@ const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
 
   const draw = (arrangementValues: number[]) => {
     markDrawn(theme);
-    session.loadData(arrangementValues, canvasThemes[theme]);
+    session.loadData(arrangementValues, canvasThemes[theme], true);
   };
 
   // Hand focus from Run to Skip once Skip is enabled, without fighting the scroll to the drawing.
@@ -143,105 +142,88 @@ const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
       .catch(() => setShared('failed'));
   };
 
-  let message = 'Press Run to test this order.';
-  if (busy) message = 'Sorting…';
+  let message = '';
+  if (busy) message = '';
   else if (scoreFailed) message = 'Couldn’t score that try. Press Run to try again.';
-  else if (ended && highest >= puzzle.par) {
-    message = `You reached the goal! Your highest score was ${highest}.`;
-  } else if (ended) {
-    message = `Out of tries. Your highest score was ${highest}.`;
-  } else if (scored && score < puzzle.par) message = 'Swap numbers and run again to go higher.';
-  else if (scored) {
-    message = 'You reached the goal! Can you go even higher? Swap numbers and run again.';
-  }
+  else if (ended) {
+    message = `${highest >= puzzle.par ? 'You reached the goal!' : 'Out of tries.'} Your highest score was ${highest}.`;
+  } else if (goalReached) message = 'Goal reached! Swap and run again to go higher.';
 
   return (
-    <section className={styles.play}>
-      <div className={`${styles.column} ${styles.stats}`}>
-        <p className={styles.stat}>
-          {scored && (
+    <div className={styles.workspace}>
+      <div className={styles.playColumn}>
+        <div className={styles.panel}>
+          <MobileHud
+            comparisons={comparisons}
+            par={puzzle.par}
+            comparison={trace?.comparison}
+            triesLeft={triesLeft}
+            stageTheme={stageTheme}
+          />
+          <div className={styles.tilesZone}>
+            <PuzzleArray values={values} fixed={fixed} frozen={busy || ended} onSwap={swap} />
+          </div>
+          <div ref={runner} className={styles.runner}>
+            <Stage
+              label="Quicksort drawing"
+              className={`${styles.stage} ${stageTheme === 'dark' ? styles.stageDark : styles.stageLight}`}
+            />
+            <Transport />
+          </div>
+        </div>
+        <div className={styles.actions}>
+          <button
+            ref={runButton}
+            type="button"
+            className={`${landing.primary} ${styles.action} ${styles.run}`}
+            onClick={run}
+            disabled={busy || ended}
+          >
+            Run
+          </button>
+          <button
+            ref={skipButton}
+            type="button"
+            className={`${landing.secondary} ${styles.action}`}
+            onClick={session.finish}
+            disabled={phase !== 'running'}
+          >
+            Skip
+          </button>
+          {ended && (
             <>
-              <span id="daily-score-label">Score</span>
-              <output aria-labelledby="daily-score-label" className={styles.value}>
-                {score}
-              </output>
-              <span aria-hidden="true">/</span>
+              <button
+                type="button"
+                className={`${landing.secondary} ${styles.action}`}
+                onClick={share}
+              >
+                Share
+              </button>
+              <span aria-live="polite" className={styles.note}>
+                {shared === 'copied' && 'Copied!'}
+                {shared === 'failed' && 'Couldn’t copy — try again.'}
+              </span>
             </>
           )}
-          <span aria-hidden="true">{scored ? 'goal' : 'Goal'}</span>
-          <output aria-label="Goal" className={styles.value}>
-            {puzzle.par}
-          </output>
-        </p>
-        <p className={styles.stat}>
-          <span id="daily-tries-label">Tries left</span>
-          <output aria-labelledby="daily-tries-label" className={styles.value}>
-            {triesLeft}
-          </output>
-        </p>
-        {goalReached && (
-          <output aria-label="Goal reached" className={styles.badge}>
-            Goal reached ⭐
-          </output>
-        )}
+        </div>
+        <span aria-live="polite" className={styles.message}>
+          {message}
+        </span>
       </div>
-      <PuzzleArray values={values} fixed={fixed} frozen={busy || ended} onSwap={swap} />
-      <div className={`${styles.column} ${styles.actions}`}>
-        <button
-          ref={runButton}
-          type="button"
-          className={`${landing.primary} ${styles.action}`}
-          onClick={run}
-          disabled={busy || ended}
-        >
-          Run
-        </button>
-        <button
-          ref={skipButton}
-          type="button"
-          className={`${landing.secondary} ${styles.action}`}
-          onClick={session.finish}
-          disabled={phase !== 'running'}
-        >
-          Skip
-        </button>
-        {ended && (
-          <>
-            <button
-              type="button"
-              className={`${landing.secondary} ${styles.action}`}
-              onClick={share}
-            >
-              Share
-            </button>
-            <span aria-live="polite" className={styles.shareNote}>
-              {shared === 'copied' && 'Copied!'}
-              {shared === 'failed' && 'Couldn’t copy — try again.'}
-            </span>
-          </>
-        )}
-      </div>
-      <p className={`${styles.column} ${styles.message}`} aria-live="polite">
-        {message}
-      </p>
-      <div ref={runner} className={styles.runner}>
-        <p className={styles.stat}>
-          <span id="daily-comparisons-label">Comparisons</span>
-          <output
-            aria-labelledby="daily-comparisons-label"
-            aria-live="off"
-            className={styles.value}
-          >
-            {comparisons}
-          </output>
-        </p>
-        <Stage
-          label="Quicksort drawing"
-          className={`${styles.stage} ${stageTheme === 'dark' ? styles.stageDark : styles.stageLight}`}
+      <aside className={styles.sidebar}>
+        <ScoreCard
+          puzzle={puzzle}
+          comparisons={comparisons}
+          scores={scores}
+          running={phase !== 'ready'}
+          ended={ended}
+          goalReached={goalReached}
+          score={score}
+          highest={highest}
         />
-        <Transport />
-      </div>
-    </section>
+        <StepCard trace={trace} stageTheme={stageTheme} />
+      </aside>
+    </div>
   );
 };
 
@@ -251,31 +233,14 @@ const PuzzleView = ({ puzzle, theme }: { puzzle: Puzzle; theme: Theme }) => {
   // The session is created with the first theme and values only. Play redraws on later changes,
   // so a theme switch never drops a try that is still running.
   const [initial] = useState(() => ({ theme: canvasThemes[theme], values: puzzle.values }));
-  const session = useCreateSession(sorting, initial.theme, initial.values);
+  const session = useCreateSession(sorting, initial.theme, initial.values, undefined, true);
 
   // A full quicksort at 1x takes about a minute, so tries start at the fastest speed.
   useEffect(() => session.setSpeed(2), [session]);
 
   return (
     <>
-      <h1 className={styles.title}>
-        <span className={styles.brandLine}>structs.sh daily</span>{' '}
-        <span className={styles.numberLine}>
-          #{puzzle.number} · {puzzleTitle(puzzle.template)}
-        </span>
-      </h1>
-      <section aria-label="Puzzle rules" className={`${styles.column} ${styles.rules}`}>
-        <p className={styles.lede}>{RULES}</p>
-        <p>Quicksort always picks the leftmost number in each range as the pivot.</p>
-        <details className={styles.keys}>
-          <summary>Keyboard controls</summary>
-          <p>
-            Press Enter or Space to pick a number. Use Left or Right to swap it with the next
-            unlocked one, or Tab to another and press Enter or Space to swap. Escape clears the
-            selection.
-          </p>
-        </details>
-      </section>
+      <PuzzleIntro puzzle={puzzle} />
       <SessionContext value={session}>
         <Play
           puzzle={puzzle}
@@ -296,18 +261,17 @@ const Daily = () => {
   return (
     <div className={`${landing.page} ${styles.page}`} data-theme={theme}>
       <title>Daily puzzle | structs.sh</title>
-      <header className={hero.header}>
-        <Link to="/" className={hero.brand} aria-label="structs.sh home">
+      <header className={`${hero.header} ${styles.header}`}>
+        <Link to="/" className={`${hero.brand} ${styles.brand}`} aria-label="structs.sh home">
           <img src={logo} alt="" width={36} height={36} />
+          <span>structs.sh</span>
         </Link>
         <ThemeToggle className={hero.themeToggle} />
       </header>
       <main className={styles.main}>
-        {state.status === 'loading' && <p className={styles.column}>Loading today’s puzzle…</p>}
+        {state.status === 'loading' && <p>Loading today’s puzzle…</p>}
         {state.status === 'error' && (
-          <p role="alert" className={styles.column}>
-            Couldn’t load today’s puzzle. Reload the page to try again.
-          </p>
+          <p role="alert">Couldn’t load today’s puzzle. Reload the page to try again.</p>
         )}
         {state.status === 'ready' && <PuzzleView puzzle={state.puzzle} theme={theme} />}
       </main>

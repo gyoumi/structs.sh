@@ -62,7 +62,7 @@ export async function stepBackUntilCounterDrops(
   return { counter, progress: Math.round(rawProgress), steps: maxSteps };
 }
 
-async function stepAndSettle(
+export async function stepAndSettle(
   ui: DailyLocators,
   action: 'Next step' | 'Previous step',
   boundary: 0 | 100,

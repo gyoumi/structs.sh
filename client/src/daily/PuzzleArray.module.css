@@ -1,10 +1,10 @@
 .array {
   display: grid;
-  grid-template-columns: repeat(var(--slots), minmax(0, 5rem));
+  grid-template-columns: repeat(var(--slots), minmax(0, 4.25rem));
   justify-content: center;
-  gap: 3px;
+  gap: 7px;
   margin: 0;
-  padding: 1rem 0 1.25rem;
+  padding: 0;
 }
 
 .slot {
@@ -12,7 +12,7 @@
   display: grid;
   place-items: center;
   min-width: 0;
-  aspect-ratio: 3 / 4;
+  aspect-ratio: 4 / 5;
   padding: 0;
   border: 2.5px solid var(--edge);
   border-radius: 12px;
@@ -31,7 +31,7 @@
 }
 
 .value {
-  font-size: clamp(1.25rem, 5.5vw, 2rem);
+  font-size: clamp(1rem, 4.6vw, 1.6rem);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1;
@@ -81,23 +81,29 @@
   cursor: not-allowed;
 }
 
-/* A free slot that can't be swapped right now keeps its look, unlike a locked one. */
+/* A free slot that can't be swapped right now stays warm and solid, unlike a cool hatched locked
+   one, but goes flat and soft so it reads as paused. */
 .slot.frozen:disabled {
   border-style: solid;
-  border-color: var(--edge);
-  background-color: var(--sand);
+  border-color: color-mix(in srgb, var(--edge) 40%, var(--sand));
+  background-color: color-mix(in srgb, var(--sand) 55%, var(--surface));
   background-image: none;
-  box-shadow: 0 var(--drop) 0 var(--shadow);
+  box-shadow: none;
   color: var(--button-ink);
   cursor: default;
-  opacity: 0.6;
 }
 
+:global([data-theme='dark']) .slot.frozen:disabled {
+  border-color: color-mix(in srgb, var(--sand) 45%, var(--surface));
+  background-color: color-mix(in srgb, var(--sand) 20%, var(--surface));
+  color: var(--ink);
+}
+
+/* In the corner, clear of the digits even on a phone. */
 .lock {
   position: absolute;
-  bottom: 0.3rem;
-  left: 50%;
-  translate: -50% 0;
+  top: 4px;
+  right: 4px;
 }
 
 .srOnly {
@@ -110,11 +116,22 @@
   white-space: nowrap;
 }
 
-@media (min-width: 640px) {
+@media (max-width: 640px) {
   .array {
-    justify-content: start;
-    gap: 0.75rem;
-    padding-inline: var(--gutter);
+    gap: 4px;
+  }
+
+  .slot {
+    aspect-ratio: 3 / 4;
+    border-width: 2px;
+    border-radius: 9px;
+  }
+
+  .lock {
+    top: 2px;
+    right: 2px;
+    width: 10px;
+    height: 10px;
   }
 }
 

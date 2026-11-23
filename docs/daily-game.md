@@ -286,16 +286,29 @@ The mockup shows a later Dijkstra puzzle, so this step takes its layout, not
 its content:
 
 - A small uppercase line above the title gives the puzzle number, the date
-  and the algorithm. The title is the puzzle's name, and the rules follow in
-  one or two sentences with the goal in bold.
-- The array sits in a large panel. Beside it, a score card shows the
-  comparison count in large figures next to the target, with the tries used
-  and the player's highest score under it. A second card shows what the sort
-  is doing as it runs, such as the current range and pivot.
-- One line under the panel says how to play. The actions follow in a row:
-  Run first and filled, then Skip.
-- On a 390-pixel phone screen the cards move under the array, and the whole
-  array still fits without scrolling sideways.
+  (when the puzzle file has one) and the algorithm. The title is "Make
+  quicksort sweat". Two short rules follow, "Swap the numbers to make as many
+  comparisons as possible." and "Leftmost number is always the pivot.", with
+  the keyboard controls folded away under them. The goal isn't repeated in
+  the rules, because the score card shows it.
+- One framed panel holds the array, the quicksort drawing and its playback
+  controls. Locked slots are hatched with a lock in the corner; while a try
+  runs, the free slots go flat and warm so they still look different.
+- Beside the panel, a Comparisons card shows the live count in large figures
+  next to the goal, three chips for the tries (spent, in progress, unused),
+  the tries left and the score. Once the puzzle ends it shows the highest
+  score. A Step card shows the pivot and the comparison being made, such as
+  "3 < 2 ✗". The lit and dimmed bars in the drawing already show the active
+  range, so the card doesn't repeat it.
+- The actions sit right under the panel: Run first and filled, then Skip,
+  then Share once the puzzle ends. There is no how-to line under the panel
+  and no "Sorting…" text; a short status line appears only when there is
+  something to say.
+- On a 390-pixel phone screen the Comparisons card moves under the actions
+  and the Step card is hidden. A strip at the top of the panel shows the
+  count, the goal, the comparison being made and the tries left instead. The
+  whole array, the drawing and its controls still fit without scrolling
+  sideways.
 
 The streak badge waits for 3b, and the "This week" strip waits for a
 schedule in 2c. The mockup's Submit best and Hint buttons aren't in the

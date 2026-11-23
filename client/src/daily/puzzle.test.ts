@@ -50,6 +50,10 @@ describe('parsePuzzle — valid puzzles', () => {
       label: 'boundary fixed indices [0, 7] for 8 values',
       input: { ...DAILY_12, fixed: [0, 7] },
     },
+    {
+      label: 'optional date label ("Mon 23 Nov")',
+      input: { ...DAILY_12, date: 'Mon 23 Nov' },
+    },
   ])('returns $label unchanged', ({ label, input }) => {
     const result = parsePuzzle(input);
     expect(
@@ -111,6 +115,14 @@ describe('parsePuzzle — broken shapes', () => {
     {
       label: 'missing par',
       input: without('par'),
+    },
+    {
+      label: 'non-string date',
+      input: { ...DAILY_12, date: 20261123 },
+    },
+    {
+      label: 'blank date',
+      input: { ...DAILY_12, date: '   ' },
     },
   ])('throws an Error for $label', ({ label, input }) => {
     expectInvalid(label, input);

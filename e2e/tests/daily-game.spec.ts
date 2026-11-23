@@ -5,7 +5,7 @@ import { DAILY_7, DAILY_12 } from '../support/daily-fixtures';
 // stepping, scoring, tries and the share text) is in daily-game-run.spec.ts.
 
 const fmt = (values: readonly number[]) => `[${values.join(', ')}]`;
-const RULES_SENTENCE = 'Reorder the numbers so quicksort makes as many comparisons as possible.';
+const RULES_SENTENCE = 'Swap the numbers to make as many comparisons as possible.';
 
 test.describe('daily game', () => {
   test('the puzzle shows its rules, goal and fixed values', async ({ dailyPage }) => {
@@ -141,6 +141,11 @@ test.describe('daily game', () => {
           message: `${ctx}: after tapping Run, the sort should animate and raise Comparisons counter above 0`,
         })
         .toBeGreaterThan(0);
+
+      // Even on mobile where the Step card is visually hidden, assistive tech can still read the live comparison.
+      await dailyPage.pausePlayback();
+      await dailyPage.rewind();
+      await dailyPage.expectAccessibleStepComparison(ctx);
     });
 
     test('swapping works on a phone-sized screen', async ({ dailyPage }) => {
