@@ -2,17 +2,29 @@ export const MAX_TRIES = 3;
 
 export type ShareStatus = 'idle' | 'copied' | 'failed';
 
+/** A try that ran but missed the puzzle's condition, with why, as shown to the player. */
+export type UnsolvedTry = { kind: 'unsolved'; reason: string };
+
+/** A solved try's score, or an unsolved try. */
+export type TryScore = number | UnsolvedTry;
+
 export type PlayState =
-  | { stage: 'ready'; scores: number[] }
-  | { stage: 'running'; scores: number[]; arrangement: number[]; runId: number; focusSkip: boolean }
-  | { stage: 'scoring'; scores: number[]; arrangement: number[] }
-  | { stage: 'score-failed'; scores: number[] }
-  | { stage: 'ended'; scores: number[]; share: ShareStatus };
+  | { stage: 'ready'; scores: TryScore[] }
+  | {
+      stage: 'running';
+      scores: TryScore[];
+      arrangement: number[];
+      runId: number;
+      focusSkip: boolean;
+    }
+  | { stage: 'scoring'; scores: TryScore[]; arrangement: number[] }
+  | { stage: 'score-failed'; scores: TryScore[] }
+  | { stage: 'ended'; scores: TryScore[]; share: ShareStatus };
 
 export type PlayEvent =
   | { type: 'run'; arrangement: number[]; runId: number; focusSkip: boolean }
   | { type: 'animation-completed'; runId: number }
-  | { type: 'scored'; score: number }
+  | { type: 'scored'; score: TryScore }
   | { type: 'score-failed' }
   | { type: 'share-copied' }
   | { type: 'share-failed' };
@@ -56,3 +68,26 @@ export const playReducer = (state: PlayState, event: PlayEvent): PlayState => {
       return state;
   }
 };
+
+const solvedScores = (scores: TryScore[]) =>
+  scores.filter((score): score is number => typeof score === 'number');
+
+/** What the score readout shows: the latest try while tries remain, then the best solved try. Undefined shows no number. */
+export const shownScore = (play: PlayState): number | undefined => {
+  if (play.stage === 'ended') {
+    const solved = solvedScores(play.scores);
+    return solved.length > 0 ? Math.max(...solved) : undefined;
+  }
+  const latest = play.scores.at(-1);
+  return typeof latest === 'number' ? latest : undefined;
+};
+
+/** Why the latest try missed, or undefined when it solved the puzzle or no try has run. */
+export const latestMiss = (play: PlayState): string | undefined => {
+  const latest = play.scores.at(-1);
+  return typeof latest === 'object' ? latest.reason : undefined;
+};
+
+/** The share line for each try: its score, or null when unsolved. */
+export const sharedScores = (scores: TryScore[]) =>
+  scores.map((score) => (typeof score === 'number' ? score : null));

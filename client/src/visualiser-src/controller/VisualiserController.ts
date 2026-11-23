@@ -92,6 +92,9 @@ class VisualiserController {
       if (runnerInfo.counter !== undefined) {
         this.track.recordCounter(this.timelineDuration, runnerInfo.counter);
       }
+      if (runnerInfo.counters !== undefined) {
+        this.track.recordCounters(this.timelineDuration, runnerInfo.counters);
+      }
       if (runnerInfo.isTimestamped) {
         maxRunner.after(() => {
           if (this.mode === 'stepping') {
@@ -250,6 +253,11 @@ class VisualiserController {
   /** The producer's running count once the steps up to `time` are done. */
   public counterAt(time: number): number {
     return this.track.counterAt(time);
+  }
+
+  /** The producer's named running counts once the steps up to `time` are done. */
+  public countersAt(time: number): Record<string, number> {
+    return this.track.countersAt(time);
   }
 
   /** The sort's pivot and comparison for the step playing at `time`, or null outside a partition. */

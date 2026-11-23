@@ -1,6 +1,7 @@
 import { SVG, Runner } from '@svgdotjs/svg.js';
 import { CodeLine } from './typedefs';
-import { showLineNumbers, CODE_CANVAS, CODE_CONTAINER } from './constants';
+import { showLineNumbers } from './constants';
+import { getCanvasTarget } from './canvasTarget';
 import { canvasTheme } from './canvasTheme';
 
 export interface StepComparison {
@@ -23,6 +24,8 @@ interface RunnerInfo {
   line: number | null;
   /** The producer's running count once this step is done, if it keeps one. */
   counter?: number;
+  /** The producer's named running counts once this step is done, if it keeps them. */
+  counters?: Record<string, number>;
   /** The producer's step trace for this step, if it keeps one. */
   trace?: StepTrace | null;
 }
@@ -49,6 +52,11 @@ export default abstract class AnimationProducer {
 
   /** A running count the page shows beside the animation. Producers that count something override this. */
   protected get counter(): number | undefined {
+    return undefined;
+  }
+
+  /** Named running counts the page shows beside the animation. Producers that keep several override this. */
+  protected get stepCounters(): Record<string, number> | undefined {
     return undefined;
   }
 
@@ -83,7 +91,8 @@ export default abstract class AnimationProducer {
 
   public renderCode(code: string): void {
     // clear the canvas
-    SVG(CODE_CANVAS).clear();
+    const codeCanvas = getCanvasTarget().code;
+    SVG(codeCanvas).clear();
     this._code = code;
     this._currentLine = null;
     this.highlightedLines = [];
@@ -98,7 +107,7 @@ export default abstract class AnimationProducer {
           .rect(450, 18)
           .move(-5, 18 * i)
           .fill(canvasTheme.codeBackground)
-          .addTo(CODE_CANVAS),
+          .addTo(codeCanvas),
         textTarget: SVG()
           .text(showLineNumbers ? String(i + 1).padEnd(4, ' ') + line : line.trim())
           .font({ family: canvasTheme.fontFamily, size: 10 })
@@ -106,7 +115,7 @@ export default abstract class AnimationProducer {
           .attr('style', 'white-space: pre-wrap')
           .move(0, 18 * i + 2)
           .x(showLineNumbers ? 0 : line.search(/\S/) * 5)
-          .addTo(CODE_CANVAS),
+          .addTo(codeCanvas),
       };
 
       this.codeTargets.push(codeLine);
@@ -191,6 +200,7 @@ export default abstract class AnimationProducer {
         isTimestamped,
         line: this._currentLine,
         counter: this.counter,
+        counters: this.stepCounters,
         trace: this.stepTrace,
       });
     }
@@ -201,7 +211,7 @@ export default abstract class AnimationProducer {
   // Modifies the height of the code snippet container to be
   // responsive to the number of lines of code required for the operation
   private setContainerHeight(): void {
-    const codeContainer = document.getElementById(CODE_CONTAINER);
+    const codeContainer = document.getElementById(getCanvasTarget().codeContainer);
     if (codeContainer) {
       codeContainer.style.height = `${18 * this.codeTargets.length}px`;
     }

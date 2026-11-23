@@ -1,6 +1,11 @@
 import { SVG } from '@svgdotjs/svg.js';
 import VisualiserController from '@/visualiser-src/controller/VisualiserController';
-import { defaultSpeed, VISUALISER_CANVAS } from '@/visualiser-src/common/constants';
+import { defaultSpeed } from '@/visualiser-src/common/constants';
+import {
+  CanvasTarget,
+  DEFAULT_CANVAS_TARGET,
+  withCanvasTarget,
+} from '@/visualiser-src/common/canvasTarget';
 import { CanvasTheme, setCanvasTheme } from '@/visualiser-src/common/canvasTheme';
 import {
   initialSnapshot,
@@ -14,8 +19,8 @@ export type { InitialDataSource, LastRun, VisualiserSnapshot } from './sessionSn
 
 const IDLE_FRAMES_BEFORE_SLEEP = 20;
 
-const finishDrawing = (): void => {
-  SVG(VISUALISER_CANVAS)
+const finishDrawing = (target: CanvasTarget): void => {
+  SVG(target.canvas)
     .find('*')
     .forEach((element) => element.timeline().finish());
 };
@@ -37,8 +42,15 @@ export class VisualiserSession {
 
   private getInitialData?: InitialDataSource;
 
-  constructor() {
+  private readonly target: CanvasTarget;
+
+  constructor(target: CanvasTarget = DEFAULT_CANVAS_TARGET) {
+    this.target = target;
     this.controller.setSpeed(defaultSpeed);
+  }
+
+  private draw<T>(drawing: () => T): T {
+    return withCanvasTarget(this.target, drawing);
   }
 
   subscribe = (listener: () => void): (() => void) => {
@@ -65,10 +77,12 @@ export class VisualiserSession {
   ): void {
     setCanvasTheme(canvasTheme);
     this.getInitialData = getInitialData;
-    this.controller.applyTopicTitle(topicTitle);
-    if (data) this.controller.loadData(data);
-    else this.loadInitialValues(topicTitle);
-    if (immediate) finishDrawing();
+    this.draw(() => {
+      this.controller.applyTopicTitle(topicTitle);
+      if (data) this.controller.loadData(data);
+      else this.loadInitialValues(topicTitle);
+      if (immediate) finishDrawing(this.target);
+    });
     this.resetPlayback({ topicTitle, documentation: this.controller.documentation });
   }
 
@@ -76,13 +90,15 @@ export class VisualiserSession {
   retheme(canvasTheme: Partial<CanvasTheme>): void {
     const { data } = this;
     setCanvasTheme(canvasTheme);
-    this.controller.loadData(data);
-    finishDrawing();
+    this.draw(() => {
+      this.controller.loadData(data);
+      finishDrawing(this.target);
+    });
     this.resetPlayback();
   }
 
   run(command: string, args: string[]): string {
-    const error = this.controller.doOperation(command, () => {}, ...args);
+    const error = this.draw(() => this.controller.doOperation(command, () => {}, ...args));
     if (error) return error;
     this.runCounter += 1;
     const { stepTimes } = this.controller;
@@ -168,13 +184,15 @@ export class VisualiserSession {
   /** Draws `data` as the structure's values, dropping any run. Given a theme, draws in it. */
   loadData = (data: number[], canvasTheme?: Partial<CanvasTheme>, immediate = false): void => {
     if (canvasTheme) setCanvasTheme(canvasTheme);
-    this.controller.loadData(data);
-    if (immediate) finishDrawing();
+    this.draw(() => {
+      this.controller.loadData(data);
+      if (immediate) finishDrawing(this.target);
+    });
     this.resetPlayback();
   };
 
   generate = (): void => {
-    this.loadInitialValues(this.snapshot.topicTitle);
+    this.draw(() => this.loadInitialValues(this.snapshot.topicTitle));
     this.resetPlayback();
   };
 
@@ -185,7 +203,7 @@ export class VisualiserSession {
   }
 
   clear = (): void => {
-    this.controller.resetDataStructure();
+    this.draw(() => this.controller.resetDataStructure());
     this.resetPlayback();
   };
 
@@ -236,6 +254,7 @@ export class VisualiserSession {
       line: duration > 0 ? controller.currentLine : null,
       size: controller.data.length,
       comparisons: controller.counterAt(time),
+      counters: controller.countersAt(time),
       trace: duration > 0 ? controller.traceAt(time) : null,
     };
   }
@@ -253,6 +272,7 @@ export class VisualiserSession {
       sample.line !== snapshot.line ||
       sample.size !== snapshot.size ||
       sample.comparisons !== (snapshot.comparisons ?? 0) ||
+      sample.counters !== snapshot.counters ||
       sample.trace !== snapshot.trace;
 
     if (changed) this.update(sample);

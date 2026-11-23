@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { CanvasTarget, DEFAULT_CANVAS_TARGET } from '@/visualiser-src/common/canvasTarget';
 import { useSnapshot } from './useVisualiser';
 import styles from './Stage.module.css';
 
@@ -86,9 +87,19 @@ interface StageProps {
   className?: string;
   style?: CSSProperties;
   children?: (view: StageView) => ReactNode;
+  /** The elements this stage's session draws into. */
+  target?: CanvasTarget;
 }
 
-const Stage = ({ label, className, style, children }: StageProps) => {
+const idOf = (selector: string) => selector.replace(/^#/, '');
+
+const Stage = ({
+  label,
+  className,
+  style,
+  children,
+  target = DEFAULT_CANVAS_TARGET,
+}: StageProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const [view, setView] = useState<View>({ x: 0, y: 0, scale: 1, transition: 'instant' });
@@ -250,10 +261,9 @@ const Stage = ({ label, className, style, children }: StageProps) => {
 
   return (
     <div className={[styles.frame, className].filter(Boolean).join(' ')} style={style}>
-      {/* The engine measures #visualiser-container and draws into #visualiser-canvas. */}
       {/* eslint-disable jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex */}
       <div
-        id="visualiser-container"
+        id={target.container}
         ref={containerRef}
         className={styles.surface}
         data-dragging={dragging || undefined}
@@ -269,15 +279,15 @@ const Stage = ({ label, className, style, children }: StageProps) => {
       >
         {/* eslint-enable jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex */}
         <svg
-          id="visualiser-canvas"
+          id={idOf(target.canvas)}
           ref={svgRef}
           className={styles.canvas}
           data-smooth={view.transition === 'smooth' || undefined}
           style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }}
         />
       </div>
-      <div id="code-container" className={styles.hiddenCode} aria-hidden="true">
-        <svg id="code-canvas" />
+      <div id={target.codeContainer} className={styles.hiddenCode} aria-hidden="true">
+        <svg id={idOf(target.code)} />
       </div>
       {children?.(stageView)}
     </div>

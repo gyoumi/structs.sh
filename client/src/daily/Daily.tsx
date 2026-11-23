@@ -4,49 +4,62 @@ import { Link } from 'react-router-dom';
 import logo from '@/assets/img/structs.png';
 import hero from '@/landing/HeroSection.module.css';
 import landing from '@/landing/Landing.module.css';
-import { loadPuzzles, scorePuzzle } from '@/Services/puzzles/puzzles';
+import { evaluatePuzzle, loadPuzzles } from '@/Services/puzzles/puzzles';
 import { Theme, ThemeToggle, useTheme } from '@/ui/theme';
-import Stage from '@/visualiser/Stage';
 import Transport from '@/visualiser/Transport';
 import { canvasThemes } from '@/visualiser/canvasThemes';
-import { findTopic } from '@/visualiser/topics';
+import { PlaybackContext } from '@/visualiser/playback';
+import { usePrefersReducedMotion } from '@/visualiser/useVisualiser';
+import { MobileHud, StepCard } from './DailyCards';
 import {
-  SessionContext,
-  useCreateSession,
-  usePrefersReducedMotion,
-  useSession,
-  useSnapshot,
-} from '@/visualiser/useVisualiser';
-import { MobileHud, PuzzleIntro, ScoreCard, StepCard } from './DailyCards';
-import { initialPlayState, MAX_TRIES, playReducer } from './playMachine';
+  initialPlayState,
+  MAX_TRIES,
+  PlayState,
+  playReducer,
+  sharedScores,
+  shownScore,
+} from './playMachine';
 import PuzzleArray from './PuzzleArray';
+import { PuzzleIntro } from './PuzzleIntro';
+import { PuzzleRig, PuzzleStages } from './PuzzleStages';
 import { Puzzle, shareText, usePuzzle } from './puzzle';
+import { Rig, useCompletedRunId, useHasTimeline, useReadoutValue, useStageSnapshot } from './rig';
+import { ScoreCard } from './ScoreCard';
+import { instanceOf, readoutsFor, stagePlanFor, tryScoreOf } from './templates';
 import styles from './Daily.module.css';
-
-const sorting = findTopic('sorting-algorithms');
-if (!sorting) throw new Error('The sorting topic is missing.');
-
-const DEFAULT_PLAYBACK_SPEED = 2;
 
 const swapValues = (values: number[], a: number, b: number) =>
   values.map((value, index) => (index === a ? values[b] : index === b ? values[a] : value));
 
+const messageFor = (play: PlayState, par: number) => {
+  if (play.stage === 'score-failed') return 'Couldn’t score that try. Press Run to try again.';
+  if (play.stage === 'running' || play.stage === 'scoring') return '';
+  const score = shownScore(play);
+  if (play.stage === 'ended') {
+    if (score === undefined) return 'Out of tries.';
+    return `${score >= par ? 'You reached the goal!' : 'Out of tries.'} Your highest score was ${score}.`;
+  }
+  return score !== undefined && score >= par
+    ? 'Goal reached! Swap and run again to go higher.'
+    : '';
+};
+
 type PlayProps = {
   puzzle: Puzzle;
+  rig: Rig;
   theme: Theme;
   values: number[];
   fixed: Set<number>;
   onSwap: (a: number, b: number) => void;
 };
 
-const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
-  const session = useSession();
-  const completedRunId = useSnapshot((s) =>
-    s.playback === 'complete' ? (s.lastRun?.id ?? null) : null
-  );
-  const hasTimeline = useSnapshot((s) => s.duration > 0);
-  const comparisons = useSnapshot((s) => s.comparisons ?? 0);
-  const trace = useSnapshot((s) => s.trace);
+const Play = ({ puzzle, rig, theme, values, fixed, onSwap }: PlayProps) => {
+  const completedRunId = useCompletedRunId(rig);
+  const hasTimeline = useHasTimeline(rig);
+  const [firstStage] = rig.stages;
+  const trace = useStageSnapshot(firstStage, (s) => s.trace);
+  const readouts = readoutsFor(puzzle, values);
+  const primaryValue = useReadoutValue(rig, readouts.primary.value);
   const [play, dispatch] = useReducer(playReducer, initialPlayState);
   const runner = useRef<HTMLDivElement>(null);
   const runButton = useRef<HTMLButtonElement>(null);
@@ -59,16 +72,17 @@ const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
   }, []);
 
   const busy = play.stage === 'running' || play.stage === 'scoring';
+  const ended = play.stage === 'ended';
 
   useEffect(() => {
     if (stageTheme === theme || busy || hasTimeline) return;
     setStageTheme(theme);
-    session.retheme(canvasThemes[theme]);
-  }, [stageTheme, theme, busy, hasTimeline, session]);
+    rig.stages.forEach(({ session }) => session.retheme(canvasThemes[theme]));
+  }, [stageTheme, theme, busy, hasTimeline, rig]);
 
-  const draw = (arrangementValues: number[]) => {
+  const draw = (arrangement: number[]) => {
     setStageTheme(theme);
-    session.loadData(arrangementValues, canvasThemes[theme], true);
+    rig.stages.forEach(({ session }) => session.loadData(arrangement, canvasThemes[theme], true));
   };
 
   useEffect(() => {
@@ -86,9 +100,9 @@ const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
   useEffect(() => {
     if (play.stage !== 'scoring') return undefined;
     let cancelled = false;
-    scorePuzzle(puzzle, play.arrangement)
-      .then((score) => {
-        if (!cancelled) dispatch({ type: 'scored', score });
+    evaluatePuzzle(instanceOf(puzzle), play.arrangement)
+      .then((evaluation) => {
+        if (!cancelled) dispatch({ type: 'scored', score: tryScoreOf(puzzle, evaluation) });
       })
       .catch((error) => {
         console.error(error);
@@ -99,18 +113,12 @@ const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
     };
   }, [play, puzzle]);
 
-  const ended = play.stage === 'ended';
-  const triesLeft = ended ? 0 : MAX_TRIES - play.scores.length;
-  const highest = Math.max(0, ...play.scores);
-  const score = ended ? highest : play.scores.at(-1);
-  const goalReached = score !== undefined && score >= puzzle.par;
-
   const run = () => {
     const focusSkip = document.activeElement === runButton.current;
     draw(values);
-    const error = session.run('quick', []);
-    if (error) return;
-    const runId = session.getSnapshot().lastRun?.id ?? 0;
+    const failed = rig.stages.some(({ session, command }) => Boolean(session.run(command, [])));
+    if (failed) return;
+    const runId = firstStage.session.getSnapshot().lastRun?.id ?? 0;
     dispatch({ type: 'run', arrangement: values, runId, focusSkip });
     runner.current?.scrollIntoView?.({
       behavior: reducedMotion ? 'auto' : 'smooth',
@@ -130,39 +138,30 @@ const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
       return;
     }
     clipboard
-      .writeText(shareText(puzzle, play.scores))
+      .writeText(shareText(puzzle, sharedScores(play.scores)))
       .then(() => dispatch({ type: 'share-copied' }))
       .catch(() => dispatch({ type: 'share-failed' }));
   };
-
-  let message = '';
-  if (busy) message = '';
-  else if (play.stage === 'score-failed') {
-    message = 'Couldn’t score that try. Press Run to try again.';
-  } else if (ended) {
-    message = `${highest >= puzzle.par ? 'You reached the goal!' : 'Out of tries.'} Your highest score was ${highest}.`;
-  } else if (goalReached) message = 'Goal reached! Swap and run again to go higher.';
 
   return (
     <div className={styles.workspace}>
       <div className={styles.playColumn}>
         <div className={styles.panel}>
           <MobileHud
-            comparisons={comparisons}
+            value={primaryValue}
             par={puzzle.par}
             comparison={trace?.comparison}
-            triesLeft={triesLeft}
+            triesLeft={ended ? 0 : MAX_TRIES - play.scores.length}
             stageTheme={stageTheme}
           />
           <div className={styles.tilesZone}>
             <PuzzleArray values={values} fixed={fixed} frozen={busy || ended} onSwap={swap} />
           </div>
           <div ref={runner} className={styles.runner}>
-            <Stage
-              label="Quicksort drawing"
-              className={`${styles.stage} ${stageTheme === 'dark' ? styles.stageDark : styles.stageLight}`}
-            />
-            <Transport />
+            <PuzzleStages rig={rig} stageTheme={stageTheme} />
+            <PlaybackContext value={rig.playback}>
+              <Transport />
+            </PlaybackContext>
           </div>
         </div>
         <div className={styles.actions}>
@@ -179,7 +178,7 @@ const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
             ref={skipButton}
             type="button"
             className={`${landing.secondary} ${styles.action}`}
-            onClick={session.finish}
+            onClick={rig.playback.finish}
             disabled={play.stage !== 'running'}
           >
             Skip
@@ -201,12 +200,14 @@ const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
           )}
         </div>
         <span aria-live="polite" className={styles.message}>
-          {message}
+          {messageFor(play, puzzle.par)}
         </span>
       </div>
       <aside className={styles.sidebar}>
-        <ScoreCard puzzle={puzzle} comparisons={comparisons} play={play} />
-        <StepCard trace={trace} stageTheme={stageTheme} />
+        <ScoreCard puzzle={puzzle} rig={rig} readouts={readouts} play={play} />
+        {puzzle.template === 'quicksort-most-comparisons' && (
+          <StepCard trace={trace} stageTheme={stageTheme} />
+        )}
       </aside>
     </div>
   );
@@ -215,32 +216,23 @@ const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
 const PuzzleView = ({ puzzle, theme }: { puzzle: Puzzle; theme: Theme }) => {
   const [values, setValues] = useState(puzzle.values);
   const [fixed] = useState(() => new Set(puzzle.fixed));
-  const [initialSessionArgs] = useState(() => ({
-    theme: canvasThemes[theme],
-    values: puzzle.values,
-  }));
-  const session = useCreateSession(
-    sorting,
-    initialSessionArgs.theme,
-    initialSessionArgs.values,
-    undefined,
-    true
-  );
-
-  useEffect(() => session.setSpeed(DEFAULT_PLAYBACK_SPEED), [session]);
+  const [plan] = useState(() => stagePlanFor(puzzle));
 
   return (
     <>
       <PuzzleIntro puzzle={puzzle} />
-      <SessionContext value={session}>
-        <Play
-          puzzle={puzzle}
-          theme={theme}
-          values={values}
-          fixed={fixed}
-          onSwap={(a, b) => setValues((current) => swapValues(current, a, b))}
-        />
-      </SessionContext>
+      <PuzzleRig plan={plan} theme={theme} values={values}>
+        {(rig) => (
+          <Play
+            puzzle={puzzle}
+            rig={rig}
+            theme={theme}
+            values={values}
+            fixed={fixed}
+            onSwap={(a, b) => setValues((current) => swapValues(current, a, b))}
+          />
+        )}
+      </PuzzleRig>
     </>
   );
 };

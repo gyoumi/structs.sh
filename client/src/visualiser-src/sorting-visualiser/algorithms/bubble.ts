@@ -1,28 +1,29 @@
-import AnimationProducer from '@/visualiser-src/common/AnimationProducer';
 import GraphicalSortsElement from '../data-structure/GraphicalSortsElement';
 import SortsBubbleAnimationProducer from '../animation-producer/SortsBubbleAnimationProducer';
 
-export function bubbleSort(elements: GraphicalSortsElement[]): AnimationProducer {
+export function bubbleSort(elements: GraphicalSortsElement[]): SortsBubbleAnimationProducer {
   const producer = new SortsBubbleAnimationProducer();
 
   const len = elements.length;
 
   producer.renderBubbleCode();
-  let numSwaps = 0;
-  for (let i = 0; i < len; i += 1) {
+  for (let i = 0; i < len - 1; i += 1) {
+    producer.startPass();
+    let swapsThisPass = 0;
     for (let j = 1; j < len - i; j += 1) {
       producer.doAnimationAndHighlightTimestamp(
         5,
-        false,
+        true,
         producer.compare,
         elements[j - 1],
         elements[j],
         j === len - i - 1
       );
       if (elements[j].data.value < elements[j - 1].data.value) {
+        producer.countSwap();
         producer.doAnimationAndHighlightTimestamp(
           6,
-          false,
+          true,
           producer.bubbleSwap,
           elements[j - 1],
           j - 1,
@@ -31,15 +32,12 @@ export function bubbleSort(elements: GraphicalSortsElement[]): AnimationProducer
           j
         );
         [elements[j], elements[j - 1]] = [elements[j - 1], elements[j]];
-        numSwaps += 1;
+        swapsThisPass += 1;
       }
     }
-    if (numSwaps === 0) {
-      producer.doAnimationAndHighlight(11, producer.finishSequence, false);
-      return producer;
-    }
-    numSwaps = 0;
+    if (swapsThisPass === 0) break;
   }
+  if (len > 0) producer.doAnimationAndHighlight(11, producer.finishSequence, false);
 
   return producer;
 }

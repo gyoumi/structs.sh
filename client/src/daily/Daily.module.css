@@ -161,6 +161,34 @@
   background-size: 22px 22px;
 }
 
+/* Two sorts on one timeline: side by side, stacked on a phone. */
+.stagePair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px;
+  background: var(--line);
+}
+
+.stageRegion {
+  display: grid;
+  min-width: 0;
+  background: var(--surface);
+}
+
+.page .stageName {
+  margin: 0;
+  padding: 0.4rem 0.85rem;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.stagePair .stage {
+  height: 12rem;
+}
+
 /* The stage keeps the theme its bars were drawn in, so a theme switch mid-run stays readable.
    These match --surface and --hero-dot in Landing.module.css. */
 .stageLight {
@@ -262,5 +290,13 @@
 
   .stage {
       height: 12rem;
+    }
+
+  .stagePair {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+  .stagePair .stage {
+      height: 10.5rem;
     }
 }

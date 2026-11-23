@@ -6,6 +6,21 @@ import { textCy } from '../util/constants';
 import { canvasTheme } from '../../common/canvasTheme';
 
 export default class SortsMergeAnimationProducer extends SortsAnimationProducer {
+  private comparisonCount = 0;
+
+  /** Comparisons of the two halves' values so far. */
+  public get comparisons(): number {
+    return this.comparisonCount;
+  }
+
+  protected get counter(): number {
+    return this.comparisonCount;
+  }
+
+  public countComparison(): void {
+    this.comparisonCount += 1;
+  }
+
   public renderMergeCode() {
     this.renderCode(mergeCodeSnippet);
   }

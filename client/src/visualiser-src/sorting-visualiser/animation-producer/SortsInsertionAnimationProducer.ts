@@ -4,6 +4,21 @@ import SortsAnimationProducer from './SortsAnimationProducer';
 import { canvasTheme } from '../../common/canvasTheme';
 
 export default class SortsInsertionAnimationProducer extends SortsAnimationProducer {
+  private comparisonCount = 0;
+
+  /** Evaluations of `val >= a[j - 1]` so far. */
+  public get comparisons(): number {
+    return this.comparisonCount;
+  }
+
+  protected get counter(): number {
+    return this.comparisonCount;
+  }
+
+  public countComparison(): void {
+    this.comparisonCount += 1;
+  }
+
   public renderInsertionCode() {
     this.renderCode(insertionCodeSnippet);
   }
