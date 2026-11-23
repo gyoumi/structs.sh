@@ -44,8 +44,7 @@ const IconTooltip = ({
 
 const Transport = () => {
   const session = useSession();
-  const playing = useSnapshot((s) => s.playing);
-  const complete = useSnapshot((s) => s.complete);
+  const playback = useSnapshot((s) => s.playback);
   const duration = useSnapshot((s) => s.duration);
   const step = useSnapshot((s) => s.step);
   const stepCount = useSnapshot((s) => s.stepCount);
@@ -53,8 +52,8 @@ const Transport = () => {
   const idle = duration === 0;
 
   let playLabel = 'Play';
-  if (playing) playLabel = 'Pause';
-  else if (complete) playLabel = 'Replay';
+  if (playback === 'playing') playLabel = 'Pause';
+  else if (playback === 'complete') playLabel = 'Replay';
 
   return (
     <div className={styles.transport}>
@@ -75,9 +74,9 @@ const Transport = () => {
           disabled={idle}
           aria-label={playLabel}
         >
-          {playing && <PauseIcon size={22} />}
-          {!playing && complete && <ReplayIcon size={22} />}
-          {!playing && !complete && <PlayIcon size={22} />}
+          {playback === 'playing' && <PauseIcon size={22} />}
+          {playback === 'complete' && <ReplayIcon size={22} />}
+          {playback === 'paused' && <PlayIcon size={22} />}
         </ToolbarButton>
         <IconTooltip label="Next step">
           <ToolbarButton className={styles.tool} onClick={session.stepForward} disabled={idle}>

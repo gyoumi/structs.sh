@@ -176,15 +176,17 @@ const onboardingSteps: Step[] = [
   },
 ];
 
+type WorkspaceState = 'open' | 'closed';
+
 interface State {
   run: boolean;
-  workspaceOpen: boolean;
+  workspace: WorkspaceState;
   stepIndex: number;
   steps: Step[];
   onboardingCurrFile: string;
 
   setRun: (value: boolean) => void;
-  setWorkspaceOpen: (value: boolean) => void;
+  setWorkspace: (value: WorkspaceState) => void;
   setStepIndex: (index: number) => void;
   setSteps: (steps: Step[]) => void;
   setOnboardingCurrFile: (file: string) => void;
@@ -201,14 +203,14 @@ const initialiseOnboarding = () => {
 
 export const onboardingStore = create<State>((set) => ({
   run: initialiseOnboarding(),
-  workspaceOpen: false,
+  workspace: 'closed',
   stepIndex: 0,
   steps: onboardingSteps,
   onboardingCurrFile: '',
 
   // Define actions to update the state
   setRun: (value) => set({ run: value }),
-  setWorkspaceOpen: (value) => set({ workspaceOpen: value }),
+  setWorkspace: (value) => set({ workspace: value }),
   setStepIndex: (index) => set({ stepIndex: index }),
   setSteps: (steps) => set({ steps }),
   setOnboardingCurrFile: (file: string) => set({ onboardingCurrFile: file }),
@@ -226,9 +228,9 @@ export const handleJoyrideCallback = (data: EventData) => {
     onboardingStore.getState().setStepIndex(0);
   } else if (([EVENTS.STEP_AFTER, EVENTS.TARGET_NOT_FOUND] as string[]).includes(type)) {
     const nextStepIndex = index + (action === ACTIONS.PREV ? -1 : 1);
-    if (onboardingStore.getState().workspaceOpen && index === OPEN_ROOT_DIR_STEP) {
+    if (onboardingStore.getState().workspace === 'open' && index === OPEN_ROOT_DIR_STEP) {
       onboardingStore.getState().setRun(false);
-      onboardingStore.getState().setWorkspaceOpen(false);
+      onboardingStore.getState().setWorkspace('closed');
       onboardingStore.getState().setStepIndex(nextStepIndex);
 
       setTimeout(() => {
@@ -236,7 +238,7 @@ export const handleJoyrideCallback = (data: EventData) => {
       }, 400);
     } else if (index === OPEN_FILE_STEP) {
       onboardingStore.getState().setRun(false);
-      onboardingStore.getState().setWorkspaceOpen(false);
+      onboardingStore.getState().setWorkspace('closed');
       onboardingStore.getState().setStepIndex(nextStepIndex);
 
       setTimeout(() => {
@@ -244,14 +246,14 @@ export const handleJoyrideCallback = (data: EventData) => {
       }, 400);
     } else if (index === PRESS_COMPILE_STEP) {
       onboardingStore.getState().setRun(false);
-      onboardingStore.getState().setWorkspaceOpen(false);
+      onboardingStore.getState().setWorkspace('closed');
       onboardingStore.getState().setStepIndex(nextStepIndex);
 
       setTimeout(() => {
         onboardingStore.getState().setRun(true);
       }, 400);
     } else {
-      onboardingStore.getState().setWorkspaceOpen(false);
+      onboardingStore.getState().setWorkspace('closed');
       onboardingStore.getState().setStepIndex(nextStepIndex);
     }
   }
@@ -259,12 +261,13 @@ export const handleJoyrideCallback = (data: EventData) => {
 };
 
 export const handleWorkspaceOpen = () => {
-  if (onboardingStore.getState().stepIndex === OPEN_ROOT_DIR_STEP) {
-    onboardingStore.getState().setRun(false);
+  const state = onboardingStore.getState();
+  if (state.stepIndex === OPEN_ROOT_DIR_STEP) {
+    state.setRun(false);
   }
-  onboardingStore.getState().setWorkspaceOpen(!onboardingStore.getState().workspaceOpen);
-  if (onboardingStore.getState().stepIndex === OPEN_ROOT_DIR_STEP) {
-    onboardingStore.getState().setStepIndex(8);
+  state.setWorkspace(state.workspace === 'open' ? 'closed' : 'open');
+  if (state.stepIndex === OPEN_ROOT_DIR_STEP) {
+    state.setStepIndex(8);
   }
 };
 

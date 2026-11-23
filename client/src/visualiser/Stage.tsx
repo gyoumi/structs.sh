@@ -15,6 +15,7 @@ interface View {
   x: number;
   y: number;
   scale: number;
+  transition: 'instant' | 'smooth';
 }
 
 const MIN_SCALE = 0.3;
@@ -90,23 +91,22 @@ interface StageProps {
 const Stage = ({ label, className, style, children }: StageProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
-  const [view, setView] = useState<View>({ x: 0, y: 0, scale: 1 });
-  const [smooth, setSmooth] = useState(false);
+  const [view, setView] = useState<View>({ x: 0, y: 0, scale: 1, transition: 'instant' });
   const [dragging, setDragging] = useState(false);
   const userMoved = useRef(false);
   const lastPointer = useRef<{ x: number; y: number } | null>(null);
 
   const layoutVersion = useSnapshot((s) => s.layoutVersion);
-  const complete = useSnapshot((s) => s.complete);
+  const complete = useSnapshot((s) => s.playback === 'complete');
   const step = useSnapshot((s) => s.step);
 
   const zoomAround = useCallback((factor: number, cx: number, cy: number, animate: boolean) => {
     userMoved.current = true;
-    setSmooth(animate);
+    const transition = animate ? 'smooth' : 'instant';
     setView((prev) => {
       const scale = clamp(prev.scale * factor, Math.min(MIN_SCALE, prev.scale), MAX_SCALE);
       const ratio = scale / prev.scale;
-      return { scale, x: cx - (cx - prev.x) * ratio, y: cy - (cy - prev.y) * ratio };
+      return { scale, x: cx - (cx - prev.x) * ratio, y: cy - (cy - prev.y) * ratio, transition };
     });
   }, []);
 
@@ -153,9 +153,9 @@ const Stage = ({ label, className, style, children }: StageProps) => {
         scale,
         x: availableWidth / 2 - scale * (box.x + box.width / 2),
         y: insetTop + availableHeight / 2 - scale * (box.y + box.height / 2),
+        transition: 'smooth',
       };
     });
-    setSmooth(true);
     userMoved.current = false;
   }, []);
 
@@ -209,8 +209,7 @@ const Stage = ({ label, className, style, children }: StageProps) => {
     const dy = event.clientY - last.y;
     lastPointer.current = { x: event.clientX, y: event.clientY };
     userMoved.current = true;
-    setSmooth(false);
-    setView((prev) => ({ ...prev, x: prev.x + dx, y: prev.y + dy }));
+    setView((prev) => ({ ...prev, x: prev.x + dx, y: prev.y + dy, transition: 'instant' }));
   };
 
   const endDrag = () => {
@@ -220,7 +219,7 @@ const Stage = ({ label, className, style, children }: StageProps) => {
 
   const panBy = (dx: number, dy: number) => {
     userMoved.current = true;
-    setView((p) => ({ ...p, x: p.x + dx, y: p.y + dy }));
+    setView((p) => ({ ...p, x: p.x + dx, y: p.y + dy, transition: 'smooth' }));
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -238,7 +237,6 @@ const Stage = ({ label, className, style, children }: StageProps) => {
     const move = moves[event.key];
     if (move) {
       event.preventDefault();
-      setSmooth(true);
       move();
     }
   };
@@ -274,7 +272,7 @@ const Stage = ({ label, className, style, children }: StageProps) => {
           id="visualiser-canvas"
           ref={svgRef}
           className={styles.canvas}
-          data-smooth={smooth || undefined}
+          data-smooth={view.transition === 'smooth' || undefined}
           style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }}
         />
       </div>

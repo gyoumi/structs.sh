@@ -6,47 +6,21 @@ import { fileURLToPath } from 'node:url';
 
 const LIMITS = { source: 300, test: 500 };
 
-const SCOPE = [
-  'client/src/Services/debugger/',
-  'client/src/Services/useDebugger.ts',
-  'client/src/Services/puzzles/',
-  'client/src/daily/',
-  'client/src/visualiser-src/controller/',
-  'instrumenter/src/',
-  'instrumenter/tests/',
-  'e2e/',
-  'scripts/',
-  'client/src/visualiser-debugger/Types/annotationType.ts',
-  'client/src/visualiser-debugger/Component/Configuration/Configuration.tsx',
-  'client/src/visualiser-debugger/Component/Configuration/StackVarAnnotation.tsx',
-  'client/src/visualiser-debugger/Component/Configuration/RoleAnnotation/LinkedListNodeAnnotation.tsx',
-  'client/src/visualiser-debugger/Component/Control/Controls.tsx',
-  'client/src/visualiser-debugger/DevelopmentMode.tsx',
-  'client/src/visualiser-debugger/Component/Console/useCursor.ts',
-];
+/** Legacy files that predate the 300-line limit, capped at their current length so they cannot grow. */
+const LEGACY_LIMITS = {
+  'client/src/visualiser-debugger/Component/FileTree/FS/IFileSystem.ts': 771,
+  'client/src/visualiser-src/binary-search-tree-visualiser/data-structure/GraphicalBST.ts': 507,
+  'client/src/visualiser-src/avl-tree-visualiser/data-structure/GraphicalAVL.ts': 477,
+};
 
 const CODE_EXTENSIONS = ['.ts', '.tsx', '.rs', '.mjs', '.js'];
-const IGNORED_FOLDERS = new Set(['fixtures', 'generated']);
+const IGNORED_FOLDERS = new Set(['fixtures', 'generated', '__mocks__']);
 const TEST_SUFFIXES = ['.test.ts', '.test.tsx', '.spec.ts', '.test.mjs'];
-const TEST_FOLDERS = ['instrumenter/tests/', 'e2e/'];
-const CRATE_CODE = /^crates\/[^/]+\/(src|tests)\//;
+const TEST_FOLDERS = ['instrumenter/tests/', 'e2e/', 'client/src/test/'];
 const CRATE_TESTS = /^crates\/[^/]+\/tests\//;
-
-const LINKED_LIST_FOLDER = 'client/src/visualiser-debugger/Component/Visualizer/Parser/';
-
-const matches = (path, entry) => (entry.endsWith('/') ? path.startsWith(entry) : path === entry);
-
-const isLinkedListParserFile = (path) => {
-  if (!path.startsWith(LINKED_LIST_FOLDER)) return false;
-  const name = path.slice(LINKED_LIST_FOLDER.length);
-  return !name.includes('/') && name.startsWith('linkedList');
-};
 
 /** Whether the size check covers this repo-relative path. */
 export function inScope(path) {
-  if (!SCOPE.some((entry) => matches(path, entry)) && !isLinkedListParserFile(path) && !CRATE_CODE.test(path)) {
-    return false;
-  }
   if (!CODE_EXTENSIONS.some((ext) => path.endsWith(ext))) return false;
   return !path.split('/').slice(0, -1).some((folder) => IGNORED_FOLDERS.has(folder));
 }
@@ -60,6 +34,11 @@ export function kindOf(path) {
   return isTest ? 'test' : 'source';
 }
 
+/** @returns {number} */
+export function limitFor(path) {
+  return LEGACY_LIMITS[path] ?? LIMITS[kindOf(path)];
+}
+
 /**
  * The in-scope files over their limit, sorted by path.
  * @param {{ path: string, lines: number }[]} files
@@ -71,7 +50,7 @@ export function oversized(files, { only } = {}) {
     .filter(({ path }) => inScope(path))
     .map(({ path, lines }) => {
       const kind = kindOf(path);
-      return { path, lines, limit: LIMITS[kind], kind };
+      return { path, lines, limit: limitFor(path), kind };
     })
     .filter(({ kind, lines, limit }) => (only === undefined || kind === only) && lines > limit)
     .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));

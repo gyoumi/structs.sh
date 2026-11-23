@@ -19,8 +19,7 @@ export const calls: Call[] = [];
 const initial: VisualiserSnapshot = {
   topicTitle: null,
   documentation: {},
-  playing: false,
-  complete: false,
+  playback: 'paused',
   progress: 0,
   step: 0,
   stepCount: 0,

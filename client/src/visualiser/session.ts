@@ -13,11 +13,12 @@ export interface LastRun {
   args: string[];
 }
 
+export type PlaybackStage = 'paused' | 'playing' | 'complete';
+
 export interface VisualiserSnapshot {
   topicTitle: string | null;
   documentation: Documentation;
-  playing: boolean;
-  complete: boolean;
+  playback: PlaybackStage;
   progress: number;
   step: number;
   stepCount: number;
@@ -39,8 +40,7 @@ export interface VisualiserSnapshot {
 const initialSnapshot: VisualiserSnapshot = {
   topicTitle: null,
   documentation: {},
-  playing: false,
-  complete: false,
+  playback: 'paused',
   progress: 0,
   step: 0,
   stepCount: 0,
@@ -146,7 +146,7 @@ export class VisualiserSession {
   }
 
   play = (): void => {
-    if (this.snapshot.complete) this.controller.seekPercent(0);
+    if (this.snapshot.playback === 'complete') this.controller.seekPercent(0);
     this.controller.play();
     this.wake();
   };
@@ -157,12 +157,12 @@ export class VisualiserSession {
   };
 
   togglePlay = (): void => {
-    if (this.snapshot.playing) this.pause();
+    if (this.snapshot.playback === 'playing') this.pause();
     else this.play();
   };
 
   stepForward = (): void => {
-    if (this.snapshot.complete) return;
+    if (this.snapshot.playback === 'complete') return;
     this.controller.stepForwards();
     this.wake();
   };
@@ -263,8 +263,9 @@ export class VisualiserSession {
     const { controller, snapshot } = this;
     const { duration } = snapshot;
     const { time } = controller;
-    const complete = duration > 0 && time >= duration - 1;
-    const playing = duration > 0 && !controller.isPaused && !complete;
+    let playback: PlaybackStage = 'paused';
+    if (duration > 0 && time >= duration - 1) playback = 'complete';
+    else if (duration > 0 && !controller.isPaused) playback = 'playing';
     const progress = duration > 0 ? Math.min(100, (time / duration) * 100) : 0;
     const step = snapshot.stepTimes.filter((t) => t <= time + 1).length;
     const line = duration > 0 ? controller.currentLine : null;
@@ -273,8 +274,7 @@ export class VisualiserSession {
     const trace = duration > 0 ? controller.traceAt(time) : null;
 
     const changed =
-      playing !== snapshot.playing ||
-      complete !== snapshot.complete ||
+      playback !== snapshot.playback ||
       Math.abs(progress - snapshot.progress) > 0.05 ||
       step !== snapshot.step ||
       line !== snapshot.line ||
@@ -284,13 +284,13 @@ export class VisualiserSession {
 
     if (changed) {
       this.idleFrames = 0;
-      this.update({ playing, complete, progress, step, line, size, comparisons, trace });
+      this.update({ playback, progress, step, line, size, comparisons, trace });
     } else {
       this.idleFrames += 1;
     }
 
     this.frame =
-      playing || this.idleFrames < IDLE_FRAMES_BEFORE_SLEEP
+      playback === 'playing' || this.idleFrames < IDLE_FRAMES_BEFORE_SLEEP
         ? requestAnimationFrame(this.tick)
         : null;
   };
