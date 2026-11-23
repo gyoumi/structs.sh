@@ -80,7 +80,7 @@ const Play = ({ puzzle, theme, values, fixed, onSwap }: PlayProps) => {
 
   const draw = (arrangementValues: number[]) => {
     markDrawn(theme);
-    session.loadData(arrangementValues, canvasThemes[theme]);
+    session.loadData(arrangementValues, canvasThemes[theme], true);
   };
 
   // Hand focus from Run to Skip once Skip is enabled, without fighting the scroll to the drawing.
@@ -233,7 +233,7 @@ const PuzzleView = ({ puzzle, theme }: { puzzle: Puzzle; theme: Theme }) => {
   // The session is created with the first theme and values only. Play redraws on later changes,
   // so a theme switch never drops a try that is still running.
   const [initial] = useState(() => ({ theme: canvasThemes[theme], values: puzzle.values }));
-  const session = useCreateSession(sorting, initial.theme, initial.values);
+  const session = useCreateSession(sorting, initial.theme, initial.values, undefined, true);
 
   // A full quicksort at 1x takes about a minute, so tries start at the fastest speed.
   useEffect(() => session.setSpeed(2), [session]);

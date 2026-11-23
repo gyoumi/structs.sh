@@ -127,6 +127,7 @@ function partition(
     elements.slice(lo, hi + 1),
     canvasTheme.ink
   );
+  producer.setPivot(null);
 
   return j;
 }
@@ -191,13 +192,14 @@ function quickSortRange(
     hi,
     canvasTheme.danger
   );
-  // Make everything left of recursing array solved
+  // Make everything left of recursing array solved (bars accented, dimmed labels stay in ink)
   producer.doAnimationAndHighlightTimestamp(
     7,
     true,
     producer.highlightBoxes,
     elements.slice(0, i + 1),
-    canvasTheme.accent
+    canvasTheme.accent,
+    canvasTheme.ink
   );
   quickSortRange(elements, i + 1, hi, producer, ipointer, jpointer);
 }

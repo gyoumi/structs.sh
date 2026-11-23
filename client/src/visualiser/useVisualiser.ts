@@ -29,7 +29,8 @@ export const useCreateSession = (
   topic: Topic,
   canvasTheme: Partial<CanvasTheme>,
   data?: number[],
-  getInitialData?: InitialDataSource
+  getInitialData?: InitialDataSource,
+  immediate = false
 ): VisualiserSession => {
   const [session] = useState(() => new VisualiserSession());
   const dataKey = data ? `data:${data.join(',')}` : 'random';
@@ -37,7 +38,7 @@ export const useCreateSession = (
 
   const attach = useEffectEvent(() => {
     drawnTheme.current = canvasTheme;
-    session.attach(topic.title, canvasTheme, data, getInitialData);
+    session.attach(topic.title, canvasTheme, data, getInitialData, immediate);
   });
 
   useEffect(() => attach(), [session, topic.title, dataKey]);

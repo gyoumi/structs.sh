@@ -4,6 +4,7 @@ import GraphicalDataStructureFactory from '@/visualiser-src/common/GraphicalData
 import { Documentation } from '@/visualiser-src/common/typedefs';
 import { defaultSpeed } from '../common/constants';
 import AnimationProducer, { StepTrace } from '../common/AnimationProducer';
+import TimelineTrack from './TimelineTrack';
 
 interface TimeEvent extends Event {
   detail?: number;
@@ -25,9 +26,7 @@ class VisualiserController {
 
   private timestamps: number[] = [];
 
-  private counterTimes: { time: number; value: number }[] = [];
-
-  private traceTimes: { time: number; value: StepTrace | null }[] = [];
+  private track = new TimelineTrack();
 
   private speed: number = 1;
 
@@ -78,7 +77,7 @@ class VisualiserController {
       const segmentStart = this.timelineDuration + 25;
       this.segments.push({ start: segmentStart, line: runnerInfo.line });
       if (runnerInfo.trace !== undefined) {
-        this.traceTimes.push({ time: segmentStart, value: runnerInfo.trace });
+        this.track.recordTrace(segmentStart, runnerInfo.trace);
       }
       runnerInfo.runners.forEach((runner) => {
         this.currentTimeline.schedule(runner, segmentStart, 'absolute');
@@ -89,7 +88,7 @@ class VisualiserController {
       );
       this.timelineDuration += maxRunner.duration() + 25;
       if (runnerInfo.counter !== undefined) {
-        this.counterTimes.push({ time: this.timelineDuration, value: runnerInfo.counter });
+        this.track.recordCounter(this.timelineDuration, runnerInfo.counter);
       }
       if (runnerInfo.isTimestamped) {
         maxRunner.after(() => {
@@ -269,8 +268,7 @@ class VisualiserController {
 
   private clearRecording(): void {
     this.timestamps = [];
-    this.counterTimes = [];
-    this.traceTimes = [];
+    this.track.clear();
     this.timelineDuration = 0;
     this.segments = [];
     this.operationCode = '';
@@ -286,20 +284,12 @@ class VisualiserController {
 
   // The producer's running count (for quicksort, the comparisons made) once the steps up to `time` are done.
   public counterAt(time: number): number {
-    let value = 0;
-    this.counterTimes.forEach((entry) => {
-      if (entry.time <= time + 1) value = entry.value;
-    });
-    return value;
+    return this.track.counterAt(time);
   }
 
   // The sort's pivot and comparison for the step playing at `time`, or null outside a partition.
   public traceAt(time: number): StepTrace | null {
-    let value: StepTrace | null = null;
-    this.traceTimes.forEach((entry) => {
-      if (entry.time <= time + 1) value = entry.value;
-    });
-    return value;
+    return this.track.traceAt(time);
   }
 
   public get isPaused(): boolean {

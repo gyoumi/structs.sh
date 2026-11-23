@@ -141,6 +141,11 @@ test.describe('daily game', () => {
           message: `${ctx}: after tapping Run, the sort should animate and raise Comparisons counter above 0`,
         })
         .toBeGreaterThan(0);
+
+      // Even on mobile where the Step card is visually hidden, assistive tech can still read the live comparison.
+      await dailyPage.pausePlayback();
+      await dailyPage.rewind();
+      await dailyPage.expectAccessibleStepComparison(ctx);
     });
 
     test('swapping works on a phone-sized screen', async ({ dailyPage }) => {

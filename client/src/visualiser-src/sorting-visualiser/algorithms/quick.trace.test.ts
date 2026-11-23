@@ -127,4 +127,50 @@ describe('quicksort step trace metadata', () => {
       `DAILY_12: expected ${producer.comparisons} traced comparisons, got ${tracedComparisons}`
     ).toBe(producer.comparisons);
   });
+
+  it('clears comparison on non-comparison steps, clears pivot after partition, and restores on rewind', () => {
+    // [3, 1, 4, 2] has:
+    // - partition(0, 3) with pivot 3, comparison (1 <= 3), pointer move, comparison (4 <= 3 false),
+    //   comparison (3 < 2 false), swap(2, 3), ..., then unhighlight + clear pivot before base case.
+    const { controller } = runController([3, 1, 4, 2]);
+    const timeline = controller.stepTimes.map((time) => ({
+      time,
+      trace: controller.traceAt(time),
+    }));
+
+    const compStep = timeline.find((entry) => entry.trace?.comparison !== undefined);
+    expect(
+      compStep,
+      'expected at least one comparison step in quickSort([3, 1, 4, 2])'
+    ).toBeDefined();
+
+    // Immediately after a comparison step that triggers a pointer move or swap, the comparison clears while the pivot stays.
+    const afterComp = timeline.find(
+      (entry) =>
+        entry.time > compStep!.time &&
+        entry.trace !== null &&
+        entry.trace.pivot === compStep!.trace!.pivot &&
+        entry.trace.comparison === undefined
+    );
+    expect(
+      afterComp,
+      'expected a subsequent non-comparison step (movePointer/swap) in the same partition to keep pivot but clear comparison'
+    ).toBeDefined();
+
+    // Between partitions (base case / greyOut before next partition), trace clears to null.
+    const betweenPartitions = timeline.find(
+      (entry) =>
+        entry.time > afterComp!.time && entry.time < controller.duration && entry.trace === null
+    );
+    expect(
+      betweenPartitions,
+      'expected trace to clear to null after partition finishes (no stale pivot during base case)'
+    ).toBeDefined();
+
+    // Rewinding back to the earlier comparison timestamp restores the exact comparison.
+    expect(
+      controller.traceAt(compStep!.time),
+      `rewinding to comparison step ${compStep!.time} after visiting ${betweenPartitions!.time} should restore its exact comparison`
+    ).toEqual(compStep!.trace);
+  });
 });

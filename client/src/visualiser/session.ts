@@ -105,22 +105,16 @@ export class VisualiserSession {
     topicTitle: string,
     canvasTheme: Partial<CanvasTheme>,
     data?: number[],
-    getInitialData?: InitialDataSource
+    getInitialData?: InitialDataSource,
+    immediate = false
   ): void {
     setCanvasTheme(canvasTheme);
     this.getInitialData = getInitialData;
     this.controller.applyTopicTitle(topicTitle);
     if (data) this.controller.loadData(data);
     else this.loadInitialValues(topicTitle);
-    finishDrawing();
-    this.update({
-      ...initialSnapshot,
-      speed: this.snapshot.speed,
-      topicTitle,
-      documentation: this.controller.documentation,
-      layoutVersion: this.snapshot.layoutVersion + 1,
-      size: this.controller.data.length,
-    });
+    if (immediate) finishDrawing();
+    this.resetPlayback({ topicTitle, documentation: this.controller.documentation });
   }
 
   /** Redraws the current values in another theme, at once. Colours are fixed when drawn, so the last run's playback is dropped. */
@@ -210,10 +204,10 @@ export class VisualiserSession {
   };
 
   /** Draws `data` as the structure's values, dropping any run. Given a theme, draws in it. */
-  loadData = (data: number[], canvasTheme?: Partial<CanvasTheme>): void => {
+  loadData = (data: number[], canvasTheme?: Partial<CanvasTheme>, immediate = false): void => {
     if (canvasTheme) setCanvasTheme(canvasTheme);
     this.controller.loadData(data);
-    finishDrawing();
+    if (immediate) finishDrawing();
     this.resetPlayback();
   };
 
@@ -238,7 +232,7 @@ export class VisualiserSession {
     this.controller.finish();
   }
 
-  private resetPlayback(): void {
+  private resetPlayback(patch?: Partial<VisualiserSnapshot>): void {
     this.update({
       ...initialSnapshot,
       speed: this.snapshot.speed,
@@ -246,6 +240,7 @@ export class VisualiserSession {
       documentation: this.snapshot.documentation,
       layoutVersion: this.snapshot.layoutVersion + 1,
       size: this.controller.data.length,
+      ...patch,
     });
   }
 

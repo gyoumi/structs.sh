@@ -6,7 +6,7 @@ import {
   expectVisualiserInViewport,
 } from './daily-layout';
 import { DailyLocators } from './daily-locators';
-import { stepBackUntilCounterDrops, stepToEnd, type StepReading } from './daily-stepping';
+import { stepAndSettle, stepBackUntilCounterDrops, stepToEnd, type StepReading } from './daily-stepping';
 import { readDrawing } from './visualiser-drawing';
 
 export type { StepReading } from './daily-stepping';
@@ -416,6 +416,19 @@ export class DailyPage {
     maxSteps = 20,
   ): Promise<{ counter: number; progress: number; steps: number }> {
     return stepBackUntilCounterDrops(this.ui, from, context, maxSteps);
+  }
+
+  /** Steps forward from the start until an active comparison with its true/false result is exposed to assistive tech. */
+  async expectAccessibleStepComparison(context: string, maxSteps = 10): Promise<void> {
+    const stepComparison = this.page.getByRole('status', { name: /, (true|false)$/ });
+    for (let step = 1; step <= maxSteps; step += 1) {
+      await stepAndSettle(this.ui, 'Next step', 100, `${context} step ${step}`);
+      if ((await stepComparison.count()) > 0) return;
+    }
+    expect(
+      await stepComparison.count(),
+      `${context}: stepping forward up to ${maxSteps} steps must expose an active comparison status (e.g. "1 <= 8, true") to assistive technology`,
+    ).toBeGreaterThan(0);
   }
 
   /** Grants clipboard permissions, clears the clipboard, clicks Share, and returns the copied share text. */

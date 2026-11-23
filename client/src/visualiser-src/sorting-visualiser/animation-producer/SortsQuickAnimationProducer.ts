@@ -42,10 +42,12 @@ export default class SortsQuickAnimationProducer extends SortsAnimationProducer 
     comparison?: StepComparison
   ): boolean {
     this.comparisonCount += 1;
-    if (comparison && this.currentTrace) {
-      this.currentTrace = { pivot: this.currentTrace.pivot, comparison };
+    const prior = this.currentTrace;
+    if (comparison && prior) {
+      this.currentTrace = { pivot: prior.pivot, comparison };
     }
     this.doAnimationAndHighlightTimestamp(line, true, this.markCompared, element, colour);
+    if (prior) this.currentTrace = { pivot: prior.pivot };
     return result;
   }
 
@@ -100,9 +102,11 @@ export default class SortsQuickAnimationProducer extends SortsAnimationProducer 
   public greyOut(array: GraphicalSortsElement[], lo: number, hi: number) {
     array.forEach((x, i) => {
       if (i < lo || i > hi) {
-        // The label stays readable (WCAG AA) while the bar fades.
+        // Keep dimmed labels in theme ink (WCAG AA) while the bar fades.
         this.addSequenceAnimation(x.boxTarget.animate(300).attr({ opacity: 0.28 }));
-        this.addSequenceAnimation(x.numberTarget.animate(300).attr({ opacity: 0.72 }));
+        this.addSequenceAnimation(
+          x.numberTarget.animate(300).attr({ opacity: 0.72, fill: canvasTheme.ink })
+        );
       } else {
         this.addSequenceAnimation(x.boxTarget.animate(300).attr({ opacity: 1 }));
         this.addSequenceAnimation(x.numberTarget.animate(300).attr({ opacity: 1 }));
