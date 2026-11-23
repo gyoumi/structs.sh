@@ -1,14 +1,6 @@
-/**
- * Shape of GET /puzzles/today.json for the daily game.
- * There is no `best` field: the solver's best score stays on the server and is never sent to players.
- */
-export interface DailyPuzzle {
-  number: number;
-  template: 'quicksort-most-comparisons';
-  values: number[];
-  fixed: number[];
-  par: number;
-}
+import type { QuicksortPuzzle } from './daily-puzzle-shapes';
+
+export type { DailyPuzzle } from './daily-puzzle-shapes';
 
 /**
  * Named test puzzles with hand-worked and brute-forced quicksort comparison counts.
@@ -50,7 +42,7 @@ export const DAILY_12 = {
     values: [8, 1, 6, 3, 2, 7, 4, 5],
     fixed: [1, 4, 6],
     par: 34,
-  } satisfies DailyPuzzle,
+  } satisfies QuicksortPuzzle,
   start: { values: [8, 1, 6, 3, 2, 7, 4, 5], count: 30 },
   par: { swap: [2, 7] as const, values: [8, 1, 5, 3, 2, 7, 4, 6], count: 34 },
   highFromStart: { swap: [5, 7] as const, values: [8, 1, 6, 3, 2, 5, 4, 7], count: 36 },
@@ -74,6 +66,6 @@ export const DAILY_7 = {
     values: [4, 2, 6, 8, 1, 5, 3, 7],
     fixed: [2, 5],
     par: 38,
-  } satisfies DailyPuzzle,
+  } satisfies QuicksortPuzzle,
   start: { values: [4, 2, 6, 8, 1, 5, 3, 7], count: 32 },
 } as const;
