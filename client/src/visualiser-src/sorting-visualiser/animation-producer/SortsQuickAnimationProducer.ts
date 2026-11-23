@@ -102,10 +102,10 @@ export default class SortsQuickAnimationProducer extends SortsAnimationProducer 
   public greyOut(array: GraphicalSortsElement[], lo: number, hi: number) {
     array.forEach((x, i) => {
       if (i < lo || i > hi) {
-        // Keep dimmed labels in theme ink (WCAG AA) while the bar fades.
+        // Keep dimmed labels in theme ink (WCAG AA+) while the bar fades.
         this.addSequenceAnimation(x.boxTarget.animate(300).attr({ opacity: 0.28 }));
         this.addSequenceAnimation(
-          x.numberTarget.animate(300).attr({ opacity: 0.72, fill: canvasTheme.ink })
+          x.numberTarget.animate(300).attr({ opacity: 0.78, fill: canvasTheme.ink })
         );
       } else {
         this.addSequenceAnimation(x.boxTarget.animate(300).attr({ opacity: 1 }));
@@ -126,7 +126,7 @@ export default class SortsQuickAnimationProducer extends SortsAnimationProducer 
   }
 
   public makeSolved(array: GraphicalSortsElement[]) {
-    this.highlightBoxes(array, canvasTheme.accent);
+    this.highlightBoxes(array, canvasTheme.accent, canvasTheme.ink);
     array.forEach((x) => {
       this.addSequenceAnimation(x.boxTarget.animate(300).attr({ opacity: 1 }));
       this.addSequenceAnimation(x.numberTarget.animate(300).attr({ opacity: 1 }));
