@@ -2,41 +2,42 @@
 //!
 //! Request (UTF-8 JSON):
 //! `{"template": "quicksort-most-comparisons", "values": [..], "fixed": [..], "arrangement": [..]}`.
-//! A `bubble-exact-passes` request also carries `"targetPasses": k`.
+//! A `bubble-exact-passes` request also carries `"targetPasses": k`, and only
+//! it may. A `bst-forced-order` request carries `"targetTree": [..]` (the
+//! target's preorder), and only it may; it has no fixed slots, so its
+//! `fixed` is left out or `[]`. Every other template needs `fixed`.
 //!
 //! Success replies, by template:
 //! - `quicksort-most-comparisons`: `{"score": 12}`.
 //! - `bubble-exact-passes`: `{"solved": true, "score": 9, "passes": 4, "swaps": 9}`.
 //! - `insertion-beats-merge`: `{"solved": true, "score": 7,
 //!   "insertionComparisons": 14, "mergeComparisons": 16, "inversions": 7}`.
+//! - `avl-most-rotations`: `{"solved": true, "score": 5, "rotations": 5}`.
+//! - `bst-forced-order`: `{"solved": true, "score": 3, "longestIncreasingRun": 3}`.
+//! - `upset-bst-beats-avl`: `{"solved": true, "score": 4, "bstNodesPassed": 20,
+//!   "avlNodesPassed": 24, "margin": 4}`.
 //!
 //! `score` is `null` when the try is unsolved. A failure reply is a
 //! plain-English message a player can read, as UTF-8 text.
 
+use crate::avl_rotations::{self, AvlRotations};
+use crate::bst_forced_order::{self, BstForcedOrder};
 use crate::bubble::{self, Bubble};
 use crate::insertion_beats_merge::{self, InsertionBeatsMerge};
 use crate::quicksort::{self, Quicksort};
+use crate::request::Request;
+use crate::upset_bst_beats_avl::{self, UpsetBstBeatsAvl};
 use crate::{InputError, Template};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-struct Request {
-    template: String,
-    values: Vec<i32>,
-    fixed: Vec<usize>,
-    arrangement: Vec<i32>,
-    #[serde(default, deserialize_with = "present")]
-    target_passes: Option<Option<u32>>,
-}
-
-fn present<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-    T: Deserialize<'de>,
-{
-    T::deserialize(deserializer).map(Some)
-}
+const TEMPLATES: [&str; 6] = [
+    Quicksort::ID,
+    Bubble::ID,
+    InsertionBeatsMerge::ID,
+    AvlRotations::ID,
+    BstForcedOrder::ID,
+    UpsetBstBeatsAvl::ID,
+];
 
 #[derive(Serialize)]
 struct QuicksortReply {
@@ -61,21 +62,59 @@ struct InsertionBeatsMergeReply {
     inversions: u32,
 }
 
+#[derive(Serialize)]
+struct AvlRotationsReply {
+    solved: bool,
+    score: u32,
+    rotations: u32,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct BstForcedOrderReply {
+    solved: bool,
+    score: Option<u32>,
+    longest_increasing_run: u32,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct UpsetReply {
+    solved: bool,
+    score: Option<u32>,
+    bst_nodes_passed: u32,
+    avl_nodes_passed: u32,
+    margin: u32,
+}
+
 /// Decodes `request`, scores it, and returns the JSON reply, or the message
 /// to show the player.
 pub fn score_request(request: &[u8]) -> Result<String, String> {
     let request: Request = serde_json::from_slice(request)
         .map_err(|error| format!("The puzzle request could not be read: {error}."))?;
-    if ![Quicksort::ID, Bubble::ID, InsertionBeatsMerge::ID].contains(&request.template.as_str()) {
+    if !TEMPLATES.contains(&request.template.as_str()) {
         return Err(format!("Unknown puzzle template \"{}\".", request.template));
     }
-    check_fixed(&request)?;
-    let values = request.values.clone();
-    let fixed = request.fixed.clone();
-    let arrangement = &request.arrangement;
+    if request.template != Bubble::ID {
+        request.reject_target_passes()?;
+    }
+    if request.template != BstForcedOrder::ID {
+        request.reject_target_tree()?;
+    }
     let reply = match request.template.as_str() {
+        BstForcedOrder::ID => forced_order(&request)?,
+        _ => with_fixed(&request, request.required_fixed()?)?,
+    };
+    reply.map_err(|error| format!("The puzzle reply could not be written: {error}."))
+}
+
+type Reply = Result<String, serde_json::Error>;
+
+fn with_fixed(request: &Request, fixed: Vec<usize>) -> Result<Reply, String> {
+    let values = request.values.clone();
+    let arrangement = &request.arrangement;
+    Ok(match request.template.as_str() {
         Quicksort::ID => {
-            reject_target_passes(&request)?;
             let score = Quicksort
                 .score(&quicksort::Instance { values, fixed }, arrangement)
                 .map_err(|error| describe(&error))?;
@@ -101,7 +140,6 @@ pub fn score_request(request: &[u8]) -> Result<String, String> {
             })
         }
         InsertionBeatsMerge::ID => {
-            reject_target_passes(&request)?;
             let instance = insertion_beats_merge::Instance { values, fixed };
             let outcome = InsertionBeatsMerge
                 .evaluate(&instance, arrangement)
@@ -114,32 +152,51 @@ pub fn score_request(request: &[u8]) -> Result<String, String> {
                 inversions: outcome.inversions,
             })
         }
-        _ => unreachable!("templates were checked above"),
+        AvlRotations::ID => {
+            let instance = avl_rotations::Instance { values, fixed };
+            let outcome = AvlRotations
+                .evaluate(&instance, arrangement)
+                .map_err(|error| describe(&error))?;
+            serde_json::to_string(&AvlRotationsReply {
+                solved: true,
+                score: outcome.rotations,
+                rotations: outcome.rotations,
+            })
+        }
+        UpsetBstBeatsAvl::ID => {
+            let instance = upset_bst_beats_avl::Instance { values, fixed };
+            let outcome = UpsetBstBeatsAvl
+                .evaluate(&instance, arrangement)
+                .map_err(|error| describe(&error))?;
+            serde_json::to_string(&UpsetReply {
+                solved: outcome.solved,
+                score: outcome.solved.then_some(outcome.margin),
+                bst_nodes_passed: outcome.bst_nodes_passed,
+                avl_nodes_passed: outcome.avl_nodes_passed,
+                margin: outcome.margin,
+            })
+        }
+        _ => unreachable!("templates were checked in score_request"),
+    })
+}
+
+fn forced_order(request: &Request) -> Result<Reply, String> {
+    request.no_fixed(BstForcedOrder::ID)?;
+    let target_tree = request.target_tree.clone().flatten().ok_or_else(|| {
+        "The puzzle is broken: a bst-forced-order puzzle needs targetTree.".to_owned()
+    })?;
+    let instance = bst_forced_order::Instance {
+        values: request.values.clone(),
+        target_tree,
     };
-    reply.map_err(|error| format!("The puzzle reply could not be written: {error}."))
-}
-
-fn reject_target_passes(request: &Request) -> Result<(), String> {
-    if request.target_passes.is_some() {
-        return Err(
-            "The puzzle request could not be read: unexpected field `targetPasses`.".to_owned(),
-        );
-    }
-    Ok(())
-}
-
-fn check_fixed(request: &Request) -> Result<(), String> {
-    match request
-        .fixed
-        .iter()
-        .find(|&&index| index >= request.values.len())
-    {
-        Some(&index) => Err(format!(
-            "The puzzle is broken: fixed slot {} is past its last value.",
-            index as u128 + 1
-        )),
-        None => Ok(()),
-    }
+    let outcome = BstForcedOrder
+        .evaluate(&instance, &request.arrangement)
+        .map_err(|error| describe(&error))?;
+    Ok(serde_json::to_string(&BstForcedOrderReply {
+        solved: outcome.solved,
+        score: outcome.solved.then_some(outcome.longest_increasing_run),
+        longest_increasing_run: outcome.longest_increasing_run,
+    }))
 }
 
 /// Slots are numbered from 1 in messages, as players count them. Indexes widen

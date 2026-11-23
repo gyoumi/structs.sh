@@ -4,33 +4,44 @@ import { Theme } from '@/ui/theme';
 import Stage from '@/visualiser/Stage';
 import { canvasThemes } from '@/visualiser/canvasThemes';
 import { DualSession } from '@/visualiser/dualSession';
-import { findTopic } from '@/visualiser/topics';
+import { findTopic, Topic, TopicSlug } from '@/visualiser/topics';
 import { SessionContext, useCreateSession } from '@/visualiser/useVisualiser';
-import type { Rig } from './rig';
-import type { DualStageSpec, StagePlan, StageSpec } from './templates';
+import { drawnArrangement, Rig, runArgs } from './rig';
+import type { DualStageSpec, StageMode, StagePlan, StageSpec } from './templates';
 import styles from './Daily.module.css';
 
-const sorting = findTopic('sorting-algorithms');
-if (!sorting) throw new Error('The sorting topic is missing.');
+const topicFor = (slug: TopicSlug): Topic => {
+  const topic = findTopic(slug);
+  if (!topic) throw new Error(`The ${slug} topic is missing.`);
+  return topic;
+};
 
 const DEFAULT_PLAYBACK_SPEED = 2;
 
 type RigProps = {
   theme: Theme;
   values: number[];
+  mode: StageMode;
   children: (rig: Rig) => ReactNode;
 };
 
-const useFirstDraw = (theme: Theme, values: number[]) =>
-  useState(() => ({ theme: canvasThemes[theme], values }))[0];
+const useFirstDraw = (theme: Theme, mode: StageMode, values: number[]) =>
+  useState(() => ({ theme: canvasThemes[theme], values: drawnArrangement(mode, values) }))[0];
 
-const SingleRig = ({ stage, theme, values, children }: RigProps & { stage: StageSpec }) => {
-  const first = useFirstDraw(theme, values);
-  const session = useCreateSession(sorting, first.theme, first.values, undefined, true);
+const SingleRig = ({ stage, theme, values, mode, children }: RigProps & { stage: StageSpec }) => {
+  const first = useFirstDraw(theme, mode, values);
+  const session = useCreateSession(
+    topicFor(stage.topic),
+    first.theme,
+    first.values,
+    undefined,
+    true
+  );
   const [rig] = useState<Rig>(() => ({
     playback: session,
     stages: [{ ...stage, session, target: DEFAULT_CANVAS_TARGET }],
-    run: () => !session.run(stage.command, []),
+    mode,
+    run: (arrangement) => !session.run(stage.command, runArgs(mode, arrangement)),
   }));
   useEffect(() => session.setSpeed(DEFAULT_PLAYBACK_SPEED), [session]);
   return children(rig);
@@ -38,10 +49,10 @@ const SingleRig = ({ stage, theme, values, children }: RigProps & { stage: Stage
 
 type DualRigProps = RigProps & { stages: [DualStageSpec, DualStageSpec] };
 
-const DualRig = ({ stages: [left, right], theme, values, children }: DualRigProps) => {
-  const first = useFirstDraw(theme, values);
+const DualRig = ({ stages: [left, right], theme, values, mode, children }: DualRigProps) => {
+  const first = useFirstDraw(theme, mode, values);
   const leftSession = useCreateSession(
-    sorting,
+    topicFor(left.topic),
     first.theme,
     first.values,
     undefined,
@@ -49,7 +60,7 @@ const DualRig = ({ stages: [left, right], theme, values, children }: DualRigProp
     left.target
   );
   const rightSession = useCreateSession(
-    sorting,
+    topicFor(right.topic),
     first.theme,
     first.values,
     undefined,
@@ -63,7 +74,8 @@ const DualRig = ({ stages: [left, right], theme, values, children }: DualRigProp
       { ...left, session: leftSession },
       { ...right, session: rightSession },
     ],
-    run: () => !dual.run(left.command, right.command),
+    mode,
+    run: (arrangement) => !dual.run(left.command, right.command, runArgs(mode, arrangement)),
   }));
   useEffect(() => dual.setSpeed(DEFAULT_PLAYBACK_SPEED), [dual]);
   useEffect(() => () => dual.dispose(), [dual]);
@@ -71,11 +83,11 @@ const DualRig = ({ stages: [left, right], theme, values, children }: DualRigProp
 };
 
 /** Creates the sessions the puzzle's stages draw with, and hands them to `children`. */
-export const PuzzleRig = ({ plan, ...props }: RigProps & { plan: StagePlan }) =>
+export const PuzzleRig = ({ plan, ...props }: Omit<RigProps, 'mode'> & { plan: StagePlan }) =>
   plan.kind === 'dual' ? (
-    <DualRig stages={plan.stages} {...props} />
+    <DualRig stages={plan.stages} mode={plan.mode} {...props} />
   ) : (
-    <SingleRig stage={plan.stage} {...props} />
+    <SingleRig stage={plan.stage} mode={plan.mode} {...props} />
   );
 
 type PuzzleStagesProps = { rig: Rig; stageTheme: Theme };
@@ -94,7 +106,7 @@ export const PuzzleStages = ({ rig, stageTheme }: PuzzleStagesProps) => {
   return (
     <div className={styles.stagePair}>
       {rig.stages.map((stage) => (
-        <section key={stage.command} aria-label={stage.region} className={styles.stageRegion}>
+        <section key={stage.region} aria-label={stage.region} className={styles.stageRegion}>
           <h2 className={styles.stageName}>{stage.region}</h2>
           <SessionContext value={stage.session}>
             <Stage label={stage.label} target={stage.target} className={className} />

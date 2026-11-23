@@ -1,11 +1,7 @@
 import { SVG, Svg, Circle, Line, Marker, Text } from '@svgdotjs/svg.js';
-import {
-  markerLength,
-  nodeDiameter,
-  pathD,
-  VISUALISER_CANVAS,
-} from '@/visualiser-src/common/constants';
+import { markerLength, nodeDiameter, pathD } from '@/visualiser-src/common/constants';
 import { canvasTheme } from './canvasTheme';
+import { getCanvasTarget } from './canvasTarget';
 import { lineStyle, nodeStyle, textStyle } from './settings';
 
 interface SVGData {
@@ -106,7 +102,7 @@ export default class GenericGraphicalTreeNode {
   }
 
   protected static createData(input: number) {
-    const canvas = SVG(VISUALISER_CANVAS) as Svg;
+    const canvas = SVG(getCanvasTarget().canvas) as Svg;
     const leftArrowTarget = canvas
       .marker(markerLength, markerLength, (add: Marker) => {
         add.path(pathD);

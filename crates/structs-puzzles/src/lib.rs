@@ -9,9 +9,14 @@
 //!    message, as UTF-8.
 //! 4. `free_result()` once the caller has copied it.
 
+pub mod avl_rotations;
+pub mod bst_forced_order;
 pub mod bubble;
 pub mod insertion_beats_merge;
 pub mod quicksort;
+mod request;
+mod tree;
+pub mod upset_bst_beats_avl;
 mod validate;
 pub mod wire;
 

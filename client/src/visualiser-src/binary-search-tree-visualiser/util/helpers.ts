@@ -1,5 +1,6 @@
 import { lineDiffY, canvasPadding } from '../../common/settings';
 import GraphicalBSTNode from '../data-structure/GraphicalBSTNode';
+import { getCanvasTarget } from '../../common/canvasTarget';
 
 // Updates node positions of a tree
 const updateNodePositionsRecursive = (
@@ -21,7 +22,7 @@ const updateNodePositionsRecursive = (
 };
 
 const updateNodePositions = (root: GraphicalBSTNode | null): void => {
-  const canvasWidth = document.getElementById('visualiser-container')?.offsetWidth;
+  const canvasWidth = document.getElementById(getCanvasTarget().container)?.offsetWidth;
   const low: number = 0;
   const high: number = Number(canvasWidth);
   const mid: number = (low + high) / 2;

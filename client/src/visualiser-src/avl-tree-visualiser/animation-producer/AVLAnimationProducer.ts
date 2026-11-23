@@ -6,6 +6,22 @@ import {
 import GraphicalAVLNode from '@/visualiser-src/avl-tree-visualiser/data-structure/GraphicalAVLNode';
 
 export default class AVLAnimationProducer extends BSTInsertAnimationProducer {
+  private rotationCount = 0;
+
+  /** Counts one single rotation; a double rotation counts twice. */
+  public countRotation(): void {
+    this.rotationCount += 1;
+  }
+
+  /** Single rotations made so far. */
+  public get rotations(): number {
+    return this.rotationCount;
+  }
+
+  protected get stepCounters(): Record<string, number> {
+    return { rotations: this.rotationCount, nodesPassed: this.nodesPassed };
+  }
+
   public renderInsertCode(): void {
     this.renderCode(insertCodeSnippet);
   }

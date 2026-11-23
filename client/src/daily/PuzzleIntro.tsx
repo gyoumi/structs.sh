@@ -19,6 +19,24 @@ const introFor = (puzzle: Puzzle): Intro => {
         lede: 'Swap the numbers so insertion sort makes fewer comparisons than merge sort.',
         rule: 'Then score more out-of-order pairs.',
       };
+    case 'avl-most-rotations':
+      return {
+        title: 'Keep the AVL tree spinning',
+        lede: 'Swap the numbers so inserting them in order into an AVL tree makes as many rotations as possible.',
+        rule: 'A double rotation counts as two.',
+      };
+    case 'bst-forced-order':
+      return {
+        title: 'Build the target tree',
+        lede: 'Swap the numbers so inserting them in order into an empty BST builds the target tree.',
+        rule: 'Then make the longest increasing run of numbers you can.',
+      };
+    case 'upset-bst-beats-avl':
+      return {
+        title: 'Let the BST win',
+        lede: 'Swap the numbers so a plain BST passes fewer nodes than an AVL tree when both insert them in order.',
+        rule: 'Score the gap. Only nodes passed on the way down count, not rotations.',
+      };
     default:
       return {
         title: 'Make quicksort sweat',

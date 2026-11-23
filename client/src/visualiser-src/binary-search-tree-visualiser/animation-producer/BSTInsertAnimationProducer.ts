@@ -6,6 +6,22 @@ import { insertCodeSnippet } from '../util/codeSnippets';
 import { canvasTheme } from '../../common/canvasTheme';
 
 export default class BSTInsertAnimationProducer extends BSTAnimationProducer {
+  private nodesPassedCount = 0;
+
+  /** Counts one existing node an insert compares with on its way down. */
+  public countNodePassed(): void {
+    this.nodesPassedCount += 1;
+  }
+
+  /** Existing nodes the inserts have compared with so far. */
+  public get nodesPassed(): number {
+    return this.nodesPassedCount;
+  }
+
+  protected get stepCounters(): Record<string, number> {
+    return { nodesPassed: this.nodesPassedCount };
+  }
+
   public renderInsertCode(): void {
     this.renderCode(insertCodeSnippet);
   }

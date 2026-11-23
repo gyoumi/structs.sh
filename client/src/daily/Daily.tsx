@@ -23,8 +23,16 @@ import PuzzleArray from './PuzzleArray';
 import { PuzzleIntro } from './PuzzleIntro';
 import { PuzzleRig, PuzzleStages } from './PuzzleStages';
 import { Puzzle, shareText, usePuzzle } from './puzzle';
-import { Rig, useCompletedRunId, useHasTimeline, useReadoutValue, useStageSnapshot } from './rig';
+import {
+  drawnArrangement,
+  Rig,
+  useCompletedRunId,
+  useHasTimeline,
+  useReadoutValue,
+  useStageSnapshot,
+} from './rig';
 import { ScoreCard } from './ScoreCard';
+import { TargetTree } from './TargetTree';
 import { instanceOf, readoutsFor, stagePlanFor, tryScoreOf } from './templates';
 import styles from './Daily.module.css';
 
@@ -82,7 +90,8 @@ const Play = ({ puzzle, rig, theme, values, fixed, onSwap }: PlayProps) => {
 
   const draw = (arrangement: number[]) => {
     setStageTheme(theme);
-    rig.stages.forEach(({ session }) => session.loadData(arrangement, canvasThemes[theme], true));
+    const drawn = drawnArrangement(rig.mode, arrangement);
+    rig.stages.forEach(({ session }) => session.loadData(drawn, canvasThemes[theme], true));
   };
 
   useEffect(() => {
@@ -116,7 +125,7 @@ const Play = ({ puzzle, rig, theme, values, fixed, onSwap }: PlayProps) => {
   const run = () => {
     const focusSkip = document.activeElement === runButton.current;
     draw(values);
-    if (!rig.run()) return;
+    if (!rig.run(values)) return;
     const runId = firstStage.session.getSnapshot().lastRun?.id ?? 0;
     dispatch({ type: 'run', arrangement: values, runId, focusSkip });
     runner.current?.scrollIntoView?.({
@@ -204,6 +213,7 @@ const Play = ({ puzzle, rig, theme, values, fixed, onSwap }: PlayProps) => {
       </div>
       <aside className={styles.sidebar}>
         <ScoreCard puzzle={puzzle} rig={rig} readouts={readouts} play={play} />
+        {puzzle.template === 'bst-forced-order' && <TargetTree preorder={puzzle.targetTree} />}
         {puzzle.template === 'quicksort-most-comparisons' && (
           <StepCard trace={trace} stageTheme={stageTheme} />
         )}

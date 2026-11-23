@@ -7,6 +7,7 @@ import GraphicalBSTNode from './GraphicalBSTNode';
 import GraphicalTreeTraversal from './GraphicalTreeTraversal';
 import updateNodePositions from '../util/helpers';
 import GraphicalTreeGenerate from './GraphicalTreeGenerate';
+import { insertValues } from './bstInsert';
 import BSTDeleteAnimationProducer from '../animation-producer/BSTDeleteAnimationProducer';
 
 // used for the actual implementation of the bst
@@ -41,23 +42,21 @@ class GraphicalBST extends GraphicalDataStructure {
       args: [],
       description: 'Executes a postorder traversal on the tree.',
     },
+    insertAll: {
+      args: ['values'],
+      description: 'Inserts the values in order into an empty tree, on one timeline.',
+      menu: 'hidden',
+    },
   });
 
   public root: GraphicalBSTNode | null = null;
 
   public insert(input: number): BSTInsertAnimationProducer {
-    const animationProducer: BSTInsertAnimationProducer = new BSTInsertAnimationProducer();
-    animationProducer.renderInsertCode();
-    if (this.root === null) {
-      this.root = GraphicalBSTNode.from(input);
-      updateNodePositions(this.root);
-      animationProducer.doAnimationAndHighlight(3, animationProducer.createNode, this.root, true);
-      animationProducer.doAnimation(animationProducer.unhighlightBST, this.root);
-    } else {
-      this.doInsert(this.root, input, animationProducer);
-      animationProducer.doAnimationAndHighlight(9, animationProducer.unhighlightBST, this.root);
-    }
-    return animationProducer;
+    return insertValues(this, [input]);
+  }
+
+  public insertAll(values: number[]): BSTInsertAnimationProducer {
+    return insertValues(this, values);
   }
 
   public delete(input: number): BSTDeleteAnimationProducer {
@@ -417,55 +416,6 @@ class GraphicalBST extends GraphicalDataStructure {
 
   public get documentation() {
     return GraphicalBST.documentation;
-  }
-
-  private doInsert(
-    root: GraphicalBSTNode,
-    input: number,
-    animationProducer: BSTInsertAnimationProducer
-  ) {
-    if (root.value > input) {
-      animationProducer.doAnimationAndHighlight(5, animationProducer.halfHighlightNode, root);
-      animationProducer.doAnimationAndHighlight(
-        6,
-        animationProducer.highlightLine,
-        root.leftLineTarget,
-        root.leftArrowTarget,
-        true
-      );
-      if (root.left == null) {
-        root.left = GraphicalBSTNode.from(input);
-        updateNodePositions(this.root);
-        animationProducer.doAnimationAndHighlight(3, animationProducer.createNode, root.left, true);
-      } else {
-        this.doInsert(root.left, input, animationProducer);
-      }
-    } else if (root.value < input) {
-      animationProducer.doAnimationAndHighlight(7, animationProducer.halfHighlightNode, root);
-      animationProducer.doAnimationAndHighlight(
-        8,
-        animationProducer.highlightLine,
-        root.rightLineTarget,
-        root.rightArrowTarget,
-        true
-      );
-      if (root.right == null) {
-        root.right = GraphicalBSTNode.from(input);
-        updateNodePositions(this.root);
-        animationProducer.doAnimationAndHighlight(
-          3,
-          animationProducer.createNode,
-          root.right,
-          true
-        );
-      } else {
-        this.doInsert(root.right, input, animationProducer);
-      }
-    } else {
-      // highlight root red
-      animationProducer.doAnimation(animationProducer.halfHighlightNodeRed, root);
-      animationProducer.doAnimationAndHighlight(9, animationProducer.unhighlightBST, this.root);
-    }
   }
 
   private static exists(root: GraphicalBSTNode | null, value: number): boolean {

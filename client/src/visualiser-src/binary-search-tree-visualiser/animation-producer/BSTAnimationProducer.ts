@@ -4,6 +4,7 @@ import { getPointerStartEndCoordinates } from '../../common/helpers';
 import AnimationProducer from '../../common/AnimationProducer';
 import GraphicalBSTNode from '../data-structure/GraphicalBSTNode';
 import { canvasTheme } from '../../common/canvasTheme';
+import { getCanvasTarget } from '../../common/canvasTarget';
 
 export default class BSTAnimationProducer extends AnimationProducer {
   public highlightNode(node: GraphicalBSTNode): void {
@@ -133,7 +134,7 @@ export default class BSTAnimationProducer extends AnimationProducer {
   // returns the difference in x coordinates with the node
   // and it's two child nodes
   public static getLineDiffX(node: GraphicalBSTNode): number {
-    const canvasWidth = document.getElementById('visualiser-container')!.offsetWidth;
+    const canvasWidth = document.getElementById(getCanvasTarget().container)?.offsetWidth ?? 1000;
     const depth: number = (node.y - canvasPadding) / 75;
     const baseDiff = canvasWidth / 4;
 
