@@ -215,17 +215,15 @@ const Daily = () => {
     <div className={`${landing.page} ${styles.page}`} data-theme={theme}>
       <title>Daily challenge | structs.sh</title>
       <header className={`${hero.header} ${styles.header}`}>
+        <button type="button" className={styles.back} onClick={goBack}>
+          <ArrowLeftIcon size={17} />
+          <span>Go back</span>
+        </button>
         <Link to="/" className={`${hero.brand} ${styles.brand}`} aria-label="structs.sh home">
           <img src={logo} alt="" width={36} height={36} />
           <span>structs.sh</span>
         </Link>
-        <div className={styles.headerActions}>
-          <button type="button" className={styles.back} onClick={goBack}>
-            <ArrowLeftIcon size={17} />
-            <span>Go back</span>
-          </button>
-          <ThemeToggle className={hero.themeToggle} />
-        </div>
+        <ThemeToggle className={`${hero.themeToggle} ${styles.themeToggle}`} />
       </header>
       <main className={styles.main}>
         {state.status === 'loading' && <p>Loading today’s challenge…</p>}
