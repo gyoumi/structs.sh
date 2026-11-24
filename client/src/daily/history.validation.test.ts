@@ -5,6 +5,7 @@ import {
   currentStreak,
   loadHistory,
   persistPuzzleTries,
+  persistPuzzleTriesLocked,
   recordPuzzleTries,
   savedTriesForPuzzle,
   streakForPuzzle,
@@ -203,5 +204,74 @@ describe('corrupt history, restored-input validation, and cross-tab merging', ()
       streakForPuzzle(onlyInvalidToday, QUICK_12),
       'invalid today entry with no yesterday must give streak 0'
     ).toBe(0);
+  });
+
+  it('reports failed write without claiming completion or incrementing streak when setItem throws', async () => {
+    const { items, storage } = memoryStorage();
+    await persistPuzzleTriesLocked(QUICK_12, [tryOf(30), tryOf(34)], storage);
+
+    const quotaStorage: StorageLike = {
+      getItem: (key) => items.get(key) ?? null,
+      setItem: () => {
+        throw new Error('QuotaExceededError');
+      },
+    };
+    const outcome = await persistPuzzleTriesLocked(
+      QUICK_12,
+      [tryOf(30), tryOf(34), tryOf(31)],
+      quotaStorage
+    );
+    expect(outcome.status, 'failed setItem must report status failed').toBe('failed');
+    expect(
+      outcome.tries,
+      'failed write must report only the 2 previously persisted tries'
+    ).toHaveLength(2);
+    expect(
+      outcome.history.results['2026-12-21']?.completed,
+      'failed 3rd try must not mark the day completed in returned history'
+    ).toBe(false);
+    expect(
+      streakForPuzzle(outcome.history, QUICK_12),
+      'failed 3rd try must not increment streak'
+    ).toBe(0);
+  });
+
+  it('serializes concurrent locked persists through navigator.locks so unrelated days survive', async () => {
+    const { storage } = memoryStorage();
+    let chain = Promise.resolve();
+    const lockNames: string[] = [];
+    const originalLocks = navigator.locks;
+    Object.defineProperty(navigator, 'locks', {
+      configurable: true,
+      value: {
+        request: <T>(name: string, callback: () => T | Promise<T>): Promise<T> => {
+          lockNames.push(name);
+          const next = chain.then(() => callback());
+          chain = next.then(
+            () => undefined,
+            () => undefined
+          );
+          return next;
+        },
+      },
+    });
+    try {
+      const day22 = { ...QUICK_12, number: 13, date: '2026-12-22' };
+      const [first, second] = await Promise.all([
+        persistPuzzleTriesLocked(QUICK_12, [tryOf(30), tryOf(34), tryOf(31)], storage),
+        persistPuzzleTriesLocked(day22, [tryOf(30), tryOf(34), tryOf(36)], storage),
+      ]);
+      expect(lockNames, 'both writes should acquire the shared history lock').toEqual([
+        HISTORY_STORAGE_KEY,
+        HISTORY_STORAGE_KEY,
+      ]);
+      expect(first.status).toBe('saved');
+      expect(second.status).toBe('saved');
+      const final = loadHistory(storage);
+      expect(Object.keys(final.results).sort()).toEqual(['2026-12-21', '2026-12-22']);
+      expect(currentStreak(final, '2026-12-22')).toBe(2);
+    } finally {
+      Object.defineProperty(navigator, 'locks', { configurable: true, value: originalLocks });
+    }
   });
 });

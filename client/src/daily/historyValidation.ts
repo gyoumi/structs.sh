@@ -1,8 +1,50 @@
-import type { PlayInput, TryScore } from './playMachine';
+import { MAX_TRIES, type PlayInput, type TryScore } from './playMachine';
 import type { Puzzle, Template } from './puzzle';
 
 /** One finished try: what the player ran and what it scored. */
 export type SavedTry = { input: PlayInput; score: TryScore };
+
+const DAY_MS = 86_400_000;
+
+/** A real calendar day written as YYYY-MM-DD. */
+export function isIsoDate(date: string | undefined): date is string {
+  if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+  const [year, month, day] = date.split('-').map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  parsed.setUTCFullYear(year);
+  return (
+    parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() === month - 1 &&
+    parsed.getUTCDate() === day
+  );
+}
+
+export const dayNumber = (date: string) => {
+  const [year, month, day] = date.split('-').map(Number);
+  const time = new Date(Date.UTC(year, month - 1, day));
+  time.setUTCFullYear(year);
+  return Math.round(time.getTime() / DAY_MS);
+};
+
+export const previousIsoDate = (date: string) => {
+  const time = new Date(dayNumber(date) * DAY_MS - DAY_MS);
+  const year = String(time.getUTCFullYear()).padStart(4, '0');
+  const month = String(time.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(time.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const sameTry = (a: SavedTry, b: SavedTry) => JSON.stringify(a) === JSON.stringify(b);
+
+/** Whether two try sequences contain the exact same inputs and scores in order. */
+export const sameTries = (a: SavedTry[], b: SavedTry[]) =>
+  a.length === b.length && a.every((saved, i) => sameTry(saved, b[i]));
+
+export const extendsExisting = (existing: SavedTry[], next: SavedTry[]) =>
+  existing.length < MAX_TRIES &&
+  next.length <= MAX_TRIES &&
+  next.length > existing.length &&
+  existing.every((saved, i) => sameTry(saved, next[i]));
 
 export const TEMPLATES: readonly Template[] = [
   'quicksort-most-comparisons',

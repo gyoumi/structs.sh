@@ -7,7 +7,7 @@ import { canvasThemes } from '@/visualiser/canvasThemes';
 import { PlaybackContext } from '@/visualiser/playback';
 import { usePrefersReducedMotion } from '@/visualiser/useVisualiser';
 import { MobileHud, StepCard } from './DailyCards';
-import { isIsoDate, sameTries, type SavedTry } from './history';
+import { sameTries, type PersistOutcome, type SavedTry } from './history';
 import {
   MAX_TRIES,
   PlayInput,
@@ -45,10 +45,14 @@ type PlayBaseProps = {
   editor: (frozen: boolean, redraw: Redraw) => ReactNode;
   /** Tries saved from an earlier visit today, resumed on load. */
   initialTries: SavedTry[];
+  /** Bumps when another tab updates saved history via the storage event. */
+  storageRevision: number;
   /** Days in a row finished, shown in the share text. */
   streak?: number;
-  /** Saves every try so far and returns the authoritative sequence kept in storage. */
-  onRecordTries: (tries: SavedTry[]) => SavedTry[];
+  /** Whether the last attempt to persist progress to browser storage failed. */
+  saveFailed: boolean;
+  /** Saves every try so far under a cross-tab lock and reports the persistence outcome. */
+  onRecordTries: (tries: SavedTry[]) => Promise<PersistOutcome>;
 };
 
 type PlayProps = PlayBaseProps &
@@ -72,7 +76,18 @@ const scoreRun = (puzzle: Puzzle, input: PlayInput) => {
 
 /** The game itself: the player's input, the stages, the actions, and the score cards. */
 export const Play = (props: PlayProps) => {
-  const { puzzle, rig, theme, input, editor, initialTries, streak, onRecordTries } = props;
+  const {
+    puzzle,
+    rig,
+    theme,
+    input,
+    editor,
+    initialTries,
+    storageRevision,
+    streak,
+    saveFailed,
+    onRecordTries,
+  } = props;
   const completedRunId = useCompletedRunId(rig);
   const hasTimeline = useHasTimeline(rig);
   const [firstStage] = rig.stages;
@@ -91,16 +106,21 @@ export const Play = (props: PlayProps) => {
     restoredPlayState
   );
   const savedTries = useRef(initialTries);
-  const recordTry = useEffectEvent((tried: PlayInput, score: TryScore) => {
-    const nextTries = [...savedTries.current, { input: tried, score }];
-    const persisted = onRecordTries(nextTries);
-    savedTries.current = persisted;
-    if (!sameTries(persisted, nextTries)) {
-      dispatch({ type: 'synced', scores: persisted.map((saved) => saved.score) });
-      return;
+  const appliedRevision = useRef(storageRevision);
+  const recordTry = useEffectEvent(
+    async (tried: PlayInput, score: TryScore, isCancelled: () => boolean) => {
+      const nextTries = [...savedTries.current, { input: tried, score }];
+      const outcome = await onRecordTries(nextTries);
+      if (isCancelled()) return;
+      if (outcome.status === 'synced') {
+        savedTries.current = outcome.tries;
+        dispatch({ type: 'synced', scores: outcome.tries.map((saved) => saved.score) });
+        return;
+      }
+      savedTries.current = outcome.status === 'saved' ? outcome.tries : nextTries;
+      dispatch({ type: 'scored', score });
     }
-    dispatch({ type: 'scored', score });
-  });
+  );
   const runner = useRef<HTMLDivElement>(null);
   const runButton = useRef<HTMLButtonElement>(null);
   const skipButton = useRef<HTMLButtonElement>(null);
@@ -145,21 +165,22 @@ export const Play = (props: PlayProps) => {
   }, [play, completedRunId]);
 
   useEffect(() => {
-    if (!isIsoDate(puzzle.date)) return;
+    if (storageRevision === appliedRevision.current) return;
     if (play.stage === 'running' || play.stage === 'scoring') return;
+    appliedRevision.current = storageRevision;
     if (sameTries(initialTries, savedTries.current)) return;
     savedTries.current = initialTries;
     dispatch({ type: 'synced', scores: initialTries.map((saved) => saved.score) });
-  }, [initialTries, play.stage, puzzle.date]);
+  }, [initialTries, play.stage, storageRevision]);
 
   useEffect(() => {
     if (play.stage !== 'scoring') return undefined;
     let cancelled = false;
     scoreRun(puzzle, play.input)
-      .then((evaluation) => {
+      .then(async (evaluation) => {
         if (cancelled) return;
         const score = tryScoreOf(puzzle, evaluation);
-        recordTry(play.input, score);
+        await recordTry(play.input, score, () => cancelled);
       })
       .catch((error) => {
         console.error(error);
@@ -254,6 +275,11 @@ export const Play = (props: PlayProps) => {
         <span aria-live="polite" className={styles.message}>
           {messageFor(play, puzzle)}
         </span>
+        {saveFailed && (
+          <p role="alert" className={styles.note}>
+            Couldn’t save progress to this browser.
+          </p>
+        )}
       </div>
       <aside className={styles.sidebar}>
         <ScoreCard puzzle={puzzle} rig={rig} readouts={readouts} play={play} />

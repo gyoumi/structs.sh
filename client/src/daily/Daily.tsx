@@ -15,7 +15,8 @@ import {
   HISTORY_STORAGE_KEY,
   isIsoDate,
   loadHistory,
-  persistPuzzleTries,
+  type PersistOutcome,
+  persistPuzzleTriesLocked,
   SavedTry,
   savedTriesForPuzzle,
   streakForPuzzle,
@@ -29,8 +30,10 @@ type ArrayPuzzle = Exclude<Puzzle, IndexDriftPuzzle>;
 /** What `Play` needs to resume today's tries and save new ones. */
 type Progress = {
   initialTries: SavedTry[];
+  storageRevision: number;
   streak?: number;
-  onRecordTries: (tries: SavedTry[]) => SavedTry[];
+  saveFailed: boolean;
+  onRecordTries: (tries: SavedTry[]) => Promise<PersistOutcome>;
 };
 
 type ViewProps<P> = { puzzle: P; theme: Theme; progress: Progress };
@@ -115,10 +118,13 @@ const IndexDriftView = ({ puzzle, theme, progress }: ViewProps<IndexDriftPuzzle>
 
 const PuzzleView = ({ puzzle, theme }: { puzzle: Puzzle; theme: Theme }) => {
   const [history, setHistory] = useState(() => loadHistory());
+  const [storageRevision, setStorageRevision] = useState(0);
+  const [saveFailed, setSaveFailed] = useState(false);
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
       if (event.key === null || event.key === HISTORY_STORAGE_KEY) {
         setHistory(loadHistory());
+        setStorageRevision((revision) => revision + 1);
       }
     };
     window.addEventListener('storage', onStorage);
@@ -129,13 +135,14 @@ const PuzzleView = ({ puzzle, theme }: { puzzle: Puzzle; theme: Theme }) => {
   const streak = dated ? streakForPuzzle(history, puzzle) : undefined;
   const progress: Progress = {
     initialTries,
+    storageRevision,
     streak,
-    onRecordTries: (tries) => {
-      const nextHistory = persistPuzzleTries(puzzle, tries);
-      setHistory(nextHistory);
-      if (!dated) return tries;
-      const persisted = savedTriesForPuzzle(nextHistory, puzzle);
-      return persisted.length > 0 ? persisted : tries;
+    saveFailed,
+    onRecordTries: async (tries) => {
+      const outcome = await persistPuzzleTriesLocked(puzzle, tries);
+      setHistory(outcome.history);
+      setSaveFailed(outcome.status === 'failed');
+      return outcome;
     },
   };
 

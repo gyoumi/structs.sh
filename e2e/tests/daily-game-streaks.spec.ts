@@ -1,7 +1,7 @@
 import { test, expect } from '../support/test';
 import { DAILY_12 } from '../support/daily-fixtures';
 import type { DatedPuzzle } from '../support/daily-history';
-import type { DailyPage } from '../support/daily-page';
+import { DailyPage } from '../support/daily-page';
 
 const fmt = (values: readonly number[]) => `[${values.join(', ')}]`;
 const dated = (number: number, date: string): DatedPuzzle => ({ ...DAILY_12.puzzle, number, date });
@@ -172,5 +172,26 @@ test.describe('daily game streaks and history', () => {
     await dailyHistory.reload(`${endCtx} then reload`);
     await dailyTemplate.expectTryChips(chips, `${endCtx}, after reload: tries must survive`);
     expect(await dailyPage.canShare(), `${endCtx}, after reload: Share should stay enabled`).toBe(true);
+  });
+
+  test('an idle tab updates automatically when another tab saves progress', async ({ context, dailyPage, dailyTemplate, dailyHistory }) => {
+    await context.route('**/api/daily', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(DAY_21) }),
+    );
+    await dailyPage.open();
+    const secondPage = await context.newPage();
+    try {
+      const secondDaily = new DailyPage(secondPage);
+      await secondDaily.open();
+      await swapRunSkip(secondDaily, DAILY_12.par.swap, 'second tab try 1');
+
+      const idleCtx = 'idle first tab after second tab saved try 1';
+      await dailyPage.expectStatusNumber('Tries left', 2, `${idleCtx}: should update without running a try`);
+      await dailyTemplate.expectTryChips([`${DAILY_12.par.count} ⭐`], idleCtx);
+      await dailyHistory.expectSyncedNotice(idleCtx);
+      expect(await dailyPage.canRun(), `${idleCtx}: Run should stay enabled with 2 tries left`).toBe(true);
+    } finally {
+      await secondPage.close();
+    }
   });
 });

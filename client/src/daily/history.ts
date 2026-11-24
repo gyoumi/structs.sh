@@ -1,15 +1,20 @@
 import { MAX_TRIES, reachesGoal } from './playMachine';
 import type { Puzzle, Template } from './puzzle';
 import {
+  dayNumber,
+  extendsExisting,
   isFiniteNumber,
+  isIsoDate,
   isPlainObject,
   isSavedTry,
   isValidTryForPuzzle,
+  previousIsoDate,
+  sameTries,
   TEMPLATES,
   type SavedTry,
 } from './historyValidation';
 
-export type { SavedTry } from './historyValidation';
+export { isIsoDate, sameTries, type SavedTry } from './historyValidation';
 
 /** Bumped when the saved format changes, so older saves are dropped instead of misread. */
 export const HISTORY_VERSION = 1 as const;
@@ -36,37 +41,13 @@ export type DailyHistory = {
 
 export type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
 
-const DAY_MS = 86_400_000;
+/** Outcome of trying to persist a puzzle's tries into storage. */
+export type PersistOutcome =
+  | { status: 'saved'; history: DailyHistory; tries: SavedTry[] }
+  | { status: 'synced'; history: DailyHistory; tries: SavedTry[] }
+  | { status: 'failed'; history: DailyHistory; tries: SavedTry[] };
 
 const emptyHistory = (): DailyHistory => ({ version: HISTORY_VERSION, results: {} });
-
-/** A real calendar day written as YYYY-MM-DD. */
-export function isIsoDate(date: string | undefined): date is string {
-  if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
-  const [year, month, day] = date.split('-').map(Number);
-  const parsed = new Date(Date.UTC(year, month - 1, day));
-  parsed.setUTCFullYear(year);
-  return (
-    parsed.getUTCFullYear() === year &&
-    parsed.getUTCMonth() === month - 1 &&
-    parsed.getUTCDate() === day
-  );
-}
-
-const dayNumber = (date: string) => {
-  const [year, month, day] = date.split('-').map(Number);
-  const time = new Date(Date.UTC(year, month - 1, day));
-  time.setUTCFullYear(year);
-  return Math.round(time.getTime() / DAY_MS);
-};
-
-const previousIsoDate = (date: string) => {
-  const time = new Date(dayNumber(date) * DAY_MS - DAY_MS);
-  const year = String(time.getUTCFullYear()).padStart(4, '0');
-  const month = String(time.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(time.getUTCDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
 
 const defaultStorage = (): StorageLike | null => {
   try {
@@ -146,14 +127,15 @@ export function loadHistory(storage?: StorageLike | null): DailyHistory {
   return { version: HISTORY_VERSION, results };
 }
 
-/** Saves `history`, quietly giving up when storage is full or blocked. */
-export function saveHistory(history: DailyHistory, storage?: StorageLike | null): void {
+/** Saves `history`, returning false when storage is unavailable, full, or blocked. */
+export function saveHistory(history: DailyHistory, storage?: StorageLike | null): boolean {
   const store = storage === undefined ? defaultStorage() : storage;
-  if (!store) return;
+  if (!store) return false;
   try {
     store.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history));
+    return true;
   } catch {
-    /** Storage is full or blocked; the result just isn't kept. */
+    return false;
   }
 }
 
@@ -193,17 +175,27 @@ export function recordPuzzleTries(
   };
 }
 
-const sameTry = (a: SavedTry, b: SavedTry) => JSON.stringify(a) === JSON.stringify(b);
-
-/** Whether two try sequences contain the exact same inputs and scores in order. */
-export const sameTries = (a: SavedTry[], b: SavedTry[]) =>
-  a.length === b.length && a.every((saved, i) => sameTry(saved, b[i]));
-
-const extendsExisting = (existing: SavedTry[], next: SavedTry[]) =>
-  existing.length < MAX_TRIES &&
-  next.length <= MAX_TRIES &&
-  next.length > existing.length &&
-  existing.every((saved, i) => sameTry(saved, next[i]));
+const persistPuzzleTriesWithStatus = (
+  puzzle: Puzzle,
+  tries: SavedTry[],
+  storage?: StorageLike | null
+): PersistOutcome => {
+  const latest = loadHistory(storage);
+  if (!isIsoDate(puzzle.date)) return { status: 'saved', history: latest, tries };
+  const existingTries = savedTriesForPuzzle(latest, puzzle);
+  if (existingTries.length > 0 && !extendsExisting(existingTries, tries)) {
+    return {
+      status: sameTries(existingTries, tries) ? 'saved' : 'synced',
+      history: latest,
+      tries: existingTries,
+    };
+  }
+  const next = recordPuzzleTries(latest, puzzle, tries);
+  if (!saveHistory(next, storage)) {
+    return { status: 'failed', history: latest, tries: existingTries };
+  }
+  return { status: 'saved', history: next, tries: next.results[puzzle.date]?.tries ?? tries };
+};
 
 /** Merges `tries` for `puzzle` into the latest stored history without losing other days or overwriting divergent same-day progress. */
 export function persistPuzzleTries(
@@ -211,13 +203,23 @@ export function persistPuzzleTries(
   tries: SavedTry[],
   storage?: StorageLike | null
 ): DailyHistory {
-  const latest = loadHistory(storage);
-  if (!isIsoDate(puzzle.date)) return latest;
-  const existingTries = savedTriesForPuzzle(latest, puzzle);
-  if (existingTries.length > 0 && !extendsExisting(existingTries, tries)) return latest;
-  const next = recordPuzzleTries(latest, puzzle, tries);
-  saveHistory(next, storage);
-  return next;
+  return persistPuzzleTriesWithStatus(puzzle, tries, storage).history;
+}
+
+/** Serializes cross-tab history writes with Web Locks when available and reports whether the write saved, reconciled, or failed. */
+export async function persistPuzzleTriesLocked(
+  puzzle: Puzzle,
+  tries: SavedTry[],
+  storage?: StorageLike | null
+): Promise<PersistOutcome> {
+  const run = () => persistPuzzleTriesWithStatus(puzzle, tries, storage);
+  const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
+  if (!locks?.request) return run();
+  try {
+    return await locks.request(HISTORY_STORAGE_KEY, run);
+  } catch {
+    return run();
+  }
 }
 
 const completedDays = (history: DailyHistory) =>
