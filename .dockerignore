@@ -1,6 +1,6 @@
-# Only the client image builds from the repo root. Send it the workspace
-# manifests, the client source, the debugger's Rust instrumenter and the
-# daily game's Rust puzzles.
+# The client image and the game server image build from the repo root. Send
+# them the workspace manifests, the client source, the debugger's Rust
+# instrumenter and the daily game's Rust crates.
 *
 !package.json
 !pnpm-lock.yaml

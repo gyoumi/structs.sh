@@ -25,9 +25,9 @@ export class DailyPage {
 
   // -------------------------------------------------------- setup / opening
 
-  /** Serves `puzzle` in response to GET /puzzles/today.json. */
+  /** Serves `puzzle` in response to GET /api/daily. */
   async serve(puzzle: DailyPuzzle): Promise<void> {
-    await this.page.route('**/puzzles/today.json', (route) =>
+    await this.page.route('**/api/daily', (route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(puzzle) }),
     );
   }

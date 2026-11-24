@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
+import type { DailyPuzzle } from '@/game/api';
 import { reachesGoal } from './playMachine';
 
-export const PUZZLE_URL = '/puzzles/today.json';
+export const PUZZLE_URL = '/api/daily';
 
 type PuzzleBase = {
   number: number;
@@ -53,7 +54,7 @@ export type Puzzle =
 
 export type Template = Puzzle['template'];
 
-const TITLES: Record<Template, string> = {
+const TITLES: Record<DailyPuzzle['template'], string> = {
   'quicksort-most-comparisons': 'Quicksort',
   'bubble-exact-passes': 'Bubble sort',
   'insertion-beats-merge': 'Insertion beats merge',

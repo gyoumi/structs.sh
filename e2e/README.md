@@ -74,7 +74,7 @@ gives a reason. CI runs it on every PR.
 
 ## The daily game
 
-The daily game lives at `/daily`. On load, it fetches `GET /puzzles/today.json`,
+The daily game lives at `/daily`. On load, it fetches `GET /api/daily`,
 which returns:
 
 ```json
