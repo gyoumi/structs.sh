@@ -55,7 +55,11 @@ export const rotateLeft = (
   }
   updateNodePositions(tree.root);
   animationProducer.countRotation();
-  animationProducer.doAnimation(animationProducer.updateAndUnhighlightBST, newRoot, parent);
+  animationProducer.doAnimation(
+    animationProducer.updateAndUnhighlightBST,
+    tree.root ?? newRoot,
+    newRoot
+  );
   return newRoot;
 };
 
@@ -107,6 +111,10 @@ export const rotateRight = (
   }
   updateNodePositions(tree.root);
   animationProducer.countRotation();
-  animationProducer.doAnimation(animationProducer.updateAndUnhighlightBST, newRoot, parent);
+  animationProducer.doAnimation(
+    animationProducer.updateAndUnhighlightBST,
+    tree.root ?? newRoot,
+    newRoot
+  );
   return newRoot;
 };

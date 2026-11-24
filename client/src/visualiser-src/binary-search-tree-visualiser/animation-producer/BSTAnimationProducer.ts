@@ -180,13 +180,12 @@ export default class BSTAnimationProducer extends AnimationProducer {
 
   public updateAndUnhighlightBST(
     root: GraphicalBSTNode,
-    parent: GraphicalBSTNode | null = null
+    unhighlightRoot: GraphicalBSTNode = root
   ): void {
     this.updateNodesRecursive(root);
     this.updateLinesRecursive(root);
-    if (parent !== null) this.updateNodeLines(parent);
-    this.unhighlightLinesRecursive(root);
-    this.unhighlightNodesRecursive(root);
+    this.unhighlightLinesRecursive(unhighlightRoot);
+    this.unhighlightNodesRecursive(unhighlightRoot);
   }
 
   public unhighlightNode(node: GraphicalBSTNode): void {

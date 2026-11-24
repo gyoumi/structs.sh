@@ -142,4 +142,52 @@ describe('tree step-pause arrow alignment', () => {
       vi.useRealTimers();
     }
   });
+
+  it('moves the whole tree and keeps every edge attached at an inner AVL deletion rotation pause', () => {
+    vi.useFakeTimers();
+    try {
+      const { avl, producer: insertProducer } = buildAvl([8, 4, 10, 2, 5, 9, 11, 1, 3]);
+      const insertController = new VisualiserController();
+      insertController.constructTimeline(insertProducer, () => {});
+      insertController.finish();
+
+      const deleteProducer = avl.delete(5);
+      const deleteController = new VisualiserController();
+      deleteController.constructTimeline(deleteProducer, () => {});
+      deleteController.pause();
+
+      const firstRotationAt = pauseTimestamps(deleteProducer.allRunners).find(
+        (t) => (deleteController.countersAt(t).rotations ?? 0) === 1
+      );
+      expect(firstRotationAt).toBeDefined();
+      deleteController.seekTime(firstRotationAt!);
+
+      const assertAllEdgesAttached = (node: GraphicalBSTNode | null) => {
+        if (node === null) return;
+        const [nx, ny] = nodeCenter(node);
+        if (node.left !== null) {
+          const [cx, cy] = nodeCenter(node.left);
+          const [[sx, sy], [ex, ey]] = getPointerStartEndCoordinates(nx, ny, cx, cy);
+          expect(Number(node.leftLineTarget.attr('x1'))).toBeCloseTo(sx, 1);
+          expect(Number(node.leftLineTarget.attr('y1'))).toBeCloseTo(sy, 1);
+          expect(Number(node.leftLineTarget.attr('x2'))).toBeCloseTo(ex, 1);
+          expect(Number(node.leftLineTarget.attr('y2'))).toBeCloseTo(ey, 1);
+        }
+        if (node.right !== null) {
+          const [cx, cy] = nodeCenter(node.right);
+          const [[sx, sy], [ex, ey]] = getPointerStartEndCoordinates(nx, ny, cx, cy);
+          expect(Number(node.rightLineTarget.attr('x1'))).toBeCloseTo(sx, 1);
+          expect(Number(node.rightLineTarget.attr('y1'))).toBeCloseTo(sy, 1);
+          expect(Number(node.rightLineTarget.attr('x2'))).toBeCloseTo(ex, 1);
+          expect(Number(node.rightLineTarget.attr('y2'))).toBeCloseTo(ey, 1);
+        }
+        assertAllEdgesAttached(node.left);
+        assertAllEdgesAttached(node.right);
+      };
+      assertAllEdgesAttached(avl.root);
+    } finally {
+      vi.advanceTimersByTime(100);
+      vi.useRealTimers();
+    }
+  });
 });
