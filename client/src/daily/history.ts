@@ -1,13 +1,20 @@
-import { MAX_TRIES, PlayInput, reachesGoal, TryScore } from './playMachine';
+import { MAX_TRIES, reachesGoal } from './playMachine';
 import type { Puzzle, Template } from './puzzle';
+import {
+  isFiniteNumber,
+  isPlainObject,
+  isSavedTry,
+  isValidTryForPuzzle,
+  TEMPLATES,
+  type SavedTry,
+} from './historyValidation';
+
+export type { SavedTry } from './historyValidation';
 
 /** Bumped when the saved format changes, so older saves are dropped instead of misread. */
 export const HISTORY_VERSION = 1 as const;
 
 export const HISTORY_STORAGE_KEY = 'structs.daily.history';
-
-/** One finished try: what the player ran and what it scored. */
-export type SavedTry = { input: PlayInput; score: TryScore };
 
 /** Everything saved about one day's puzzle. */
 // eslint-disable-next-line structs/one-stage-value -- completed (all tries used) and goalReached (best score hits par) are independent facts, not stages
@@ -29,22 +36,9 @@ export type DailyHistory = {
 
 export type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
 
-const TEMPLATES: readonly Template[] = [
-  'quicksort-most-comparisons',
-  'bubble-exact-passes',
-  'insertion-beats-merge',
-  'avl-most-rotations',
-  'bst-forced-order',
-  'upset-bst-beats-avl',
-  'linked-list-index-drift',
-];
-
 const DAY_MS = 86_400_000;
 
 const emptyHistory = (): DailyHistory => ({ version: HISTORY_VERSION, results: {} });
-
-const isPlainObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 /** A real calendar day written as YYYY-MM-DD. */
 export function isIsoDate(date: string | undefined): date is string {
@@ -82,42 +76,49 @@ const defaultStorage = (): StorageLike | null => {
   }
 };
 
-const isFiniteNumber = (value: unknown): value is number =>
-  typeof value === 'number' && Number.isFinite(value);
+const summarizeResult = (
+  puzzle: { date: string; number: number; template: Template; par: number },
+  tries: SavedTry[]
+): SavedPuzzleResult => {
+  const capped = tries.slice(0, MAX_TRIES);
+  const solved = capped.map(({ score }) => score).filter(isFiniteNumber);
+  const lowerWins = puzzle.template === 'linked-list-index-drift';
+  const bestScore =
+    solved.length === 0 ? null : lowerWins ? Math.min(...solved) : Math.max(...solved);
+  return {
+    date: puzzle.date,
+    number: puzzle.number,
+    template: puzzle.template,
+    par: puzzle.par,
+    tries: capped,
+    completed: capped.length >= MAX_TRIES,
+    bestScore,
+    goalReached: bestScore !== null && reachesGoal(puzzle, bestScore),
+  };
+};
 
-const isTryScore = (value: unknown): value is TryScore =>
-  isFiniteNumber(value) ||
-  (isPlainObject(value) && value.kind === 'unsolved' && typeof value.reason === 'string');
-
-const isOperation = (value: unknown) =>
-  isPlainObject(value) &&
-  ((value.kind === 'insert' && Number.isInteger(value.index) && isFiniteNumber(value.value)) ||
-    (value.kind === 'delete' && Number.isInteger(value.index)));
-
-const isPlayInput = (value: unknown): value is PlayInput =>
-  isPlainObject(value) &&
-  ((value.kind === 'arrangement' &&
-    Array.isArray(value.arrangement) &&
-    value.arrangement.every(isFiniteNumber)) ||
-    (value.kind === 'operations' &&
-      Array.isArray(value.operations) &&
-      value.operations.every(isOperation)));
-
-const isSavedTry = (value: unknown): value is SavedTry =>
-  isPlainObject(value) && isPlayInput(value.input) && isTryScore(value.score);
-
-const isSavedResult = (value: unknown): value is SavedPuzzleResult =>
-  isPlainObject(value) &&
-  typeof value.date === 'string' &&
-  isIsoDate(value.date) &&
-  isFiniteNumber(value.number) &&
-  TEMPLATES.includes(value.template as Template) &&
-  isFiniteNumber(value.par) &&
-  Array.isArray(value.tries) &&
-  value.tries.every(isSavedTry) &&
-  typeof value.completed === 'boolean' &&
-  (value.bestScore === null || isFiniteNumber(value.bestScore)) &&
-  typeof value.goalReached === 'boolean';
+const parseSavedResult = (value: unknown): SavedPuzzleResult | null => {
+  if (
+    !isPlainObject(value) ||
+    typeof value.date !== 'string' ||
+    !isIsoDate(value.date) ||
+    !isFiniteNumber(value.number) ||
+    !TEMPLATES.includes(value.template as Template) ||
+    !isFiniteNumber(value.par) ||
+    !Array.isArray(value.tries) ||
+    value.tries.length > MAX_TRIES ||
+    !value.tries.every(isSavedTry)
+  ) {
+    return null;
+  }
+  const template = value.template as Template;
+  const expectedKind = template === 'linked-list-index-drift' ? 'operations' : 'arrangement';
+  if (!value.tries.every((saved) => saved.input.kind === expectedKind)) return null;
+  return summarizeResult(
+    { date: value.date, number: value.number, template, par: value.par },
+    value.tries
+  );
+};
 
 /** The saved history, or an empty one when nothing valid is saved. Malformed days are skipped. */
 export function loadHistory(storage?: StorageLike | null): DailyHistory {
@@ -134,8 +135,13 @@ export function loadHistory(storage?: StorageLike | null): DailyHistory {
   if (!isPlainObject(parsed) || parsed.version !== HISTORY_VERSION) return emptyHistory();
   if (!isPlainObject(parsed.results)) return emptyHistory();
   const results: Record<string, SavedPuzzleResult> = {};
-  Object.entries(parsed.results).forEach(([key, entry]) => {
-    if (isSavedResult(entry)) results[key] = entry;
+  Object.values(parsed.results).forEach((entry) => {
+    const result = parseSavedResult(entry);
+    if (!result) return;
+    const existing = results[result.date];
+    if (!existing || result.tries.length >= existing.tries.length) {
+      results[result.date] = result;
+    }
   });
   return { version: HISTORY_VERSION, results };
 }
@@ -151,6 +157,23 @@ export function saveHistory(history: DailyHistory, storage?: StorageLike | null)
   }
 }
 
+/** Validated saved tries matching `puzzle`'s date, identity, and input constraints. */
+export function savedTriesForPuzzle(history: DailyHistory, puzzle: Puzzle): SavedTry[] {
+  if (!isIsoDate(puzzle.date)) return [];
+  const saved = Object.values(history.results).find((result) => result.date === puzzle.date);
+  if (
+    !saved ||
+    saved.number !== puzzle.number ||
+    saved.template !== puzzle.template ||
+    saved.par !== puzzle.par ||
+    saved.tries.length > MAX_TRIES ||
+    !saved.tries.every((entry) => isValidTryForPuzzle(puzzle, entry))
+  ) {
+    return [];
+  }
+  return [...saved.tries];
+}
+
 /** A copy of `history` with the puzzle's day set to `tries`. */
 export function recordPuzzleTries(
   history: DailyHistory,
@@ -158,32 +181,39 @@ export function recordPuzzleTries(
   tries: SavedTry[]
 ): DailyHistory {
   if (!isIsoDate(puzzle.date)) return history;
-  const solved = tries.map(({ score }) => score).filter(isFiniteNumber);
-  const lowerWins = puzzle.template === 'linked-list-index-drift';
-  const bestScore =
-    solved.length === 0 ? null : lowerWins ? Math.min(...solved) : Math.max(...solved);
   return {
     version: HISTORY_VERSION,
     results: {
       ...history.results,
-      [puzzle.date]: {
-        date: puzzle.date,
-        number: puzzle.number,
-        template: puzzle.template,
-        par: puzzle.par,
-        tries: [...tries],
-        completed: tries.length >= MAX_TRIES,
-        bestScore,
-        goalReached: bestScore !== null && reachesGoal(puzzle, bestScore),
-      },
+      [puzzle.date]: summarizeResult(
+        { date: puzzle.date, number: puzzle.number, template: puzzle.template, par: puzzle.par },
+        tries
+      ),
     },
   };
+}
+
+/** Merges `tries` for `puzzle` into the latest stored history without losing other days or newer same-day tries. */
+export function persistPuzzleTries(
+  puzzle: Puzzle,
+  tries: SavedTry[],
+  storage?: StorageLike | null
+): DailyHistory {
+  const latest = loadHistory(storage);
+  if (!isIsoDate(puzzle.date)) return latest;
+  const existingTries = savedTriesForPuzzle(latest, puzzle);
+  if (existingTries.length > tries.length) return latest;
+  const next = recordPuzzleTries(latest, puzzle, tries);
+  saveHistory(next, storage);
+  return next;
 }
 
 const completedDays = (history: DailyHistory) =>
   new Set(
     Object.values(history.results)
-      .filter((entry) => entry.completed && isIsoDate(entry.date))
+      .filter(
+        (entry) => entry.completed && entry.tries.length >= MAX_TRIES && isIsoDate(entry.date)
+      )
       .map((entry) => dayNumber(entry.date))
   );
 

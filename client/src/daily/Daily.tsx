@@ -15,10 +15,9 @@ import {
   currentStreak,
   isIsoDate,
   loadHistory,
-  recordPuzzleTries,
-  SavedPuzzleResult,
+  persistPuzzleTries,
   SavedTry,
-  saveHistory,
+  savedTriesForPuzzle,
 } from './history';
 import { IndexDriftPuzzle, Puzzle, usePuzzle } from './puzzle';
 import { stagePlanFor } from './templates';
@@ -116,17 +115,13 @@ const IndexDriftView = ({ puzzle, theme, progress }: ViewProps<IndexDriftPuzzle>
 const PuzzleView = ({ puzzle, theme }: { puzzle: Puzzle; theme: Theme }) => {
   const [history, setHistory] = useState(() => loadHistory());
   const dated = isIsoDate(puzzle.date);
-  const saved: SavedPuzzleResult | undefined = dated
-    ? Object.values(history.results).find((result) => result.date === puzzle.date)
-    : undefined;
+  const initialTries = savedTriesForPuzzle(history, puzzle);
   const streak = dated ? currentStreak(history, puzzle.date) : undefined;
   const progress: Progress = {
-    initialTries: saved?.tries ?? [],
+    initialTries,
     streak,
     onRecordTries: (tries) => {
-      const next = recordPuzzleTries(history, puzzle, tries);
-      saveHistory(next);
-      setHistory(next);
+      setHistory(persistPuzzleTries(puzzle, tries));
     },
   };
 

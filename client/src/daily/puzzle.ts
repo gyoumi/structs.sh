@@ -239,10 +239,10 @@ export type PuzzleState =
   | { status: 'error' }
   | { status: 'ready'; puzzle: Puzzle };
 
-/** What a failed response means: no puzzle for today yet, a server that is down, or anything else. */
+/** What a failed response means: no puzzle for today yet, a gateway or server outage, or another error. */
 const failedStatus = (status: number): PuzzleState => {
   if (status === 404) return { status: 'unavailable' };
-  if (status >= 500) return { status: 'unreachable' };
+  if (status === 502 || status === 503 || status === 504) return { status: 'unreachable' };
   return { status: 'error' };
 };
 

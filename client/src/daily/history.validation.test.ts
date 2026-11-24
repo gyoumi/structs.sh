@@ -1,0 +1,148 @@
+import { describe, expect, it } from 'vitest';
+import {
+  HISTORY_STORAGE_KEY,
+  HISTORY_VERSION,
+  currentStreak,
+  loadHistory,
+  persistPuzzleTries,
+  recordPuzzleTries,
+  savedTriesForPuzzle,
+  type DailyHistory,
+  type StorageLike,
+} from './history';
+import type { PlayInput, TryScore } from './playMachine';
+import type { Puzzle } from './puzzle';
+
+const QUICK_12: Puzzle = {
+  number: 12,
+  template: 'quicksort-most-comparisons',
+  values: [8, 1, 6, 3, 2, 7, 4, 5],
+  fixed: [1, 4, 6],
+  par: 34,
+  date: '2026-12-21',
+};
+
+const DRIFT_26: Puzzle = {
+  number: 26,
+  template: 'linked-list-index-drift',
+  start: [8, 3, 6, 1],
+  target: [3, 6, 5, 1],
+  par: 6,
+  date: '2026-12-22',
+};
+
+const OPERATIONS: PlayInput = {
+  kind: 'operations',
+  operations: [
+    { kind: 'delete', index: 0 },
+    { kind: 'insert', value: 5, index: 2 },
+  ],
+};
+
+const arrangement = (values: number[]): PlayInput => ({ kind: 'arrangement', arrangement: values });
+const tryOf = (score: TryScore, input: PlayInput = arrangement([8, 1, 6, 3, 2, 7, 4, 5])) => ({
+  input,
+  score,
+});
+const emptyHistory = (): DailyHistory => ({ version: HISTORY_VERSION, results: {} });
+
+const memoryStorage = () => {
+  const items = new Map<string, string>();
+  const storage: StorageLike = {
+    getItem: (key) => items.get(key) ?? null,
+    setItem: (key, value) => {
+      items.set(key, String(value));
+    },
+  };
+  return { items, storage };
+};
+
+describe('corrupt history, restored-input validation, and cross-tab merging', () => {
+  it('derives completed from validated tries and drops entries over MAX_TRIES', () => {
+    const { storage } = memoryStorage();
+    storage.setItem(
+      HISTORY_STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        results: {
+          '2026-12-21': {
+            date: '2026-12-21',
+            number: 12,
+            template: 'quicksort-most-comparisons',
+            par: 34,
+            tries: [],
+            completed: true,
+            bestScore: 99,
+            goalReached: true,
+          },
+          '2026-12-22': {
+            date: '2026-12-22',
+            number: 13,
+            template: 'quicksort-most-comparisons',
+            par: 34,
+            tries: [tryOf(30), tryOf(31), tryOf(32), tryOf(33)],
+            completed: true,
+            bestScore: 33,
+            goalReached: false,
+          },
+        },
+      })
+    );
+    const loaded = loadHistory(storage);
+    expect(loaded.results['2026-12-21']?.completed, 'empty tries must not be completed').toBe(
+      false
+    );
+    expect(loaded.results['2026-12-21']?.bestScore, 'empty tries must have null bestScore').toBe(
+      null
+    );
+    expect(currentStreak(loaded, '2026-12-21'), 'empty tries must not award a streak').toBe(0);
+    expect(loaded.results['2026-12-22'], 'entry with 4 tries (> MAX_TRIES) must be dropped').toBe(
+      undefined
+    );
+  });
+
+  it('rejects saved tries whose puzzle identity or inputs do not match the fetched puzzle', () => {
+    const movedFixed = recordPuzzleTries(emptyHistory(), QUICK_12, [
+      tryOf(30, arrangement([1, 8, 6, 3, 2, 7, 4, 5])),
+    ]);
+    expect(savedTriesForPuzzle(movedFixed, QUICK_12), 'moved fixed slot must be rejected').toEqual(
+      []
+    );
+    const wrongMultiplicity = recordPuzzleTries(emptyHistory(), QUICK_12, [
+      tryOf(30, arrangement([8, 1, 8, 3, 2, 7, 4, 5])),
+    ]);
+    expect(
+      savedTriesForPuzzle(wrongMultiplicity, QUICK_12),
+      'wrong value multiplicity must be rejected'
+    ).toEqual([]);
+    const changedPuzzle = recordPuzzleTries(emptyHistory(), QUICK_12, [tryOf(30)]);
+    expect(
+      savedTriesForPuzzle(changedPuzzle, { ...QUICK_12, number: 99 }),
+      'mismatched puzzle number must be rejected'
+    ).toEqual([]);
+    const badOps = recordPuzzleTries(emptyHistory(), DRIFT_26, [
+      tryOf(5, { kind: 'operations', operations: [{ kind: 'delete', index: 9 }] }),
+    ]);
+    expect(savedTriesForPuzzle(badOps, DRIFT_26), 'out-of-range delete must be rejected').toEqual(
+      []
+    );
+    const valid = recordPuzzleTries(emptyHistory(), DRIFT_26, [tryOf(5, OPERATIONS)]);
+    expect(savedTriesForPuzzle(valid, DRIFT_26), 'valid ops must restore').toHaveLength(1);
+  });
+
+  it('merges into fresh storage without erasing another tab or regressing same-day tries', () => {
+    const { storage } = memoryStorage();
+    const day22 = { ...QUICK_12, number: 13, date: '2026-12-22' };
+    persistPuzzleTries(day22, [tryOf(30), tryOf(34), tryOf(31)], storage);
+    const afterStaleTab = persistPuzzleTries(QUICK_12, [tryOf(30)], storage);
+    expect(
+      afterStaleTab.results['2026-12-22']?.completed,
+      'writing 2026-12-21 must preserve 2026-12-22 saved by another tab'
+    ).toBe(true);
+    const afterRegress = persistPuzzleTries(day22, [tryOf(30)], storage);
+    expect(
+      afterRegress.results['2026-12-22']?.tries.length,
+      'stale tab with 1 try must not overwrite 3 completed tries for the same day'
+    ).toBe(3);
+  });
+});
