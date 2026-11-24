@@ -25,6 +25,7 @@ const useScrollToTopOnNavigate = () => {
       const target = document.getElementById(hash.slice(1));
       if (target) {
         target.scrollIntoView();
+        target.focus({ preventScroll: true });
         return;
       }
     }

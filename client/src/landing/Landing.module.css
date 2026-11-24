@@ -149,6 +149,8 @@
 }
 
 .footer {
+  --focus: var(--steel);
+
   padding-block: 1.25rem;
   background: var(--footer);
   color: #c9cdf0;
