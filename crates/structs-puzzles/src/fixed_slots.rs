@@ -3,6 +3,12 @@
 
 use crate::rng::Rng;
 use crate::search::Shortcut;
+use crate::validate::validate;
+
+/// Whether every fixed index is in bounds for an array of length `len`.
+pub(crate) fn valid_fixed(len: usize, fixed: &[usize]) -> bool {
+    fixed.iter().all(|&slot| slot < len)
+}
 
 /// A shuffled permutation of `1..=n` and `fixed_count` sorted distinct fixed
 /// slots, both determined by `seed`.
@@ -22,40 +28,42 @@ fn free_slots(len: usize, fixed: &[usize]) -> Vec<usize> {
     (0..len).filter(|slot| !fixed.contains(slot)).collect()
 }
 
-fn sorted_free_values(values: &[i32], fixed: &[usize]) -> Vec<i32> {
-    let mut free: Vec<i32> = free_slots(values.len(), fixed)
-        .into_iter()
-        .map(|slot| values[slot])
-        .collect();
+fn sorted_values_at(values: &[i32], slots: &[usize]) -> Vec<i32> {
+    let mut free: Vec<i32> = slots.iter().map(|&slot| values[slot]).collect();
     free.sort_unstable();
     free
 }
 
-/// `values` with its free slots, in order, holding `free_vals`.
-pub(crate) fn fill_free(values: &[i32], fixed: &[usize], free_vals: &[i32]) -> Vec<i32> {
+fn fill_slots(values: &[i32], slots: &[usize], free_vals: &[i32]) -> Vec<i32> {
     let mut out = values.to_vec();
-    for (slot, &value) in free_slots(values.len(), fixed).into_iter().zip(free_vals) {
+    for (&slot, &value) in slots.iter().zip(free_vals) {
         out[slot] = value;
     }
     out
 }
 
 /// Every distinct arrangement of the free values, with fixed slots held in
-/// place, in lexicographic order of the free values.
+/// place, in lexicographic order of the free values, or empty if any fixed
+/// slot is out of range.
 pub(crate) fn exhaustive_free_permutations(
     values: &[i32],
     fixed: &[usize],
 ) -> Box<dyn Iterator<Item = Vec<i32>>> {
+    if !valid_fixed(values.len(), fixed) {
+        return Box::new(std::iter::empty());
+    }
+    let slots = free_slots(values.len(), fixed);
+    let next = Some(sorted_values_at(values, &slots));
     Box::new(FreePermutations {
         values: values.to_vec(),
-        fixed: fixed.to_vec(),
-        next: Some(sorted_free_values(values, fixed)),
+        slots,
+        next,
     })
 }
 
 struct FreePermutations {
     values: Vec<i32>,
-    fixed: Vec<usize>,
+    slots: Vec<usize>,
     next: Option<Vec<i32>>,
 }
 
@@ -64,7 +72,7 @@ impl Iterator for FreePermutations {
 
     fn next(&mut self) -> Option<Vec<i32>> {
         let mut free = self.next.take()?;
-        let out = fill_free(&self.values, &self.fixed, &free);
+        let out = fill_slots(&self.values, &self.slots, &free);
         if next_permutation(&mut free) {
             self.next = Some(free);
         }
@@ -93,19 +101,33 @@ fn next_permutation(items: &mut [i32]) -> bool {
     true
 }
 
-/// A random arrangement of the free values, determined by `seed`.
-pub(crate) fn random_fixed_input(values: &[i32], fixed: &[usize], seed: u64) -> Vec<i32> {
-    let mut free = sorted_free_values(values, fixed);
+/// A random arrangement of the free values, determined by `seed`, or `None`
+/// if any fixed slot is out of range.
+pub(crate) fn random_fixed_input(values: &[i32], fixed: &[usize], seed: u64) -> Option<Vec<i32>> {
+    if !valid_fixed(values.len(), fixed) {
+        return None;
+    }
+    let slots = free_slots(values.len(), fixed);
+    let mut free = sorted_values_at(values, &slots);
     Rng::new(seed).shuffle(&mut free);
-    fill_free(values, fixed, &free)
+    Some(fill_slots(values, &slots, &free))
 }
 
-/// `input` with two distinct free slots, chosen by `seed`, swapped.
-pub(crate) fn random_fixed_neighbor(fixed: &[usize], input: &[i32], seed: u64) -> Vec<i32> {
+/// `input` with two distinct free slots, chosen by `seed`, swapped, or `None`
+/// when `instance` or `input` is invalid.
+pub(crate) fn random_fixed_neighbor(
+    values: &[i32],
+    fixed: &[usize],
+    input: &[i32],
+    seed: u64,
+) -> Option<Vec<i32>> {
+    if validate(values, fixed, input).is_err() {
+        return None;
+    }
     let slots = free_slots(input.len(), fixed);
     let mut out = input.to_vec();
     if slots.len() < 2 {
-        return out;
+        return Some(out);
     }
     let mut rng = Rng::new(seed);
     let a = rng.gen_range(slots.len());
@@ -114,7 +136,7 @@ pub(crate) fn random_fixed_neighbor(fixed: &[usize], input: &[i32], seed: u64) -
         b += 1;
     }
     out.swap(slots[a], slots[b]);
-    out
+    Some(out)
 }
 
 /// A shortcut whose free slots hold `order` applied to the sorted free values.
@@ -124,10 +146,11 @@ pub(crate) fn shortcut(
     fixed: &[usize],
     order: impl FnOnce(Vec<i32>) -> Vec<i32>,
 ) -> Shortcut<Vec<i32>> {
-    let free = order(sorted_free_values(values, fixed));
+    let slots = free_slots(values.len(), fixed);
+    let free = order(sorted_values_at(values, &slots));
     Shortcut {
         name,
-        input: fill_free(values, fixed, &free),
+        input: fill_slots(values, &slots, &free),
     }
 }
 

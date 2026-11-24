@@ -130,11 +130,16 @@ impl Template for BstForcedOrder {
     }
 
     fn search_space(&self, instance: &Self::Instance) -> SearchSpace<Self::Input> {
-        SearchSpace::Exhaustive(Shape::from_preorder(&instance.target_tree).orders())
+        match Shape::from_verified(&instance.values, &instance.target_tree) {
+            Some(shape) => SearchSpace::Exhaustive(shape.orders()),
+            None => SearchSpace::Exhaustive(Box::new(std::iter::empty())),
+        }
     }
 
     fn shortcuts(&self, instance: &Self::Instance) -> Vec<Shortcut<Self::Input>> {
-        let shape = Shape::from_preorder(&instance.target_tree);
+        let Some(shape) = Shape::from_verified(&instance.values, &instance.target_tree) else {
+            return Vec::new();
+        };
         vec![
             Shortcut {
                 name: "preorder",
@@ -151,8 +156,9 @@ impl Template for BstForcedOrder {
         ]
     }
 
-    fn random_input(&self, instance: &Self::Instance, seed: u64) -> Self::Input {
-        Shape::from_preorder(&instance.target_tree).random_order(seed)
+    fn random_input(&self, instance: &Self::Instance, seed: u64) -> Option<Self::Input> {
+        Shape::from_verified(&instance.values, &instance.target_tree)
+            .map(|shape| shape.random_order(seed))
     }
 
     fn random_neighbor(
@@ -160,8 +166,12 @@ impl Template for BstForcedOrder {
         instance: &Self::Instance,
         input: &Self::Input,
         seed: u64,
-    ) -> Self::Input {
-        Shape::from_preorder(&instance.target_tree).neighbor(input, seed)
+    ) -> Option<Self::Input> {
+        let shape = Shape::from_verified(&instance.values, &instance.target_tree)?;
+        if !self.evaluate(instance, input).is_ok_and(|o| o.solved) {
+            return None;
+        }
+        Some(shape.neighbor(input, seed))
     }
 }
 

@@ -156,7 +156,7 @@ impl Template for LinkedListIndexDrift {
         }]
     }
 
-    fn random_input(&self, instance: &Self::Instance, seed: u64) -> Self::Input {
+    fn random_input(&self, instance: &Self::Instance, seed: u64) -> Option<Self::Input> {
         list_space::random_input(instance, seed)
     }
 
@@ -165,7 +165,7 @@ impl Template for LinkedListIndexDrift {
         instance: &Self::Instance,
         input: &Self::Input,
         seed: u64,
-    ) -> Self::Input {
+    ) -> Option<Self::Input> {
         list_space::random_neighbor(instance, input, seed)
     }
 }

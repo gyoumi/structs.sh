@@ -27,7 +27,7 @@
 
 use crate::fixed_slots::{
     ascending, descending, exhaustive_free_permutations, generate_fixed_instance,
-    random_fixed_input, random_fixed_neighbor, shortcut, smallest_last, zigzag,
+    random_fixed_input, random_fixed_neighbor, shortcut, smallest_last, valid_fixed, zigzag,
 };
 use crate::tree::{self, Event};
 use crate::validate::{count, validate};
@@ -179,6 +179,9 @@ impl Template for UpsetBstBeatsAvl {
 
     fn shortcuts(&self, instance: &Self::Instance) -> Vec<Shortcut<Self::Input>> {
         let (values, fixed) = (&instance.values, &instance.fixed);
+        if !valid_fixed(values.len(), fixed) {
+            return Vec::new();
+        }
         vec![
             shortcut("ascending", values, fixed, ascending),
             shortcut("descending", values, fixed, descending),
@@ -195,7 +198,7 @@ impl Template for UpsetBstBeatsAvl {
         ]
     }
 
-    fn random_input(&self, instance: &Self::Instance, seed: u64) -> Self::Input {
+    fn random_input(&self, instance: &Self::Instance, seed: u64) -> Option<Self::Input> {
         random_fixed_input(&instance.values, &instance.fixed, seed)
     }
 
@@ -204,7 +207,7 @@ impl Template for UpsetBstBeatsAvl {
         instance: &Self::Instance,
         input: &Self::Input,
         seed: u64,
-    ) -> Self::Input {
-        random_fixed_neighbor(&instance.fixed, input, seed)
+    ) -> Option<Self::Input> {
+        random_fixed_neighbor(&instance.values, &instance.fixed, input, seed)
     }
 }

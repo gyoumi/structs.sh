@@ -6,6 +6,7 @@
 use std::collections::{BTreeMap, VecDeque};
 
 use crate::rng::Rng;
+use crate::tree;
 
 /// A BST's shape: its root and each key's left and right children.
 #[derive(Clone)]
@@ -15,17 +16,30 @@ pub(crate) struct Shape {
 }
 
 impl Shape {
-    /// Rebuilds the tree from its preorder, which fixes every node's
-    /// children for distinct keys.
-    pub(crate) fn from_preorder(preorder: &[i32]) -> Self {
+    /// Rebuilds the tree when `target_tree` is a canonical BST preorder over
+    /// the exact distinct key set in `values`; returns `None` otherwise.
+    pub(crate) fn from_verified(values: &[i32], target_tree: &[i32]) -> Option<Self> {
+        if values.len() != target_tree.len() {
+            return None;
+        }
+        let mut sorted_values = values.to_vec();
+        let mut sorted_target = target_tree.to_vec();
+        sorted_values.sort_unstable();
+        sorted_target.sort_unstable();
+        if sorted_values != sorted_target || sorted_values.windows(2).any(|w| w[0] == w[1]) {
+            return None;
+        }
+        if tree::preorder(&tree::build_bst_unlogged(target_tree)) != target_tree {
+            return None;
+        }
         let mut shape = Self {
-            root: preorder.first().copied(),
+            root: target_tree.first().copied(),
             children: BTreeMap::new(),
         };
-        for &key in preorder {
+        for &key in target_tree {
             shape.attach(key);
         }
-        shape
+        Some(shape)
     }
 
     fn attach(&mut self, key: i32) {

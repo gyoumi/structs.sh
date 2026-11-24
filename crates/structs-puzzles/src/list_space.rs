@@ -75,22 +75,39 @@ fn step_cost(walked: usize) -> u32 {
     u32::try_from(walked + 1).unwrap_or(u32::MAX)
 }
 
-fn extensions(instance: &Instance, prefix: &[Operation]) -> Vec<(Vec<Operation>, u32)> {
-    let curr = replay(&instance.start, prefix).unwrap_or_default();
+fn value_counts(values: &[i32]) -> Vec<(i32, usize)> {
+    let mut sorted = values.to_vec();
+    sorted.sort_unstable();
+    let mut counts: Vec<(i32, usize)> = Vec::new();
+    for value in sorted {
+        match counts.last_mut() {
+            Some((last, count)) if *last == value => *count += 1,
+            _ => counts.push((value, 1)),
+        }
+    }
+    counts
+}
+
+fn extensions(
+    start: &[i32],
+    target_counts: &[(i32, usize)],
+    prefix: &[Operation],
+) -> Vec<(Vec<Operation>, u32)> {
+    let Some(curr) = replay(start, prefix) else {
+        return Vec::new();
+    };
     let with = |op: Operation| {
-        let mut ops = prefix.to_vec();
+        let mut ops = Vec::with_capacity(prefix.len() + 1);
+        ops.extend_from_slice(prefix);
         ops.push(op);
         ops
     };
     let mut out: Vec<(Vec<Operation>, u32)> = (0..curr.len())
         .map(|index| (with(Operation::Delete { index }), step_cost(index + 1)))
         .collect();
-    let mut needed = instance.target.clone();
-    needed.sort_unstable();
-    needed.dedup();
-    for value in needed {
-        let count = |list: &[i32]| list.iter().filter(|&&v| v == value).count();
-        if count(&curr) < count(&instance.target) {
+    for &(value, needed) in target_counts {
+        let have = curr.iter().filter(|&&v| v == value).count();
+        if have < needed {
             out.extend(
                 (0..=curr.len())
                     .map(|index| (with(Operation::Insert { value, index }), step_cost(index))),
@@ -102,12 +119,13 @@ fn extensions(instance: &Instance, prefix: &[Operation]) -> Vec<(Vec<Operation>,
 
 /// Operation sequences built one operation at a time from an empty one.
 pub(crate) fn search_space(instance: &Instance) -> SearchSpace<Vec<Operation>> {
-    let start = instance.start.clone();
-    let owned = instance.clone();
+    let start_for_key = instance.start.clone();
+    let start_for_extend = instance.start.clone();
+    let target_counts = value_counts(&instance.target);
     SearchSpace::Incremental {
         start: Vec::new(),
-        state_key: Box::new(move |ops| state_key(&replay(&start, ops).unwrap_or_default())),
-        extend: Box::new(move |ops| extensions(&owned, ops)),
+        state_key: Box::new(move |ops| replay(&start_for_key, ops).map(|list| state_key(&list))),
+        extend: Box::new(move |ops| extensions(&start_for_extend, &target_counts, ops)),
     }
 }
 
@@ -167,32 +185,31 @@ fn rebuild(mut list: Vec<i32>, target: &[i32], rng: &mut Rng) -> Vec<Operation> 
 }
 
 /// A random operation sequence that reaches the target, determined by `seed`.
-pub(crate) fn random_input(instance: &Instance, seed: u64) -> Vec<Operation> {
-    rebuild(
+pub(crate) fn random_input(instance: &Instance, seed: u64) -> Option<Vec<Operation>> {
+    Some(rebuild(
         instance.start.clone(),
         &instance.target,
         &mut Rng::new(seed),
-    )
+    ))
 }
 
-/// Keeps a random prefix of `input` and rebuilds the rest; when every try
-/// gives `input` back, wraps it with a front insert and delete that cancel.
+/// Keeps a random prefix of `input` and rebuilds the rest; returns `None` when
+/// `input` fails to replay on `instance.start`. When every try gives `input`
+/// back, wraps it with a front insert and delete that cancel.
 pub(crate) fn random_neighbor(
     instance: &Instance,
     input: &[Operation],
     seed: u64,
-) -> Vec<Operation> {
+) -> Option<Vec<Operation>> {
+    replay(&instance.start, input)?;
     let mut rng = Rng::new(seed);
     for _ in 0..4 {
         let cut = rng.gen_range(input.len() + 1);
-        let (kept, list) = match replay(&instance.start, &input[..cut]) {
-            Some(list) => (&input[..cut], list),
-            None => (&input[..0], instance.start.clone()),
-        };
-        let mut ops = kept.to_vec();
+        let list = replay(&instance.start, &input[..cut])?;
+        let mut ops = input[..cut].to_vec();
         ops.extend(rebuild(list, &instance.target, &mut rng));
         if ops != input {
-            return ops;
+            return Some(ops);
         }
     }
     let value = instance.target.first().copied().unwrap_or(0);
@@ -201,5 +218,5 @@ pub(crate) fn random_neighbor(
         Operation::Delete { index: 0 },
     ];
     ops.extend_from_slice(input);
-    ops
+    Some(ops)
 }

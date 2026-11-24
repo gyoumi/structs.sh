@@ -17,12 +17,19 @@ impl Rng {
         z ^ (z >> 31)
     }
 
-    /// A value in `0..n`, or 0 when `n` is 0.
+    /// A uniformly chosen value in `0..n`, or 0 when `n` is 0.
     pub(crate) fn gen_range(&mut self, n: usize) -> usize {
         if n == 0 {
             return 0;
         }
-        (self.next_u64() % n as u64) as usize
+        let bound = n as u64;
+        let threshold = bound.wrapping_neg() % bound;
+        loop {
+            let value = self.next_u64();
+            if value >= threshold {
+                return (value % bound) as usize;
+            }
+        }
     }
 
     /// Fisher-Yates shuffle of `items`.

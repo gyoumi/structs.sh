@@ -119,22 +119,26 @@ pub trait Template {
     /// the same instance.
     fn generate(&self, seed: u64) -> Self::Instance;
 
-    /// Every input a search may consider for `instance`.
+    /// Every input a search may consider for `instance`, or an empty space
+    /// when `instance` is invalid or has no candidate solutions.
     fn search_space(&self, instance: &Self::Instance) -> SearchSpace<Self::Input>;
 
-    /// Named, hand-picked inputs for `instance`, each one valid.
+    /// Named, hand-picked inputs for `instance`, each one valid, or empty
+    /// when `instance` is invalid or has no candidate solutions.
     fn shortcuts(&self, instance: &Self::Instance) -> Vec<Shortcut<Self::Input>>;
 
-    /// A valid input for `instance`, determined by `seed`.
-    fn random_input(&self, instance: &Self::Instance, seed: u64) -> Self::Input;
+    /// A valid input for `instance`, determined by `seed`, or `None` when
+    /// `instance` is invalid or has no candidate solutions.
+    fn random_input(&self, instance: &Self::Instance, seed: u64) -> Option<Self::Input>;
 
-    /// A valid input close to `input`, determined by `seed`, for local search.
+    /// A valid input close to `input`, determined by `seed`, for local search,
+    /// or `None` when `instance` or `input` is invalid.
     fn random_neighbor(
         &self,
         instance: &Self::Instance,
         input: &Self::Input,
         seed: u64,
-    ) -> Self::Input;
+    ) -> Option<Self::Input>;
 }
 
 /// Reason a player's input is rejected for a puzzle instance.

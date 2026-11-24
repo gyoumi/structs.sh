@@ -95,10 +95,15 @@ where
     }
     let mut moved = false;
     for seed in SEEDS {
-        let input = t.random_input(i, seed);
-        let next = t.random_neighbor(i, &input, seed);
+        let input = t
+            .random_input(i, seed)
+            .expect("valid instance should sample");
+        let next = t
+            .random_neighbor(i, &input, seed)
+            .expect("valid input should neighbor");
         let c = format!("{ctx}: seed {seed}: random_input {input:?}, random_neighbor {next:?}");
-        let same = t.random_input(i, seed) == input && t.random_neighbor(i, &input, seed) == next;
+        let same = t.random_input(i, seed).as_ref() == Some(&input)
+            && t.random_neighbor(i, &input, seed).as_ref() == Some(&next);
         assert!(same, "{c}: a second call with this seed differed");
         for (x, must_solve) in [(&input, solve[0]), (&next, solve[1])] {
             let got = t.solved_score(i, x);
@@ -211,23 +216,27 @@ fn del(index: usize) -> Operation {
 /// Plain Dijkstra from `start`, deduplicating states by `key`; `None` if no goal is reachable.
 fn cheapest<I: Clone>(
     start: I,
-    key: impl Fn(&I) -> Vec<u8>,
+    key: impl Fn(&I) -> Option<Vec<u8>>,
     extend: impl Fn(&I) -> Vec<(I, u32)>,
     goal: impl Fn(&I) -> bool,
 ) -> Option<u32> {
-    let mut best: HashMap<Vec<u8>, u32> = HashMap::from([(key(&start), 0)]);
+    let mut best: HashMap<Vec<u8>, u32> = HashMap::from([(key(&start)?, 0)]);
     let (mut nodes, mut heap) = (vec![start], BinaryHeap::from([Reverse((0_u32, 0_usize))]));
     for _ in 0..200_000 {
         let Reverse((cost, id)) = heap.pop()?;
         let node = nodes[id].clone();
-        if best.get(&key(&node)).is_some_and(|&b| b < cost) {
+        let node_key = key(&node)?;
+        if best.get(&node_key).is_some_and(|&b| b < cost) {
             continue;
         }
         if goal(&node) {
             return Some(cost);
         }
         for (child, step) in extend(&node) {
-            let (k, total) = (key(&child), cost + step);
+            let Some(k) = key(&child) else {
+                continue;
+            };
+            let total = cost + step;
             if best.get(&k).is_none_or(|&b| total < b) {
                 best.insert(k, total);
                 nodes.push(child);

@@ -9,11 +9,14 @@ pub struct Shortcut<I> {
     pub input: I,
 }
 
-/// Maps a partial input to a key shared by every partial input that leaves
-/// the puzzle in the same state.
-pub type StateKeyFn<I> = Box<dyn Fn(&I) -> Vec<u8>>;
+/// Maps a valid partial input to a key shared by every valid partial input
+/// that leaves the puzzle in the same state, or `None` when the partial input
+/// is invalid.
+pub type StateKeyFn<I> = Box<dyn Fn(&I) -> Option<Vec<u8>>>;
 
-/// Lists every one-step extension of a partial input, with that step's cost.
+/// Lists valid one-step extensions of a partial input with each step's cost,
+/// or an empty list when the partial input is invalid. May omit legal moves
+/// when doing so preserves an optimum.
 pub type ExtendFn<I> = Box<dyn Fn(&I) -> Vec<(I, u32)>>;
 
 /// Every input a search may consider for one instance.
@@ -25,9 +28,9 @@ pub enum SearchSpace<I> {
     Incremental {
         /// The empty input every search begins from.
         start: I,
-        /// Identifies the state a partial input reaches.
+        /// Identifies the state a valid partial input reaches, or `None` if invalid.
         state_key: StateKeyFn<I>,
-        /// Lists a partial input's one-step extensions and their costs.
+        /// Lists valid one-step extensions of a partial input and their costs.
         extend: ExtendFn<I>,
     },
 }
