@@ -10,8 +10,15 @@ import {
 import { Puzzle } from './puzzle';
 import { tryScoreOf } from './templates';
 
+const arrangementInput = (arrangement: number[]) => ({ kind: 'arrangement' as const, arrangement });
+
 const completeTry = (state: PlayState, runId: number, arrangement: number[], score: number) => {
-  const running = playReducer(state, { type: 'run', arrangement, runId, focusSkip: false });
+  const running = playReducer(state, {
+    type: 'run',
+    input: arrangementInput(arrangement),
+    runId,
+    focusSkip: false,
+  });
   const scoring = playReducer(running, { type: 'animation-completed', runId });
   return playReducer(scoring, { type: 'scored', score });
 };
@@ -20,17 +27,17 @@ describe('playReducer', () => {
   it('moves through ready -> running -> scoring -> ready across tries and ends on the third score', () => {
     const first = playReducer(initialPlayState, {
       type: 'run',
-      arrangement: [3, 1, 2],
+      input: arrangementInput([3, 1, 2]),
       runId: 1,
       focusSkip: true,
     });
     expect(
       first,
-      'run from ready should enter running carrying arrangement, runId, and focusSkip'
+      'run from ready should enter running carrying tagged input, runId, and focusSkip'
     ).toEqual({
       stage: 'running',
       scores: [],
-      arrangement: [3, 1, 2],
+      input: { kind: 'arrangement', arrangement: [3, 1, 2] },
       runId: 1,
       focusSkip: true,
     });
@@ -38,11 +45,11 @@ describe('playReducer', () => {
     const scoring = playReducer(first, { type: 'animation-completed', runId: 1 });
     expect(
       scoring,
-      'matching animation-completed should enter scoring with the same arrangement'
+      'matching animation-completed should enter scoring with the same tagged input'
     ).toEqual({
       stage: 'scoring',
       scores: [],
-      arrangement: [3, 1, 2],
+      input: { kind: 'arrangement', arrangement: [3, 1, 2] },
     });
 
     const afterTry1 = playReducer(scoring, { type: 'scored', score: 30 });
@@ -71,7 +78,7 @@ describe('playReducer', () => {
   it('ignores stale animation completions whose runId does not match the active run', () => {
     const running = playReducer(initialPlayState, {
       type: 'run',
-      arrangement: [3, 1, 2],
+      input: arrangementInput([3, 1, 2]),
       runId: 2,
       focusSkip: false,
     });
@@ -84,7 +91,7 @@ describe('playReducer', () => {
   it('enters score-failed on scoring error without spending a try, and allows retrying', () => {
     const running = playReducer(initialPlayState, {
       type: 'run',
-      arrangement: [3, 1, 2],
+      input: arrangementInput([3, 1, 2]),
       runId: 1,
       focusSkip: false,
     });
@@ -97,14 +104,14 @@ describe('playReducer', () => {
 
     const retried = playReducer(failed, {
       type: 'run',
-      arrangement: [3, 1, 2],
+      input: arrangementInput([3, 1, 2]),
       runId: 2,
       focusSkip: false,
     });
     expect(retried, 'run from score-failed should start a new running try').toEqual({
       stage: 'running',
       scores: [],
-      arrangement: [3, 1, 2],
+      input: { kind: 'arrangement', arrangement: [3, 1, 2] },
       runId: 2,
       focusSkip: false,
     });
@@ -122,12 +129,17 @@ describe('playReducer', () => {
 
     const running = playReducer(initialPlayState, {
       type: 'run',
-      arrangement: [1, 2],
+      input: arrangementInput([1, 2]),
       runId: 1,
       focusSkip: false,
     });
     expect(
-      playReducer(running, { type: 'run', arrangement: [2, 1], runId: 2, focusSkip: false }),
+      playReducer(running, {
+        type: 'run',
+        input: arrangementInput([2, 1]),
+        runId: 2,
+        focusSkip: false,
+      }),
       'run while already running must be a no-op'
     ).toBe(running);
 
@@ -138,7 +150,12 @@ describe('playReducer', () => {
       30
     );
     expect(
-      playReducer(ended, { type: 'run', arrangement: [2, 1], runId: 4, focusSkip: false }),
+      playReducer(ended, {
+        type: 'run',
+        input: arrangementInput([2, 1]),
+        runId: 4,
+        focusSkip: false,
+      }),
       'run after ended must be a no-op'
     ).toBe(ended);
 
@@ -176,7 +193,7 @@ describe('playReducer', () => {
     });
     const running = playReducer(initialPlayState, {
       type: 'run',
-      arrangement: [42],
+      input: arrangementInput([42]),
       runId: 1,
       focusSkip: false,
     });

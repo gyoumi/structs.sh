@@ -7,6 +7,11 @@
 //! target's preorder), and only it may; it has no fixed slots, so its
 //! `fixed` is left out or `[]`. Every other template needs `fixed`.
 //!
+//! A `linked-list-index-drift` request is
+//! `{"template": "linked-list-index-drift", "start": [..], "target": [..],
+//! "operations": [{"kind": "delete", "index": 0}, {"kind": "insert", "value": 5, "index": 2}]}`,
+//! and takes none of the array templates' fields.
+//!
 //! Success replies, by template:
 //! - `quicksort-most-comparisons`: `{"score": 12}`.
 //! - `bubble-exact-passes`: `{"solved": true, "score": 9, "passes": 4, "swaps": 9}`.
@@ -16,6 +21,8 @@
 //! - `bst-forced-order`: `{"solved": true, "score": 3, "longestIncreasingRun": 3}`.
 //! - `upset-bst-beats-avl`: `{"solved": true, "score": 4, "bstNodesPassed": 20,
 //!   "avlNodesPassed": 24, "margin": 4}`.
+//! - `linked-list-index-drift`: `{"solved": true, "score": 5, "operations": 2,
+//!   "nodesWalked": 3, "cost": 5}`.
 //!
 //! `score` is `null` when the try is unsolved. A failure reply is a
 //! plain-English message a player can read, as UTF-8 text.
@@ -24,19 +31,22 @@ use crate::avl_rotations::{self, AvlRotations};
 use crate::bst_forced_order::{self, BstForcedOrder};
 use crate::bubble::{self, Bubble};
 use crate::insertion_beats_merge::{self, InsertionBeatsMerge};
+use crate::linked_list_index_drift::LinkedListIndexDrift;
+use crate::list_wire::index_drift;
 use crate::quicksort::{self, Quicksort};
-use crate::request::Request;
+use crate::request::{ArrayRequest, Request};
 use crate::upset_bst_beats_avl::{self, UpsetBstBeatsAvl};
 use crate::{InputError, Template};
 use serde::Serialize;
 
-const TEMPLATES: [&str; 6] = [
+const TEMPLATES: [&str; 7] = [
     Quicksort::ID,
     Bubble::ID,
     InsertionBeatsMerge::ID,
     AvlRotations::ID,
     BstForcedOrder::ID,
     UpsetBstBeatsAvl::ID,
+    LinkedListIndexDrift::ID,
 ];
 
 #[derive(Serialize)]
@@ -95,6 +105,10 @@ pub fn score_request(request: &[u8]) -> Result<String, String> {
     if !TEMPLATES.contains(&request.template.as_str()) {
         return Err(format!("Unknown puzzle template \"{}\".", request.template));
     }
+    if request.template == LinkedListIndexDrift::ID {
+        return index_drift(request.into_list()?);
+    }
+    let request = request.into_array()?;
     if request.template != Bubble::ID {
         request.reject_target_passes()?;
     }
@@ -110,7 +124,7 @@ pub fn score_request(request: &[u8]) -> Result<String, String> {
 
 type Reply = Result<String, serde_json::Error>;
 
-fn with_fixed(request: &Request, fixed: Vec<usize>) -> Result<Reply, String> {
+fn with_fixed(request: &ArrayRequest, fixed: Vec<usize>) -> Result<Reply, String> {
     let values = request.values.clone();
     let arrangement = &request.arrangement;
     Ok(match request.template.as_str() {
@@ -180,7 +194,7 @@ fn with_fixed(request: &Request, fixed: Vec<usize>) -> Result<Reply, String> {
     })
 }
 
-fn forced_order(request: &Request) -> Result<Reply, String> {
+fn forced_order(request: &ArrayRequest) -> Result<Reply, String> {
     request.no_fixed(BstForcedOrder::ID)?;
     let target_tree = request.target_tree.clone().flatten().ok_or_else(|| {
         "The puzzle is broken: a bst-forced-order puzzle needs targetTree.".to_owned()
@@ -241,7 +255,7 @@ fn is_valid_target_tree(values: &[i32], target_tree: &[i32]) -> bool {
 
 /// Slots are numbered from 1 in messages, as players count them. Indexes widen
 /// to u128 before the add so usize::MAX can't overflow or wrap to 0.
-fn describe(error: &InputError) -> String {
+pub(crate) fn describe(error: &InputError) -> String {
     match error {
         InputError::FixedSlotOutOfRange { index } => format!(
             "The puzzle is broken: fixed slot {} is past its last value.",
@@ -257,5 +271,14 @@ fn describe(error: &InputError) -> String {
         InputError::NotAPermutation => "The arrangement has to be a permutation of the puzzle's \
              values: use each value exactly once."
             .to_owned(),
+        InputError::DeleteIndexOutOfRange {
+            operation,
+            index,
+            length,
+        } => format!(
+            "Operation {} can't delete index {index}: the list has {length} nodes then, so a \
+             delete index has to be below {length}.",
+            *operation as u128 + 1
+        ),
     }
 }

@@ -1,4 +1,4 @@
-import { latestMiss, MAX_TRIES, PlayState, shownScore, TryScore } from './playMachine';
+import { latestMiss, MAX_TRIES, PlayState, reachesGoal, shownScore, TryScore } from './playMachine';
 import type { Puzzle } from './puzzle';
 import { Rig, useReadoutValue } from './rig';
 import type { Readout, Readouts } from './templates';
@@ -18,14 +18,14 @@ const ReadoutRow = ({ rig, readout }: { rig: Rig; readout: Readout }) => {
   );
 };
 
-type TryChipProps = { tried: TryScore | undefined; par: number; live: number | undefined };
+type TryChipProps = { tried: TryScore | undefined; puzzle: Puzzle; live: number | undefined };
 
-const TryChip = ({ tried, par, live }: TryChipProps) => {
+const TryChip = ({ tried, puzzle, live }: TryChipProps) => {
   if (typeof tried === 'number') {
     return (
       <li className={cards.tryChip}>
         {tried}
-        {tried >= par && ' ⭐'}
+        {reachesGoal(puzzle, tried) && ' ⭐'}
       </li>
     );
   }
@@ -50,8 +50,9 @@ export const ScoreCard = ({ puzzle, rig, readouts, play }: ScoreCardProps) => {
   const ended = play.stage === 'ended';
   const running = play.stage === 'running' || play.stage === 'scoring';
   const triesLeft = ended ? 0 : MAX_TRIES - scores.length;
-  const score = shownScore(play);
-  const goalReached = score !== undefined && score >= puzzle.par;
+  const score = shownScore(play, puzzle.template);
+  const goalReached = score !== undefined && reachesGoal(puzzle, score);
+  const bestLabel = puzzle.template === 'linked-list-index-drift' ? 'Lowest' : 'Highest';
   const miss = running ? undefined : latestMiss(play);
 
   return (
@@ -89,7 +90,7 @@ export const ScoreCard = ({ puzzle, rig, readouts, play }: ScoreCardProps) => {
           <TryChip
             key={index}
             tried={scores[index]}
-            par={puzzle.par}
+            puzzle={puzzle}
             live={running && index === scores.length ? primaryValue : undefined}
           />
         ))}
@@ -108,7 +109,7 @@ export const ScoreCard = ({ puzzle, rig, readouts, play }: ScoreCardProps) => {
         </span>
         {score !== undefined && (
           <span>
-            {ended ? 'Highest' : <span id="daily-score-label">Score</span>}{' '}
+            {ended ? bestLabel : <span id="daily-score-label">Score</span>}{' '}
             <output
               aria-label={ended ? 'Score' : undefined}
               aria-labelledby={ended ? undefined : 'daily-score-label'}

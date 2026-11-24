@@ -62,6 +62,8 @@ const Stage = ({
   const complete = useSnapshot((s) => s.playback === 'complete');
   const step = useSnapshot((s) => s.step);
   const targetBounds = useSnapshot((s) => s.bounds);
+  const targetBoundsRef = useRef(targetBounds);
+  targetBoundsRef.current = targetBounds;
   const prevStep = useRef(step);
 
   const zoomAround = useCallback((factor: number, cx: number, cy: number, animate: boolean) => {
@@ -106,8 +108,12 @@ const Stage = ({
       }
       const insetTop = insetOf(container, 'top');
       const insetRight = insetOf(container, 'right');
-      const padding = Math.min(FIT_PADDING, width * 0.05);
-      const edgeMargin = Math.min(12, padding * 0.5);
+      const availableWidth = width - insetRight;
+      const availableHeight = height - insetTop;
+      const paddingX = Math.min(FIT_PADDING, availableWidth * 0.05);
+      const paddingY = Math.min(FIT_PADDING, availableHeight * 0.08);
+      const edgeMarginX = Math.min(12, paddingX * 0.5);
+      const edgeMarginY = Math.min(12, paddingY * 0.5);
       setView((prev) => {
         if (onlyIfOverflowing && prev.status === 'fitted') {
           const left = prev.x + box.x * prev.scale;
@@ -115,18 +121,16 @@ const Stage = ({
           const right = left + box.width * prev.scale;
           const bottom = top + box.height * prev.scale;
           const inside =
-            left >= edgeMargin &&
-            top >= insetTop + edgeMargin &&
-            right <= width - insetRight - edgeMargin &&
-            bottom <= height - edgeMargin;
+            left >= edgeMarginX &&
+            top >= insetTop + edgeMarginY &&
+            right <= width - insetRight - edgeMarginX &&
+            bottom <= height - edgeMarginY;
           if (inside) return prev;
         }
-        const availableWidth = width - insetRight;
-        const availableHeight = height - insetTop;
         const scale = clamp(
           Math.min(
-            (availableWidth - padding * 2) / box.width,
-            (availableHeight - padding * 2) / box.height
+            (availableWidth - paddingX * 2) / box.width,
+            (availableHeight - paddingY * 2) / box.height
           ),
           MIN_FIT_SCALE,
           1.25
@@ -146,13 +150,13 @@ const Stage = ({
 
   useLayoutEffect(() => {
     prevStep.current = 0;
-    fit(false, false);
+    fit(false, false, targetBoundsRef.current);
   }, [layoutVersion, fit]);
 
   useEffect(() => {
     let second = 0;
     const first = requestAnimationFrame(() => {
-      second = requestAnimationFrame(() => fit(false, false));
+      second = requestAnimationFrame(() => fit(false, false, targetBoundsRef.current));
     });
     return () => {
       cancelAnimationFrame(first);

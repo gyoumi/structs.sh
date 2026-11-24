@@ -13,6 +13,8 @@ pub mod avl_rotations;
 pub mod bst_forced_order;
 pub mod bubble;
 pub mod insertion_beats_merge;
+pub mod linked_list_index_drift;
+mod list_wire;
 pub mod quicksort;
 mod request;
 mod tree;
@@ -22,6 +24,36 @@ pub mod wire;
 
 #[cfg(target_arch = "wasm32")]
 mod ffi;
+
+use std::cmp::Ordering;
+
+/// Whether higher or lower solved scores rank better for a template.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ScoreDirection {
+    /// Higher solved scores rank ahead of lower ones.
+    HigherWins,
+    /// Lower solved scores rank ahead of higher ones.
+    LowerWins,
+}
+
+impl ScoreDirection {
+    /// Compares two outcomes (`Some(score)` for solved, `None` for unsolved),
+    /// ordering the better outcome as [`Ordering::Greater`].
+    ///
+    /// Any solved attempt ranks ahead of an unsolved attempt, even when
+    /// [`Self::LowerWins`] and the solved cost is positive.
+    pub fn cmp_outcomes(self, a: Option<u32>, b: Option<u32>) -> Ordering {
+        match (a, b) {
+            (None, None) => Ordering::Equal,
+            (None, Some(_)) => Ordering::Less,
+            (Some(_), None) => Ordering::Greater,
+            (Some(a), Some(b)) => match self {
+                Self::HigherWins => a.cmp(&b),
+                Self::LowerWins => b.cmp(&a),
+            },
+        }
+    }
+}
 
 /// A daily game puzzle template.
 ///
@@ -37,6 +69,9 @@ pub trait Template {
 
     /// The id puzzle files use.
     const ID: &'static str;
+
+    /// Whether higher or lower solved scores rank better.
+    const DIRECTION: ScoreDirection = ScoreDirection::HigherWins;
 
     /// Returns plain-text rules describing the puzzle and its constraints.
     fn rules(&self, instance: &Self::Instance) -> String;
@@ -57,6 +92,21 @@ pub trait Template {
     /// Returns the same [`InputError`] as [`run`](Self::run) for invalid
     /// inputs.
     fn score(&self, instance: &Self::Instance, input: &Self::Input) -> Result<u32, InputError>;
+
+    /// Validates `input` against `instance`, then returns `Some(score)` if
+    /// the attempt solved the puzzle, or `None` if it did not.
+    ///
+    /// Templates where every valid input is solved keep the default, which
+    /// wraps [`score`](Self::score) in `Some`. Exact-target and disagree
+    /// templates override this so solved zero-score attempts stay distinct
+    /// from unsolved ones.
+    fn solved_score(
+        &self,
+        instance: &Self::Instance,
+        input: &Self::Input,
+    ) -> Result<Option<u32>, InputError> {
+        self.score(instance, input).map(Some)
+    }
 }
 
 /// Reason a player's input is rejected for a puzzle instance.
@@ -85,4 +135,11 @@ pub enum InputError {
     /// Input has the right length and fixed values intact, but is not a
     /// rearrangement of the instance's values.
     NotAPermutation,
+    /// Operation `operation` (0-based) deletes `index` from a list of
+    /// `length` nodes, where `index >= length`.
+    DeleteIndexOutOfRange {
+        operation: usize,
+        index: usize,
+        length: usize,
+    },
 }

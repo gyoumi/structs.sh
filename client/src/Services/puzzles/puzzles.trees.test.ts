@@ -1,21 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { evaluatePuzzle, scorePuzzle, type EvalPuzzleInstance } from './puzzles';
+import { evaluatePuzzle, scorePuzzle, type ArrayEvalPuzzleInstance } from './puzzles';
 
 /** Needs the puzzles wasm built first: `pnpm run puzzles` from the repo root. Counts are worked by hand in e2e/support/daily-tree-fixtures.ts. */
 
-const AVL_23: EvalPuzzleInstance = {
+const AVL_23: ArrayEvalPuzzleInstance = {
   template: 'avl-most-rotations',
   values: [5, 1, 3, 8, 6, 7, 2, 4],
   fixed: [0, 5],
 };
 
-const FORCED_24: EvalPuzzleInstance = {
+const FORCED_24: ArrayEvalPuzzleInstance = {
   template: 'bst-forced-order',
   values: [3, 6, 9, 1, 2, 5, 4, 7, 8, 10],
   targetTree: [6, 3, 1, 2, 5, 4, 9, 7, 8, 10],
 };
 
-const UPSET_25: EvalPuzzleInstance = {
+const UPSET_25: ArrayEvalPuzzleInstance = {
   template: 'upset-bst-beats-avl',
   values: [3, 2, 13, 6, 14, 1, 8, 10, 5, 12, 11, 7, 4, 9],
   fixed: [0, 1, 5, 9, 11, 12],
@@ -26,7 +26,7 @@ const fmt = (values: readonly number[]) => `[${values.join(', ')}]`;
 const describeCall = (puzzle: object, arrangement: readonly number[]) =>
   `evaluatePuzzle(${JSON.stringify(puzzle)}, ${fmt(arrangement)})`;
 
-const evaluate = (puzzle: EvalPuzzleInstance, arrangement: readonly number[]) =>
+const evaluate = (puzzle: ArrayEvalPuzzleInstance, arrangement: readonly number[]) =>
   evaluatePuzzle(puzzle, [...arrangement]);
 
 const settle = <T>(promise: Promise<T>) =>
@@ -35,7 +35,7 @@ const settle = <T>(promise: Promise<T>) =>
     (error: unknown) => ({ rejected: true as const, error })
   );
 
-const rejection = async (puzzle: EvalPuzzleInstance, arrangement: readonly number[]) => {
+const rejection = async (puzzle: ArrayEvalPuzzleInstance, arrangement: readonly number[]) => {
   const call = describeCall(puzzle, arrangement);
   const outcome = await settle(evaluate(puzzle, arrangement));
   expect(
@@ -49,7 +49,7 @@ const rejection = async (puzzle: EvalPuzzleInstance, arrangement: readonly numbe
 
 type Case = {
   label: string;
-  puzzle: EvalPuzzleInstance;
+  puzzle: ArrayEvalPuzzleInstance;
   arrangement: readonly number[];
   expected: Record<string, unknown>;
 };

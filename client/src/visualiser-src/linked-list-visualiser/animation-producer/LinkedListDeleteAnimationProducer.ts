@@ -58,7 +58,7 @@ export default class LinkedListDeleteAnimationProducer extends LinkedListAnimati
     this.highlightNotRightNode(node);
   }
 
-  public resetListAndColor(headPointer: Path, head: GraphicalLinkedListNode) {
+  public resetListAndColor(headPointer: Path, head: GraphicalLinkedListNode | null) {
     this.resetList(headPointer, head);
     let curr: GraphicalLinkedListNode | null = head;
     while (curr != null) {
