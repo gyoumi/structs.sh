@@ -149,7 +149,15 @@ impl Template for UpsetBstBeatsAvl {
     }
 
     fn score(&self, instance: &Self::Instance, input: &Self::Input) -> Result<u32, InputError> {
+        Ok(self.solved_score(instance, input)?.unwrap_or(0))
+    }
+
+    fn solved_score(
+        &self,
+        instance: &Self::Instance,
+        input: &Self::Input,
+    ) -> Result<Option<u32>, InputError> {
         let outcome = self.evaluate(instance, input)?;
-        Ok(if outcome.solved { outcome.margin } else { 0 })
+        Ok(outcome.solved.then_some(outcome.margin))
     }
 }
