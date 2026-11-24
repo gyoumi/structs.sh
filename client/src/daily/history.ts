@@ -195,8 +195,15 @@ export function recordPuzzleTries(
 
 const sameTry = (a: SavedTry, b: SavedTry) => JSON.stringify(a) === JSON.stringify(b);
 
+/** Whether two try sequences contain the exact same inputs and scores in order. */
+export const sameTries = (a: SavedTry[], b: SavedTry[]) =>
+  a.length === b.length && a.every((saved, i) => sameTry(saved, b[i]));
+
 const extendsExisting = (existing: SavedTry[], next: SavedTry[]) =>
-  next.length > existing.length && existing.every((saved, i) => sameTry(saved, next[i]));
+  existing.length < MAX_TRIES &&
+  next.length <= MAX_TRIES &&
+  next.length > existing.length &&
+  existing.every((saved, i) => sameTry(saved, next[i]));
 
 /** Merges `tries` for `puzzle` into the latest stored history without losing other days or overwriting divergent same-day progress. */
 export function persistPuzzleTries(

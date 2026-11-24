@@ -148,4 +148,29 @@ test.describe('daily game streaks and history', () => {
     await dailyHistory.expectNoLoadError(ctx);
     expect(await dailyPage.values(), `${ctx}: Puzzle array should show ${fmt(DAILY_12.start.values)}`).toEqual([...DAILY_12.start.values]);
   });
+
+  test('a stale tab reconciles with another tab instead of counting rejected tries', async ({ dailyPage, dailyTemplate, dailyHistory }) => {
+    await dailyHistory.serveOnly(DAY_21);
+    await dailyPage.open();
+
+    await dailyPage.run();
+    await dailyHistory.seedSavedTry(DAY_21, DAILY_12.par.values, DAILY_12.par.count);
+    await dailyPage.skip('stale tab try 1 finishing after another tab saved par');
+
+    const syncedCtx = 'stale tab after reconciling with another tab’s first try';
+    await dailyPage.expectStatusNumber('Tries left', 2, `${syncedCtx}: should reflect the saved try`);
+    await dailyTemplate.expectTryChips([`${DAILY_12.par.count} ⭐`], syncedCtx);
+    await dailyHistory.expectSyncedNotice(syncedCtx);
+
+    await swapRunSkip(dailyPage, DAILY_12.par.swap, `${syncedCtx} try 2`);
+    await swapRunSkip(dailyPage, DAILY_12.highFromPar.swap, `${syncedCtx} try 3`);
+    const endCtx = `${syncedCtx}, after finishing remaining 2 tries`;
+    const chips = [`${DAILY_12.par.count} ⭐`, `${DAILY_12.par.count} ⭐`, `${DAILY_12.highFromPar.count} ⭐`];
+    await dailyPage.expectStatusNumber('Tries left', 0, `${endCtx}: Tries left`);
+    await dailyTemplate.expectTryChips(chips, endCtx);
+
+    await dailyHistory.reload(`${endCtx} then reload`);
+    await dailyTemplate.expectTryChips(chips, `${endCtx}, after reload: tries must survive`);
+    expect(await dailyPage.canShare(), `${endCtx}, after reload: Share should stay enabled`).toBe(true);
+  });
 });

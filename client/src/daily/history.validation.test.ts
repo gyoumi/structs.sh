@@ -160,6 +160,16 @@ describe('corrupt history, restored-input validation, and cross-tab merging', ()
       afterDivergentLonger.results['2026-12-23']?.tries,
       'divergent multi-try write must not erase the first tab try'
     ).toEqual([tabATry]);
+
+    const afterOverCap = persistPuzzleTries(
+      day22,
+      [tryOf(30), tryOf(34), tryOf(31), tryOf(36)],
+      storage
+    );
+    expect(
+      afterOverCap.results['2026-12-22']?.tries,
+      'over-cap write must not overwrite an already completed 3-try day'
+    ).toHaveLength(3);
   });
 
   it('excludes today from streakForPuzzle when saved tries fail validation for today', () => {

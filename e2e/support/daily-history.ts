@@ -93,6 +93,41 @@ export class DailyHistoryPage {
     return { raw, parsed: JSON.parse(raw) as StoredHistory };
   }
 
+  /** Writes a single saved arrangement try directly to localStorage, simulating another tab saving first. */
+  async seedSavedTry(puzzle: DatedPuzzle, values: readonly number[], score: number): Promise<void> {
+    await this.page.evaluate(
+      ({ key, savedPuzzle, arrangement, savedScore }) => {
+        window.localStorage.setItem(
+          key,
+          JSON.stringify({
+            version: 1,
+            results: {
+              [savedPuzzle.date]: {
+                date: savedPuzzle.date,
+                number: savedPuzzle.number,
+                template: savedPuzzle.template,
+                par: savedPuzzle.par,
+                tries: [{ input: { kind: 'arrangement', arrangement }, score: savedScore }],
+                completed: false,
+                bestScore: savedScore,
+                goalReached: savedScore >= savedPuzzle.par,
+              },
+            },
+          }),
+        );
+      },
+      { key: HISTORY_STORAGE_KEY, savedPuzzle: puzzle, arrangement: [...values], savedScore: score },
+    );
+  }
+
+  /** The notice shown when the tab reconciled with progress saved by another tab. */
+  async expectSyncedNotice(context: string): Promise<void> {
+    await expect(
+      this.page.getByText('Updated from another tab.'),
+      `${context}: should show the cross-tab reconciliation notice`,
+    ).toBeVisible();
+  }
+
   /** An alert says the server can't be reached, with an enabled `Try again` button. */
   async expectUnreachable(context: string): Promise<void> {
     await this.expectAlert(UNREACHABLE, `${context}: an alert should say the server can't be reached`);

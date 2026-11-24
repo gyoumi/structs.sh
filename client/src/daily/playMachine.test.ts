@@ -7,6 +7,7 @@ import {
   PlayState,
   shownScore,
 } from './playMachine';
+import { messageFor } from './playMessages';
 import { Puzzle } from './puzzle';
 import { tryScoreOf } from './templates';
 
@@ -204,5 +205,39 @@ describe('playReducer', () => {
     expect(afterTie.scores, 'unsolved tie must consume a try').toHaveLength(1);
     expect(shownScore(afterTie), 'unsolved tie must not display a numeric score').toBeUndefined();
     expect(latestMiss(afterTie), 'unsolved tie should explain the 0-0 tie').toContain('0');
+  });
+
+  it('reconciles to saved scores on synced, allows continuing under MAX_TRIES, and ends at MAX_TRIES', () => {
+    const puzzle: Puzzle = {
+      number: 12,
+      date: '2026-12-21',
+      template: 'quicksort-most-comparisons',
+      values: [8, 1, 6, 3, 2, 7, 4, 5],
+      fixed: [1, 4, 6],
+      par: 34,
+    };
+    const syncedOne = playReducer(initialPlayState, { type: 'synced', scores: [34] });
+    expect(syncedOne, 'syncing 1 saved try should enter synced with that score').toEqual({
+      stage: 'synced',
+      scores: [34],
+    });
+    expect(messageFor(syncedOne, puzzle), 'synced stage should explain another tab updated').toBe(
+      'Updated from another tab.'
+    );
+
+    const resumed = playReducer(syncedOne, {
+      type: 'run',
+      input: arrangementInput([8, 1, 6, 3, 2, 7, 4, 5]),
+      runId: 5,
+      focusSkip: false,
+    });
+    expect(resumed.stage, 'player should still be able to run a try from synced').toBe('running');
+
+    const syncedDone = playReducer(syncedOne, { type: 'synced', scores: [34, 29, 31] });
+    expect(syncedDone, 'syncing MAX_TRIES saved tries should enter ended').toEqual({
+      stage: 'ended',
+      scores: [34, 29, 31],
+      share: 'idle',
+    });
   });
 });

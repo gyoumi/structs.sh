@@ -1,5 +1,5 @@
 import '@fontsource-variable/fredoka';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import logo from '@/assets/img/structs.png';
 import hero from '@/landing/HeroSection.module.css';
@@ -12,6 +12,7 @@ import PuzzleArray from './PuzzleArray';
 import { PuzzleIntro } from './PuzzleIntro';
 import { PuzzleRig } from './PuzzleStages';
 import {
+  HISTORY_STORAGE_KEY,
   isIsoDate,
   loadHistory,
   persistPuzzleTries,
@@ -29,7 +30,7 @@ type ArrayPuzzle = Exclude<Puzzle, IndexDriftPuzzle>;
 type Progress = {
   initialTries: SavedTry[];
   streak?: number;
-  onRecordTries: (tries: SavedTry[]) => void;
+  onRecordTries: (tries: SavedTry[]) => SavedTry[];
 };
 
 type ViewProps<P> = { puzzle: P; theme: Theme; progress: Progress };
@@ -114,6 +115,15 @@ const IndexDriftView = ({ puzzle, theme, progress }: ViewProps<IndexDriftPuzzle>
 
 const PuzzleView = ({ puzzle, theme }: { puzzle: Puzzle; theme: Theme }) => {
   const [history, setHistory] = useState(() => loadHistory());
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === null || event.key === HISTORY_STORAGE_KEY) {
+        setHistory(loadHistory());
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
   const dated = isIsoDate(puzzle.date);
   const initialTries = savedTriesForPuzzle(history, puzzle);
   const streak = dated ? streakForPuzzle(history, puzzle) : undefined;
@@ -121,7 +131,11 @@ const PuzzleView = ({ puzzle, theme }: { puzzle: Puzzle; theme: Theme }) => {
     initialTries,
     streak,
     onRecordTries: (tries) => {
-      setHistory(persistPuzzleTries(puzzle, tries));
+      const nextHistory = persistPuzzleTries(puzzle, tries);
+      setHistory(nextHistory);
+      if (!dated) return tries;
+      const persisted = savedTriesForPuzzle(nextHistory, puzzle);
+      return persisted.length > 0 ? persisted : tries;
     },
   };
 

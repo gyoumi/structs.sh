@@ -7,7 +7,7 @@ import { canvasThemes } from '@/visualiser/canvasThemes';
 import { PlaybackContext } from '@/visualiser/playback';
 import { usePrefersReducedMotion } from '@/visualiser/useVisualiser';
 import { MobileHud, StepCard } from './DailyCards';
-import type { SavedTry } from './history';
+import { isIsoDate, sameTries, type SavedTry } from './history';
 import {
   MAX_TRIES,
   PlayInput,
@@ -47,8 +47,8 @@ type PlayBaseProps = {
   initialTries: SavedTry[];
   /** Days in a row finished, shown in the share text. */
   streak?: number;
-  /** Saves every try so far, called as each new try is scored. */
-  onRecordTries: (tries: SavedTry[]) => void;
+  /** Saves every try so far and returns the authoritative sequence kept in storage. */
+  onRecordTries: (tries: SavedTry[]) => SavedTry[];
 };
 
 type PlayProps = PlayBaseProps &
@@ -92,8 +92,14 @@ export const Play = (props: PlayProps) => {
   );
   const savedTries = useRef(initialTries);
   const recordTry = useEffectEvent((tried: PlayInput, score: TryScore) => {
-    savedTries.current = [...savedTries.current, { input: tried, score }];
-    onRecordTries(savedTries.current);
+    const nextTries = [...savedTries.current, { input: tried, score }];
+    const persisted = onRecordTries(nextTries);
+    savedTries.current = persisted;
+    if (!sameTries(persisted, nextTries)) {
+      dispatch({ type: 'synced', scores: persisted.map((saved) => saved.score) });
+      return;
+    }
+    dispatch({ type: 'scored', score });
   });
   const runner = useRef<HTMLDivElement>(null);
   const runButton = useRef<HTMLButtonElement>(null);
@@ -139,6 +145,14 @@ export const Play = (props: PlayProps) => {
   }, [play, completedRunId]);
 
   useEffect(() => {
+    if (!isIsoDate(puzzle.date)) return;
+    if (play.stage === 'running' || play.stage === 'scoring') return;
+    if (sameTries(initialTries, savedTries.current)) return;
+    savedTries.current = initialTries;
+    dispatch({ type: 'synced', scores: initialTries.map((saved) => saved.score) });
+  }, [initialTries, play.stage, puzzle.date]);
+
+  useEffect(() => {
     if (play.stage !== 'scoring') return undefined;
     let cancelled = false;
     scoreRun(puzzle, play.input)
@@ -146,7 +160,6 @@ export const Play = (props: PlayProps) => {
         if (cancelled) return;
         const score = tryScoreOf(puzzle, evaluation);
         recordTry(play.input, score);
-        dispatch({ type: 'scored', score });
       })
       .catch((error) => {
         console.error(error);
