@@ -18,7 +18,15 @@ export interface StepTrace {
   comparison?: StepComparison;
 }
 
-interface RunnerInfo {
+/** Axis-aligned bounding box in the drawing SVG's coordinate system. */
+export interface DrawingBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface RunnerInfo {
   runners: Runner[];
   isTimestamped: boolean;
   line: number | null;
@@ -28,6 +36,8 @@ interface RunnerInfo {
   counters?: Record<string, number>;
   /** The producer's step trace for this step, if it keeps one. */
   trace?: StepTrace | null;
+  /** Drawing bounds this step needs visible before it animates, so the stage can zoom out first. */
+  bounds?: DrawingBounds | null;
 }
 export default abstract class AnimationProducer {
   private _allRunners: RunnerInfo[] = [];
@@ -62,6 +72,11 @@ export default abstract class AnimationProducer {
 
   /** What the sort is doing now (its pivot and comparison). Producers that trace steps override this. */
   protected get stepTrace(): StepTrace | null | undefined {
+    return undefined;
+  }
+
+  /** Upcoming drawing bounds so the stage can zoom out before a new node appears. */
+  protected get stepBounds(): DrawingBounds | null | undefined {
     return undefined;
   }
 
@@ -202,6 +217,7 @@ export default abstract class AnimationProducer {
         counter: this.counter,
         counters: this.stepCounters,
         trace: this.stepTrace,
+        bounds: this.stepBounds,
       });
     }
 

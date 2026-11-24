@@ -10,9 +10,10 @@ import Transport from '@/visualiser/Transport';
 import { canvasThemes } from '@/visualiser/canvasThemes';
 import { PlaybackContext } from '@/visualiser/playback';
 import { usePrefersReducedMotion } from '@/visualiser/useVisualiser';
-import { MobileHud, StepCard } from './DailyCards';
+import { MobileHud, MobileOutcome, StepCard } from './DailyCards';
 import {
   initialPlayState,
+  latestMiss,
   MAX_TRIES,
   PlayState,
   playReducer,
@@ -23,13 +24,28 @@ import PuzzleArray from './PuzzleArray';
 import { PuzzleIntro } from './PuzzleIntro';
 import { PuzzleRig, PuzzleStages } from './PuzzleStages';
 import { Puzzle, shareText, usePuzzle } from './puzzle';
-import { Rig, useCompletedRunId, useHasTimeline, useReadoutValue, useStageSnapshot } from './rig';
+import {
+  drawnArrangement,
+  Rig,
+  useCompletedRunId,
+  useHasTimeline,
+  useReadoutValue,
+  useStageSnapshot,
+} from './rig';
 import { ScoreCard } from './ScoreCard';
+import { TargetTree } from './TargetTree';
 import { instanceOf, readoutsFor, stagePlanFor, tryScoreOf } from './templates';
 import styles from './Daily.module.css';
 
 const swapValues = (values: number[], a: number, b: number) =>
   values.map((value, index) => (index === a ? values[b] : index === b ? values[a] : value));
+
+const mobileOutcomeOf = (play: PlayState, par: number, busy: boolean): MobileOutcome => {
+  const score = shownScore(play);
+  if (score !== undefined && score >= par) return 'goal';
+  if (!busy && latestMiss(play) !== undefined) return 'missed';
+  return 'none';
+};
 
 const messageFor = (play: PlayState, par: number) => {
   if (play.stage === 'score-failed') return 'Couldn’t score that try. Press Run to try again.';
@@ -73,6 +89,7 @@ const Play = ({ puzzle, rig, theme, values, fixed, onSwap }: PlayProps) => {
 
   const busy = play.stage === 'running' || play.stage === 'scoring';
   const ended = play.stage === 'ended';
+  const mobileOutcome = mobileOutcomeOf(play, puzzle.par, busy);
 
   useEffect(() => {
     if (stageTheme === theme || busy || hasTimeline) return;
@@ -82,7 +99,8 @@ const Play = ({ puzzle, rig, theme, values, fixed, onSwap }: PlayProps) => {
 
   const draw = (arrangement: number[]) => {
     setStageTheme(theme);
-    rig.stages.forEach(({ session }) => session.loadData(arrangement, canvasThemes[theme], true));
+    const drawn = drawnArrangement(rig.mode, arrangement);
+    rig.stages.forEach(({ session }) => session.loadData(drawn, canvasThemes[theme], true));
   };
 
   useEffect(() => {
@@ -116,7 +134,7 @@ const Play = ({ puzzle, rig, theme, values, fixed, onSwap }: PlayProps) => {
   const run = () => {
     const focusSkip = document.activeElement === runButton.current;
     draw(values);
-    if (!rig.run()) return;
+    if (!rig.run(values)) return;
     const runId = firstStage.session.getSnapshot().lastRun?.id ?? 0;
     dispatch({ type: 'run', arrangement: values, runId, focusSkip });
     runner.current?.scrollIntoView?.({
@@ -152,12 +170,13 @@ const Play = ({ puzzle, rig, theme, values, fixed, onSwap }: PlayProps) => {
             comparison={trace?.comparison}
             triesLeft={ended ? 0 : MAX_TRIES - play.scores.length}
             stageTheme={stageTheme}
+            outcome={mobileOutcome}
           />
           <div className={styles.tilesZone}>
             <PuzzleArray values={values} fixed={fixed} frozen={busy || ended} onSwap={swap} />
           </div>
           <div ref={runner} className={styles.runner}>
-            <PuzzleStages rig={rig} stageTheme={stageTheme} />
+            <PuzzleStages rig={rig} stageTheme={stageTheme} readouts={readouts.others} />
             <PlaybackContext value={rig.playback}>
               <Transport />
             </PlaybackContext>
@@ -204,6 +223,7 @@ const Play = ({ puzzle, rig, theme, values, fixed, onSwap }: PlayProps) => {
       </div>
       <aside className={styles.sidebar}>
         <ScoreCard puzzle={puzzle} rig={rig} readouts={readouts} play={play} />
+        {puzzle.template === 'bst-forced-order' && <TargetTree preorder={puzzle.targetTree} />}
         {puzzle.template === 'quicksort-most-comparisons' && (
           <StepCard trace={trace} stageTheme={stageTheme} />
         )}

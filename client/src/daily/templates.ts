@@ -1,13 +1,18 @@
 import type { EvalPuzzleInstance, PuzzleEvaluation } from '@/Services/puzzles/puzzles';
 import { CanvasTarget, namedCanvasTarget } from '@/visualiser-src/common/canvasTarget';
+import type { TopicSlug } from '@/visualiser/topics';
 import type { TryScore } from './playMachine';
 import type { Puzzle } from './puzzle';
 
-/** A running count one stage's animation keeps: quicksort's or insertion's comparisons, or bubble sort's passes and swaps. */
-export type CounterSource = { stage: 0 | 1; key: 'comparisons' | 'passes' | 'swaps' };
+/** A running count one stage's animation keeps. */
+export type CounterSource = {
+  stage: 0 | 1;
+  key: 'comparisons' | 'passes' | 'swaps' | 'rotations' | 'nodesPassed';
+};
 
 export type ReadoutValue =
   | { kind: 'live'; source: CounterSource }
+  | { kind: 'gap'; from: CounterSource; minus: CounterSource }
   | { kind: 'fixed'; value: number };
 
 export type Readout = { key: string; label: string; value: ReadoutValue };
@@ -15,13 +20,16 @@ export type Readout = { key: string; label: string; value: ReadoutValue };
 /** The scored readout shown large beside the goal, then the rest. */
 export type Readouts = { primary: Readout; others: Readout[] };
 
-export type StageSpec = { command: string; label: string };
+/** `sort` draws the arrangement and sorts it; `tree-build` starts empty and inserts the arrangement in order. */
+export type StageMode = 'sort' | 'tree-build';
+
+export type StageSpec = { command: string; label: string; topic: TopicSlug };
 
 export type DualStageSpec = StageSpec & { region: string; target: CanvasTarget };
 
 export type StagePlan =
-  | { kind: 'single'; stage: StageSpec }
-  | { kind: 'dual'; stages: [DualStageSpec, DualStageSpec] };
+  | { kind: 'single'; mode: StageMode; stage: StageSpec }
+  | { kind: 'dual'; mode: StageMode; stages: [DualStageSpec, DualStageSpec] };
 
 /** Pairs `i < j` with `values[i] > values[j]`. */
 export const outOfOrderPairs = (values: number[]) =>
@@ -29,6 +37,17 @@ export const outOfOrderPairs = (values: number[]) =>
     (pairs, value, i) => pairs + values.slice(i + 1).filter((later) => value > later).length,
     0
   );
+
+/** The longest run of neighbouring values that strictly increases. */
+export const longestIncreasingRun = (values: number[]) => {
+  let longest = 0;
+  let run = 0;
+  values.forEach((value, i) => {
+    run = i > 0 && values[i - 1] < value ? run + 1 : 1;
+    longest = Math.max(longest, run);
+  });
+  return longest;
+};
 
 const live = (key: string, label: string, source: CounterSource): Readout => ({
   key,
@@ -60,6 +79,27 @@ export const readoutsFor = (puzzle: Puzzle, values: number[]): Readouts => {
           live('merge', 'Merge comparisons', { stage: 1, key: 'comparisons' }),
         ],
       };
+    case 'avl-most-rotations':
+      return {
+        primary: live('rotations', 'Rotations', { stage: 0, key: 'rotations' }),
+        others: [],
+      };
+    case 'bst-forced-order':
+      return {
+        primary: fixed('increasing-run', 'Increasing run', longestIncreasingRun(values)),
+        others: [],
+      };
+    case 'upset-bst-beats-avl': {
+      const bst: CounterSource = { stage: 0, key: 'nodesPassed' };
+      const avl: CounterSource = { stage: 1, key: 'nodesPassed' };
+      return {
+        primary: { key: 'margin', label: 'Margin', value: { kind: 'gap', from: avl, minus: bst } },
+        others: [
+          live('bst-passed', 'BST nodes passed', bst),
+          live('avl-passed', 'AVL nodes passed', avl),
+        ],
+      };
+    }
     default:
       return {
         primary: live('comparisons', 'Comparisons', { stage: 0, key: 'comparisons' }),
@@ -68,56 +108,92 @@ export const readoutsFor = (puzzle: Puzzle, values: number[]): Readouts => {
   }
 };
 
+const treeStage = (topic: 'BST' | 'AVL'): StageSpec =>
+  topic === 'BST'
+    ? { command: 'insertAll', label: 'BST drawing', topic: 'binary-search-trees' }
+    : { command: 'insertAll', label: 'AVL tree drawing', topic: 'avl-trees' };
+
+const sortStage = (command: string, label: string): StageSpec => ({
+  command,
+  label,
+  topic: 'sorting-algorithms',
+});
+
 export const stagePlanFor = (puzzle: Puzzle): StagePlan => {
   switch (puzzle.template) {
     case 'bubble-exact-passes':
-      return { kind: 'single', stage: { command: 'bubble', label: 'Bubble sort drawing' } };
+      return { kind: 'single', mode: 'sort', stage: sortStage('bubble', 'Bubble sort drawing') };
     case 'insertion-beats-merge':
       return {
         kind: 'dual',
+        mode: 'sort',
         stages: [
           {
-            command: 'insertion',
-            label: 'Insertion sort drawing',
+            ...sortStage('insertion', 'Insertion sort drawing'),
             region: 'Insertion sort',
             target: namedCanvasTarget('daily-insertion'),
           },
           {
-            command: 'merge',
-            label: 'Merge sort drawing',
+            ...sortStage('merge', 'Merge sort drawing'),
             region: 'Merge sort',
             target: namedCanvasTarget('daily-merge'),
           },
         ],
       };
+    case 'avl-most-rotations':
+      return { kind: 'single', mode: 'tree-build', stage: treeStage('AVL') };
+    case 'bst-forced-order':
+      return { kind: 'single', mode: 'tree-build', stage: treeStage('BST') };
+    case 'upset-bst-beats-avl':
+      return {
+        kind: 'dual',
+        mode: 'tree-build',
+        stages: [
+          { ...treeStage('BST'), region: 'BST', target: namedCanvasTarget('daily-bst') },
+          { ...treeStage('AVL'), region: 'AVL tree', target: namedCanvasTarget('daily-avl') },
+        ],
+      };
     default:
-      return { kind: 'single', stage: { command: 'quick', label: 'Quicksort drawing' } };
+      return { kind: 'single', mode: 'sort', stage: sortStage('quick', 'Quicksort drawing') };
   }
 };
 
 export const instanceOf = (puzzle: Puzzle): EvalPuzzleInstance => {
-  const { values, fixed: locked } = puzzle;
-  if (puzzle.template === 'bubble-exact-passes') {
-    return { template: puzzle.template, values, fixed: locked, targetPasses: puzzle.targetPasses };
+  const { values } = puzzle;
+  switch (puzzle.template) {
+    case 'bubble-exact-passes':
+      return {
+        template: puzzle.template,
+        values,
+        fixed: puzzle.fixed,
+        targetPasses: puzzle.targetPasses,
+      };
+    case 'bst-forced-order':
+      return { template: puzzle.template, values, targetTree: puzzle.targetTree };
+    default:
+      return { template: puzzle.template, values, fixed: puzzle.fixed };
   }
-  return { template: puzzle.template, values, fixed: locked };
 };
 
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 
-/** A try's score, or why it missed the puzzle's condition. */
-export const tryScoreOf = (puzzle: Puzzle, evaluation: PuzzleEvaluation): TryScore => {
-  if (evaluation.solved) return evaluation.score;
-  if (evaluation.template === 'bubble-exact-passes') {
-    const needed = puzzle.template === 'bubble-exact-passes' ? puzzle.targetPasses : 0;
-    return {
-      kind: 'unsolved',
-      reason: `Took ${plural(evaluation.passes, 'pass', 'passes')} — needed ${needed}`,
-    };
+const missReason = (puzzle: Puzzle, evaluation: PuzzleEvaluation & { solved: false }): string => {
+  switch (evaluation.template) {
+    case 'bubble-exact-passes': {
+      const needed = puzzle.template === 'bubble-exact-passes' ? puzzle.targetPasses : 0;
+      return `Took ${plural(evaluation.passes, 'pass', 'passes')} — needed ${needed}`;
+    }
+    case 'insertion-beats-merge':
+      return `Insertion made ${plural(evaluation.insertionComparisons, 'comparison', 'comparisons')} — merge made ${evaluation.mergeComparisons}`;
+    case 'bst-forced-order':
+      return 'That order builds a different tree from the target.';
+    default:
+      return `BST passed ${plural(evaluation.bstNodesPassed, 'node', 'nodes')} — AVL passed ${evaluation.avlNodesPassed}`;
   }
-  const { insertionComparisons, mergeComparisons } = evaluation;
-  return {
-    kind: 'unsolved',
-    reason: `Insertion made ${plural(insertionComparisons, 'comparison', 'comparisons')} — merge made ${mergeComparisons}`,
-  };
 };
+
+/** A try's score, or why it missed the puzzle's condition. */
+export const tryScoreOf = (puzzle: Puzzle, evaluation: PuzzleEvaluation): TryScore =>
+  evaluation.solved
+    ? evaluation.score
+    : { kind: 'unsolved', reason: missReason(puzzle, evaluation) };

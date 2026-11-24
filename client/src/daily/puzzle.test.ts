@@ -40,6 +40,17 @@ describe('parsePuzzle — valid puzzles', () => {
       label: 'optional date label ("Mon 23 Nov")',
       input: { ...DAILY_12, date: 'Mon 23 Nov' },
     },
+    {
+      label: 'forced-order with duplicate values and distinct BST preorder targetTree',
+      input: {
+        number: 24,
+        template: 'bst-forced-order',
+        values: [1, 2, 2, 3],
+        targetTree: [1, 2, 3],
+        fixed: [],
+        par: 2,
+      },
+    },
   ])('returns $label unchanged', ({ label, input }) => {
     const result = parsePuzzle(input);
     expect(
@@ -130,6 +141,20 @@ describe('parsePuzzle — broken shapes', () => {
         template: 'bubble-exact-passes',
         targetPasses: 4294967296,
       },
+    },
+    {
+      label: 'forced-order targetTree that is not a valid BST preorder',
+      input: {
+        number: 24,
+        template: 'bst-forced-order',
+        values: [1, 2, 3],
+        targetTree: [2, 3, 1],
+        par: 2,
+      },
+    },
+    {
+      label: 'non-integer value in values',
+      input: { ...DAILY_12, values: [1.5, 2, 3], fixed: [] },
     },
   ])('throws an Error for $label', ({ label, input }) => {
     const call = `parsePuzzle(${JSON.stringify(input)}) [${label}]`;

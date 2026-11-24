@@ -17,7 +17,25 @@ export type BubblePuzzle = PuzzleBase & { template: 'bubble-exact-passes'; targe
 
 export type InsertionMergePuzzle = PuzzleBase & { template: 'insertion-beats-merge' };
 
-export type Puzzle = QuicksortPuzzle | BubblePuzzle | InsertionMergePuzzle;
+export type AvlRotationsPuzzle = PuzzleBase & { template: 'avl-most-rotations' };
+
+/** No slot is locked, so `fixed` is always empty; the file leaves it out. */
+export type ForcedOrderPuzzle = PuzzleBase & {
+  template: 'bst-forced-order';
+  fixed: [];
+  /** The preorder of the tree the insert order has to build. */
+  targetTree: number[];
+};
+
+export type UpsetPuzzle = PuzzleBase & { template: 'upset-bst-beats-avl' };
+
+export type Puzzle =
+  | QuicksortPuzzle
+  | BubblePuzzle
+  | InsertionMergePuzzle
+  | AvlRotationsPuzzle
+  | ForcedOrderPuzzle
+  | UpsetPuzzle;
 
 export type Template = Puzzle['template'];
 
@@ -25,18 +43,64 @@ const TITLES: Record<Template, string> = {
   'quicksort-most-comparisons': 'Quicksort',
   'bubble-exact-passes': 'Bubble sort',
   'insertion-beats-merge': 'Insertion beats merge',
+  'avl-most-rotations': 'AVL tree',
+  'bst-forced-order': 'Forced order',
+  'upset-bst-beats-avl': 'Upset',
 };
 
 const isTemplate = (template: unknown): template is Template =>
   typeof template === 'string' && Object.hasOwn(TITLES, template);
 
+const MIN_I32 = -0x80000000;
+const MAX_I32 = 0x7fffffff;
+
 const isNumbers = (value: unknown): value is number[] =>
-  Array.isArray(value) && value.every((item) => Number.isFinite(item));
+  Array.isArray(value) &&
+  value.every((item) => Number.isInteger(item) && item >= MIN_I32 && item <= MAX_I32);
+
+const isEmptyList = (value: unknown) => Array.isArray(value) && value.length === 0;
+
+const isValidBstPreorder = (keys: number[]): boolean => {
+  const stack: number[] = [];
+  let lower: number | null = null;
+  for (let i = 0; i < keys.length; i += 1) {
+    const key = keys[i];
+    if (lower !== null && key <= lower) return false;
+    while (stack.length > 0) {
+      const top = stack[stack.length - 1];
+      if (key === top) return false;
+      if (key > top) {
+        lower = stack.pop()!;
+      } else {
+        break;
+      }
+    }
+    stack.push(key);
+  }
+  return true;
+};
+
+const isValidTargetTree = (values: number[], targetTree: number[]) => {
+  if (!isValidBstPreorder(targetTree)) return false;
+  const distinct = [...new Set(values)].sort((x, y) => x - y);
+  const targetSorted = [...targetTree].sort((x, y) => x - y);
+  return (
+    distinct.length === targetSorted.length &&
+    distinct.every((value, i) => value === targetSorted[i])
+  );
+};
 
 const formatError = () => new Error('The puzzle file is not in the expected format.');
 
-const parseBase = (data: unknown): PuzzleBase => {
-  const puzzle = data as Partial<PuzzleBase> | null;
+/** Whether the file must list fixed slots, or has none and may only leave `fixed` out or empty. */
+type FixedRule = 'listed' | 'none';
+
+const parseBase = (data: unknown, rule: FixedRule): PuzzleBase => {
+  const raw = data as Partial<PuzzleBase> | null;
+  const puzzle =
+    raw && rule === 'none' && (raw.fixed === undefined || isEmptyList(raw.fixed))
+      ? { ...raw, fixed: [] }
+      : raw;
   const length = Array.isArray(puzzle?.values) ? puzzle.values.length : 0;
   if (
     !puzzle ||
@@ -44,6 +108,7 @@ const parseBase = (data: unknown): PuzzleBase => {
     !isNumbers(puzzle.values) ||
     puzzle.values.length === 0 ||
     !isNumbers(puzzle.fixed) ||
+    (rule === 'none' && puzzle.fixed.length > 0) ||
     !puzzle.fixed.every((index) => Number.isInteger(index) && index >= 0 && index < length) ||
     !Number.isFinite(puzzle.par)
   ) {
@@ -61,10 +126,18 @@ const parseBase = (data: unknown): PuzzleBase => {
 
 const MAX_U32 = 0xffffffff;
 
+const parseForcedOrder = (data: unknown): ForcedOrderPuzzle => {
+  const base = parseBase(data, 'none');
+  const { targetTree } = data as { targetTree?: unknown };
+  if (!isNumbers(targetTree) || !isValidTargetTree(base.values, targetTree)) throw formatError();
+  return { template: 'bst-forced-order', ...base, fixed: [], targetTree };
+};
+
 export const parsePuzzle = (data: unknown): Puzzle => {
   const { template, targetPasses } = (data ?? {}) as { template?: unknown; targetPasses?: unknown };
   if (!isTemplate(template)) throw formatError();
-  const base = parseBase(data);
+  if (template === 'bst-forced-order') return parseForcedOrder(data);
+  const base = parseBase(data, 'listed');
   if (template !== 'bubble-exact-passes') return { template, ...base };
   if (
     !Number.isInteger(targetPasses) ||

@@ -24,20 +24,32 @@ const Swatch = ({ colour }: { colour?: string }) => (
   <span aria-hidden="true" className={cards.swatch} style={{ background: colour }} />
 );
 
+export type MobileOutcome = 'none' | 'goal' | 'missed';
+
 type MobileHudProps = {
   value: number;
   par: number;
   comparison: StepComparison | undefined;
   triesLeft: number;
   stageTheme: Theme;
+  outcome?: MobileOutcome;
 };
 
 /** A phone-only strip above the array. It repeats the cards for sight only, so it is hidden from assistive tech. */
-export const MobileHud = ({ value, par, comparison, triesLeft, stageTheme }: MobileHudProps) => (
+export const MobileHud = ({
+  value,
+  par,
+  comparison,
+  triesLeft,
+  stageTheme,
+  outcome = 'none',
+}: MobileHudProps) => (
   <div className={cards.mobileHud} aria-hidden="true">
     <span className={cards.hudScore}>
       <span className={cards.hudNum}>{value}</span>
       <span className={cards.hudGoal}>/ {par}</span>
+      {outcome === 'goal' && <span className={cards.hudStar}>⭐</span>}
+      {outcome === 'missed' && <span className={cards.resultNo}>✗</span>}
     </span>
     <span className={cards.hudRight}>
       {comparison && (

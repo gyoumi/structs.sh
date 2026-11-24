@@ -175,14 +175,28 @@
   background: var(--surface);
 }
 
+.stageHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.4rem 0.85rem;
+}
+
 .page .stageName {
   margin: 0;
-  padding: 0.4rem 0.85rem;
   color: var(--muted);
   font-size: 0.74rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.stageCount {
+  color: var(--ink);
+  font-size: 0.84rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .stagePair .stage {
@@ -297,6 +311,6 @@
     }
 
   .stagePair .stage {
-      height: 10.5rem;
+      height: 12.5rem;
     }
 }

@@ -1,18 +1,35 @@
 const splitNumbers = (raw: string): string[] => raw.split(/,| /g).filter((str) => str !== '');
 
+const MIN_I32 = -0x80000000;
+const MAX_I32 = 0x7fffffff;
+
+const isI32String = (el: string): boolean => {
+  if (!/^-?\d+$/.test(el)) return false;
+  const n = Number(el);
+  return Number.isSafeInteger(n) && n >= MIN_I32 && n <= MAX_I32;
+};
+
 export const validateOperationArgs = (expectedArgs: string[], args: string[]): string => {
   if (args.length !== expectedArgs.length) {
     return `Invalid arguments. Please provide ${args.join(', ')}`;
   }
-  if (args.includes('') || (expectedArgs.length > 0 && args.some((arg) => !arg.match(/\d/)))) {
+  const hasMissing = expectedArgs.some(
+    (name, idx) => name !== 'keys' && (args[idx] === '' || !args[idx].match(/\d/))
+  );
+  if (hasMissing) {
     return 'Argument(s) missing';
   }
+  const keysIdx = expectedArgs.indexOf('keys');
+  if (keysIdx !== -1 && !splitNumbers(args[keysIdx]).every(isI32String)) {
+    return 'Keys must be 32-bit integers';
+  }
   if (
-    !args.every((value, idx) =>
-      expectedArgs[idx].endsWith('s')
+    !args.every((value, idx) => {
+      if (expectedArgs[idx] === 'keys') return true;
+      return expectedArgs[idx].endsWith('s')
         ? splitNumbers(value).every((el) => /^\d+$/.test(el))
-        : /^\d+$/.test(value)
-    )
+        : /^\d+$/.test(value);
+    })
   ) {
     return 'Argument(s) must be a positive integer';
   }

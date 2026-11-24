@@ -1,12 +1,21 @@
 import { SVG, Svg, Circle, Line, Marker, Text } from '@svgdotjs/svg.js';
-import {
-  markerLength,
-  nodeDiameter,
-  pathD,
-  VISUALISER_CANVAS,
-} from '@/visualiser-src/common/constants';
+import { markerLength, nodeDiameter, pathD } from '@/visualiser-src/common/constants';
 import { canvasTheme } from './canvasTheme';
+import { getCanvasTarget } from './canvasTarget';
 import { lineStyle, nodeStyle, textStyle } from './settings';
+
+const BASE_FONT_SIZE = Number(textStyle['font-size']);
+const INNER_LABEL_WIDTH = nodeDiameter - 10;
+const CHAR_WIDTH_RATIO = 0.65;
+
+/** Scales tree-node labels above two characters so any signed 32-bit key fits inside the 50px node circle. */
+export const treeNodeFontSize = (value: number): string => {
+  const chars = String(value).length;
+  if (chars <= 2) return textStyle['font-size'];
+  return String(
+    Math.min(BASE_FONT_SIZE, Number((INNER_LABEL_WIDTH / (chars * CHAR_WIDTH_RATIO)).toFixed(1)))
+  );
+};
 
 interface SVGData {
   nodeTarget: Circle;
@@ -106,7 +115,7 @@ export default class GenericGraphicalTreeNode {
   }
 
   protected static createData(input: number) {
-    const canvas = SVG(VISUALISER_CANVAS) as Svg;
+    const canvas = SVG(getCanvasTarget().canvas) as Svg;
     const leftArrowTarget = canvas
       .marker(markerLength, markerLength, (add: Marker) => {
         add.path(pathD);
@@ -122,7 +131,10 @@ export default class GenericGraphicalTreeNode {
     const rightLineTarget = canvas.line().attr(lineStyle);
     rightLineTarget.marker('end', rightArrowTarget);
     const nodeTarget = canvas.circle(nodeDiameter).attr(nodeStyle);
-    const textTarget = canvas.text(String(input)).attr(textStyle);
+    const textTarget = canvas
+      .text(String(input))
+      .attr(textStyle)
+      .attr('font-size', treeNodeFontSize(input));
     return {
       svgData: {
         nodeTarget,

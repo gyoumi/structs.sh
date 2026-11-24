@@ -105,14 +105,14 @@ export class DualSession implements Playback {
     return this.snapshot;
   };
 
-  /** Builds both stages' timelines paused at 0 and starts them together on the shared clock. */
-  run = (leftCommand: string, rightCommand: string): string => {
+  /** Builds both stages' timelines paused at 0, each running its command with `args`, and starts them together on the shared clock. */
+  run = (leftCommand: string, rightCommand: string, args: string[] = []): string => {
     this.stopClock();
     let error = '';
     this.batch(() => {
-      error = this.left.run(leftCommand, [], false);
+      error = this.left.run(leftCommand, args, false);
       if (error) return;
-      error = this.right.run(rightCommand, [], false);
+      error = this.right.run(rightCommand, args, false);
     });
     if (error) return error;
     this.playheadMs = 0;

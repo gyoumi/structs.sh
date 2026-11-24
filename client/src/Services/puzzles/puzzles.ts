@@ -57,7 +57,13 @@ const requestReply = async (request: object): Promise<unknown> => {
   return callWasm(puzzles, new TextEncoder().encode(JSON.stringify(request)));
 };
 
-const MULTI_OUTCOME_TEMPLATES = new Set(['bubble-exact-passes', 'insertion-beats-merge']);
+const MULTI_OUTCOME_TEMPLATES = new Set([
+  'bubble-exact-passes',
+  'insertion-beats-merge',
+  'avl-most-rotations',
+  'bst-forced-order',
+  'upset-bst-beats-avl',
+]);
 
 /** The score of playing `arrangement` (the whole array, in slot order) on a numeric-score `puzzle`, computed by the Rust code in the wasm build. */
 export const scorePuzzle = async (
@@ -80,7 +86,10 @@ export const scorePuzzle = async (
 export type EvalPuzzleInstance =
   | { template: 'quicksort-most-comparisons'; values: number[]; fixed: number[] }
   | { template: 'bubble-exact-passes'; values: number[]; fixed: number[]; targetPasses: number }
-  | { template: 'insertion-beats-merge'; values: number[]; fixed: number[] };
+  | { template: 'insertion-beats-merge'; values: number[]; fixed: number[] }
+  | { template: 'avl-most-rotations'; values: number[]; fixed: number[] }
+  | { template: 'bst-forced-order'; values: number[]; targetTree: number[] }
+  | { template: 'upset-bst-beats-avl'; values: number[]; fixed: number[] };
 
 type Outcome<Counts> = ({ solved: true; score: number } | { solved: false; score: null }) & Counts;
 
@@ -91,19 +100,40 @@ export type PuzzleEvaluation =
       insertionComparisons: number;
       mergeComparisons: number;
       inversions: number;
+    }>)
+  | { template: 'avl-most-rotations'; solved: true; score: number; rotations: number }
+  | ({ template: 'bst-forced-order' } & Outcome<{ longestIncreasingRun: number }>)
+  | ({ template: 'upset-bst-beats-avl' } & Outcome<{
+      bstNodesPassed: number;
+      avlNodesPassed: number;
+      margin: number;
     }>);
+
+/** The exact fields the wasm build takes for `puzzle`, dropping anything else the puzzle file carried. */
+const wireRequest = (puzzle: EvalPuzzleInstance, arrangement: number[]): object => {
+  const { template, values } = puzzle;
+  switch (puzzle.template) {
+    case 'bst-forced-order':
+      return { template, values, targetTree: puzzle.targetTree, arrangement };
+    case 'bubble-exact-passes':
+      return {
+        template,
+        values,
+        fixed: puzzle.fixed,
+        targetPasses: puzzle.targetPasses,
+        arrangement,
+      };
+    default:
+      return { template, values, fixed: puzzle.fixed, arrangement };
+  }
+};
 
 /** What playing `arrangement` on `puzzle` did: whether it solved the puzzle, its score, and the counts behind it, from the wasm build. */
 export const evaluatePuzzle = async (
   puzzle: EvalPuzzleInstance,
   arrangement: number[]
 ): Promise<PuzzleEvaluation> => {
-  const { template, values, fixed } = puzzle;
-  const request =
-    puzzle.template === 'bubble-exact-passes'
-      ? { template, values, fixed, targetPasses: puzzle.targetPasses, arrangement }
-      : { template, values, fixed, arrangement };
-  const reply = await requestReply(request);
+  const reply = await requestReply(wireRequest(puzzle, arrangement));
   if (puzzle.template === 'quicksort-most-comparisons') {
     const { score } = reply as { score: number };
     return { template: puzzle.template, solved: true, score };

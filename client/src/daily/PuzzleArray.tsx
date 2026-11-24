@@ -16,11 +16,14 @@ type Props = {
 const slideValueBetweenSlots = (value: HTMLElement, to: HTMLElement, from: HTMLElement) => {
   if (typeof value.animate !== 'function') return;
   if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
-  const dx = from.getBoundingClientRect().left - to.getBoundingClientRect().left;
+  const fromRect = from.getBoundingClientRect();
+  const toRect = to.getBoundingClientRect();
+  const dx = fromRect.left - toRect.left;
+  const dy = fromRect.top - toRect.top;
   value.animate(
     [
-      { transform: `translateX(${dx}px)` },
-      { transform: `translate(${dx / 2}px, -0.6rem)`, offset: 0.5 },
+      { transform: `translate(${dx}px, ${dy}px)` },
+      { transform: `translate(${dx / 2}px, calc(${dy / 2}px - 0.6rem))`, offset: 0.5 },
       { transform: 'none' },
     ],
     { duration: 240, easing: 'ease-out' }
@@ -90,7 +93,12 @@ const PuzzleArray = ({ values, fixed, frozen = false, onSwap }: Props) => {
         role="group"
         aria-label="Puzzle array"
         className={styles.array}
-        style={{ '--slots': values.length } as CSSProperties}
+        style={
+          {
+            '--slots': values.length,
+            '--mobile-slots': values.length > 10 ? Math.ceil(values.length / 2) : values.length,
+          } as CSSProperties
+        }
       >
         {values.map((value, index) => {
           const locked = fixed.has(index);
@@ -112,6 +120,11 @@ const PuzzleArray = ({ values, fixed, frozen = false, onSwap }: Props) => {
                   valueEls.current[index] = element;
                 }}
                 className={styles.value}
+                style={
+                  String(value).length > 2
+                    ? ({ '--chars': String(value).length } as CSSProperties)
+                    : undefined
+                }
               >
                 {value}
               </span>

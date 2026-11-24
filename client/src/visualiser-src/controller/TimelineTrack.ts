@@ -1,4 +1,4 @@
-import type { StepTrace } from '../common/AnimationProducer';
+import type { DrawingBounds, RunnerInfo, StepTrace } from '../common/AnimationProducer';
 
 interface Timed<T> {
   time: number;
@@ -13,9 +13,18 @@ const latestAt = <T>(entries: Timed<T>[], time: number, fallback: T): T => {
   return value;
 };
 
+const sameBounds = (a: DrawingBounds | null, b: DrawingBounds | null): boolean =>
+  a === b ||
+  (a !== null &&
+    b !== null &&
+    a.x === b.x &&
+    a.y === b.y &&
+    a.width === b.width &&
+    a.height === b.height);
+
 const NO_COUNTERS: Record<string, number> = Object.freeze({});
 
-/** Stores per-step counter and trace snapshots recorded along a visualiser timeline. */
+/** Stores per-step counter, trace, and upcoming bounds snapshots recorded along a visualiser timeline. */
 export default class TimelineTrack {
   private counters: Timed<number>[] = [];
 
@@ -23,16 +32,30 @@ export default class TimelineTrack {
 
   private namedCounters: Timed<Record<string, number>>[] = [];
 
-  public recordTrace(time: number, trace: StepTrace | null): void {
-    this.traces.push({ time, value: trace });
-  }
+  private bounds: Timed<DrawingBounds | null>[] = [];
 
-  public recordCounter(time: number, counter: number): void {
-    this.counters.push({ time, value: counter });
-  }
-
-  public recordCounters(time: number, counters: Record<string, number>): void {
-    this.namedCounters.push({ time, value: Object.freeze({ ...counters }) });
+  public recordStep(
+    stepStart: number,
+    segmentStart: number,
+    stepEnd: number,
+    info: Pick<RunnerInfo, 'counter' | 'counters' | 'trace' | 'bounds'>
+  ): void {
+    if (info.trace !== undefined) {
+      this.traces.push({ time: segmentStart, value: info.trace });
+    }
+    if (info.bounds !== undefined) {
+      const prev = this.bounds.length > 0 ? this.bounds[this.bounds.length - 1].value : null;
+      const value = info.bounds ? Object.freeze({ ...info.bounds }) : null;
+      if (this.bounds.length === 0 || !sameBounds(prev, value)) {
+        this.bounds.push({ time: stepStart, value });
+      }
+    }
+    if (info.counter !== undefined) {
+      this.counters.push({ time: stepEnd, value: info.counter });
+    }
+    if (info.counters !== undefined) {
+      this.namedCounters.push({ time: stepEnd, value: Object.freeze({ ...info.counters }) });
+    }
   }
 
   public countersAt(time: number): Record<string, number> {
@@ -47,9 +70,14 @@ export default class TimelineTrack {
     return latestAt(this.traces, time, null);
   }
 
+  public boundsAt(time: number): DrawingBounds | null {
+    return latestAt(this.bounds, time, null);
+  }
+
   public clear(): void {
     this.counters = [];
     this.traces = [];
     this.namedCounters = [];
+    this.bounds = [];
   }
 }
