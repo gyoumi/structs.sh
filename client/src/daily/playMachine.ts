@@ -50,6 +50,12 @@ export type PlayEvent =
 
 export const initialPlayState: PlayState = { stage: 'ready', scores: [] };
 
+/** The state to resume at after a reload: ended once every try is used, ready otherwise. */
+export const restoredPlayState = (scores: TryScore[]): PlayState =>
+  scores.length >= MAX_TRIES
+    ? { stage: 'ended', scores, share: 'idle' }
+    : { stage: 'ready', scores };
+
 export const playReducer = (state: PlayState, event: PlayEvent): PlayState => {
   switch (event.type) {
     case 'run': {

@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useReducer, useRef, useState } from 'react';
+import { ReactNode, useEffect, useEffectEvent, useReducer, useRef, useState } from 'react';
 import landing from '@/landing/Landing.module.css';
 import { evaluatePuzzle, ListOperation, loadPuzzles } from '@/Services/puzzles/puzzles';
 import { Theme } from '@/ui/theme';
@@ -7,7 +7,15 @@ import { canvasThemes } from '@/visualiser/canvasThemes';
 import { PlaybackContext } from '@/visualiser/playback';
 import { usePrefersReducedMotion } from '@/visualiser/useVisualiser';
 import { MobileHud, StepCard } from './DailyCards';
-import { initialPlayState, MAX_TRIES, PlayInput, playReducer, sharedScores } from './playMachine';
+import type { SavedTry } from './history';
+import {
+  MAX_TRIES,
+  PlayInput,
+  playReducer,
+  restoredPlayState,
+  sharedScores,
+  TryScore,
+} from './playMachine';
 import { messageFor, mobileOutcomeOf } from './playMessages';
 import { validateOperations } from './OperationBuilder';
 import { PuzzleStages } from './PuzzleStages';
@@ -35,6 +43,12 @@ type PlayBaseProps = {
   theme: Theme;
   /** The player's input: the swappable array, or the operation builder. */
   editor: (frozen: boolean, redraw: Redraw) => ReactNode;
+  /** Tries saved from an earlier visit today, resumed on load. */
+  initialTries: SavedTry[];
+  /** Days in a row finished, shown in the share text. */
+  streak?: number;
+  /** Saves every try so far, called as each new try is scored. */
+  onRecordTries: (tries: SavedTry[]) => void;
 };
 
 type PlayProps = PlayBaseProps &
@@ -58,7 +72,7 @@ const scoreRun = (puzzle: Puzzle, input: PlayInput) => {
 
 /** The game itself: the player's input, the stages, the actions, and the score cards. */
 export const Play = (props: PlayProps) => {
-  const { puzzle, rig, theme, input, editor } = props;
+  const { puzzle, rig, theme, input, editor, initialTries, streak, onRecordTries } = props;
   const completedRunId = useCompletedRunId(rig);
   const hasTimeline = useHasTimeline(rig);
   const [firstStage] = rig.stages;
@@ -71,7 +85,16 @@ export const Play = (props: PlayProps) => {
         : puzzle.values;
   const readouts = readoutsFor(puzzle, values);
   const primaryValue = useReadoutValue(rig, readouts.primary.value);
-  const [play, dispatch] = useReducer(playReducer, initialPlayState);
+  const [play, dispatch] = useReducer(
+    playReducer,
+    initialTries.map((saved) => saved.score),
+    restoredPlayState
+  );
+  const savedTries = useRef(initialTries);
+  const recordTry = useEffectEvent((tried: PlayInput, score: TryScore) => {
+    savedTries.current = [...savedTries.current, { input: tried, score }];
+    onRecordTries(savedTries.current);
+  });
   const runner = useRef<HTMLDivElement>(null);
   const runButton = useRef<HTMLButtonElement>(null);
   const skipButton = useRef<HTMLButtonElement>(null);
@@ -120,7 +143,10 @@ export const Play = (props: PlayProps) => {
     let cancelled = false;
     scoreRun(puzzle, play.input)
       .then((evaluation) => {
-        if (!cancelled) dispatch({ type: 'scored', score: tryScoreOf(puzzle, evaluation) });
+        if (cancelled) return;
+        const score = tryScoreOf(puzzle, evaluation);
+        recordTry(play.input, score);
+        dispatch({ type: 'scored', score });
       })
       .catch((error) => {
         console.error(error);
@@ -152,7 +178,7 @@ export const Play = (props: PlayProps) => {
       return;
     }
     clipboard
-      .writeText(shareText(puzzle, sharedScores(play.scores)))
+      .writeText(shareText(puzzle, sharedScores(play.scores), streak))
       .then(() => dispatch({ type: 'share-copied' }))
       .catch(() => dispatch({ type: 'share-failed' }));
   };

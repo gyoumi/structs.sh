@@ -52,8 +52,45 @@
   margin: 0;
 }
 
-.eyebrow {
+.introHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.7rem;
   margin: 0 0 0.2rem;
+}
+
+.streakBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.12rem 0.6rem;
+  border: 2px solid var(--edge);
+  border-radius: 999px;
+  background: var(--sand);
+  box-shadow: 0 2px 0 var(--shadow);
+  color: var(--button-ink);
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.notice {
+  display: grid;
+  justify-items: start;
+  gap: 0.9rem;
+  max-width: 34rem;
+  margin-top: 1rem;
+  padding: 1.1rem 1.25rem;
+  border: 2.5px solid var(--edge);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: 0 var(--drop) 0 var(--shadow);
+  color: var(--ink);
+}
+
+.eyebrow {
+  margin: 0;
   color: var(--muted);
   font-size: 0.76rem;
   font-weight: 700;
@@ -267,6 +304,10 @@
 @media (max-width: 860px) {
   .eyebrow {
       font-size: 0.7rem;
+    }
+
+  .streakBadge {
+      font-size: 0.74rem;
     }
 
   .rules {
