@@ -340,3 +340,45 @@ fn puzzle_solution_json_shape_and_round_trip() {
         assert_eq!(back, solution, "PuzzleSolution round trip");
     }
 }
+
+#[test]
+fn validate_shape_accepts_duplicate_bst_values_and_rejects_bad_shapes() {
+    let dup_bst = PuzzleInstance::BstForcedOrder {
+        values: vec![1, 2, 2, 3],
+        target_tree: vec![1, 2, 3],
+    };
+    assert!(
+        dup_bst.validate_shape().is_ok(),
+        "duplicate input values with valid distinct-key preorder match browser parser"
+    );
+
+    let non_canonical = PuzzleInstance::BstForcedOrder {
+        values: vec![1, 2, 3],
+        target_tree: vec![2, 3, 1],
+    };
+    let err = non_canonical
+        .validate_shape()
+        .expect_err("non-canonical preorder must fail validate_shape");
+    assert!(
+        matches!(err, DbError::InvalidData(ref msg) if msg.contains("targetTree")),
+        "unexpected error: {err:?}"
+    );
+
+    let empty_qs = PuzzleInstance::Quicksort {
+        values: vec![],
+        fixed: vec![],
+    };
+    assert!(matches!(
+        empty_qs.validate_shape(),
+        Err(DbError::InvalidData(_))
+    ));
+
+    let bad_fixed = PuzzleInstance::Quicksort {
+        values: vec![1, 2],
+        fixed: vec![2],
+    };
+    assert!(matches!(
+        bad_fixed.validate_shape(),
+        Err(DbError::InvalidData(_))
+    ));
+}
