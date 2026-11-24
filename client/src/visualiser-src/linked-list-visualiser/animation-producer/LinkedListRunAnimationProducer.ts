@@ -39,13 +39,8 @@ export default class LinkedListRunAnimationProducer extends LinkedListDeleteAnim
     super.movePointerToNext(pointerId);
   }
 
-  public advanceDeletePointers(
-    targetNode: GraphicalLinkedListNode,
-    isFirst: boolean,
-    isTarget: boolean
-  ): void {
-    if (isFirst) this.initialisePointer(PREV);
-    else this.movePointerToNext(PREV);
+  public advanceDeletePointers(targetNode: GraphicalLinkedListNode, isTarget: boolean): void {
+    this.movePointerToNext(PREV);
     this.movePointerToNext(CURRENT);
     if (isTarget) this.highlightRightNode(targetNode);
   }

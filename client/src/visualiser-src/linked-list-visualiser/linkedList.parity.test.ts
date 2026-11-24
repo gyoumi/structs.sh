@@ -239,6 +239,6 @@ describe('linked list index drift parity (GraphicalLinkedList.runOperations vs w
     const producer = list.runOperations([del(0)]);
     const firstBounds = producer.allRunners[0]?.bounds;
     expect(firstBounds).toBeDefined();
-    expect(firstBounds!.y).toBeLessThanOrEqual(30);
+    expect(firstBounds!.y).toBeLessThanOrEqual(45);
   });
 });

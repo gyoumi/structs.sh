@@ -3,13 +3,13 @@ import type { ListOperation } from '@/Services/puzzles/puzzles';
 import { actualNodeDiameter } from '../../common/constants';
 import { newNodePosition } from '../animation-producer/LinkedListAnimationProducer';
 import LinkedListRunAnimationProducer from '../animation-producer/LinkedListRunAnimationProducer';
-import { CURRENT, nodePathWidth, topOffset } from '../util/constants';
+import { CURRENT, PREV, nodePathWidth, topOffset } from '../util/constants';
 import type GraphicalLinkedList from './GraphicalLinkedList';
 import GraphicalLinkedListNode from './GraphicalLinkedListNode';
 
 const RADIUS = actualNodeDiameter / 2;
 const POINTER_HEIGHT = 64;
-const CURVED_ARC_TOP = 24;
+const CURVED_ARC_TOP = 42;
 
 const listRightEdge = (head: GraphicalLinkedListNode | null): number => {
   let maxX = 0;
@@ -101,7 +101,16 @@ const deleteAt = (
   for (let i = 0; i < index; i += 1) {
     prev = curr;
     curr = curr.next!;
-    producer.doAnimation(producer.advanceDeletePointers, curr, i === 0, i === index - 1);
+    if (i === 0) {
+      if (index === 1) {
+        producer.doAnimation(producer.movePointerToNextAndHighlightRight, CURRENT, curr);
+      } else {
+        producer.doAnimation(producer.movePointerToNext, CURRENT);
+      }
+      producer.doAnimationWithoutTimestamp(producer.initialisePointer, PREV);
+    } else {
+      producer.doAnimation(producer.advanceDeletePointers, curr, i === index - 1);
+    }
   }
   if (prev === null) {
     list.head = curr.next;
@@ -119,6 +128,7 @@ const deleteAt = (
     }
   }
   producer.doAnimation(producer.deleteNode, curr);
+  producer.setTargetBounds(null);
   producer.doAnimation(producer.resetListAndColor, list.headPointer, list.head);
 };
 
