@@ -44,7 +44,7 @@ test.describe('landing page', () => {
     await expect(page, 'Clicking "Play today\'s challenge" in the landing hero should go to /daily').toHaveURL(/\/daily$/);
   });
 
-  test('introduces the daily challenge and opens it', async ({ landingPage, dailyPage, page }) => {
+  test('introduces the daily challenge, opens it, and returns with Go back', async ({ landingPage, dailyPage, page }) => {
     await dailyPage.serve(DAILY_12.challenge);
     await landingPage.open();
     await landingPage.expectDailyPromoInfo();
@@ -53,32 +53,41 @@ test.describe('landing page', () => {
       page,
       'Clicking "Play today\'s challenge" in the landing Daily challenge section should go to /daily',
     ).toHaveURL(/\/daily$/);
-    await dailyPage.openFromMainNav('Debugger');
-    await expect(page, '/daily (serving DAILY_12): clicking Debugger in the header Main nav should go to /debugger').toHaveURL(
-      /\/debugger$/,
-    );
+    await dailyPage.goBack();
+    await expect(page, '/daily (opened from /): clicking "Go back" should return to /').toHaveURL(/\/$/);
   });
 
-  test('opens the visualiser directly from /daily on desktop and phone without overflow', async ({
+  test('returns from /daily to the previous visualiser page or home on desktop and phone without overflow', async ({
     landingPage,
+    visualiser,
     dailyPage,
     page,
   }) => {
     await dailyPage.serve(DAILY_12.challenge);
-    await dailyPage.open();
-    await dailyPage.openFromMainNav('Visualiser');
-    await expect(page, '/daily (desktop): clicking Visualiser in Main nav should go to /visualiser/linked-lists').toHaveURL(
-      /\/visualiser\/linked-lists$/,
-    );
+    await visualiser.open('avl-trees');
+    await visualiser.openDaily();
+    await expect(page, 'Opening Daily from /visualiser/avl-trees should go to /daily').toHaveURL(/\/daily$/);
+    await dailyPage.goBack();
+    await expect(
+      page,
+      '/daily (opened from /visualiser/avl-trees): clicking "Go back" should return to /visualiser/avl-trees',
+    ).toHaveURL(/\/visualiser\/avl-trees$/);
 
     await page.setViewportSize({ width: 390, height: 844 });
     await dailyPage.open();
     await landingPage.expectNoHorizontalOverflow('/daily at 390x844');
-    await dailyPage.openFromMainNav('Visualiser');
-    await expect(page, '/daily (390x844): clicking Visualiser in Main nav should go to /visualiser/linked-lists').toHaveURL(
-      /\/visualiser\/linked-lists$/,
+    await dailyPage.goHome();
+    await expect(page, '/daily (390x844): clicking the structs.sh home logo should go to /').toHaveURL(/\/$/);
+    await landingPage.expectNoHorizontalOverflow('/ at 390x844');
+  });
+
+  test('Go back on a direct /daily visit falls back to the landing page', async ({ dailyPage, page }) => {
+    await dailyPage.serve(DAILY_12.challenge);
+    await dailyPage.open();
+    await dailyPage.goBack();
+    await expect(page, '/daily (opened directly with no prior in-app page): clicking "Go back" should go to /').toHaveURL(
+      /\/$/,
     );
-    await landingPage.expectNoHorizontalOverflow('/visualiser/linked-lists at 390x844');
   });
 
   test('links to the source code and the team', async ({ landingPage }) => {

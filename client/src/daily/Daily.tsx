@@ -1,10 +1,11 @@
 import '@fontsource-variable/fredoka';
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import logo from '@/assets/img/structs.png';
 import hero from '@/landing/HeroSection.module.css';
 import landing from '@/landing/Landing.module.css';
 import type { ListOperation } from '@/Services/challenges/challenges';
+import { ArrowLeftIcon } from '@/ui/icons';
 import { Theme, ThemeToggle, useTheme } from '@/ui/theme';
 import { OperationBuilder } from './OperationBuilder';
 import { Play } from './Play';
@@ -194,9 +195,21 @@ const Notice = ({ text, retry }: { text: string; retry: () => void }) => (
   </div>
 );
 
+const hasInAppHistory = () => {
+  if (typeof window === 'undefined') return false;
+  const state = window.history.state as { idx?: unknown } | null;
+  return typeof state?.idx === 'number' && state.idx > 0;
+};
+
 const Daily = () => {
   const theme = useTheme();
+  const navigate = useNavigate();
   const { state, retry } = useChallenge();
+
+  const goBack = () => {
+    if (hasInAppHistory()) navigate(-1);
+    else navigate('/');
+  };
 
   return (
     <div className={`${landing.page} ${styles.page}`} data-theme={theme}>
@@ -206,11 +219,13 @@ const Daily = () => {
           <img src={logo} alt="" width={36} height={36} />
           <span>structs.sh</span>
         </Link>
-        <nav aria-label="Main" className={hero.nav}>
-          <Link to="/visualiser/linked-lists">Visualiser</Link>
-          <Link to="/debugger">Debugger</Link>
+        <div className={styles.headerActions}>
+          <button type="button" className={styles.back} onClick={goBack}>
+            <ArrowLeftIcon size={17} />
+            <span>Go back</span>
+          </button>
           <ThemeToggle className={hero.themeToggle} />
-        </nav>
+        </div>
       </header>
       <main className={styles.main}>
         {state.status === 'loading' && <p>Loading today’s challenge…</p>}

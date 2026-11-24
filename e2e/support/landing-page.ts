@@ -80,17 +80,6 @@ export class LandingPage {
     await link.click();
   }
 
-  /** Asserts the "Pick a structure" section is scrolled into view and receives keyboard focus. */
-  async expectStructuresInViewport(context: string): Promise<void> {
-    const heading = this.page.getByRole('heading', { level: 2, name: 'Pick a structure' });
-    await expect(heading, `${context}: "Pick a structure" heading should be scrolled into the viewport`).toBeInViewport();
-    await this.page.keyboard.press('Tab');
-    await expect(
-      this.page.getByRole('radio', { name: 'Linked Lists' }),
-      `${context}: pressing Tab after jumping to /#structures should focus the first structure tile rather than the header`,
-    ).toBeFocused();
-  }
-
   /** Asserts the current document has no horizontal overflow. */
   async expectNoHorizontalOverflow(context: string): Promise<void> {
     const { scrollWidth, clientWidth } = await this.page.evaluate(() => ({

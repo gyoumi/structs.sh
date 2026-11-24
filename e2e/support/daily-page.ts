@@ -39,13 +39,17 @@ export class DailyPage {
     await expect(this.ui.slots.first(), '/daily should render slot buttons inside Challenge array').toBeVisible();
   }
 
-  /** Clicks a link in the /daily header's Main navigation, such as `Debugger` or `Visualiser`. */
-  async openFromMainNav(name: 'Debugger' | 'Visualiser'): Promise<void> {
-    const link = this.page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name, exact: true });
-    await expect(
-      link,
-      `/daily header should contain <nav aria-label="Main"> with a link named "${name}" (beside the structs.sh home brand link)`,
-    ).toBeVisible();
+  /** Clicks the `Go back` button in the /daily header to return to the previous page. */
+  async goBack(): Promise<void> {
+    const button = this.page.getByRole('button', { name: 'Go back', exact: true });
+    await expect(button, '/daily header should contain a "Go back" button').toBeVisible();
+    await button.click();
+  }
+
+  /** Clicks the `structs.sh` home brand link in the /daily header. */
+  async goHome(): Promise<void> {
+    const link = this.page.getByRole('link', { name: 'structs.sh home', exact: true });
+    await expect(link, '/daily header should contain a "structs.sh home" link').toBeVisible();
     await link.click();
   }
 

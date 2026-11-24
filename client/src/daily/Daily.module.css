@@ -40,6 +40,55 @@
   height: 34px;
 }
 
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 40px;
+  padding: 0 0.9rem 0 0.7rem;
+  border: 2.5px solid var(--edge);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 3px 0 var(--shadow);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    transform 110ms ease-out,
+    box-shadow 110ms ease-out,
+    background-color 110ms ease-out;
+}
+
+.back:active {
+  transform: translateY(3px);
+  box-shadow: 0 0 0 var(--shadow);
+}
+
+.back:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .back:hover {
+    background: var(--surface-hover);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .back {
+    transition-duration: 1ms;
+  }
+}
+
 .main {
   width: 100%;
   max-width: calc(var(--wrap) + var(--gutter) * 2);
