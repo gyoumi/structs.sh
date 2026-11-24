@@ -17,27 +17,36 @@ export type UnsolvedTry = { kind: 'unsolved'; reason: string };
 /** A solved try's score, or an unsolved try. */
 export type TryScore = number | UnsolvedTry;
 
+/** What a try runs: a slot arrangement or an operation sequence. */
+export type PlayInput =
+  | { kind: 'arrangement'; arrangement: number[] }
+  | { kind: 'operations'; operations: ListOperation[] };
+
 export type PlayState =
   | { stage: 'ready'; scores: TryScore[] }
   | {
       stage: 'running';
       scores: TryScore[];
-      arrangement: number[];
-      operations?: ListOperation[];
+      input: PlayInput;
       runId: number;
       focusSkip: boolean;
     }
-  | { stage: 'scoring'; scores: TryScore[]; arrangement: number[]; operations?: ListOperation[] }
+  | { stage: 'scoring'; scores: TryScore[]; input: PlayInput }
   | { stage: 'score-failed'; scores: TryScore[] }
   | { stage: 'ended'; scores: TryScore[]; share: ShareStatus };
 
 export type PlayEvent =
   | {
       type: 'run';
+      input: PlayInput;
+      runId: number;
+      focusSkip: boolean;
+    }
+  | {
+      type: 'run';
       arrangement: number[];
       runId: number;
       focusSkip: boolean;
-      operations?: ListOperation[];
     }
   | { type: 'animation-completed'; runId: number }
   | { type: 'scored'; score: TryScore }
@@ -49,23 +58,24 @@ export const initialPlayState: PlayState = { stage: 'ready', scores: [] };
 
 export const playReducer = (state: PlayState, event: PlayEvent): PlayState => {
   switch (event.type) {
-    case 'run':
+    case 'run': {
       if (state.stage !== 'ready' && state.stage !== 'score-failed') return state;
+      const input: PlayInput =
+        'input' in event ? event.input : { kind: 'arrangement', arrangement: event.arrangement };
       return {
         stage: 'running',
         scores: state.scores,
-        arrangement: event.arrangement,
-        operations: event.operations,
+        input,
         runId: event.runId,
         focusSkip: event.focusSkip,
       };
+    }
     case 'animation-completed':
       if (state.stage !== 'running' || state.runId !== event.runId) return state;
       return {
         stage: 'scoring',
         scores: state.scores,
-        arrangement: state.arrangement,
-        operations: state.operations,
+        input: state.input,
       };
     case 'scored': {
       if (state.stage !== 'scoring') return state;

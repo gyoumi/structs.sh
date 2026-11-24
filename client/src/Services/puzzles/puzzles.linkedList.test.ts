@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   evaluatePuzzle,
   scorePuzzle,
-  type EvalPuzzleInstance,
+  type ListEvalPuzzleInstance,
   type ListOperation,
 } from './puzzles';
 
@@ -12,7 +12,7 @@ import {
  * delete(i) walks i + 1, cost = operations + nodes walked.
  */
 
-const DRIFT_26: EvalPuzzleInstance = {
+const DRIFT_26: ListEvalPuzzleInstance = {
   template: 'linked-list-index-drift',
   start: [8, 3, 6, 1],
   target: [3, 6, 5, 1],
@@ -31,7 +31,7 @@ const listed = (operations: readonly ListOperation[]) =>
 const describeCall = (puzzle: object, operations: readonly ListOperation[]) =>
   `evaluatePuzzle(${JSON.stringify(puzzle)}, ${listed(operations)})`;
 
-const evaluate = (puzzle: EvalPuzzleInstance, operations: readonly ListOperation[]) =>
+const evaluate = (puzzle: ListEvalPuzzleInstance, operations: readonly ListOperation[]) =>
   evaluatePuzzle(puzzle, [...operations]);
 
 const settle = <T>(promise: Promise<T>) =>
@@ -51,7 +51,7 @@ const drift = (solved: boolean, operations: number, nodesWalked: number) => ({
 
 type Case = {
   label: string;
-  puzzle: EvalPuzzleInstance;
+  puzzle: ListEvalPuzzleInstance;
   operations: ListOperation[];
   expected: ReturnType<typeof drift>;
 };

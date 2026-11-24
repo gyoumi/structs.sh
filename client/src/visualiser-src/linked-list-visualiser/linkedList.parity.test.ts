@@ -2,9 +2,11 @@
 import { describe, expect, it } from 'vitest';
 import { evaluatePuzzle, type ListOperation } from '@/Services/puzzles/puzzles';
 import { DEFAULT_CANVAS_TARGET } from '@/visualiser-src/common/canvasTarget';
+import { actualNodeDiameter } from '@/visualiser-src/common/constants';
 import { formatArray, setUpParityEnvironment } from '@/test/sortingParity';
 import { checkCounters } from '@/test/treeParity';
 import GraphicalLinkedList from './data-structure/GraphicalLinkedList';
+import { nodePathWidth } from './util/constants';
 
 /**
  * GraphicalLinkedList.runOperations vs the puzzles wasm. Needs `pnpm run puzzles` first.
@@ -211,4 +213,22 @@ describe('linked list index drift parity (GraphicalLinkedList.runOperations vs w
       ).toBe(operations.length);
     }
   );
+
+  it('hides the head pointer when loading an empty list', () => {
+    freshCanvas();
+    const list = new GraphicalLinkedList();
+    list.load([]);
+    expect(Number(list.headPointer.attr('opacity'))).toBe(0);
+  });
+
+  it('pre-zooms a front insert to fit the shifted tail node', () => {
+    freshCanvas();
+    const list = new GraphicalLinkedList();
+    list.load([1, 2, 3, 4]);
+    const producer = list.runOperations([ins(9, 0)]);
+    const firstBounds = producer.allRunners[0]?.bounds;
+    const expectedWidth = 5 * nodePathWidth + actualNodeDiameter;
+    expect(firstBounds).toBeDefined();
+    expect(firstBounds!.x + firstBounds!.width).toBeGreaterThanOrEqual(expectedWidth);
+  });
 });

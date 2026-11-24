@@ -7,10 +7,11 @@ import { canvasThemes } from '@/visualiser/canvasThemes';
 import { PlaybackContext } from '@/visualiser/playback';
 import { usePrefersReducedMotion } from '@/visualiser/useVisualiser';
 import { MobileHud, StepCard } from './DailyCards';
-import { initialPlayState, MAX_TRIES, playReducer, sharedScores } from './playMachine';
+import { initialPlayState, MAX_TRIES, PlayInput, playReducer, sharedScores } from './playMachine';
 import { messageFor, mobileOutcomeOf } from './playMessages';
+import { validateOperations } from './OperationBuilder';
 import { PuzzleStages } from './PuzzleStages';
-import { Puzzle, shareText } from './puzzle';
+import { IndexDriftPuzzle, Puzzle, shareText } from './puzzle';
 import {
   drawnArrangement,
   Rig,
@@ -27,24 +28,47 @@ import styles from './Daily.module.css';
 /** Draws `values` on every stage now, as after a swap. */
 type Redraw = (values: number[]) => void;
 
-type PlayProps = {
-  puzzle: Puzzle;
+type ArrayPuzzle = Exclude<Puzzle, IndexDriftPuzzle>;
+
+type PlayBaseProps = {
   rig: Rig;
   theme: Theme;
-  /** What the stages draw and run: the arrangement, or the start list the operations run on. */
-  values: number[];
-  /** The player's operations, for a puzzle played by building them. */
-  operations?: ListOperation[];
   /** The player's input: the swappable array, or the operation builder. */
   editor: (frozen: boolean, redraw: Redraw) => ReactNode;
 };
 
+type PlayProps = PlayBaseProps &
+  (
+    | { puzzle: ArrayPuzzle; input: { kind: 'arrangement'; arrangement: number[] } }
+    | { puzzle: IndexDriftPuzzle; input: { kind: 'operations'; operations: ListOperation[] } }
+  );
+
+const scoreRun = (puzzle: Puzzle, input: PlayInput) => {
+  if (puzzle.template === 'linked-list-index-drift') {
+    if (input.kind !== 'operations') {
+      return Promise.reject(new Error('Expected list operations for linked-list-index-drift.'));
+    }
+    return evaluatePuzzle(instanceOf(puzzle), input.operations);
+  }
+  if (input.kind !== 'arrangement') {
+    return Promise.reject(new Error(`Expected an arrangement for ${puzzle.template}.`));
+  }
+  return evaluatePuzzle(instanceOf(puzzle), input.arrangement);
+};
+
 /** The game itself: the player's input, the stages, the actions, and the score cards. */
-export const Play = ({ puzzle, rig, theme, values, operations, editor }: PlayProps) => {
+export const Play = (props: PlayProps) => {
+  const { puzzle, rig, theme, input, editor } = props;
   const completedRunId = useCompletedRunId(rig);
   const hasTimeline = useHasTimeline(rig);
   const [firstStage] = rig.stages;
   const trace = useStageSnapshot(firstStage, (s) => s.trace);
+  const values =
+    puzzle.template === 'linked-list-index-drift'
+      ? puzzle.start
+      : input.kind === 'arrangement'
+        ? input.arrangement
+        : puzzle.values;
   const readouts = readoutsFor(puzzle, values);
   const primaryValue = useReadoutValue(rig, readouts.primary.value);
   const [play, dispatch] = useReducer(playReducer, initialPlayState);
@@ -61,7 +85,11 @@ export const Play = ({ puzzle, rig, theme, values, operations, editor }: PlayPro
   const busy = play.stage === 'running' || play.stage === 'scoring';
   const ended = play.stage === 'ended';
   const mobileOutcome = mobileOutcomeOf(play, puzzle, busy);
-  const nothingToRun = operations !== undefined && operations.length === 0;
+  const unrunnable =
+    puzzle.template === 'linked-list-index-drift' &&
+    input.kind === 'operations' &&
+    (input.operations.length === 0 ||
+      validateOperations(puzzle.start.length, input.operations).status === 'invalid');
 
   useEffect(() => {
     if (stageTheme === theme || busy || hasTimeline) return;
@@ -90,7 +118,7 @@ export const Play = ({ puzzle, rig, theme, values, operations, editor }: PlayPro
   useEffect(() => {
     if (play.stage !== 'scoring') return undefined;
     let cancelled = false;
-    evaluatePuzzle(instanceOf(puzzle), play.operations ?? play.arrangement)
+    scoreRun(puzzle, play.input)
       .then((evaluation) => {
         if (!cancelled) dispatch({ type: 'scored', score: tryScoreOf(puzzle, evaluation) });
       })
@@ -104,11 +132,13 @@ export const Play = ({ puzzle, rig, theme, values, operations, editor }: PlayPro
   }, [play, puzzle]);
 
   const run = () => {
+    if (unrunnable) return;
     const focusSkip = document.activeElement === runButton.current;
     draw(values);
-    if (!rig.run(values, operations)) return;
+    const ops = input.kind === 'operations' ? input.operations : undefined;
+    if (!rig.run(values, ops)) return;
     const runId = firstStage.session.getSnapshot().lastRun?.id ?? 0;
-    dispatch({ type: 'run', arrangement: values, operations, runId, focusSkip });
+    dispatch({ type: 'run', input, runId, focusSkip });
     runner.current?.scrollIntoView?.({
       behavior: reducedMotion ? 'auto' : 'smooth',
       block: 'nearest',
@@ -153,7 +183,7 @@ export const Play = ({ puzzle, rig, theme, values, operations, editor }: PlayPro
             type="button"
             className={`${landing.primary} ${styles.action} ${styles.run}`}
             onClick={run}
-            disabled={busy || ended || nothingToRun}
+            disabled={busy || ended || unrunnable}
           >
             Run
           </button>

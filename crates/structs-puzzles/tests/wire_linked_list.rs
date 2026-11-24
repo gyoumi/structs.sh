@@ -226,6 +226,14 @@ fn rejects_bad_operations() {
         ),
         (json!([{"kind": "delete"}]), "a delete with no index"),
         (
+            json!([{"kind": "delete", "index": 0, "value": null}]),
+            "a delete with an unexpected null value",
+        ),
+        (
+            json!([{"kind": "insert", "value": 5, "index": 0, "extra": true}]),
+            "an insert with an unknown field",
+        ),
+        (
             json!([{"kind": "insert", "index": 0}]),
             "an insert with no value",
         ),

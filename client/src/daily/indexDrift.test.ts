@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { validateOperations } from './OperationBuilder';
 import { playReducer, reachesGoal, shownScore, type PlayState, type TryScore } from './playMachine';
 import { parsePuzzle, puzzleTitle, shareText, type Puzzle } from './puzzle';
 import { instanceOf, tryScoreOf } from './templates';
@@ -196,5 +197,18 @@ describe('templates — index drift', () => {
       typeof missed === 'object' && missed.kind === 'unsolved' && /target/i.test(missed.reason),
       `tryScoreOf(#26, unsolved: final list is not the target) should be { kind: 'unsolved', reason } with a reason mentioning the target, got ${JSON.stringify(missed)}`
     ).toBe(true);
+  });
+});
+
+describe('validateOperations — queue replay after edits', () => {
+  it('flags a delete that becomes out of range after removing an earlier insert', () => {
+    const valid = validateOperations(1, [
+      { kind: 'insert', value: 5, index: 1 },
+      { kind: 'delete', index: 1 },
+    ]);
+    expect(valid).toEqual({ status: 'valid', endLength: 1 });
+
+    const broken = validateOperations(1, [{ kind: 'delete', index: 1 }]);
+    expect(broken).toMatchObject({ status: 'invalid', invalidAt: 0 });
   });
 });

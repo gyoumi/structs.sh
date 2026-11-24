@@ -89,7 +89,7 @@ export type ListOperation =
   | { kind: 'insert'; value: number; index: number }
   | { kind: 'delete'; index: number };
 
-type ArrayEvalPuzzleInstance =
+export type ArrayEvalPuzzleInstance =
   | { template: 'quicksort-most-comparisons'; values: number[]; fixed: number[] }
   | { template: 'bubble-exact-passes'; values: number[]; fixed: number[]; targetPasses: number }
   | { template: 'insertion-beats-merge'; values: number[]; fixed: number[] }
@@ -97,7 +97,7 @@ type ArrayEvalPuzzleInstance =
   | { template: 'bst-forced-order'; values: number[]; targetTree: number[] }
   | { template: 'upset-bst-beats-avl'; values: number[]; fixed: number[] };
 
-type ListEvalPuzzleInstance = {
+export type ListEvalPuzzleInstance = {
   template: 'linked-list-index-drift';
   start: number[];
   target: number[];
@@ -163,10 +163,6 @@ export async function evaluatePuzzle(
   puzzle: ArrayEvalPuzzleInstance,
   arrangement: number[]
 ): Promise<ArrayPuzzleEvaluation>;
-export async function evaluatePuzzle(
-  puzzle: EvalPuzzleInstance,
-  input: number[] | ListOperation[]
-): Promise<PuzzleEvaluation>;
 export async function evaluatePuzzle(
   puzzle: EvalPuzzleInstance,
   input: number[] | ListOperation[]

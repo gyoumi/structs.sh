@@ -1,8 +1,13 @@
-import type { EvalPuzzleInstance, PuzzleEvaluation } from '@/Services/puzzles/puzzles';
+import type {
+  ArrayEvalPuzzleInstance,
+  EvalPuzzleInstance,
+  ListEvalPuzzleInstance,
+  PuzzleEvaluation,
+} from '@/Services/puzzles/puzzles';
 import { CanvasTarget, namedCanvasTarget } from '@/visualiser-src/common/canvasTarget';
 import type { TopicSlug } from '@/visualiser/topics';
 import type { TryScore } from './playMachine';
-import type { Puzzle } from './puzzle';
+import type { IndexDriftPuzzle, Puzzle } from './puzzle';
 
 /** A running count one stage's animation keeps. */
 export type CounterSource = {
@@ -180,7 +185,10 @@ export const stagePlanFor = (puzzle: Puzzle): StagePlan => {
   }
 };
 
-export const instanceOf = (puzzle: Puzzle): EvalPuzzleInstance => {
+export function instanceOf(puzzle: IndexDriftPuzzle): ListEvalPuzzleInstance;
+export function instanceOf(puzzle: Exclude<Puzzle, IndexDriftPuzzle>): ArrayEvalPuzzleInstance;
+export function instanceOf(puzzle: Puzzle): EvalPuzzleInstance;
+export function instanceOf(puzzle: Puzzle): EvalPuzzleInstance {
   switch (puzzle.template) {
     case 'linked-list-index-drift':
       return { template: puzzle.template, start: puzzle.start, target: puzzle.target };
@@ -196,7 +204,7 @@ export const instanceOf = (puzzle: Puzzle): EvalPuzzleInstance => {
     default:
       return { template: puzzle.template, values: puzzle.values, fixed: puzzle.fixed };
   }
-};
+}
 
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 

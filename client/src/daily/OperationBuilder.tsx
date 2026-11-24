@@ -15,8 +15,42 @@ const integerIn = (raw: string, min: number, max: number): number | null => {
   return Number.isSafeInteger(n) && n >= min && n <= max ? n : null;
 };
 
-const lengthAfter = (start: number, operations: ListOperation[]) =>
-  operations.reduce((length, op) => length + (op.kind === 'insert' ? 1 : -1), start);
+/** `insert(5, 2)` or `delete(0)`, as the operation list shows it. */
+export const describeOperation = (op: ListOperation) =>
+  op.kind === 'insert' ? `insert(${op.value}, ${op.index})` : `delete(${op.index})`;
+
+/** Whether every queued operation stays within the list's length at its turn. */
+export type QueueValidation =
+  | { status: 'valid'; endLength: number }
+  | { status: 'invalid'; invalidAt: number; reason: string };
+
+/** Replays `operations` from `startLength` and flags the first out-of-range delete, if any. */
+export const validateOperations = (
+  startLength: number,
+  operations: ListOperation[]
+): QueueValidation => {
+  let length = startLength;
+  for (let i = 0; i < operations.length; i += 1) {
+    const op = operations[i];
+    if (op.kind === 'insert') {
+      length += 1;
+    } else {
+      if (op.index < 0 || op.index >= length) {
+        const range =
+          length === 0
+            ? `the list is empty at step ${i + 1}`
+            : `only indices 0 to ${length - 1} exist at step ${i + 1}`;
+        return {
+          status: 'invalid',
+          invalidAt: i,
+          reason: `Step ${i + 1} (${describeOperation(op)}) is out of range — ${range}.`,
+        };
+      }
+      length -= 1;
+    }
+  }
+  return { status: 'valid', endLength: length };
+};
 
 /** The operation `draft` describes, or why it can't be added yet. */
 const operationOf = (draft: Draft, length: number): ListOperation | { invalid: string } => {
@@ -33,10 +67,6 @@ const operationOf = (draft: Draft, length: number): ListOperation | { invalid: s
   if (index === null) return { invalid: 'Insert takes an index of 0 or more.' };
   return { kind: 'insert', value, index };
 };
-
-/** `insert(5, 2)` or `delete(0)`, as the operation list shows it. */
-export const describeOperation = (op: ListOperation) =>
-  op.kind === 'insert' ? `insert(${op.value}, ${op.index})` : `delete(${op.index})`;
 
 const ListRow = ({ label, values }: { label: string; values: number[] }) => (
   <div className={styles.listRow}>
@@ -64,13 +94,15 @@ type Props = {
 /** The start and target lists, and the inserts and deletes the player builds to turn one into the other. */
 export const OperationBuilder = ({ start, target, operations, frozen, onChange }: Props) => {
   const [draft, setDraft] = useState<Draft>({ kind: 'insert', value: '', index: '' });
-  const length = lengthAfter(start.length, operations);
+  const queue = validateOperations(start.length, operations);
+  const length = queue.status === 'valid' ? queue.endLength : 0;
   const next = operationOf(draft, length);
   const blank = draft.index.trim() === '' || (draft.kind === 'insert' && draft.value.trim() === '');
-  const hint = !blank && 'invalid' in next ? next.invalid : '';
+  const draftHint = !blank && 'invalid' in next ? next.invalid : '';
+  const hint = queue.status === 'invalid' ? queue.reason : draftHint;
 
   const add = () => {
-    if (frozen || 'invalid' in next) return;
+    if (frozen || queue.status === 'invalid' || 'invalid' in next) return;
     onChange([...operations, next]);
     setDraft({ ...draft, value: '', index: '' });
   };
@@ -109,7 +141,7 @@ export const OperationBuilder = ({ start, target, operations, frozen, onChange }
                 aria-label="Value"
                 placeholder="value"
                 inputMode="numeric"
-                className={`${styles.field} ${styles.number}`}
+                className={`${styles.field} ${styles.valueInput}`}
                 value={draft.value}
                 disabled={frozen}
                 onChange={(event) => setDraft({ ...draft, value: event.target.value })}
@@ -126,7 +158,7 @@ export const OperationBuilder = ({ start, target, operations, frozen, onChange }
             placeholder="index"
             inputMode="numeric"
             min={0}
-            className={`${styles.field} ${styles.number}`}
+            className={`${styles.field} ${styles.indexInput}`}
             value={draft.index}
             disabled={frozen}
             onChange={(event) => setDraft({ ...draft, index: event.target.value })}
@@ -138,7 +170,7 @@ export const OperationBuilder = ({ start, target, operations, frozen, onChange }
           <button
             type="button"
             className={styles.add}
-            disabled={frozen || 'invalid' in next}
+            disabled={frozen || queue.status === 'invalid' || 'invalid' in next}
             onClick={add}
           >
             Add operation
@@ -161,21 +193,28 @@ export const OperationBuilder = ({ start, target, operations, frozen, onChange }
           </button>
         </div>
         <ol aria-label="Operation list" className={styles.ops}>
-          {operations.map((op, index) => (
-            <li key={index} className={styles.op}>
-              <code className={styles.opText}>{describeOperation(op)}</code>
-              {!frozen && (
-                <button
-                  type="button"
-                  className={styles.remove}
-                  aria-label={`Remove ${describeOperation(op)}`}
-                  onClick={() => onChange(operations.filter((_, i) => i !== index))}
-                >
-                  ×
-                </button>
-              )}
-            </li>
-          ))}
+          {operations.map((op, index) => {
+            const invalid = queue.status === 'invalid' && queue.invalidAt === index;
+            return (
+              <li
+                key={index}
+                className={invalid ? `${styles.op} ${styles.opInvalid}` : styles.op}
+                data-invalid={invalid ? 'true' : undefined}
+              >
+                <code className={styles.opText}>{describeOperation(op)}</code>
+                {!frozen && (
+                  <button
+                    type="button"
+                    className={styles.remove}
+                    aria-label={`Remove ${describeOperation(op)}`}
+                    onClick={() => onChange(operations.filter((_, i) => i !== index))}
+                  >
+                    ×
+                  </button>
+                )}
+              </li>
+            );
+          })}
         </ol>
         {operations.length === 0 && <span className={styles.empty}>No operations yet</span>}
       </div>

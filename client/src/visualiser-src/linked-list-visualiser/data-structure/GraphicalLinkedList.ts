@@ -65,7 +65,7 @@ export default class GraphicalLinkedList extends GraphicalDataStructure {
     this.length = numbers.length;
     const producer = new LinkedListAnimationProducer();
     let currNode = null;
-    producer.initialiseHead(this.headPointer);
+    if (numbers.length > 0) producer.initialiseHead(this.headPointer);
     for (let i = 0; i < numbers.length; i += 1) {
       const newNode = GraphicalLinkedListNode.from(numbers[i]);
       producer.createNodeAt(i, newNode, i + 1);

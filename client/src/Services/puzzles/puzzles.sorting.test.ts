@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { evaluatePuzzle, scorePuzzle, type EvalPuzzleInstance } from './puzzles';
+import { evaluatePuzzle, scorePuzzle, type ArrayEvalPuzzleInstance } from './puzzles';
 
 /** Needs the puzzles wasm built first: `pnpm run puzzles` from the repo root. Counts are worked by hand in e2e/support/daily-sorting-fixtures.ts. */
 
-const BUBBLE_21: EvalPuzzleInstance = {
+const BUBBLE_21: ArrayEvalPuzzleInstance = {
   template: 'bubble-exact-passes',
   values: [6, 2, 8, 1, 5, 3, 7, 4],
   fixed: [1, 4, 6],
   targetPasses: 4,
 };
 
-const INSERTION_22: EvalPuzzleInstance = {
+const INSERTION_22: ArrayEvalPuzzleInstance = {
   template: 'insertion-beats-merge',
   values: [5, 3, 8, 1, 7, 2, 6, 4],
   fixed: [1, 4],
@@ -18,13 +18,13 @@ const INSERTION_22: EvalPuzzleInstance = {
 
 const fmt = (values: readonly number[]) => `[${values.join(', ')}]`;
 
-const describeCall = (puzzle: EvalPuzzleInstance, arrangement: readonly number[]) =>
+const describeCall = (puzzle: ArrayEvalPuzzleInstance, arrangement: readonly number[]) =>
   `evaluatePuzzle(${JSON.stringify(puzzle)}, ${fmt(arrangement)})`;
 
-const evaluate = (puzzle: EvalPuzzleInstance, arrangement: readonly number[]) =>
+const evaluate = (puzzle: ArrayEvalPuzzleInstance, arrangement: readonly number[]) =>
   evaluatePuzzle(puzzle, [...arrangement]);
 
-const rejection = async (puzzle: EvalPuzzleInstance, arrangement: readonly number[]) => {
+const rejection = async (puzzle: ArrayEvalPuzzleInstance, arrangement: readonly number[]) => {
   const call = describeCall(puzzle, arrangement);
   const outcome = await evaluate(puzzle, arrangement).then(
     (result) => ({ rejected: false as const, result }),
@@ -41,7 +41,7 @@ const rejection = async (puzzle: EvalPuzzleInstance, arrangement: readonly numbe
 
 type Case = {
   label: string;
-  puzzle: EvalPuzzleInstance;
+  puzzle: ArrayEvalPuzzleInstance;
   arrangement: readonly number[];
   expected: Record<string, unknown>;
 };

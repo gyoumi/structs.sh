@@ -3,7 +3,7 @@ import type { ListOperation } from '@/Services/puzzles/puzzles';
 import { actualNodeDiameter } from '../../common/constants';
 import { newNodePosition } from '../animation-producer/LinkedListAnimationProducer';
 import LinkedListRunAnimationProducer from '../animation-producer/LinkedListRunAnimationProducer';
-import { CURRENT, PREV, topOffset } from '../util/constants';
+import { CURRENT, PREV, nodePathWidth, topOffset } from '../util/constants';
 import type GraphicalLinkedList from './GraphicalLinkedList';
 import GraphicalLinkedListNode from './GraphicalLinkedListNode';
 
@@ -11,9 +11,10 @@ const RADIUS = actualNodeDiameter / 2;
 
 const boundsWith = (
   head: GraphicalLinkedListNode | null,
-  [newX, newY]: [number, number]
+  [newX, newY]: [number, number],
+  nextLength: number
 ): DrawingBounds => {
-  let maxX = newX;
+  let maxX = Math.max(newX, nextLength * nodePathWidth + RADIUS);
   let maxY = Math.max(newY, topOffset);
   for (let curr = head; curr !== null; curr = curr.next) {
     maxX = Math.max(maxX, curr.x);
@@ -32,7 +33,7 @@ const insertAt = (
   const at = Math.min(index, list.length);
   list.length += 1;
   const newNode = GraphicalLinkedListNode.from(value);
-  producer.setTargetBounds(boundsWith(list.head, newNodePosition(at, list.length)));
+  producer.setTargetBounds(boundsWith(list.head, newNodePosition(at, list.length), list.length));
   producer.doAnimation(producer.addNodeAt, at, newNode, list.length);
   if (at === 0) {
     if (list.head === null) {
@@ -69,6 +70,7 @@ const deleteAt = (
   index: number
 ) => {
   list.length -= 1;
+  producer.setTargetBounds(null);
   let curr = list.head!;
   let prev: GraphicalLinkedListNode | null = null;
   producer.doAnimation(producer.initialisePointer, CURRENT);

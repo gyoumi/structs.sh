@@ -26,11 +26,11 @@ describe('playReducer', () => {
     });
     expect(
       first,
-      'run from ready should enter running carrying arrangement, runId, and focusSkip'
+      'run from ready should enter running carrying tagged input, runId, and focusSkip'
     ).toEqual({
       stage: 'running',
       scores: [],
-      arrangement: [3, 1, 2],
+      input: { kind: 'arrangement', arrangement: [3, 1, 2] },
       runId: 1,
       focusSkip: true,
     });
@@ -38,11 +38,11 @@ describe('playReducer', () => {
     const scoring = playReducer(first, { type: 'animation-completed', runId: 1 });
     expect(
       scoring,
-      'matching animation-completed should enter scoring with the same arrangement'
+      'matching animation-completed should enter scoring with the same tagged input'
     ).toEqual({
       stage: 'scoring',
       scores: [],
-      arrangement: [3, 1, 2],
+      input: { kind: 'arrangement', arrangement: [3, 1, 2] },
     });
 
     const afterTry1 = playReducer(scoring, { type: 'scored', score: 30 });
@@ -104,7 +104,7 @@ describe('playReducer', () => {
     expect(retried, 'run from score-failed should start a new running try').toEqual({
       stage: 'running',
       scores: [],
-      arrangement: [3, 1, 2],
+      input: { kind: 'arrangement', arrangement: [3, 1, 2] },
       runId: 2,
       focusSkip: false,
     });

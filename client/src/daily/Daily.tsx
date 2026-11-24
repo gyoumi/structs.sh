@@ -32,7 +32,7 @@ const ArrayPuzzleView = ({ puzzle, theme }: { puzzle: ArrayPuzzle; theme: Theme 
           puzzle={puzzle}
           rig={rig}
           theme={theme}
-          values={values}
+          input={{ kind: 'arrangement', arrangement: values }}
           editor={(frozen, redraw) => (
             <PuzzleArray
               values={values}
@@ -61,8 +61,7 @@ const IndexDriftView = ({ puzzle, theme }: { puzzle: IndexDriftPuzzle; theme: Th
           puzzle={puzzle}
           rig={rig}
           theme={theme}
-          values={puzzle.start}
-          operations={operations}
+          input={{ kind: 'operations', operations }}
           editor={(frozen) => (
             <OperationBuilder
               start={puzzle.start}

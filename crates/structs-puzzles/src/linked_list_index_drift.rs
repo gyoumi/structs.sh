@@ -45,7 +45,7 @@ pub struct Instance {
 
 /// One operation a player submits.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
-#[serde(tag = "kind", rename_all = "lowercase")]
+#[serde(tag = "kind", rename_all = "lowercase", deny_unknown_fields)]
 pub enum Operation {
     /// Insert `value` at `index`, clamped to the list's length.
     Insert { value: i32, index: usize },
@@ -87,14 +87,9 @@ impl LinkedListIndexDrift {
         instance: &Instance,
         input: &[Operation],
     ) -> Result<Outcome, InputError> {
-        let (steps, final_list) = apply(&instance.start, input)?;
+        let (walked, final_list) = apply(&instance.start, input, None)?;
         let operations = count(input.len());
-        let nodes_walked = count(
-            steps
-                .iter()
-                .filter(|step| matches!(step, Step::Visit { .. }))
-                .count(),
-        );
+        let nodes_walked = count(walked);
         Ok(Outcome {
             solved: final_list == instance.target,
             operations,
@@ -126,7 +121,9 @@ impl Template for LinkedListIndexDrift {
         instance: &Self::Instance,
         input: &Self::Input,
     ) -> Result<Vec<Self::Step>, InputError> {
-        apply(&instance.start, input).map(|(steps, _)| steps)
+        let mut steps = Vec::new();
+        apply(&instance.start, input, Some(&mut steps))?;
+        Ok(steps)
     }
 
     fn score(&self, instance: &Self::Instance, input: &Self::Input) -> Result<u32, InputError> {
@@ -135,21 +132,30 @@ impl Template for LinkedListIndexDrift {
     }
 }
 
-fn apply(start: &[i32], input: &[Operation]) -> Result<(Vec<Step>, Vec<i32>), InputError> {
+fn apply(
+    start: &[i32],
+    input: &[Operation],
+    mut steps: Option<&mut Vec<Step>>,
+) -> Result<(usize, Vec<i32>), InputError> {
     let mut list = start.to_vec();
-    let mut steps = Vec::new();
+    let mut walked: usize = 0;
     for (operation, &op) in input.iter().enumerate() {
         match op {
             Operation::Insert { value, index } => {
                 let clamped = index.min(list.len());
                 if index > 0 {
-                    visit(&list, clamped, &mut steps);
+                    walked = walked.saturating_add(clamped);
+                    if let Some(log) = steps.as_deref_mut() {
+                        visit(&list, clamped, log);
+                    }
                 }
                 list.insert(clamped, value);
-                steps.push(Step::Insert {
-                    value,
-                    index: clamped,
-                });
+                if let Some(log) = steps.as_deref_mut() {
+                    log.push(Step::Insert {
+                        value,
+                        index: clamped,
+                    });
+                }
             }
             Operation::Delete { index } => {
                 if index >= list.len() {
@@ -159,13 +165,18 @@ fn apply(start: &[i32], input: &[Operation]) -> Result<(Vec<Step>, Vec<i32>), In
                         length: list.len(),
                     });
                 }
-                visit(&list, index + 1, &mut steps);
+                walked = walked.saturating_add(index + 1);
+                if let Some(log) = steps.as_deref_mut() {
+                    visit(&list, index + 1, log);
+                }
                 let value = list.remove(index);
-                steps.push(Step::Delete { index, value });
+                if let Some(log) = steps.as_deref_mut() {
+                    log.push(Step::Delete { index, value });
+                }
             }
         }
     }
-    Ok((steps, list))
+    Ok((walked, list))
 }
 
 fn visit(list: &[i32], nodes: usize, steps: &mut Vec<Step>) {
