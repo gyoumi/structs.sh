@@ -1,5 +1,6 @@
 import LinkedListDeleteAnimationProducer from './LinkedListDeleteAnimationProducer';
-import { CURRENT } from '../util/constants';
+import type GraphicalLinkedListNode from '../data-structure/GraphicalLinkedListNode';
+import { CURRENT, PREV } from '../util/constants';
 
 /** Animates a sequence of inserts and deletes on one timeline, counting operations and the nodes `curr` lands on. */
 export default class LinkedListRunAnimationProducer extends LinkedListDeleteAnimationProducer {
@@ -36,5 +37,16 @@ export default class LinkedListRunAnimationProducer extends LinkedListDeleteAnim
   public movePointerToNext(pointerId: string): void {
     if (pointerId === CURRENT) this.nodesWalkedCount += 1;
     super.movePointerToNext(pointerId);
+  }
+
+  public advanceDeletePointers(
+    targetNode: GraphicalLinkedListNode,
+    isFirst: boolean,
+    isTarget: boolean
+  ): void {
+    if (isFirst) this.initialisePointer(PREV);
+    else this.movePointerToNext(PREV);
+    this.movePointerToNext(CURRENT);
+    if (isTarget) this.highlightRightNode(targetNode);
   }
 }

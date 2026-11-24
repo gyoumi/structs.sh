@@ -62,13 +62,16 @@ const IndexDriftView = ({ puzzle, theme }: { puzzle: IndexDriftPuzzle; theme: Th
           rig={rig}
           theme={theme}
           input={{ kind: 'operations', operations }}
-          editor={(frozen) => (
+          editor={(frozen, redraw) => (
             <OperationBuilder
               start={puzzle.start}
               target={puzzle.target}
               operations={operations}
               frozen={frozen}
-              onChange={setOperations}
+              onChange={(next) => {
+                setOperations(next);
+                redraw(puzzle.start);
+              }}
             />
           )}
         />

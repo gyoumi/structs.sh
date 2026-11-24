@@ -40,6 +40,7 @@ export const textAttributes = {
     return canvasTheme.fontFamily;
   },
   'font-size': '24',
+  'font-weight': '600',
   get fill() {
     return canvasTheme.ink;
   },

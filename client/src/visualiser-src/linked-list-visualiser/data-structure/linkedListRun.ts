@@ -3,25 +3,42 @@ import type { ListOperation } from '@/Services/puzzles/puzzles';
 import { actualNodeDiameter } from '../../common/constants';
 import { newNodePosition } from '../animation-producer/LinkedListAnimationProducer';
 import LinkedListRunAnimationProducer from '../animation-producer/LinkedListRunAnimationProducer';
-import { CURRENT, PREV, nodePathWidth, topOffset } from '../util/constants';
+import { CURRENT, nodePathWidth, topOffset } from '../util/constants';
 import type GraphicalLinkedList from './GraphicalLinkedList';
 import GraphicalLinkedListNode from './GraphicalLinkedListNode';
 
 const RADIUS = actualNodeDiameter / 2;
+const POINTER_HEIGHT = 64;
+const CURVED_ARC_TOP = 24;
+
+const listRightEdge = (head: GraphicalLinkedListNode | null): number => {
+  let maxX = 0;
+  for (let curr = head; curr !== null; curr = curr.next) {
+    maxX = Math.max(maxX, curr.x);
+  }
+  return maxX;
+};
 
 const boundsWith = (
   head: GraphicalLinkedListNode | null,
   [newX, newY]: [number, number],
-  nextLength: number
+  nextLength: number,
+  usesPointer: boolean
 ): DrawingBounds => {
-  let maxX = Math.max(newX, nextLength * nodePathWidth + RADIUS);
-  let maxY = Math.max(newY, topOffset);
+  const maxX = Math.max(newX, listRightEdge(head), nextLength * nodePathWidth + RADIUS);
+  let maxY = Math.max(newY, usesPointer ? topOffset + POINTER_HEIGHT : topOffset);
   for (let curr = head; curr !== null; curr = curr.next) {
-    maxX = Math.max(maxX, curr.x);
     maxY = Math.max(maxY, curr.y);
   }
   const top = topOffset - RADIUS;
   return { x: 0, y: top, width: maxX + RADIUS, height: maxY + RADIUS - top };
+};
+
+const deleteBounds = (head: GraphicalLinkedListNode | null, willCurve: boolean): DrawingBounds => {
+  const maxX = Math.max(listRightEdge(head), nodePathWidth + RADIUS);
+  const top = willCurve ? CURVED_ARC_TOP : topOffset - RADIUS;
+  const bottom = topOffset + RADIUS + POINTER_HEIGHT;
+  return { x: 0, y: top, width: maxX + RADIUS, height: bottom - top };
 };
 
 const insertAt = (
@@ -33,7 +50,9 @@ const insertAt = (
   const at = Math.min(index, list.length);
   list.length += 1;
   const newNode = GraphicalLinkedListNode.from(value);
-  producer.setTargetBounds(boundsWith(list.head, newNodePosition(at, list.length), list.length));
+  producer.setTargetBounds(
+    boundsWith(list.head, newNodePosition(at, list.length), list.length, at > 0)
+  );
   producer.doAnimation(producer.addNodeAt, at, newNode, list.length);
   if (at === 0) {
     if (list.head === null) {
@@ -69,24 +88,20 @@ const deleteAt = (
   producer: LinkedListRunAnimationProducer,
   index: number
 ) => {
+  let target: GraphicalLinkedListNode | null = list.head;
+  for (let i = 0; i < index && target !== null; i += 1) {
+    target = target.next;
+  }
+  const willCurve = target?.next !== null;
   list.length -= 1;
-  producer.setTargetBounds(null);
+  producer.setTargetBounds(deleteBounds(list.head, willCurve));
   let curr = list.head!;
   let prev: GraphicalLinkedListNode | null = null;
   producer.doAnimation(producer.initialisePointer, CURRENT);
   for (let i = 0; i < index; i += 1) {
     prev = curr;
-    if (i === 0) {
-      producer.doAnimation(producer.initialisePointerAndHighlight, PREV, prev);
-    } else {
-      producer.doAnimation(producer.movePointerToNextAndHighlight, PREV, prev);
-    }
     curr = curr.next!;
-    if (i === index - 1) {
-      producer.doAnimation(producer.movePointerToNextAndHighlightRight, CURRENT, curr);
-    } else {
-      producer.doAnimation(producer.movePointerToNext, CURRENT);
-    }
+    producer.doAnimation(producer.advanceDeletePointers, curr, i === 0, i === index - 1);
   }
   if (prev === null) {
     list.head = curr.next;

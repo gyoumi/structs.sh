@@ -11,8 +11,8 @@ const addPointerLabel = (group: G, text: string, glyphPath: string) => {
   }
   group
     .plain(text)
-    .font({ family: canvasTheme.fontFamily, size: 21, weight: 600, anchor: 'middle' })
-    .attr({ x: 25, y: 50 })
+    .font({ family: canvasTheme.fontFamily, size: 18, weight: 600, anchor: 'middle' })
+    .attr({ x: 25, y: 48 })
     .fill(canvasTheme.pointerLabelColor);
 };
 
