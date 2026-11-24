@@ -33,19 +33,19 @@ fn utc(text: &str) -> DateTime<Utc> {
         .unwrap_or_else(|e| panic!("test instant {text:?} is not RFC 3339: {e}"))
 }
 
-/// Sends `method uri` with a JSON `body` through `router` without a network.
-async fn send_json(router: &Router, method: Method, uri: &str, body: &str) -> Reply {
+/// Sends `method uri` with raw `body` bytes through `router` without a network.
+async fn send_bytes(router: &Router, method: Method, uri: &str, body: Vec<u8>) -> Reply {
     let request = Request::builder()
         .method(method.clone())
         .uri(uri)
         .header("content-type", "application/json")
-        .body(Body::from(body.to_owned()))
+        .body(Body::from(body))
         .expect("build test request");
     let response = router
         .clone()
         .oneshot(request)
         .await
-        .unwrap_or_else(|e| panic!("{method} {uri} {body}: router returned an error: {e}"));
+        .unwrap_or_else(|e| panic!("{method} {uri}: router returned an error: {e}"));
     let status = response.status();
     let headers = response.headers().clone();
     let body = response
@@ -59,6 +59,11 @@ async fn send_json(router: &Router, method: Method, uri: &str, body: &str) -> Re
         headers,
         body,
     }
+}
+
+/// Sends `method uri` with a JSON `body` through `router` without a network.
+async fn send_json(router: &Router, method: Method, uri: &str, body: &str) -> Reply {
+    send_bytes(router, method, uri, body.as_bytes().to_vec()).await
 }
 
 /// `PUT /clock` with `{ "now": now }`.
@@ -225,6 +230,16 @@ async fn bad_put_clock_bodies_are_rejected_and_leave_the_clock_alone() {
             "2026-10-03",
         );
     }
+
+    let invalid_utf8_call = format!("PUT /clock with non-UTF-8 bytes [0xff, 0xfe] at {start}");
+    let reply = send_bytes(&router, Method::PUT, "/clock", vec![0xff, 0xfe]).await;
+    assert_bad_request(&reply, &invalid_utf8_call);
+    assert_eq!(
+        clock.now(),
+        start,
+        "{invalid_utf8_call}: non-UTF-8 body must leave clock at {start}, got {}",
+        clock.now()
+    );
 }
 
 #[tokio::test]
@@ -404,4 +419,55 @@ fn binary_refuses_clock_control_without_structs_now() {
             );
         }
     }
+}
+
+#[test]
+fn binary_healthcheck_follows_bind_addr() {
+    use std::io::{Read, Write};
+    use std::net::{TcpListener, TcpStream};
+    use std::thread;
+
+    // A mock `/healthz` on loopback that answers one connection: 200 for
+    // `GET /healthz`, 404 for anything else.
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind mock healthz listener");
+    let addr = listener.local_addr().expect("listener local addr");
+    let port = addr.port();
+    let handle = thread::spawn(move || {
+        if let Ok((mut stream, _)) = listener.accept() {
+            let mut req = Vec::new();
+            let mut buf = [0u8; 256];
+            while !req.windows(4).any(|w| w == b"\r\n\r\n") {
+                match stream.read(&mut buf) {
+                    Ok(0) | Err(_) => break,
+                    Ok(n) => req.extend_from_slice(&buf[..n]),
+                }
+            }
+            let reply: &[u8] = if req.starts_with(b"GET /healthz ") {
+                b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok"
+            } else {
+                b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+            };
+            let _ = stream.write_all(reply);
+        }
+    });
+
+    let bin = env!("CARGO_BIN_EXE_structs-game-server");
+    let status = Command::new(bin)
+        .arg("--healthcheck")
+        .env("BIND_ADDR", format!("0.0.0.0:{port}"))
+        .env("PORT", "1")
+        .status()
+        .expect("run structs-game-server --healthcheck");
+
+    // If the probe went elsewhere, the mock is still waiting in `accept`:
+    // wake it with a connection we close at once, so the join below can't
+    // block. If the probe already came, the listener is closed (or about to
+    // be) and this connect fails or goes unanswered, which is fine.
+    drop(TcpStream::connect(addr));
+    handle.join().expect("join mock healthz thread");
+
+    assert!(
+        status.success(),
+        "--healthcheck with BIND_ADDR=0.0.0.0:{port} and PORT=1 should probe GET /healthz on 127.0.0.1:{port} (the wildcard BIND_ADDR on loopback, not PORT) and exit 0, got {status:?}"
+    );
 }

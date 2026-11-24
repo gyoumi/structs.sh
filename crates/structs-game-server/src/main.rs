@@ -15,7 +15,7 @@
 //! `127.0.0.1:$PORT` answers `GET /healthz`, for Docker's `HEALTHCHECK`.
 
 use std::io::{Read, Write};
-use std::net::TcpStream;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream, ToSocketAddrs};
 use std::process::ExitCode;
 use std::sync::Arc;
 use std::time::Duration;
@@ -78,13 +78,33 @@ fn main() -> ExitCode {
     }
 }
 
-/// Succeeds when `GET /healthz` on `127.0.0.1:$PORT` answers `200`.
+/// The address the API listener binds, from `BIND_ADDR` or `0.0.0.0:$PORT`.
+fn configured_bind_addr() -> String {
+    non_blank("BIND_ADDR").unwrap_or_else(|| {
+        let port = non_blank("PORT").unwrap_or_else(|| DEFAULT_PORT.to_owned());
+        format!("0.0.0.0:{port}")
+    })
+}
+
+/// Maps wildcard bind addresses (`0.0.0.0` / `::`) to loopback for local probes.
+fn probe_addr(bind_addr: &str) -> std::io::Result<SocketAddr> {
+    let addr = bind_addr
+        .to_socket_addrs()?
+        .next()
+        .ok_or_else(|| std::io::Error::other("bind address resolved to no socket address"))?;
+    let ip = match addr.ip() {
+        IpAddr::V4(v4) if v4.is_unspecified() => IpAddr::V4(Ipv4Addr::LOCALHOST),
+        IpAddr::V6(v6) if v6.is_unspecified() => IpAddr::V6(Ipv6Addr::LOCALHOST),
+        other => other,
+    };
+    Ok(SocketAddr::new(ip, addr.port()))
+}
+
+/// Succeeds when `GET /healthz` on the configured bind address answers `200`.
 fn healthcheck() -> ExitCode {
-    let port = non_blank("PORT").unwrap_or_else(|| DEFAULT_PORT.to_owned());
+    let bind_addr = configured_bind_addr();
     let healthy = (|| -> std::io::Result<bool> {
-        let addr = format!("127.0.0.1:{port}")
-            .parse()
-            .map_err(std::io::Error::other)?;
+        let addr = probe_addr(&bind_addr)?;
         let mut stream = TcpStream::connect_timeout(&addr, HEALTHCHECK_TIMEOUT)?;
         stream.set_read_timeout(Some(HEALTHCHECK_TIMEOUT))?;
         stream.set_write_timeout(Some(HEALTHCHECK_TIMEOUT))?;
@@ -167,10 +187,7 @@ async fn serve(
 
 /// Reads [`Config`] from the environment, without echoing secret values.
 fn read_config() -> Result<Config, String> {
-    let bind_addr = non_blank("BIND_ADDR").unwrap_or_else(|| {
-        let port = non_blank("PORT").unwrap_or_else(|| DEFAULT_PORT.to_owned());
-        format!("0.0.0.0:{port}")
-    });
+    let bind_addr = configured_bind_addr();
     let control_bind = non_blank("STRUCTS_TEST_CLOCK_BIND");
     let clock = match non_blank("STRUCTS_NOW") {
         Some(now) => {

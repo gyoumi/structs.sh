@@ -8,7 +8,9 @@ use std::sync::Arc;
 
 use axum::Json;
 use axum::Router;
+use axum::body::Bytes;
 use axum::extract::State;
+use axum::extract::rejection::BytesRejection;
 use axum::http::{HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
@@ -50,8 +52,17 @@ async fn read_clock(State(clock): State<Arc<FixedClock>>) -> Response {
 
 /// `PUT /clock`: moves the clock to the body's `now`, or leaves it alone
 /// and answers 400 when the body is not `{ "now": "<RFC 3339>" }`.
-async fn set_clock(State(clock): State<Arc<FixedClock>>, body: String) -> Response {
-    let request: SetClock = match serde_json::from_str(&body) {
+async fn set_clock(
+    State(clock): State<Arc<FixedClock>>,
+    body: Result<Bytes, BytesRejection>,
+) -> Response {
+    let body = match body {
+        Ok(body) => body,
+        Err(err) => {
+            return bad_request(format!("Couldn't read request body: {err}"));
+        }
+    };
+    let request: SetClock = match serde_json::from_slice(&body) {
         Ok(request) => request,
         Err(err) => {
             return bad_request(format!(

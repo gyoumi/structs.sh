@@ -19,7 +19,7 @@ services:
       POSTGRES_PASSWORD: structs
       POSTGRES_DB: structs_game
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U structs -d structs_game"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U structs -d structs_game"]
       interval: 2s
       timeout: 3s
       retries: 15
