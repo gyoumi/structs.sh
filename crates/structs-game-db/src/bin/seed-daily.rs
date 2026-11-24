@@ -44,14 +44,23 @@ async fn run() -> Result<String, String> {
         fixtures.inserted, fixtures.existing
     );
     if !only_fixtures() {
-        let today = seed_today_if_missing(&pool)
+        match seed_today_if_missing(&pool)
             .await
-            .map_err(|err| failed("seeding today's puzzle", &err))?;
-        let (verb, record) = match &today {
-            InsertOutcome::Inserted(record) => ("inserted", record),
-            InsertOutcome::AlreadyScheduled(record) => ("already scheduled", record),
-        };
-        summary.push_str(&format!("; today ({}) {verb}", record.puzzle_date));
+            .map_err(|err| failed("seeding today's puzzle", &err))?
+        {
+            Some(InsertOutcome::Inserted(record)) => {
+                summary.push_str(&format!("; today ({}) inserted", record.puzzle_date));
+            }
+            Some(InsertOutcome::AlreadyScheduled(record)) => {
+                summary.push_str(&format!(
+                    "; today ({}) already scheduled",
+                    record.puzzle_date
+                ));
+            }
+            None => {
+                summary.push_str("; today skipped (reserved unscheduled day)");
+            }
+        }
     }
     Ok(summary)
 }

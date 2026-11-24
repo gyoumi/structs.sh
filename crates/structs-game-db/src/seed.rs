@@ -168,14 +168,14 @@ pub async fn seed_fixtures(pool: &PgPool) -> Result<SeedSummary, DbError> {
 /// Schedules the fixtures' quicksort puzzle for today in Sydney, unless a
 /// puzzle already runs today.
 ///
-/// Returns [`DbError::InvalidData`] on `2026-10-06`, which stays empty.
-pub async fn seed_today_if_missing(pool: &PgPool) -> Result<InsertOutcome, DbError> {
+/// Returns `Ok(None)` on `2026-10-06`, which stays empty for tests.
+pub async fn seed_today_if_missing(pool: &PgPool) -> Result<Option<InsertOutcome>, DbError> {
     let today = chrono::Utc::now().with_timezone(&Sydney).date_naive();
     let (year, month, dom) = UNSCHEDULED_DAY;
     if today == day(year, month, dom) {
-        return Err(DbError::InvalidData(format!(
-            "{today} is kept free of puzzles for tests"
-        )));
+        return Ok(None);
     }
-    insert_puzzle(pool, &quicksort_fixture(today)).await
+    insert_puzzle(pool, &quicksort_fixture(today))
+        .await
+        .map(Some)
 }

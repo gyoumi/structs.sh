@@ -24,7 +24,7 @@ const runThreeTimes = async (dailyPage: DailyPage, context: string) => {
 
 /** Sydney midnight on both 2026 daylight saving days, with the template the seeder schedules on each side. */
 const MIDNIGHTS = [
-  { instant: '2026-10-03T13:59:59Z', date: '2026-10-03', template: 'quicksort-most-comparisons', rules: /quicksort/i, why: '23:59:59 AEST' },
+  { instant: '2026-10-03T13:59:59Z', date: '2026-10-03', template: 'quicksort-most-comparisons', rules: /pivot/i, why: '23:59:59 AEST' },
   { instant: '2026-10-03T14:00:00Z', date: '2026-10-04', template: 'bubble-exact-passes', rules: /bubble|passes/i, why: '00:00:00 AEST, the 23-hour spring-forward day' },
   { instant: '2026-10-04T12:59:59Z', date: '2026-10-04', template: 'bubble-exact-passes', rules: /bubble|passes/i, why: '23:59:59 AEDT, 23 hours later' },
   { instant: '2026-10-04T13:00:00Z', date: '2026-10-05', template: 'avl-most-rotations', rules: /rotations/i, why: '00:00:00 AEDT, 1 second later' },
