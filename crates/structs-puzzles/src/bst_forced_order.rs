@@ -60,7 +60,7 @@ impl BstForcedOrder {
     /// it built the target tree and the input's longest increasing run.
     pub fn evaluate(&self, instance: &Instance, input: &[i32]) -> Result<Outcome, InputError> {
         validate(&instance.values, &[], input)?;
-        let root = tree::build_bst(input, &mut Vec::new());
+        let root = tree::build_bst_unlogged(input);
         let preorder = tree::preorder(&root);
         Ok(Outcome {
             solved: preorder == instance.target_tree,

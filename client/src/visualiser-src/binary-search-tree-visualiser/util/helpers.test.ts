@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { describe, expect, it, vi } from 'vitest';
-import { actualNodeDiameter } from '@/visualiser-src/common/constants';
+import { actualNodeDiameter, nodeDiameter } from '@/visualiser-src/common/constants';
+import { treeNodeFontSize } from '@/visualiser-src/common/GenericGraphicalTreeNode';
 import { getPointerStartEndCoordinates } from '@/visualiser-src/common/helpers';
 import { setUpParityEnvironment } from '@/test/sortingParity';
 import { buildAvl, buildBst } from '@/test/treeParity';
@@ -71,6 +72,21 @@ describe('updateNodePositions', () => {
         `inorder neighbours ${nodes[i - 1].value} and ${nodes[i].value} must clear the ${actualNodeDiameter}px diameter`
       ).toBeGreaterThanOrEqual(actualNodeDiameter);
     }
+  });
+
+  it('scales long signed 32-bit key labels to fit within the node circle without changing 1-2 char keys', () => {
+    expect(Number(treeNodeFontSize(0))).toBe(24);
+    expect(Number(treeNodeFontSize(99))).toBe(24);
+
+    const { bst } = buildBst([0, -2147483648, 2147483647]);
+    const left = bst.root!.left!;
+    const right = bst.root!.right!;
+    expect(Number(bst.root!.textTarget.attr('font-size'))).toBe(24);
+    [left, right].forEach((node) => {
+      const fontSize = Number(node.textTarget.attr('font-size'));
+      expect(fontSize).toBeLessThan(24);
+      expect(String(node.value).length * fontSize * 0.65).toBeLessThanOrEqual(nodeDiameter);
+    });
   });
 });
 

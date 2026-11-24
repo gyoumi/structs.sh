@@ -121,6 +121,29 @@ fn forced_order_replies() {
         json!({"solved": true, "score": 2, "longestIncreasingRun": 2}),
         "duplicate input values match a distinct-key targetTree preorder",
     );
+    let extremes = json!({
+        "template": FORCED,
+        "values": [i32::MIN, 0, i32::MAX],
+        "targetTree": [0, i32::MIN, i32::MAX],
+        "arrangement": [0, i32::MIN, i32::MAX],
+    });
+    assert_reply(
+        &extremes,
+        json!({"solved": true, "score": 2, "longestIncreasingRun": 2}),
+        "i32::MIN and i32::MAX validate cleanly as a BST preorder",
+    );
+    let ascending: Vec<i32> = (0..2_000).collect();
+    let large = json!({
+        "template": FORCED,
+        "values": ascending,
+        "targetTree": ascending,
+        "arrangement": ascending,
+    });
+    assert_reply(
+        &large,
+        json!({"solved": true, "score": 2_000, "longestIncreasingRun": 2_000}),
+        "a large sorted targetTree validates in linear space without a quadratic log",
+    );
 }
 
 #[test]

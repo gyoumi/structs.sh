@@ -1,4 +1,5 @@
 import BSTInsertAnimationProducer from '@/visualiser-src/binary-search-tree-visualiser/animation-producer/BSTInsertAnimationProducer';
+import { treeNodeFontSize } from '@/visualiser-src/common/GenericGraphicalTreeNode';
 import {
   insertCodeSnippet,
   deleteCodeSnippet,
@@ -44,8 +45,12 @@ export default class AVLAnimationProducer extends BSTInsertAnimationProducer {
   public updateNodeValue(node: GraphicalAVLNode, previousValue: number, nextValue: number): void {
     this.addSequenceAnimation(
       node.textTarget.animate(400).during((position: number) => {
-        node.textTarget.text(String(position < 0.5 ? previousValue : nextValue));
-        node.textTarget.attr({ opacity: Math.abs(position - 0.5) * 2 });
+        const shown = position < 0.5 ? previousValue : nextValue;
+        node.textTarget.text(String(shown));
+        node.textTarget.attr({
+          opacity: Math.abs(position - 0.5) * 2,
+          'font-size': treeNodeFontSize(shown),
+        });
       })
     );
   }

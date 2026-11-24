@@ -65,7 +65,16 @@ fn height(link: &Link) -> u32 {
 pub(crate) fn build_bst(keys: &[i32], events: &mut Vec<Event>) -> Option<Box<Node>> {
     let mut root = None;
     for &key in keys {
-        bst_insert(&mut root, key, events);
+        bst_insert(&mut root, key, Some(events));
+    }
+    root
+}
+
+/// Inserts `keys` in order into an empty plain BST without retaining an event log.
+pub(crate) fn build_bst_unlogged(keys: &[i32]) -> Option<Box<Node>> {
+    let mut root = None;
+    for &key in keys {
+        bst_insert(&mut root, key, None);
     }
     root
 }
@@ -90,21 +99,26 @@ pub(crate) fn preorder(root: &Option<Box<Node>>) -> Vec<i32> {
     out
 }
 
-fn bst_insert(slot: &mut Link, key: i32, events: &mut Vec<Event>) {
-    let Some(node) = slot else {
-        events.push(Event::Insert { key });
-        *slot = Some(Node::leaf(key));
-        return;
-    };
-    events.push(Event::Visit {
-        key,
-        existing: node.value,
-    });
-    if key < node.value {
-        bst_insert(&mut node.left, key, events);
-    } else if key > node.value {
-        bst_insert(&mut node.right, key, events);
+fn bst_insert(mut slot: &mut Link, key: i32, mut events: Option<&mut Vec<Event>>) {
+    while let Some(node) = slot {
+        if let Some(log) = events.as_deref_mut() {
+            log.push(Event::Visit {
+                key,
+                existing: node.value,
+            });
+        }
+        if key < node.value {
+            slot = &mut node.left;
+        } else if key > node.value {
+            slot = &mut node.right;
+        } else {
+            return;
+        }
     }
+    if let Some(log) = events {
+        log.push(Event::Insert { key });
+    }
+    *slot = Some(Node::leaf(key));
 }
 
 /// Returns whether `key` was added, so a duplicate skips rebalancing.

@@ -60,33 +60,28 @@ const isNumbers = (value: unknown): value is number[] =>
 
 const isEmptyList = (value: unknown) => Array.isArray(value) && value.length === 0;
 
-type BstNode = { value: number; left: BstNode | null; right: BstNode | null };
-
-const insertBst = (node: BstNode | null, value: number): BstNode => {
-  if (node === null) return { value, left: null, right: null };
-  if (value < node.value) return { ...node, left: insertBst(node.left, value) };
-  if (value > node.value) return { ...node, right: insertBst(node.right, value) };
-  return node;
-};
-
-const bstPreorder = (values: number[]): number[] => {
-  const root = values.reduce<BstNode | null>((tree, value) => insertBst(tree, value), null);
-  const out: number[] = [];
-  const walk = (node: BstNode | null) => {
-    if (node === null) return;
-    out.push(node.value);
-    walk(node.left);
-    walk(node.right);
-  };
-  walk(root);
-  return out;
+const isValidBstPreorder = (keys: number[]): boolean => {
+  const stack: number[] = [];
+  let lower: number | null = null;
+  for (let i = 0; i < keys.length; i += 1) {
+    const key = keys[i];
+    if (lower !== null && key <= lower) return false;
+    while (stack.length > 0) {
+      const top = stack[stack.length - 1];
+      if (key === top) return false;
+      if (key > top) {
+        lower = stack.pop()!;
+      } else {
+        break;
+      }
+    }
+    stack.push(key);
+  }
+  return true;
 };
 
 const isValidTargetTree = (values: number[], targetTree: number[]) => {
-  const rebuilt = bstPreorder(targetTree);
-  if (rebuilt.length !== targetTree.length || !rebuilt.every((v, i) => v === targetTree[i])) {
-    return false;
-  }
+  if (!isValidBstPreorder(targetTree)) return false;
   const distinct = [...new Set(values)].sort((x, y) => x - y);
   const targetSorted = [...targetTree].sort((x, y) => x - y);
   return (

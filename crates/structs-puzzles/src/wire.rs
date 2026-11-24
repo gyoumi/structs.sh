@@ -205,9 +205,30 @@ fn forced_order(request: &Request) -> Result<Reply, String> {
     }))
 }
 
+fn is_valid_bst_preorder(keys: &[i32]) -> bool {
+    let mut stack: Vec<i32> = Vec::with_capacity(keys.len());
+    let mut lower: Option<i32> = None;
+    for &key in keys {
+        if lower.is_some_and(|bound| key <= bound) {
+            return false;
+        }
+        while let Some(&top) = stack.last() {
+            if key == top {
+                return false;
+            }
+            if key > top {
+                lower = stack.pop();
+            } else {
+                break;
+            }
+        }
+        stack.push(key);
+    }
+    true
+}
+
 fn is_valid_target_tree(values: &[i32], target_tree: &[i32]) -> bool {
-    let built = crate::tree::preorder(&crate::tree::build_bst(target_tree, &mut Vec::new()));
-    if built != target_tree {
+    if !is_valid_bst_preorder(target_tree) {
         return false;
     }
     let mut want = values.to_vec();
