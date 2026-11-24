@@ -45,6 +45,16 @@ export default class BSTInsertAnimationProducer extends BSTAnimationProducer {
     );
   }
 
+  /** Creates `node` and relayouts the whole tree in the same step so parent edges stay attached. */
+  public createAndLayoutNode(
+    node: GraphicalBSTNode,
+    root: GraphicalBSTNode | null,
+    highlight = false
+  ): void {
+    this.createNode(node, highlight);
+    if (root !== null) this.updateBST(root);
+  }
+
   // draws a node on the draw canvas and shows the node
   public createNode(node: GraphicalBSTNode, highlight: boolean = false): void {
     const [lx, ly] = BSTAnimationProducer.childCoords(node, 'left');

@@ -26,10 +26,13 @@ const insertBelow = (
     if (root.left == null) {
       root.left = GraphicalBSTNode.from(input);
       updateNodePositions(tree.root);
-      animationProducer.doAnimationAndHighlight(3, animationProducer.createNode, root.left, true);
-      if (tree.root) {
-        animationProducer.doAnimationWithoutTimestamp(animationProducer.updateBST, tree.root);
-      }
+      animationProducer.doAnimationAndHighlight(
+        3,
+        animationProducer.createAndLayoutNode,
+        root.left,
+        tree.root,
+        true
+      );
     } else {
       insertBelow(tree, root.left, input, animationProducer);
     }
@@ -46,10 +49,13 @@ const insertBelow = (
     if (root.right == null) {
       root.right = GraphicalBSTNode.from(input);
       updateNodePositions(tree.root);
-      animationProducer.doAnimationAndHighlight(3, animationProducer.createNode, root.right, true);
-      if (tree.root) {
-        animationProducer.doAnimationWithoutTimestamp(animationProducer.updateBST, tree.root);
-      }
+      animationProducer.doAnimationAndHighlight(
+        3,
+        animationProducer.createAndLayoutNode,
+        root.right,
+        tree.root,
+        true
+      );
     } else {
       insertBelow(tree, root.right, input, animationProducer);
     }

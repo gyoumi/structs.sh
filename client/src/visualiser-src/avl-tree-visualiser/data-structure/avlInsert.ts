@@ -25,10 +25,13 @@ const insertBelow = (
     if (root.left == null) {
       root.left = GraphicalAVLNode.from(input);
       updateNodePositions(tree.root);
-      animationProducer.doAnimationAndHighlight(3, animationProducer.createNode, root.left, true);
-      if (tree.root) {
-        animationProducer.doAnimationWithoutTimestamp(animationProducer.updateBST, tree.root);
-      }
+      animationProducer.doAnimationAndHighlight(
+        3,
+        animationProducer.createAndLayoutNode,
+        root.left,
+        tree.root,
+        true
+      );
       animationProducer.doAnimation(animationProducer.unhighlightNode, root.left);
     } else if (!insertBelow(tree, root, root.left, true, input, animationProducer)) {
       return false;
@@ -46,10 +49,13 @@ const insertBelow = (
     if (root.right == null) {
       root.right = GraphicalAVLNode.from(input);
       updateNodePositions(tree.root);
-      animationProducer.doAnimationAndHighlight(3, animationProducer.createNode, root.right, true);
-      if (tree.root) {
-        animationProducer.doAnimationWithoutTimestamp(animationProducer.updateBST, tree.root);
-      }
+      animationProducer.doAnimationAndHighlight(
+        3,
+        animationProducer.createAndLayoutNode,
+        root.right,
+        tree.root,
+        true
+      );
       animationProducer.doAnimation(animationProducer.unhighlightNode, root.right);
     } else if (!insertBelow(tree, root, root.right, false, input, animationProducer)) {
       return false;

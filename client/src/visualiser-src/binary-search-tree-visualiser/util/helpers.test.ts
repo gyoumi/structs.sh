@@ -1,7 +1,14 @@
-import { describe, expect, it } from 'vitest';
+/** @vitest-environment jsdom */
+import { describe, expect, it, vi } from 'vitest';
 import { actualNodeDiameter } from '@/visualiser-src/common/constants';
+import { getPointerStartEndCoordinates } from '@/visualiser-src/common/helpers';
+import { setUpParityEnvironment } from '@/test/sortingParity';
+import { buildAvl, buildBst } from '@/test/treeParity';
+import VisualiserController from '@/visualiser-src/controller/VisualiserController';
 import type GraphicalBSTNode from '../data-structure/GraphicalBSTNode';
 import updateNodePositions from './helpers';
+
+setUpParityEnvironment();
 
 type StubNode = {
   value: number;
@@ -26,6 +33,31 @@ const collect = (node: StubNode | null, out: StubNode[] = []): StubNode[] => {
   return out;
 };
 
+const nodeCenter = (node: GraphicalBSTNode): [number, number] => [
+  Number(node.nodeTarget.cx()),
+  Number(node.nodeTarget.cy()),
+];
+
+const lineEnd = (line: GraphicalBSTNode['leftLineTarget']): [number, number] => [
+  Number(line.attr('x2')),
+  Number(line.attr('y2')),
+];
+
+const assertEdgeAimed = (
+  parent: GraphicalBSTNode,
+  side: 'left' | 'right',
+  child: GraphicalBSTNode
+) => {
+  const [px, py] = nodeCenter(parent);
+  const [cx, cy] = nodeCenter(child);
+  const [, [expectedX, expectedY]] = getPointerStartEndCoordinates(px, py, cx, cy);
+  const [actualX, actualY] = lineEnd(
+    side === 'left' ? parent.leftLineTarget : parent.rightLineTarget
+  );
+  expect(actualX).toBeCloseTo(expectedX, 1);
+  expect(actualY).toBeCloseTo(expectedY, 1);
+};
+
 describe('updateNodePositions', () => {
   it('never overlaps any pair of nodes in deep 14-key BSTs', () => {
     const keys = [3, 2, 13, 6, 14, 1, 8, 9, 11, 12, 10, 7, 4, 5];
@@ -38,6 +70,76 @@ describe('updateNodePositions', () => {
         nodes[i].x - nodes[i - 1].x,
         `inorder neighbours ${nodes[i - 1].value} and ${nodes[i].value} must clear the ${actualNodeDiameter}px diameter`
       ).toBeGreaterThanOrEqual(actualNodeDiameter);
+    }
+  });
+});
+
+const pauseTimestamps = (
+  allRunners: { runners: { duration: () => number }[]; isTimestamped: boolean }[]
+): number[] => {
+  const times: number[] = [];
+  let cursor = 0;
+  allRunners.forEach((step) => {
+    if (step.runners.length === 0) return;
+    const longest = Math.max(...step.runners.map((runner) => runner.duration()));
+    cursor += longest + 25;
+    if (step.isTimestamped) times.push(cursor);
+  });
+  return times;
+};
+
+describe('tree step-pause arrow alignment', () => {
+  it('keeps parent edge attached to the newly created child at the create pause in BST and AVL', () => {
+    const builders = [
+      () => {
+        const { bst, producer } = buildBst([2, 1]);
+        return { root: bst.root!, producer };
+      },
+      () => {
+        const { avl, producer } = buildAvl([2, 1]);
+        return { root: avl.root!, producer };
+      },
+    ];
+    builders.forEach((build) => {
+      vi.useFakeTimers();
+      try {
+        const { root, producer } = build();
+        const controller = new VisualiserController();
+        controller.constructTimeline(producer, () => {});
+        controller.pause();
+        const child = root.left!;
+        const visibleAt = pauseTimestamps(producer.allRunners).find((t) => {
+          controller.seekTime(t);
+          return Number(child.nodeTarget.attr('opacity')) > 0.5;
+        });
+        expect(visibleAt).toBeDefined();
+        controller.seekTime(visibleAt!);
+        assertEdgeAimed(root, 'left', child);
+      } finally {
+        vi.advanceTimersByTime(100);
+        vi.useRealTimers();
+      }
+    });
+  });
+
+  it('re-aims the parent edge to the promoted child before pausing after an inner AVL rotation', () => {
+    vi.useFakeTimers();
+    try {
+      const { avl, producer } = buildAvl([3, 1, 2]);
+      const controller = new VisualiserController();
+      controller.constructTimeline(producer, () => {});
+      controller.pause();
+      const firstRotationAt = pauseTimestamps(producer.allRunners).find(
+        (t) => (controller.countersAt(t).rotations ?? 0) === 1
+      );
+      expect(firstRotationAt).toBeDefined();
+      controller.seekTime(firstRotationAt!);
+      const node2 = avl.root!;
+      const node3 = node2.right!;
+      assertEdgeAimed(node3, 'left', node2);
+    } finally {
+      vi.advanceTimersByTime(100);
+      vi.useRealTimers();
     }
   });
 });
