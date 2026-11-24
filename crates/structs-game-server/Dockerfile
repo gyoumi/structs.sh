@@ -3,7 +3,7 @@
 #   docker build -f crates/structs-game-server/Dockerfile .
 
 # ===== Stage 1: Building the server =====
-FROM rust:1.99-slim AS builder
+FROM rust:1.99-slim-bookworm AS builder
 WORKDIR /app
 ENV SQLX_OFFLINE=true
 COPY rust-toolchain.toml ./
