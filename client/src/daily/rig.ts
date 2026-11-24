@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import type { ListOperation } from '@/Services/puzzles/puzzles';
 import type { CanvasTarget } from '@/visualiser-src/common/canvasTarget';
 import type { Playback } from '@/visualiser/playback';
 import type { VisualiserSession, VisualiserSnapshot } from '@/visualiser/session';
@@ -19,17 +20,24 @@ export type Rig = {
   playback: Playback;
   stages: StageRig[];
   mode: StageMode;
-  /** Starts a try on `values`. Returns false when a stage refused to run. */
-  run: (values: number[]) => boolean;
+  /** Starts a try on `values`, running `operations` on them in `list-ops` mode. Returns false when a stage refused to run. */
+  run: (values: number[], operations?: ListOperation[]) => boolean;
 };
 
-/** What each stage draws for `values` before a run: the values themselves, or an empty tree. */
+/** What each stage draws for `values` before a run: the values themselves (the start list in `list-ops` mode), or an empty tree. */
 export const drawnArrangement = (mode: StageMode, values: number[]): number[] =>
   mode === 'tree-build' ? [] : values;
 
-/** The arguments the stages' command takes for a try on `values`. */
-export const runArgs = (mode: StageMode, values: number[]): string[] =>
-  mode === 'tree-build' ? [values.join(',')] : [];
+/** The arguments the stages' command takes for a try on `values`, or on `operations` in `list-ops` mode. */
+export const runArgs = (
+  mode: StageMode,
+  values: number[],
+  operations: ListOperation[] = []
+): string[] => {
+  if (mode === 'tree-build') return [values.join(',')];
+  if (mode === 'list-ops') return [JSON.stringify(operations)];
+  return [];
+};
 
 const countOf = (snapshot: VisualiserSnapshot, key: CounterSource['key']) =>
   key === 'comparisons' ? (snapshot.comparisons ?? 0) : (snapshot.counters?.[key] ?? 0);

@@ -7,7 +7,15 @@ import type { Puzzle } from './puzzle';
 /** A running count one stage's animation keeps. */
 export type CounterSource = {
   stage: 0 | 1;
-  key: 'comparisons' | 'passes' | 'swaps' | 'rotations' | 'nodesPassed';
+  key:
+    | 'comparisons'
+    | 'passes'
+    | 'swaps'
+    | 'rotations'
+    | 'nodesPassed'
+    | 'operations'
+    | 'nodesWalked'
+    | 'cost';
 };
 
 export type ReadoutValue =
@@ -20,8 +28,8 @@ export type Readout = { key: string; label: string; value: ReadoutValue };
 /** The scored readout shown large beside the goal, then the rest. */
 export type Readouts = { primary: Readout; others: Readout[] };
 
-/** `sort` draws the arrangement and sorts it; `tree-build` starts empty and inserts the arrangement in order. */
-export type StageMode = 'sort' | 'tree-build';
+/** `sort` draws the arrangement and sorts it; `tree-build` starts empty and inserts the arrangement in order; `list-ops` draws the start list and runs the player's operations on it. */
+export type StageMode = 'sort' | 'tree-build' | 'list-ops';
 
 export type StageSpec = { command: string; label: string; topic: TopicSlug };
 
@@ -89,6 +97,14 @@ export const readoutsFor = (puzzle: Puzzle, values: number[]): Readouts => {
         primary: fixed('increasing-run', 'Increasing run', longestIncreasingRun(values)),
         others: [],
       };
+    case 'linked-list-index-drift':
+      return {
+        primary: live('cost', 'Cost', { stage: 0, key: 'cost' }),
+        others: [
+          live('operations', 'Operations', { stage: 0, key: 'operations' }),
+          live('nodes-walked', 'Nodes walked', { stage: 0, key: 'nodesWalked' }),
+        ],
+      };
     case 'upset-bst-beats-avl': {
       const bst: CounterSource = { stage: 0, key: 'nodesPassed' };
       const avl: CounterSource = { stage: 1, key: 'nodesPassed' };
@@ -142,6 +158,12 @@ export const stagePlanFor = (puzzle: Puzzle): StagePlan => {
       };
     case 'avl-most-rotations':
       return { kind: 'single', mode: 'tree-build', stage: treeStage('AVL') };
+    case 'linked-list-index-drift':
+      return {
+        kind: 'single',
+        mode: 'list-ops',
+        stage: { command: 'runOperations', label: 'Linked list drawing', topic: 'linked-lists' },
+      };
     case 'bst-forced-order':
       return { kind: 'single', mode: 'tree-build', stage: treeStage('BST') };
     case 'upset-bst-beats-avl':
@@ -159,19 +181,20 @@ export const stagePlanFor = (puzzle: Puzzle): StagePlan => {
 };
 
 export const instanceOf = (puzzle: Puzzle): EvalPuzzleInstance => {
-  const { values } = puzzle;
   switch (puzzle.template) {
+    case 'linked-list-index-drift':
+      return { template: puzzle.template, start: puzzle.start, target: puzzle.target };
     case 'bubble-exact-passes':
       return {
         template: puzzle.template,
-        values,
+        values: puzzle.values,
         fixed: puzzle.fixed,
         targetPasses: puzzle.targetPasses,
       };
     case 'bst-forced-order':
-      return { template: puzzle.template, values, targetTree: puzzle.targetTree };
+      return { template: puzzle.template, values: puzzle.values, targetTree: puzzle.targetTree };
     default:
-      return { template: puzzle.template, values, fixed: puzzle.fixed };
+      return { template: puzzle.template, values: puzzle.values, fixed: puzzle.fixed };
   }
 };
 
@@ -187,6 +210,8 @@ const missReason = (puzzle: Puzzle, evaluation: PuzzleEvaluation & { solved: fal
       return `Insertion made ${plural(evaluation.insertionComparisons, 'comparison', 'comparisons')} — merge made ${evaluation.mergeComparisons}`;
     case 'bst-forced-order':
       return 'That order builds a different tree from the target.';
+    case 'linked-list-index-drift':
+      return 'That sequence leaves a different list from the target.';
     default:
       return `BST passed ${plural(evaluation.bstNodesPassed, 'node', 'nodes')} — AVL passed ${evaluation.avlNodesPassed}`;
   }

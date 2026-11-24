@@ -1,5 +1,18 @@
-import { actualNodeDiameter, markerLength } from '../../common/constants';
+import { actualNodeDiameter, markerLength, nodeDiameter } from '../../common/constants';
 import { getPointerStartEndCoordinates } from '../../common/helpers';
+
+const BASE_FONT_SIZE = 24;
+const INNER_LABEL_WIDTH = nodeDiameter - 10;
+const CHAR_WIDTH_RATIO = 0.65;
+
+/** Scales node labels above two characters so any signed 32-bit value fits inside the node circle. */
+export const listNodeFontSize = (value: number): string => {
+  const chars = String(value).length;
+  if (chars <= 2) return String(BASE_FONT_SIZE);
+  return String(
+    Math.min(BASE_FONT_SIZE, Number((INNER_LABEL_WIDTH / (chars * CHAR_WIDTH_RATIO)).toFixed(1)))
+  );
+};
 
 export enum Style {
   STRAIGHT,

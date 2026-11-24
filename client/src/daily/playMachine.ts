@@ -1,4 +1,13 @@
+import type { ListOperation } from '@/Services/puzzles/puzzles';
+import type { Template } from './puzzle';
+
 export const MAX_TRIES = 3;
+
+const lowerWins = (template?: Template) => template === 'linked-list-index-drift';
+
+/** Whether `score` reaches the goal: at or below par when lower wins, at or above it otherwise. */
+export const reachesGoal = (puzzle: { template: Template; par: number }, score: number): boolean =>
+  lowerWins(puzzle.template) ? score <= puzzle.par : score >= puzzle.par;
 
 export type ShareStatus = 'idle' | 'copied' | 'failed';
 
@@ -14,15 +23,22 @@ export type PlayState =
       stage: 'running';
       scores: TryScore[];
       arrangement: number[];
+      operations?: ListOperation[];
       runId: number;
       focusSkip: boolean;
     }
-  | { stage: 'scoring'; scores: TryScore[]; arrangement: number[] }
+  | { stage: 'scoring'; scores: TryScore[]; arrangement: number[]; operations?: ListOperation[] }
   | { stage: 'score-failed'; scores: TryScore[] }
   | { stage: 'ended'; scores: TryScore[]; share: ShareStatus };
 
 export type PlayEvent =
-  | { type: 'run'; arrangement: number[]; runId: number; focusSkip: boolean }
+  | {
+      type: 'run';
+      arrangement: number[];
+      runId: number;
+      focusSkip: boolean;
+      operations?: ListOperation[];
+    }
   | { type: 'animation-completed'; runId: number }
   | { type: 'scored'; score: TryScore }
   | { type: 'score-failed' }
@@ -39,6 +55,7 @@ export const playReducer = (state: PlayState, event: PlayEvent): PlayState => {
         stage: 'running',
         scores: state.scores,
         arrangement: event.arrangement,
+        operations: event.operations,
         runId: event.runId,
         focusSkip: event.focusSkip,
       };
@@ -48,6 +65,7 @@ export const playReducer = (state: PlayState, event: PlayEvent): PlayState => {
         stage: 'scoring',
         scores: state.scores,
         arrangement: state.arrangement,
+        operations: state.operations,
       };
     case 'scored': {
       if (state.stage !== 'scoring') return state;
@@ -72,11 +90,12 @@ export const playReducer = (state: PlayState, event: PlayEvent): PlayState => {
 const solvedScores = (scores: TryScore[]) =>
   scores.filter((score): score is number => typeof score === 'number');
 
-/** What the score readout shows: the latest try while tries remain, then the best solved try. Undefined shows no number. */
-export const shownScore = (play: PlayState): number | undefined => {
+/** What the score readout shows: the latest try while tries remain, then the best solved try (the lowest when lower wins). Undefined shows no number. */
+export const shownScore = (play: PlayState, template?: Template): number | undefined => {
   if (play.stage === 'ended') {
     const solved = solvedScores(play.scores);
-    return solved.length > 0 ? Math.max(...solved) : undefined;
+    if (solved.length === 0) return undefined;
+    return lowerWins(template) ? Math.min(...solved) : Math.max(...solved);
   }
   const latest = play.scores.at(-1);
   return typeof latest === 'number' ? latest : undefined;

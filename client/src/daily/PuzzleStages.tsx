@@ -41,7 +41,8 @@ const SingleRig = ({ stage, theme, values, mode, children }: RigProps & { stage:
     playback: session,
     stages: [{ ...stage, session, target: DEFAULT_CANVAS_TARGET }],
     mode,
-    run: (arrangement) => !session.run(stage.command, runArgs(mode, arrangement)),
+    run: (arrangement, operations) =>
+      !session.run(stage.command, runArgs(mode, arrangement, operations)),
   }));
   useEffect(() => session.setSpeed(DEFAULT_PLAYBACK_SPEED), [session]);
   return children(rig);

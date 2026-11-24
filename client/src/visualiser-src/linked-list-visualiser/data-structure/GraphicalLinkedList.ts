@@ -2,24 +2,26 @@ import AnimationProducer from '@/visualiser-src/common/AnimationProducer';
 import { SVG, Path } from '@svgdotjs/svg.js';
 import GraphicalDataStructure from '@/visualiser-src/common/GraphicalDataStructure';
 import { Documentation } from '@/visualiser-src/common/typedefs';
-import { VISUALISER_CANVAS } from '@/visualiser-src/common/constants';
+import { getCanvasTarget } from '@/visualiser-src/common/canvasTarget';
+import type { ListOperation } from '@/Services/puzzles/puzzles';
 import { injectIds } from '@/visualiser-src/common/helpers';
 import { generateNumbers } from '@/visualiser-src/common/RandomNumGenerator';
 import { CURRENT, PREV } from '../util/constants';
 import GraphicalLinkedListNode from './GraphicalLinkedListNode';
 import { drawPointerMarkers } from './pointerMarkers';
+import { runListOperations } from './linkedListRun';
 import LinkedListAppendAnimationProducer from '../animation-producer/LinkedListAppendAnimationProducer';
 import LinkedListDeleteAnimationProducer from '../animation-producer/LinkedListDeleteAnimationProducer';
 import LinkedListInsertAnimationProducer from '../animation-producer/LinkedListInsertAnimationProducer';
 import LinkedListSearchAnimationProducer from '../animation-producer/LinkedListSearchAnimationProducer';
 import LinkedListPrependAnimationProducer from '../animation-producer/LinkedListPrependAnimationProducer';
 import LinkedListAnimationProducer from '../animation-producer/LinkedListAnimationProducer';
+import type LinkedListRunAnimationProducer from '../animation-producer/LinkedListRunAnimationProducer';
 
 // An linked list data structure containing all linked list operations.
 // Every operation producers a LinkedListAnimationProducer, which an VisualiserController
 // can then use to place SVG.Runners on a timeline to animate the operation.
 export default class GraphicalLinkedList extends GraphicalDataStructure {
-  // this is the documentation shows up in the input section
   private static documentation: Documentation = injectIds({
     prepend: {
       args: ['value'],
@@ -40,6 +42,11 @@ export default class GraphicalLinkedList extends GraphicalDataStructure {
     delete: {
       args: ['index'],
       description: 'Delete a node by the index given.',
+    },
+    runOperations: {
+      args: ['operations'],
+      description: 'Runs the inserts and deletes in order, on one timeline.',
+      menu: 'hidden',
     },
   });
 
@@ -86,12 +93,10 @@ export default class GraphicalLinkedList extends GraphicalDataStructure {
   }
 
   append(input: number): AnimationProducer {
-    // now increment the length of list by 1
     this.length += 1;
     const producer = new LinkedListAppendAnimationProducer();
     producer.renderAppendCode();
 
-    // Create new node
     const newNode = GraphicalLinkedListNode.from(input);
     producer.doAnimationAndHighlight(2, producer.addNodeAtEnd, newNode, this.length);
 
@@ -265,13 +270,17 @@ export default class GraphicalLinkedList extends GraphicalDataStructure {
     return producer;
   }
 
+  public runOperations(operations: ListOperation[]): LinkedListRunAnimationProducer {
+    return runListOperations(this, operations);
+  }
+
   public generate(): void {
     const numbers = generateNumbers();
     this.load(numbers);
   }
 
   public reset(): void {
-    SVG(VISUALISER_CANVAS).clear();
+    SVG(getCanvasTarget().canvas).clear();
 
     this.head = null;
     this.length = 0;

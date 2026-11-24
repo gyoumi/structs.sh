@@ -63,6 +63,7 @@ const MULTI_OUTCOME_TEMPLATES = new Set([
   'avl-most-rotations',
   'bst-forced-order',
   'upset-bst-beats-avl',
+  'linked-list-index-drift',
 ]);
 
 /** The score of playing `arrangement` (the whole array, in slot order) on a numeric-score `puzzle`, computed by the Rust code in the wasm build. */
@@ -83,7 +84,12 @@ export const scorePuzzle = async (
   return reply.score;
 };
 
-export type EvalPuzzleInstance =
+/** One step of an index drift try, as the wasm build reads it. */
+export type ListOperation =
+  | { kind: 'insert'; value: number; index: number }
+  | { kind: 'delete'; index: number };
+
+type ArrayEvalPuzzleInstance =
   | { template: 'quicksort-most-comparisons'; values: number[]; fixed: number[] }
   | { template: 'bubble-exact-passes'; values: number[]; fixed: number[]; targetPasses: number }
   | { template: 'insertion-beats-merge'; values: number[]; fixed: number[] }
@@ -91,9 +97,17 @@ export type EvalPuzzleInstance =
   | { template: 'bst-forced-order'; values: number[]; targetTree: number[] }
   | { template: 'upset-bst-beats-avl'; values: number[]; fixed: number[] };
 
+type ListEvalPuzzleInstance = {
+  template: 'linked-list-index-drift';
+  start: number[];
+  target: number[];
+};
+
+export type EvalPuzzleInstance = ArrayEvalPuzzleInstance | ListEvalPuzzleInstance;
+
 type Outcome<Counts> = ({ solved: true; score: number } | { solved: false; score: null }) & Counts;
 
-export type PuzzleEvaluation =
+type ArrayPuzzleEvaluation =
   | { template: 'quicksort-most-comparisons'; solved: true; score: number }
   | ({ template: 'bubble-exact-passes' } & Outcome<{ passes: number; swaps: number }>)
   | ({ template: 'insertion-beats-merge' } & Outcome<{
@@ -109,34 +123,58 @@ export type PuzzleEvaluation =
       margin: number;
     }>);
 
+type IndexDriftEvaluation = { template: 'linked-list-index-drift' } & Outcome<{
+  operations: number;
+  nodesWalked: number;
+  cost: number;
+}>;
+
+export type PuzzleEvaluation = ArrayPuzzleEvaluation | IndexDriftEvaluation;
+
 /** The exact fields the wasm build takes for `puzzle`, dropping anything else the puzzle file carried. */
-const wireRequest = (puzzle: EvalPuzzleInstance, arrangement: number[]): object => {
-  const { template, values } = puzzle;
+const wireRequest = (puzzle: EvalPuzzleInstance, input: number[] | ListOperation[]): object => {
   switch (puzzle.template) {
-    case 'bst-forced-order':
-      return { template, values, targetTree: puzzle.targetTree, arrangement };
-    case 'bubble-exact-passes':
-      return {
-        template,
-        values,
-        fixed: puzzle.fixed,
-        targetPasses: puzzle.targetPasses,
-        arrangement,
-      };
-    default:
-      return { template, values, fixed: puzzle.fixed, arrangement };
+    case 'linked-list-index-drift': {
+      const { template, start, target } = puzzle;
+      return { template, start, target, operations: input };
+    }
+    case 'bst-forced-order': {
+      const { template, values, targetTree } = puzzle;
+      return { template, values, targetTree, arrangement: input };
+    }
+    case 'bubble-exact-passes': {
+      const { template, values, fixed, targetPasses } = puzzle;
+      return { template, values, fixed, targetPasses, arrangement: input };
+    }
+    default: {
+      const { template, values, fixed } = puzzle;
+      return { template, values, fixed, arrangement: input };
+    }
   }
 };
 
+/** What playing `operations` (in order) on an index drift `puzzle` did: whether it reached the target, its cost, and the counts behind it, from the wasm build. */
+export async function evaluatePuzzle(
+  puzzle: ListEvalPuzzleInstance,
+  operations: ListOperation[]
+): Promise<IndexDriftEvaluation>;
 /** What playing `arrangement` on `puzzle` did: whether it solved the puzzle, its score, and the counts behind it, from the wasm build. */
-export const evaluatePuzzle = async (
-  puzzle: EvalPuzzleInstance,
+export async function evaluatePuzzle(
+  puzzle: ArrayEvalPuzzleInstance,
   arrangement: number[]
-): Promise<PuzzleEvaluation> => {
-  const reply = await requestReply(wireRequest(puzzle, arrangement));
+): Promise<ArrayPuzzleEvaluation>;
+export async function evaluatePuzzle(
+  puzzle: EvalPuzzleInstance,
+  input: number[] | ListOperation[]
+): Promise<PuzzleEvaluation>;
+export async function evaluatePuzzle(
+  puzzle: EvalPuzzleInstance,
+  input: number[] | ListOperation[]
+): Promise<PuzzleEvaluation> {
+  const reply = await requestReply(wireRequest(puzzle, input));
   if (puzzle.template === 'quicksort-most-comparisons') {
     const { score } = reply as { score: number };
     return { template: puzzle.template, solved: true, score };
   }
   return { template: puzzle.template, ...(reply as object) } as PuzzleEvaluation;
-};
+}

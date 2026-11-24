@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { reachesGoal } from './playMachine';
 
 export const PUZZLE_URL = '/puzzles/today.json';
 
@@ -29,13 +30,26 @@ export type ForcedOrderPuzzle = PuzzleBase & {
 
 export type UpsetPuzzle = PuzzleBase & { template: 'upset-bst-beats-avl' };
 
+/** Turn `start` into `target` with inserts and deletes by index, at the lowest cost. It has no values to arrange. */
+export type IndexDriftPuzzle = {
+  number: number;
+  template: 'linked-list-index-drift';
+  start: number[];
+  target: number[];
+  par: number;
+  date?: string;
+  values?: never;
+  fixed?: never;
+};
+
 export type Puzzle =
   | QuicksortPuzzle
   | BubblePuzzle
   | InsertionMergePuzzle
   | AvlRotationsPuzzle
   | ForcedOrderPuzzle
-  | UpsetPuzzle;
+  | UpsetPuzzle
+  | IndexDriftPuzzle;
 
 export type Template = Puzzle['template'];
 
@@ -46,6 +60,7 @@ const TITLES: Record<Template, string> = {
   'avl-most-rotations': 'AVL tree',
   'bst-forced-order': 'Forced order',
   'upset-bst-beats-avl': 'Upset',
+  'linked-list-index-drift': 'Index drift',
 };
 
 const isTemplate = (template: unknown): template is Template =>
@@ -95,6 +110,13 @@ const formatError = () => new Error('The puzzle file is not in the expected form
 /** Whether the file must list fixed slots, or has none and may only leave `fixed` out or empty. */
 type FixedRule = 'listed' | 'none';
 
+const parseDate = (date: unknown): string | undefined => {
+  if (date !== undefined && (typeof date !== 'string' || date.trim() === '')) {
+    throw new Error('The puzzle date is not in the expected format.');
+  }
+  return date?.trim();
+};
+
 const parseBase = (data: unknown, rule: FixedRule): PuzzleBase => {
   const raw = data as Partial<PuzzleBase> | null;
   const puzzle =
@@ -114,14 +136,9 @@ const parseBase = (data: unknown, rule: FixedRule): PuzzleBase => {
   ) {
     throw formatError();
   }
-  const { date } = puzzle as { date?: unknown };
-  if (date !== undefined && (typeof date !== 'string' || date.trim() === '')) {
-    throw new Error('The puzzle date is not in the expected format.');
-  }
+  const date = parseDate((puzzle as { date?: unknown }).date);
   const { number, values, fixed, par } = puzzle as PuzzleBase;
-  return date === undefined
-    ? { number, values, fixed, par }
-    : { number, values, fixed, par, date: date.trim() };
+  return date === undefined ? { number, values, fixed, par } : { number, values, fixed, par, date };
 };
 
 const MAX_U32 = 0xffffffff;
@@ -133,10 +150,34 @@ const parseForcedOrder = (data: unknown): ForcedOrderPuzzle => {
   return { template: 'bst-forced-order', ...base, fixed: [], targetTree };
 };
 
+const parseIndexDrift = (data: object): IndexDriftPuzzle => {
+  const { number, start, target, par } = data as Partial<Record<string, unknown>>;
+  if (
+    Object.hasOwn(data, 'values') ||
+    Object.hasOwn(data, 'fixed') ||
+    !Number.isFinite(number) ||
+    !isNumbers(start) ||
+    !isNumbers(target) ||
+    !Number.isFinite(par)
+  ) {
+    throw formatError();
+  }
+  const date = parseDate((data as { date?: unknown }).date);
+  const puzzle: IndexDriftPuzzle = {
+    number: number as number,
+    template: 'linked-list-index-drift',
+    start,
+    target,
+    par: par as number,
+  };
+  return date === undefined ? puzzle : { ...puzzle, date };
+};
+
 export const parsePuzzle = (data: unknown): Puzzle => {
   const { template, targetPasses } = (data ?? {}) as { template?: unknown; targetPasses?: unknown };
   if (!isTemplate(template)) throw formatError();
   if (template === 'bst-forced-order') return parseForcedOrder(data);
+  if (template === 'linked-list-index-drift') return parseIndexDrift(data as object);
   const base = parseBase(data, 'listed');
   if (template !== 'bubble-exact-passes') return { template, ...base };
   if (
@@ -159,7 +200,7 @@ export const puzzleTitle = (template: string) => {
 /** A try's score, or null when the try did not solve the puzzle. */
 export type SharedScore = number | null;
 
-/** One line per try: its score, marked ⭐ at the goal, or ✗ when unsolved. Never the arrangement. */
+/** One line per try: its score, marked ⭐ at the goal, or ✗ when unsolved. Never the try's input. */
 export const shareText = (
   puzzle: Pick<Puzzle, 'number' | 'template' | 'par'>,
   scores: SharedScore[]
@@ -168,7 +209,7 @@ export const shareText = (
     `structs.sh daily #${puzzle.number} · ${puzzleTitle(puzzle.template)} · Goal ${puzzle.par}`,
     ...scores.map((score) => {
       if (score === null) return '✗';
-      return `${score}${score >= puzzle.par ? ' ⭐' : ''}`;
+      return `${score}${reachesGoal(puzzle, score) ? ' ⭐' : ''}`;
     }),
     'structs.sh/daily',
   ].join('\n');

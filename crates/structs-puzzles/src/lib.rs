@@ -13,6 +13,8 @@ pub mod avl_rotations;
 pub mod bst_forced_order;
 pub mod bubble;
 pub mod insertion_beats_merge;
+pub mod linked_list_index_drift;
+mod list_wire;
 pub mod quicksort;
 mod request;
 mod tree;
@@ -85,4 +87,11 @@ pub enum InputError {
     /// Input has the right length and fixed values intact, but is not a
     /// rearrangement of the instance's values.
     NotAPermutation,
+    /// Operation `operation` (0-based) deletes `index` from a list of
+    /// `length` nodes, where `index >= length`.
+    DeleteIndexOutOfRange {
+        operation: usize,
+        index: usize,
+        length: usize,
+    },
 }

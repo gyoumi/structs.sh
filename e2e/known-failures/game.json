@@ -1,4 +1,1 @@
-{
-  "daily index drift › loads and plays an operation list, counting operations, nodes walked and cost": "Step 2a-3 is not built yet: /daily cannot load a linked-list-index-drift puzzle, so there is no Start list, Target list, Operation builder or Operations / Nodes walked / Cost readouts, and nothing to run.",
-  "daily index drift › the lowest solved cost wins, and an unsolved try never outranks a solved one": "Step 2a-3 is not built yet: /daily cannot load a linked-list-index-drift puzzle, so there is no Start list, Target list, Operation builder or Operations / Nodes walked / Cost readouts, and no lower-wins ranking of solved tries over unsolved ones."
-}
+{}

@@ -7,6 +7,12 @@ const passes = (count: number) => `${count} ${count === 1 ? 'pass' : 'passes'}`;
 
 const introFor = (puzzle: Puzzle): Intro => {
   switch (puzzle.template) {
+    case 'linked-list-index-drift':
+      return {
+        title: 'Rebuild the list',
+        lede: 'Turn the start list into the target list with insert and delete by index.',
+        rule: 'Cost is operations + nodes walked. Lower wins.',
+      };
     case 'bubble-exact-passes':
       return {
         title: 'Land bubble sort on time',
@@ -59,14 +65,16 @@ export const PuzzleIntro = ({ puzzle }: { puzzle: Puzzle }) => {
       <section aria-label="Puzzle rules" className={styles.rules}>
         <p className={styles.lede}>{lede}</p>
         <p>{rule}</p>
-        <details className={styles.keys}>
-          <summary>Keyboard controls</summary>
-          <p>
-            Press Enter or Space to pick a number. Use Left or Right to swap it with the next
-            unlocked one, or Tab to another and press Enter or Space to swap. Escape clears the
-            selection.
-          </p>
-        </details>
+        {puzzle.template !== 'linked-list-index-drift' && (
+          <details className={styles.keys}>
+            <summary>Keyboard controls</summary>
+            <p>
+              Press Enter or Space to pick a number. Use Left or Right to swap it with the next
+              unlocked one, or Tab to another and press Enter or Space to swap. Escape clears the
+              selection.
+            </p>
+          </details>
+        )}
       </section>
     </>
   );
