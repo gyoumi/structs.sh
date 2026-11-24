@@ -39,6 +39,16 @@ export class DailyPage {
     await expect(this.ui.slots.first(), '/daily should render slot buttons inside Puzzle array').toBeVisible();
   }
 
+  /** Clicks a link in the /daily header's Main navigation, such as `Debugger` or `Visualiser`. */
+  async openFromMainNav(name: 'Debugger' | 'Visualiser'): Promise<void> {
+    const link = this.page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name, exact: true });
+    await expect(
+      link,
+      `/daily header should contain <nav aria-label="Main"> with a link named "${name}" (beside the structs.sh home brand link)`,
+    ).toBeVisible();
+    await link.click();
+  }
+
   // --------------------------------------------------------------- reading
 
   async expectRulesToContain(expected: string, context: string): Promise<void> {

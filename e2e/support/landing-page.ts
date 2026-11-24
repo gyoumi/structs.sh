@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import { topicTitles, type TopicSlug } from './topics';
 
 /**
@@ -21,6 +21,63 @@ export class LandingPage {
 
   async openDebugger(): Promise<void> {
     await this.page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Debugger' }).click();
+  }
+
+  /** Clicks the `Daily puzzle` link in the landing page's Main navigation. */
+  async openDailyFromNav(): Promise<void> {
+    const link = this.page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Daily puzzle' });
+    await expect(
+      link,
+      'Landing page <nav aria-label="Main"> should contain a link named "Daily puzzle" (to /daily) beside Visualiser, Debugger and GitHub',
+    ).toBeVisible();
+    await link.click();
+  }
+
+  /** Clicks the "Play today's puzzle" action in the hero (the section labelled by the structs.sh heading). */
+  async openDailyFromHero(): Promise<void> {
+    const hero = this.page.getByRole('region', { name: 'structs.sh', exact: true });
+    await expect(hero, 'Landing page should show the hero <section aria-labelledby="hero-title"> named "structs.sh"').toBeVisible();
+    const link = hero.getByRole('link', { name: /play today.?s puzzle/i });
+    await expect(
+      link,
+      'Hero actions should include a link matching /play today.?s puzzle/i (to /daily) beside "Pick a structure" and "Open the debugger"',
+    ).toBeVisible();
+    await link.click();
+  }
+
+  /** The landing page section that introduces the daily puzzle. */
+  dailyPromoRegion(): Locator {
+    return this.page.getByRole('region', { name: /daily puzzle/i });
+  }
+
+  /** Asserts the daily puzzle section is shown and says what the game is: three tries, and streaks. */
+  async expectDailyPromoInfo(): Promise<void> {
+    const region = this.dailyPromoRegion();
+    await expect(
+      region,
+      'Landing page should have a <section> whose accessible name matches /daily puzzle/i (aria-label or aria-labelledby a "Daily puzzle" h2)',
+    ).toBeVisible();
+    await expect(
+      region.getByRole('heading', { level: 2 }),
+      'The Daily puzzle section should have a level-2 heading introducing the puzzle',
+    ).toBeVisible();
+    await expect(
+      region,
+      'The Daily puzzle section should say how many tries a player gets (text matching /3 tries|three tries/i)',
+    ).toContainText(/3 tries|three tries/i);
+    await expect(region, 'The Daily puzzle section should mention streaks (text matching /streak/i)').toContainText(
+      /streak/i,
+    );
+  }
+
+  /** Clicks the "Play today's puzzle" link inside the daily puzzle section. */
+  async openDailyFromPromo(): Promise<void> {
+    const link = this.dailyPromoRegion().getByRole('link', { name: /play today.?s puzzle/i });
+    await expect(
+      link,
+      'The Daily puzzle section should contain a link matching /play today.?s puzzle/i (to /daily)',
+    ).toBeVisible();
+    await link.click();
   }
 
   /** Every external link on the page. */
