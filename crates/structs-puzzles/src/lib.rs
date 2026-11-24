@@ -11,12 +11,17 @@
 
 pub mod avl_rotations;
 pub mod bst_forced_order;
+mod bst_space;
 pub mod bubble;
+mod fixed_slots;
 pub mod insertion_beats_merge;
 pub mod linked_list_index_drift;
+mod list_space;
 mod list_wire;
 pub mod quicksort;
 mod request;
+mod rng;
+mod search;
 mod tree;
 pub mod upset_bst_beats_avl;
 mod validate;
@@ -24,6 +29,8 @@ pub mod wire;
 
 #[cfg(target_arch = "wasm32")]
 mod ffi;
+
+pub use search::{ExtendFn, SearchSpace, Shortcut, StateKeyFn};
 
 use std::cmp::Ordering;
 
@@ -107,6 +114,27 @@ pub trait Template {
     ) -> Result<Option<u32>, InputError> {
         self.score(instance, input).map(Some)
     }
+
+    /// Generates the puzzle instance for `seed`; the same seed always gives
+    /// the same instance.
+    fn generate(&self, seed: u64) -> Self::Instance;
+
+    /// Every input a search may consider for `instance`.
+    fn search_space(&self, instance: &Self::Instance) -> SearchSpace<Self::Input>;
+
+    /// Named, hand-picked inputs for `instance`, each one valid.
+    fn shortcuts(&self, instance: &Self::Instance) -> Vec<Shortcut<Self::Input>>;
+
+    /// A valid input for `instance`, determined by `seed`.
+    fn random_input(&self, instance: &Self::Instance, seed: u64) -> Self::Input;
+
+    /// A valid input close to `input`, determined by `seed`, for local search.
+    fn random_neighbor(
+        &self,
+        instance: &Self::Instance,
+        input: &Self::Input,
+        seed: u64,
+    ) -> Self::Input;
 }
 
 /// Reason a player's input is rejected for a puzzle instance.

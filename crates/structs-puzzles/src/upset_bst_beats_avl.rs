@@ -25,9 +25,13 @@
 //!
 //! Inputs are validated in [`InputError`] order.
 
+use crate::fixed_slots::{
+    ascending, descending, exhaustive_free_permutations, generate_fixed_instance,
+    random_fixed_input, random_fixed_neighbor, shortcut, smallest_last, zigzag,
+};
 use crate::tree::{self, Event};
 use crate::validate::{count, validate};
-use crate::{InputError, Template};
+use crate::{InputError, SearchSpace, Shortcut, Template};
 
 /// Upset puzzle template (`ID = "upset-bst-beats-avl"`).
 pub struct UpsetBstBeatsAvl;
@@ -159,5 +163,48 @@ impl Template for UpsetBstBeatsAvl {
     ) -> Result<Option<u32>, InputError> {
         let outcome = self.evaluate(instance, input)?;
         Ok(outcome.solved.then_some(outcome.margin))
+    }
+
+    fn generate(&self, seed: u64) -> Self::Instance {
+        let (values, fixed) = generate_fixed_instance(14, 6, seed);
+        Instance { values, fixed }
+    }
+
+    fn search_space(&self, instance: &Self::Instance) -> SearchSpace<Self::Input> {
+        SearchSpace::Exhaustive(exhaustive_free_permutations(
+            &instance.values,
+            &instance.fixed,
+        ))
+    }
+
+    fn shortcuts(&self, instance: &Self::Instance) -> Vec<Shortcut<Self::Input>> {
+        let (values, fixed) = (&instance.values, &instance.fixed);
+        vec![
+            shortcut("ascending", values, fixed, ascending),
+            shortcut("descending", values, fixed, descending),
+            shortcut("zigzag", values, fixed, zigzag),
+            shortcut("smallest-last-asc", values, fixed, |sorted| {
+                smallest_last(sorted, ascending)
+            }),
+            shortcut("smallest-last-desc", values, fixed, |sorted| {
+                smallest_last(sorted, descending)
+            }),
+            shortcut("smallest-last-zigzag", values, fixed, |sorted| {
+                smallest_last(sorted, zigzag)
+            }),
+        ]
+    }
+
+    fn random_input(&self, instance: &Self::Instance, seed: u64) -> Self::Input {
+        random_fixed_input(&instance.values, &instance.fixed, seed)
+    }
+
+    fn random_neighbor(
+        &self,
+        instance: &Self::Instance,
+        input: &Self::Input,
+        seed: u64,
+    ) -> Self::Input {
+        random_fixed_neighbor(&instance.fixed, input, seed)
     }
 }

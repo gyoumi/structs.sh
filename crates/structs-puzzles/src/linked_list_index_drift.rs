@@ -27,8 +27,9 @@
 //! A delete whose index is not in the list at that point is rejected with
 //! [`InputError::DeleteIndexOutOfRange`].
 
+use crate::list_space;
 use crate::validate::count;
-use crate::{InputError, ScoreDirection, Template};
+use crate::{InputError, ScoreDirection, SearchSpace, Shortcut, Template};
 use serde::{Deserialize, Serialize};
 
 /// Index drift puzzle template (`ID = "linked-list-index-drift"`).
@@ -138,6 +139,34 @@ impl Template for LinkedListIndexDrift {
     ) -> Result<Option<u32>, InputError> {
         let outcome = self.evaluate(instance, input)?;
         Ok(outcome.solved.then_some(outcome.cost))
+    }
+
+    fn generate(&self, seed: u64) -> Self::Instance {
+        list_space::generate(seed)
+    }
+
+    fn search_space(&self, instance: &Self::Instance) -> SearchSpace<Self::Input> {
+        list_space::search_space(instance)
+    }
+
+    fn shortcuts(&self, instance: &Self::Instance) -> Vec<Shortcut<Self::Input>> {
+        vec![Shortcut {
+            name: "cheap-front-rebuild",
+            input: list_space::cheap_front_rebuild(instance),
+        }]
+    }
+
+    fn random_input(&self, instance: &Self::Instance, seed: u64) -> Self::Input {
+        list_space::random_input(instance, seed)
+    }
+
+    fn random_neighbor(
+        &self,
+        instance: &Self::Instance,
+        input: &Self::Input,
+        seed: u64,
+    ) -> Self::Input {
+        list_space::random_neighbor(instance, input, seed)
     }
 }
 

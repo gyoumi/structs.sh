@@ -26,8 +26,12 @@
 //!
 //! Inputs are validated in [`InputError`] order.
 
+use crate::fixed_slots::{
+    ascending, desc_halves, descending, exhaustive_free_permutations, generate_fixed_instance,
+    random_fixed_input, random_fixed_neighbor, shortcut, zigzag,
+};
 use crate::validate::{count, validate};
-use crate::{InputError, Template};
+use crate::{InputError, SearchSpace, Shortcut, Template};
 
 /// Insertion beats merge puzzle template (`ID = "insertion-beats-merge"`).
 pub struct InsertionBeatsMerge;
@@ -144,6 +148,41 @@ impl Template for InsertionBeatsMerge {
     ) -> Result<Option<u32>, InputError> {
         let outcome = self.evaluate(instance, input)?;
         Ok(outcome.solved.then_some(outcome.inversions))
+    }
+
+    fn generate(&self, seed: u64) -> Self::Instance {
+        let (values, fixed) = generate_fixed_instance(9, 3, seed);
+        Instance { values, fixed }
+    }
+
+    fn search_space(&self, instance: &Self::Instance) -> SearchSpace<Self::Input> {
+        SearchSpace::Exhaustive(exhaustive_free_permutations(
+            &instance.values,
+            &instance.fixed,
+        ))
+    }
+
+    fn shortcuts(&self, instance: &Self::Instance) -> Vec<Shortcut<Self::Input>> {
+        let (values, fixed) = (&instance.values, &instance.fixed);
+        vec![
+            shortcut("ascending", values, fixed, ascending),
+            shortcut("descending", values, fixed, descending),
+            shortcut("zigzag", values, fixed, zigzag),
+            shortcut("desc-halves", values, fixed, desc_halves),
+        ]
+    }
+
+    fn random_input(&self, instance: &Self::Instance, seed: u64) -> Self::Input {
+        random_fixed_input(&instance.values, &instance.fixed, seed)
+    }
+
+    fn random_neighbor(
+        &self,
+        instance: &Self::Instance,
+        input: &Self::Input,
+        seed: u64,
+    ) -> Self::Input {
+        random_fixed_neighbor(&instance.fixed, input, seed)
     }
 }
 
