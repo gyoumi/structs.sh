@@ -30,8 +30,11 @@ pub enum SearchSpace<I> {
     /// Cumulative step costs from `start` must never exceed a solved
     /// descendant's [`Template::solved_score`](crate::Template::solved_score)
     /// (for additive-cost templates such as index drift, cumulative cost
-    /// equals `solved_score`), and states sharing a `state_key` must allow the
-    /// same optimal continuations.
+    /// equals `solved_score`). Whenever two partial inputs share a `state_key`,
+    /// the one with the lower or equal cumulative cost must be able to achieve
+    /// a final `solved_score` no worse than the discarded one (directly or via
+    /// continuations), so keeping only the first minimum-cost arrival per key
+    /// preserves an optimum.
     Incremental {
         /// The empty input every search begins from.
         start: I,
