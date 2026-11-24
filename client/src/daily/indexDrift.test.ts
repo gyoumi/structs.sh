@@ -110,7 +110,7 @@ const afterTries = (scores: TryScore[]): PlayState =>
     (state, score, i) => {
       const running = playReducer(state, {
         type: 'run',
-        arrangement: [],
+        input: { kind: 'operations', operations: [] },
         runId: i + 1,
         focusSkip: false,
       });

@@ -42,12 +42,6 @@ export type PlayEvent =
       runId: number;
       focusSkip: boolean;
     }
-  | {
-      type: 'run';
-      arrangement: number[];
-      runId: number;
-      focusSkip: boolean;
-    }
   | { type: 'animation-completed'; runId: number }
   | { type: 'scored'; score: TryScore }
   | { type: 'score-failed' }
@@ -60,12 +54,10 @@ export const playReducer = (state: PlayState, event: PlayEvent): PlayState => {
   switch (event.type) {
     case 'run': {
       if (state.stage !== 'ready' && state.stage !== 'score-failed') return state;
-      const input: PlayInput =
-        'input' in event ? event.input : { kind: 'arrangement', arrangement: event.arrangement };
       return {
         stage: 'running',
         scores: state.scores,
-        input,
+        input: event.input,
         runId: event.runId,
         focusSkip: event.focusSkip,
       };
