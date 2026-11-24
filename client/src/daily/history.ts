@@ -14,7 +14,7 @@ import {
   type SavedTry,
 } from './historyValidation';
 
-export { isIsoDate, sameTries, type SavedTry } from './historyValidation';
+export { extendsExisting, isIsoDate, sameTries, type SavedTry } from './historyValidation';
 
 /** Bumped when the saved format changes, so older saves are dropped instead of misread. */
 export const HISTORY_VERSION = 1 as const;

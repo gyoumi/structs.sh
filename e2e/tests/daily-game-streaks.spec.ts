@@ -228,4 +228,43 @@ test.describe('daily game streaks and history', () => {
       await secondPage.close();
     }
   });
+
+  test('a deferred same-day prefix sync keeps an unsaved third try and clears the alert once saved', async ({ context, dailyPage, dailyTemplate, dailyHistory }) => {
+    await dailyHistory.serveOnly(DAY_21);
+    await dailyPage.open();
+    await swapRunSkip(dailyPage, null, `${DAY_21.date} try 1`);
+
+    await dailyHistory.failStorageWrites();
+    await swapRunSkip(dailyPage, DAILY_12.par.swap, `${DAY_21.date} try 2 with quota full`);
+    await dailyHistory.expectSaveFailedAlert('after try 2 failed to save');
+
+    await dailyPage.swap(DAILY_12.highFromPar.swap[0], DAILY_12.highFromPar.swap[1]);
+    await dailyPage.run();
+
+    const secondPage = await context.newPage();
+    try {
+      await secondPage.route('**/api/daily', (route) =>
+        route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(DAY_21) }),
+      );
+      const secondDaily = new DailyPage(secondPage);
+      await secondDaily.open();
+      await swapRunSkip(secondDaily, DAILY_12.par.swap, `${DAY_21.date} second tab saves try 2 while first tab runs try 3`);
+
+      await dailyPage.skip(`${DAY_21.date} try 3 finishing with quota full after second tab saved try 2`);
+      const chips = [`${DAILY_12.start.count}`, `${DAILY_12.par.count} ⭐`, `${DAILY_12.highFromPar.count} ⭐`];
+      const deferredCtx = `${DAY_21.date} tab after deferred prefix sync`;
+      await dailyPage.expectStatusNumber('Tries left', 0, `${deferredCtx}: third try must not be discarded`);
+      await dailyTemplate.expectTryChips(chips, deferredCtx);
+      await dailyHistory.expectSaveFailedAlert(`${deferredCtx}: third try is still unsaved`);
+      expect(await dailyPage.canShare(), `${deferredCtx}: Share must stay enabled`).toBe(true);
+
+      await swapRunSkip(secondDaily, DAILY_12.highFromPar.swap, `${DAY_21.date} second tab saves matching try 3`);
+      const clearedCtx = `${DAY_21.date} tab after second tab persisted matching try 3`;
+      await dailyHistory.expectNoSaveFailedAlert(clearedCtx);
+      await dailyHistory.expectStreak(1, `${clearedCtx}: streak should reflect completed day`);
+      await dailyTemplate.expectTryChips(chips, clearedCtx);
+    } finally {
+      await secondPage.close();
+    }
+  });
 });

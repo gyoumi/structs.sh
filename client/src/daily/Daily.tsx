@@ -33,7 +33,6 @@ type Progress = {
   initialTries: SavedTry[];
   storageRevision: number;
   streak?: number;
-  saveFailed: boolean;
   onRecordTries: (tries: SavedTry[]) => Promise<PersistOutcome>;
 };
 
@@ -120,7 +119,6 @@ const IndexDriftView = ({ puzzle, theme, progress }: ViewProps<IndexDriftPuzzle>
 const PuzzleView = ({ puzzle, theme }: { puzzle: Puzzle; theme: Theme }) => {
   const [history, setHistory] = useState(() => loadHistory());
   const [storageRevision, setStorageRevision] = useState(0);
-  const [saveFailed, setSaveFailed] = useState(false);
   const persistedTries = useRef(savedTriesForPuzzle(history, puzzle));
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
@@ -144,12 +142,10 @@ const PuzzleView = ({ puzzle, theme }: { puzzle: Puzzle; theme: Theme }) => {
     initialTries,
     storageRevision,
     streak,
-    saveFailed,
     onRecordTries: async (tries) => {
       const outcome = await persistPuzzleTriesLocked(puzzle, tries);
       persistedTries.current = savedTriesForPuzzle(outcome.history, puzzle);
       setHistory(outcome.history);
-      setSaveFailed(outcome.status === 'failed');
       return outcome;
     },
   };

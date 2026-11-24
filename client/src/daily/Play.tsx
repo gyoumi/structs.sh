@@ -7,7 +7,7 @@ import { canvasThemes } from '@/visualiser/canvasThemes';
 import { PlaybackContext } from '@/visualiser/playback';
 import { usePrefersReducedMotion } from '@/visualiser/useVisualiser';
 import { MobileHud, StepCard } from './DailyCards';
-import { sameTries, type PersistOutcome, type SavedTry } from './history';
+import { extendsExisting, sameTries, type PersistOutcome, type SavedTry } from './history';
 import {
   MAX_TRIES,
   PlayInput,
@@ -49,8 +49,6 @@ type PlayBaseProps = {
   storageRevision: number;
   /** Days in a row finished, shown in the share text. */
   streak?: number;
-  /** Whether the last attempt to persist progress to browser storage failed. */
-  saveFailed: boolean;
   /** Saves every try so far under a cross-tab lock and reports the persistence outcome. */
   onRecordTries: (tries: SavedTry[]) => Promise<PersistOutcome>;
 };
@@ -85,7 +83,6 @@ export const Play = (props: PlayProps) => {
     initialTries,
     storageRevision,
     streak,
-    saveFailed,
     onRecordTries,
   } = props;
   const completedRunId = useCompletedRunId(rig);
@@ -105,6 +102,7 @@ export const Play = (props: PlayProps) => {
     initialTries.map((saved) => saved.score),
     restoredPlayState
   );
+  const [saveFailed, setSaveFailed] = useState(false);
   const savedTries = useRef(initialTries);
   const appliedRevision = useRef(storageRevision);
   const recordTry = useEffectEvent(
@@ -114,9 +112,11 @@ export const Play = (props: PlayProps) => {
       if (isCancelled()) return;
       if (outcome.status === 'synced') {
         savedTries.current = outcome.tries;
+        setSaveFailed(false);
         dispatch({ type: 'synced', scores: outcome.tries.map((saved) => saved.score) });
         return;
       }
+      setSaveFailed(outcome.status === 'failed');
       savedTries.current = outcome.status === 'saved' ? outcome.tries : nextTries;
       dispatch({ type: 'scored', score });
     }
@@ -168,8 +168,13 @@ export const Play = (props: PlayProps) => {
     if (storageRevision === appliedRevision.current) return;
     if (play.stage === 'running' || play.stage === 'scoring') return;
     appliedRevision.current = storageRevision;
-    if (sameTries(initialTries, savedTries.current)) return;
+    if (sameTries(initialTries, savedTries.current)) {
+      setSaveFailed(false);
+      return;
+    }
+    if (initialTries.length > 0 && extendsExisting(initialTries, savedTries.current)) return;
     savedTries.current = initialTries;
+    setSaveFailed(false);
     dispatch({ type: 'synced', scores: initialTries.map((saved) => saved.score) });
   }, [initialTries, play.stage, storageRevision]);
 

@@ -150,6 +150,14 @@ export class DailyHistoryPage {
     ).toBeVisible();
   }
 
+  /** No alert warns about failed browser storage saves. */
+  async expectNoSaveFailedAlert(context: string): Promise<void> {
+    await expect(
+      this.page.getByRole('alert').filter({ hasText: /couldn['’]?t save progress/i }),
+      `${context}: the save-failed alert should clear once progress is saved`,
+    ).toHaveCount(0);
+  }
+
   /** An alert says the server can't be reached, with an enabled `Try again` button. */
   async expectUnreachable(context: string): Promise<void> {
     await this.expectAlert(UNREACHABLE, `${context}: an alert should say the server can't be reached`);
