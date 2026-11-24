@@ -7,14 +7,7 @@ import { PlaybackContext } from '@/visualiser/playback';
 import { usePrefersReducedMotion } from '@/visualiser/useVisualiser';
 import { MobileHud, StepCard } from './DailyCards';
 import { extendsExisting, sameTries, type PersistOutcome, type SavedTry } from './history';
-import {
-  MAX_TRIES,
-  PlayInput,
-  playReducer,
-  restoredPlayState,
-  sharedScores,
-  TryScore,
-} from './playMachine';
+import { MAX_TRIES, PlayInput, playReducer, restoredPlayState, sharedScores } from './playMachine';
 import { messageFor, mobileOutcomeOf } from './playMessages';
 import { validateOperations } from './OperationBuilder';
 import { ChallengeStages } from './ChallengeStages';
@@ -22,7 +15,8 @@ import { IndexDriftChallenge, Challenge, shareText } from './challenge';
 import { Rig, useCompletedRunId, useReadoutValue, useStageSnapshot } from './rig';
 import { ScoreCard } from './ScoreCard';
 import { TargetTree } from './TargetTree';
-import { readoutsFor, scoreRun, tryScoreOf, valuesForInput } from './templates';
+import { readoutsFor, valuesForInput } from './templates';
+import { HeldTry, useHeldTry } from './useHeldTry';
 import { stageRunOf, useStageRun } from './useStageRun';
 import styles from './Daily.module.css';
 
@@ -44,6 +38,8 @@ type PlayBaseProps = {
   streak?: number;
   /** Saves every try so far under a cross-tab lock and reports the persistence outcome. */
   onRecordTries: (tries: SavedTry[]) => Promise<PersistOutcome>;
+  /** Called when a try saved at Run is shown at its run's end, so the page catches up. */
+  onTriesShown: () => void;
   /** Restores the editor input when another tab's completion freezes this challenge. */
   onRestoreInput: (input: PlayInput) => void;
 };
@@ -66,6 +62,7 @@ export const Play = (props: PlayProps) => {
     storageRevision,
     streak,
     onRecordTries,
+    onTriesShown,
     onRestoreInput,
   } = props;
   const completedRunId = useCompletedRunId(rig);
@@ -107,20 +104,17 @@ export const Play = (props: PlayProps) => {
     dispatch({ type: 'synced', scores: tries.map((saved) => saved.score) });
   });
 
-  const recordTry = useEffectEvent(
-    async (tried: PlayInput, score: TryScore, isCancelled: () => boolean) => {
-      const nextTries = [...savedTries.current, { input: tried, score }];
-      const outcome = await onRecordTries(nextTries);
-      if (isCancelled()) return;
-      if (outcome.status === 'synced') {
-        applySynced(outcome.tries);
-        return;
-      }
+  const { hold, held } = useHeldTry(challenge, savedTries, onRecordTries);
+  const showHeld = useEffectEvent(({ score, tries, outcome }: HeldTry) => {
+    if (outcome.status === 'synced') {
+      applySynced(outcome.tries);
+    } else {
       setSaveFailed(outcome.status === 'failed');
-      savedTries.current = outcome.status === 'saved' ? outcome.tries : nextTries;
+      savedTries.current = outcome.status === 'saved' ? outcome.tries : tries;
       dispatch({ type: 'scored', score });
     }
-  );
+    onTriesShown();
+  });
 
   useEffect(() => {
     loadChallenges().catch(() => {});
@@ -161,11 +155,9 @@ export const Play = (props: PlayProps) => {
   useEffect(() => {
     if (play.stage !== 'scoring') return undefined;
     let cancelled = false;
-    scoreRun(challenge, play.input)
-      .then(async (evaluation) => {
-        if (cancelled) return;
-        const score = tryScoreOf(challenge, evaluation);
-        await recordTry(play.input, score, () => cancelled);
+    held()
+      .then((result) => {
+        if (!cancelled) showHeld(result);
       })
       .catch((error) => {
         console.error(error);
@@ -174,13 +166,14 @@ export const Play = (props: PlayProps) => {
     return () => {
       cancelled = true;
     };
-  }, [play, challenge]);
+  }, [play, held]);
 
   const run = () => {
     if (unrunnable) return;
     const focusSkip = document.activeElement === runButton.current;
     const runId = start(stageRunOf(challenge, input));
     if (runId === null) return;
+    hold(input);
     dispatch({ type: 'run', input, runId, focusSkip });
     runner.current?.scrollIntoView?.({
       behavior: reducedMotion ? 'auto' : 'smooth',

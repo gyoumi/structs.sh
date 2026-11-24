@@ -154,9 +154,11 @@ test.describe('daily game streaks and history', () => {
     await dailyHistory.serveOnly(DAY_21);
     await dailyPage.open();
 
-    await dailyPage.run();
+    // Another tab saves its first try before this tab presses Run. The seed writes from this same page, so no
+    // storage event reaches it: this tab is stale and still shows 3 tries left when it presses Run.
     await dailyHistory.seedSavedTry(DAY_21, DAILY_12.goal.values, DAILY_12.goal.count);
-    await dailyPage.skip('stale tab try 1 finishing after another tab saved goal');
+    await dailyPage.run();
+    await dailyPage.skip('stale tab try 1, run after missing another tab’s save of goal');
 
     const syncedCtx = 'stale tab after reconciling with another tab’s first try';
     await dailyPage.expectStatusNumber('Tries left', 2, `${syncedCtx}: should reflect the saved try`);
