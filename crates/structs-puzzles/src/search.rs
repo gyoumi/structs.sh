@@ -23,8 +23,15 @@ pub type ExtendFn<I> = Box<dyn Fn(&I) -> Vec<(I, u32)>>;
 pub enum SearchSpace<I> {
     /// A finite list of complete inputs, produced lazily.
     Exhaustive(Box<dyn Iterator<Item = I>>),
-    /// Inputs built step by step from `start`, for templates whose inputs
-    /// have no fixed length.
+    /// Inputs built step by step from `start`, for
+    /// [`ScoreDirection::LowerWins`](crate::ScoreDirection::LowerWins)
+    /// templates whose inputs have no fixed length.
+    ///
+    /// Cumulative step costs from `start` must never exceed a solved
+    /// descendant's [`Template::solved_score`](crate::Template::solved_score)
+    /// (for additive-cost templates such as index drift, cumulative cost
+    /// equals `solved_score`), and states sharing a `state_key` must allow the
+    /// same optimal continuations.
     Incremental {
         /// The empty input every search begins from.
         start: I,
