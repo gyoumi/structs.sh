@@ -133,6 +133,13 @@
   }
 }
 
+@media (max-width: 420px) {
+  .nav {
+    gap: 0.75rem;
+    font-size: 0.875rem;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .themeToggle {
     transition-duration: 1ms;

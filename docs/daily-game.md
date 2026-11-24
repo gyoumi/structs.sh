@@ -192,7 +192,8 @@ same time. 1f needs both.
   fetches the file, and the e2e tests serve their own puzzle in its place
   with Playwright's network interception. At checkpoint 3 only the address
   changes, to the server's.
-- **The page lives at `/daily`**, and nothing links to it until the goal.
+- **The page lives at `/daily`**, and nothing linked to it until step 3d
+  added the entry points.
 - **The page uses the UI overhaul's look from the start.** The overhaul
   ([#10](https://github.com/gyoumi/structs.sh/pull/10)) is in `dev`, so
   `/daily` is built with its layout, fonts and sorting visualiser.
@@ -482,7 +483,7 @@ stages, comments, tests) without changing what a player sees.
 ## Checkpoint 3, step by step
 
 ```
-3a. Game server ──► 3b. Streaks ──► 3c. The whole stack ──► 3d. Tidy
+3a. Game server ──► 3b. Streaks ──► 3c. The whole stack ──► 3d. Entry points and landing page ──► 3e. Tidy
 ```
 
 ### Decisions
@@ -522,13 +523,26 @@ stack.
 
 ### 3c. The whole stack
 
+**Done in #86.**
+
 A Docker Compose file runs Postgres, a `structs-forge` run to fill it, the
 game server and the client. The e2e job runs the game tests against it, with
 the clock set by the test.
 
 **You'll know it's done when** every game test passes in CI.
 
-### 3d. Tidy
+### 3d. Entry points and landing page
+
+The landing page's navbar gains a "Daily puzzle" link, the hero gains a
+"Play today's puzzle" button, and a new section between the structure picker
+and "About" explains the game. The visualiser's header gains a "Daily
+puzzle" button beside "Debugger", and `/daily` gains links back to the
+visualiser and the debugger.
+
+**You'll know it's done when** the landing, visualiser navigation and game
+tests pass, with no sideways scrolling on a 390px phone.
+
+### 3e. Tidy
 
 Tidy the code checkpoint 3 added or changed against the four rules (size,
 stages, comments, tests) without changing what a player sees.
@@ -560,6 +574,6 @@ game".
 
 ### 4c. Launch
 
-`structs-forge` queues two to three weeks of puzzles in production, the
-landing page links to `/daily`, and the fork's `dev` goes into
+`structs-forge` queues two to three weeks of puzzles in production (the
+landing page has linked to `/daily` since step 3d), and the fork's `dev` goes into
 `devsoc-unsw/structs.sh` `dev`.

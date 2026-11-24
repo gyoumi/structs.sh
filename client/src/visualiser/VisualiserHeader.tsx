@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import logo from '@/assets/img/structs.png';
-import { PlusIcon, TerminalIcon } from '@/ui/icons';
+import { PlusIcon, PuzzleIcon, TerminalIcon } from '@/ui/icons';
 import StructureArt from '@/ui/StructureArt';
 import { ThemeMenuItem, ThemeToggle } from '@/ui/theme';
 import StructureNav from './StructureNav';
@@ -51,7 +51,11 @@ const VisualiserHeader = ({ topic }: { topic: Topic }) => {
       />
       <Link to="/debugger" className={styles.debugger}>
         <TerminalIcon size={18} />
-        <span className={styles.debuggerText}>Debugger</span>
+        <span className={styles.actionText}>Debugger</span>
+      </Link>
+      <Link to="/daily" className={styles.daily}>
+        <PuzzleIcon size={18} />
+        <span className={styles.actionText}>Daily puzzle</span>
       </Link>
       <Shortcuts triggerClassName={`${styles.iconButton} ${styles.shortcuts}`} />
       {!collapsed && <ThemeToggle className={styles.iconButton} />}

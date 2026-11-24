@@ -201,7 +201,11 @@ const Daily = () => {
           <img src={logo} alt="" width={36} height={36} />
           <span>structs.sh</span>
         </Link>
-        <ThemeToggle className={hero.themeToggle} />
+        <nav aria-label="Main" className={hero.nav}>
+          <Link to="/#structures">Visualiser</Link>
+          <Link to="/debugger">Debugger</Link>
+          <ThemeToggle className={hero.themeToggle} />
+        </nav>
       </header>
       <main className={styles.main}>
         {state.status === 'loading' && <p>Loading today’s puzzle…</p>}

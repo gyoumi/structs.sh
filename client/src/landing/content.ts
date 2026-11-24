@@ -19,7 +19,7 @@ export const contacts = [
 ];
 
 export const DESCRIPTION =
-  'An interactive learning platform for computer science, tailored to UNSW CSE students.';
+  'An interactive learning platform for computer science, with visualisers, a C debugger, and a daily algorithm puzzle.';
 
 export const OPEN_SOURCE =
   'Developed and maintained by passionate CS and engineering students at UNSW.';
