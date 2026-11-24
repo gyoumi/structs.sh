@@ -57,6 +57,20 @@ jobs:
 
   sanity-puzzles:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: structs
+          POSTGRES_PASSWORD: structs
+          POSTGRES_DB: structs_game
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U structs -d structs_game"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     defaults:
       run:
         working-directory: crates
@@ -71,6 +85,8 @@ jobs:
           cargo clippy --all-targets -- -D warnings
           cargo clippy -p structs-puzzles --release --target wasm32-unknown-unknown -- -D warnings
       - name: Tests
+        env:
+          DATABASE_URL: postgres://structs:structs@localhost:5432/structs_game
         run: cargo test
 
   sanity-e2e:

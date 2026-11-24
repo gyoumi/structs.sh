@@ -1,5 +1,7 @@
 //! Connecting, migrating, and querying the `daily_puzzles` table.
 
+use std::cmp::Ordering;
+
 use crate::error::DbError;
 use crate::model::{DailyPuzzleRecord, InsertOutcome, NewDailyPuzzle, PublicPuzzle};
 use crate::rows::{PUBLIC_COLUMNS, RECORD_COLUMNS, public_from_row, record_from_row};
@@ -50,11 +52,28 @@ fn validate(puzzle: &NewDailyPuzzle) -> Result<(), DbError> {
             "template_version must be at least 1".to_owned(),
         ));
     }
+    if puzzle.rules.trim().is_empty() {
+        return Err(DbError::InvalidData("rules must not be blank".to_owned()));
+    }
+    puzzle.instance.validate_shape()?;
     signed("template_version", puzzle.template_version)?;
     signed("goal", puzzle.goal)?;
     signed("best_score", puzzle.best_score)?;
     check_rate("bot_goal_rate", puzzle.bot_goal_rate)?;
     check_rate("bot_best_rate", puzzle.bot_best_rate)?;
+    if puzzle
+        .instance
+        .score_direction()
+        .cmp_outcomes(Some(puzzle.best_score), Some(puzzle.goal))
+        == Ordering::Less
+    {
+        return Err(DbError::InvalidData(format!(
+            "best_score {} does not reach goal {} for {}",
+            puzzle.best_score,
+            puzzle.goal,
+            puzzle.instance.template_id()
+        )));
+    }
     match puzzle.instance.score_solution(&puzzle.best_solution)? {
         Some(score) if score == puzzle.best_score => Ok(()),
         Some(score) => Err(DbError::InvalidData(format!(

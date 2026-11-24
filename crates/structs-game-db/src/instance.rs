@@ -9,7 +9,7 @@ use structs_puzzles::insertion_beats_merge::{self, InsertionBeatsMerge};
 use structs_puzzles::linked_list_index_drift::{self, LinkedListIndexDrift};
 use structs_puzzles::quicksort::{self, Quicksort};
 use structs_puzzles::upset_bst_beats_avl::{self, UpsetBstBeatsAvl};
-use structs_puzzles::{InputError, Template};
+use structs_puzzles::{InputError, ScoreDirection, Template};
 
 impl PuzzleInstance {
     /// The template id ([`Template::ID`]) this puzzle belongs to.
@@ -22,6 +22,68 @@ impl PuzzleInstance {
             Self::BstForcedOrder { .. } => BstForcedOrder::ID,
             Self::UpsetBstBeatsAvl { .. } => UpsetBstBeatsAvl::ID,
             Self::LinkedListIndexDrift { .. } => LinkedListIndexDrift::ID,
+        }
+    }
+
+    /// Whether higher or lower solved scores rank better for this template.
+    pub fn score_direction(&self) -> ScoreDirection {
+        match self {
+            Self::Quicksort { .. } => Quicksort::DIRECTION,
+            Self::Bubble { .. } => Bubble::DIRECTION,
+            Self::InsertionBeatsMerge { .. } => InsertionBeatsMerge::DIRECTION,
+            Self::AvlRotations { .. } => AvlRotations::DIRECTION,
+            Self::BstForcedOrder { .. } => BstForcedOrder::DIRECTION,
+            Self::UpsetBstBeatsAvl { .. } => UpsetBstBeatsAvl::DIRECTION,
+            Self::LinkedListIndexDrift { .. } => LinkedListIndexDrift::DIRECTION,
+        }
+    }
+
+    /// Checks that this instance has a valid playable shape the browser parser
+    /// will accept.
+    pub fn validate_shape(&self) -> Result<(), DbError> {
+        match self {
+            Self::Quicksort { values, fixed }
+            | Self::Bubble { values, fixed, .. }
+            | Self::InsertionBeatsMerge { values, fixed }
+            | Self::AvlRotations { values, fixed }
+            | Self::UpsetBstBeatsAvl { values, fixed } => {
+                if values.is_empty() {
+                    return Err(DbError::InvalidData(format!(
+                        "{} requires at least one value",
+                        self.template_id()
+                    )));
+                }
+                if let Some(&slot) = fixed.iter().find(|&&slot| slot >= values.len()) {
+                    return Err(DbError::InvalidData(format!(
+                        "{} fixed slot {slot} is out of range for {} values",
+                        self.template_id(),
+                        values.len()
+                    )));
+                }
+                Ok(())
+            }
+            Self::BstForcedOrder {
+                values,
+                target_tree,
+            } => {
+                if values.is_empty() {
+                    return Err(DbError::InvalidData(
+                        "bst-forced-order requires at least one value".to_owned(),
+                    ));
+                }
+                let inst = bst_forced_order::Instance {
+                    values: values.clone(),
+                    target_tree: target_tree.clone(),
+                };
+                if BstForcedOrder.random_input(&inst, 0).is_none() {
+                    return Err(DbError::InvalidData(
+                        "bst-forced-order targetTree must be a canonical BST preorder of distinct values"
+                            .to_owned(),
+                    ));
+                }
+                Ok(())
+            }
+            Self::LinkedListIndexDrift { .. } => Ok(()),
         }
     }
 

@@ -13,5 +13,3 @@ CREATE TABLE daily_puzzles (
     bot_best_rate    DOUBLE PRECISION NOT NULL CHECK (bot_best_rate >= 0.0 AND bot_best_rate <= 1.0),
     created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
-CREATE INDEX daily_puzzles_number_idx ON daily_puzzles (number);
