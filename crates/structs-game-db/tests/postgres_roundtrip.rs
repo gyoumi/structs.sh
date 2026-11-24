@@ -196,7 +196,11 @@ async fn inserts_every_template_with_sequential_numbers_and_full_round_trip() {
             bot_best_rate: 0.5,
         };
         let dup_record = insert_new(&pool, &dup_bst).await;
-        assert_eq!(dup_record.number, 8);
+        assert_eq!(dup_record, expected_record(&dup_bst, 8));
+        let stored_dup = get_puzzle_by_date(&pool, dup_bst.puzzle_date)
+            .await
+            .expect("get duplicate-key bst by date");
+        assert_eq!(stored_dup, Some(expected_record(&dup_bst, 8)));
     })
     .await;
 }
