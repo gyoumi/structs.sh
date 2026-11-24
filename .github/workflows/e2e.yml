@@ -61,3 +61,50 @@ jobs:
           name: playwright-report
           path: e2e/playwright-report
           retention-days: 7
+
+  # The daily game tests against the whole stack in docker-compose.daily.yml:
+  # Postgres filled with the fixture puzzles, the game server with its clock
+  # stopped where the tests can move it, and the production client behind
+  # nginx. The server's clock control is only published on loopback.
+  e2e-daily-stack:
+    name: e2e-daily-stack
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
+        with:
+          runtime: node@22
+          cache: true
+
+      - name: Install browser
+        run: pnpm exec playwright install --only-shell chromium
+
+      - name: Start the daily stack
+        env:
+          STRUCTS_NOW: 2026-10-03T13:59:59Z
+          STRUCTS_TEST_CLOCK_BIND: 0.0.0.0:8081
+          SEED_ONLY_FIXTURES: "1"
+        run: docker compose -f docker-compose.daily.yml up -d --build --wait
+
+      - name: Run the daily game tests
+        env:
+          E2E_BASE_URL: http://127.0.0.1:8080
+          E2E_CLOCK_URL: http://127.0.0.1:8081/clock
+        run: pnpm run e2e tests/daily-game
+
+      - name: Show the stack's logs
+        if: failure()
+        run: docker compose -f docker-compose.daily.yml logs --no-color
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: playwright-report-daily-stack
+          path: e2e/playwright-report
+          retention-days: 7
+
+      - name: Stop the daily stack
+        if: always()
+        run: docker compose -f docker-compose.daily.yml down -v

@@ -4,7 +4,7 @@
 //! values from a query, so logs only ever get the error's kind and, for a
 //! Postgres error, its SQLSTATE code.
 
-use structs_game_db::DbError;
+use crate::error::DbError;
 
 /// A log-safe summary of `err`: its kind, never its message.
 pub fn describe_db_error(err: &DbError) -> String {

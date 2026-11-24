@@ -1,0 +1,77 @@
+# The whole daily game stack: Postgres, the fixture seeder, the game server
+# and the production client, served at http://127.0.0.1:${DAILY_PORT:-8080}.
+#
+#   docker compose -f docker-compose.daily.yml up -d --build --wait
+#
+# For end-to-end tests, stop the server's clock and open its /clock control
+# on loopback port ${GAME_SERVER_CLOCK_PORT:-8081}:
+#
+#   STRUCTS_NOW=2026-10-03T13:59:59Z STRUCTS_TEST_CLOCK_BIND=0.0.0.0:8081 \
+#   SEED_ONLY_FIXTURES=1 docker compose -f docker-compose.daily.yml up -d --build --wait
+#
+# With access to the private snitch repo, add docker-compose.daily.forge.yml
+# to fill the database with structs-forge instead of the fixtures.
+services:
+  game-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: structs
+      POSTGRES_PASSWORD: structs
+      POSTGRES_DB: structs_game
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U structs -d structs_game"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  game-seed:
+    build:
+      context: .
+      dockerfile: crates/structs-game-server/Dockerfile
+      target: seed-runtime
+    depends_on:
+      game-db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://structs:structs@game-db:5432/structs_game
+      SEED_ONLY_FIXTURES: ${SEED_ONLY_FIXTURES:-}
+
+  game-server:
+    build:
+      context: .
+      dockerfile: crates/structs-game-server/Dockerfile
+      target: runtime
+    depends_on:
+      game-db:
+        condition: service_healthy
+      game-seed:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgres://structs:structs@game-db:5432/structs_game
+      PORT: "8080"
+      STRUCTS_NOW: ${STRUCTS_NOW:-}
+      STRUCTS_TEST_CLOCK_BIND: ${STRUCTS_TEST_CLOCK_BIND:-}
+    ports:
+      - "127.0.0.1:${GAME_SERVER_CLOCK_PORT:-8081}:8081"
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/structs-game-server", "--healthcheck"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  client:
+    build:
+      context: .
+      dockerfile: client/Dockerfile.prod
+    volumes:
+      - ./docker/daily-nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      game-server:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${DAILY_PORT:-8080}:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/daily > /dev/null"]
+      interval: 2s
+      timeout: 3s
+      retries: 30

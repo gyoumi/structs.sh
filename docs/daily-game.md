@@ -510,6 +510,8 @@ cached cargo dependencies).
 
 ### 3b. Streaks
 
+**Done in #85.**
+
 The page saves each result, including its input and score, in
 `localStorage`, and counts the streak from the puzzle days played. A refresh
 shows the finished puzzle again. Share text gains the streak. When the server
