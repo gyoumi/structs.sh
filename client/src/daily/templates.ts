@@ -1,14 +1,14 @@
 import {
-  evaluatePuzzle,
-  type ArrayEvalPuzzleInstance,
-  type EvalPuzzleInstance,
-  type ListEvalPuzzleInstance,
-  type PuzzleEvaluation,
-} from '@/Services/puzzles/puzzles';
+  evaluateChallenge,
+  type ArrayEvalChallengeInstance,
+  type EvalChallengeInstance,
+  type ListEvalChallengeInstance,
+  type ChallengeEvaluation,
+} from '@/Services/challenges/challenges';
 import { CanvasTarget, namedCanvasTarget } from '@/visualiser-src/common/canvasTarget';
 import type { TopicSlug } from '@/visualiser/topics';
 import type { PlayInput, TryScore } from './playMachine';
-import type { IndexDriftPuzzle, Puzzle } from './puzzle';
+import type { IndexDriftChallenge, Challenge } from './challenge';
 
 /** A running count one stage's animation keeps. */
 export type CounterSource = {
@@ -75,14 +75,14 @@ const fixed = (key: string, label: string, value: number): Readout => ({
   value: { kind: 'fixed', value },
 });
 
-export const readoutsFor = (puzzle: Puzzle, values: number[]): Readouts => {
-  switch (puzzle.template) {
+export const readoutsFor = (challenge: Challenge, values: number[]): Readouts => {
+  switch (challenge.template) {
     case 'bubble-exact-passes':
       return {
         primary: live('swaps', 'Swaps', { stage: 0, key: 'swaps' }),
         others: [
           live('passes', 'Passes', { stage: 0, key: 'passes' }),
-          fixed('target-passes', 'Target passes', puzzle.targetPasses),
+          fixed('target-passes', 'Target passes', challenge.targetPasses),
         ],
       };
     case 'insertion-beats-merge':
@@ -141,8 +141,8 @@ const sortStage = (command: string, label: string): StageSpec => ({
   topic: 'sorting-algorithms',
 });
 
-export const stagePlanFor = (puzzle: Puzzle): StagePlan => {
-  switch (puzzle.template) {
+export const stagePlanFor = (challenge: Challenge): StagePlan => {
+  switch (challenge.template) {
     case 'bubble-exact-passes':
       return { kind: 'single', mode: 'sort', stage: sortStage('bubble', 'Bubble sort drawing') };
     case 'insertion-beats-merge':
@@ -186,33 +186,42 @@ export const stagePlanFor = (puzzle: Puzzle): StagePlan => {
   }
 };
 
-export function instanceOf(puzzle: IndexDriftPuzzle): ListEvalPuzzleInstance;
-export function instanceOf(puzzle: Exclude<Puzzle, IndexDriftPuzzle>): ArrayEvalPuzzleInstance;
-export function instanceOf(puzzle: Puzzle): EvalPuzzleInstance;
-export function instanceOf(puzzle: Puzzle): EvalPuzzleInstance {
-  switch (puzzle.template) {
+export function instanceOf(challenge: IndexDriftChallenge): ListEvalChallengeInstance;
+export function instanceOf(
+  challenge: Exclude<Challenge, IndexDriftChallenge>
+): ArrayEvalChallengeInstance;
+export function instanceOf(challenge: Challenge): EvalChallengeInstance;
+export function instanceOf(challenge: Challenge): EvalChallengeInstance {
+  switch (challenge.template) {
     case 'linked-list-index-drift':
-      return { template: puzzle.template, start: puzzle.start, target: puzzle.target };
+      return { template: challenge.template, start: challenge.start, target: challenge.target };
     case 'bubble-exact-passes':
       return {
-        template: puzzle.template,
-        values: puzzle.values,
-        fixed: puzzle.fixed,
-        targetPasses: puzzle.targetPasses,
+        template: challenge.template,
+        values: challenge.values,
+        fixed: challenge.fixed,
+        targetPasses: challenge.targetPasses,
       };
     case 'bst-forced-order':
-      return { template: puzzle.template, values: puzzle.values, targetTree: puzzle.targetTree };
+      return {
+        template: challenge.template,
+        values: challenge.values,
+        targetTree: challenge.targetTree,
+      };
     default:
-      return { template: puzzle.template, values: puzzle.values, fixed: puzzle.fixed };
+      return { template: challenge.template, values: challenge.values, fixed: challenge.fixed };
   }
 }
 
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 
-const missReason = (puzzle: Puzzle, evaluation: PuzzleEvaluation & { solved: false }): string => {
+const missReason = (
+  challenge: Challenge,
+  evaluation: ChallengeEvaluation & { solved: false }
+): string => {
   switch (evaluation.template) {
     case 'bubble-exact-passes': {
-      const needed = puzzle.template === 'bubble-exact-passes' ? puzzle.targetPasses : 0;
+      const needed = challenge.template === 'bubble-exact-passes' ? challenge.targetPasses : 0;
       return `Took ${plural(evaluation.passes, 'pass', 'passes')} — needed ${needed}`;
     }
     case 'insertion-beats-merge':
@@ -226,30 +235,30 @@ const missReason = (puzzle: Puzzle, evaluation: PuzzleEvaluation & { solved: fal
   }
 };
 
-/** A try's score, or why it missed the puzzle's condition. */
-export const tryScoreOf = (puzzle: Puzzle, evaluation: PuzzleEvaluation): TryScore =>
+/** A try's score, or why it missed the challenge's condition. */
+export const tryScoreOf = (challenge: Challenge, evaluation: ChallengeEvaluation): TryScore =>
   evaluation.solved
     ? evaluation.score
-    : { kind: 'unsolved', reason: missReason(puzzle, evaluation) };
+    : { kind: 'unsolved', reason: missReason(challenge, evaluation) };
 
-/** The array values to draw on the stage for `puzzle` and `input`. */
-export const valuesForInput = (puzzle: Puzzle, input: PlayInput): number[] =>
-  puzzle.template === 'linked-list-index-drift'
-    ? puzzle.start
+/** The array values to draw on the stage for `challenge` and `input`. */
+export const valuesForInput = (challenge: Challenge, input: PlayInput): number[] =>
+  challenge.template === 'linked-list-index-drift'
+    ? challenge.start
     : input.kind === 'arrangement'
       ? input.arrangement
-      : puzzle.values;
+      : challenge.values;
 
-/** Evaluates `input` against `puzzle` through the puzzle engine. */
-export const scoreRun = (puzzle: Puzzle, input: PlayInput) => {
-  if (puzzle.template === 'linked-list-index-drift') {
+/** Evaluates `input` against `challenge` through the challenge engine. */
+export const scoreRun = (challenge: Challenge, input: PlayInput) => {
+  if (challenge.template === 'linked-list-index-drift') {
     if (input.kind !== 'operations') {
       return Promise.reject(new Error('Expected list operations for linked-list-index-drift.'));
     }
-    return evaluatePuzzle(instanceOf(puzzle), input.operations);
+    return evaluateChallenge(instanceOf(challenge), input.operations);
   }
   if (input.kind !== 'arrangement') {
-    return Promise.reject(new Error(`Expected an arrangement for ${puzzle.template}.`));
+    return Promise.reject(new Error(`Expected an arrangement for ${challenge.template}.`));
   }
-  return evaluatePuzzle(instanceOf(puzzle), input.arrangement);
+  return evaluateChallenge(instanceOf(challenge), input.arrangement);
 };

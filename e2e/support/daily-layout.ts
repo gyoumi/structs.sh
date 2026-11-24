@@ -6,7 +6,7 @@ import type { DailyLocators } from './daily-locators';
  * `DailyPage` exposes each of these as a method.
  */
 
-/** Scrolls Puzzle array vertically into view (keeping scrollX at 0) and asserts every slot button fits fully in the viewport without clipping. */
+/** Scrolls Challenge array vertically into view (keeping scrollX at 0) and asserts every slot button fits fully in the viewport without clipping. */
 export async function expectAllSlotsInViewport(ui: DailyLocators, context: string, expectedCount: number): Promise<void> {
   await ui.arrayGroup.evaluate((el) => {
     const rect = el.getBoundingClientRect();
@@ -14,8 +14,8 @@ export async function expectAllSlotsInViewport(ui: DailyLocators, context: strin
     window.scrollTo({ top: Math.max(0, window.scrollY + rect.top - offset), left: 0, behavior: 'instant' });
   });
   const scrollX = await ui.page.evaluate(() => window.scrollX);
-  expect(scrollX, `${context}: window.scrollX should remain 0 after vertically scrolling Puzzle array into view`).toBe(0);
-  await expect(ui.slots, `${context}: Puzzle array should render all ${expectedCount} slots`).toHaveCount(expectedCount);
+  expect(scrollX, `${context}: window.scrollX should remain 0 after vertically scrolling Challenge array into view`).toBe(0);
+  await expect(ui.slots, `${context}: Challenge array should render all ${expectedCount} slots`).toHaveCount(expectedCount);
   for (let i = 0; i < expectedCount; i += 1) {
     const slot = ui.slot(i);
     const text = ((await slot.textContent()) ?? '').trim();
@@ -23,7 +23,7 @@ export async function expectAllSlotsInViewport(ui: DailyLocators, context: strin
     const value = match ? match[0] : text;
     await expect(
       slot,
-      `${context}: slot ${i} (value ${value}) in Puzzle array must be fully visible in the viewport without clipping or horizontal overflow`,
+      `${context}: slot ${i} (value ${value}) in Challenge array must be fully visible in the viewport without clipping or horizontal overflow`,
     ).toBeInViewport({ ratio: 1 });
   }
 }

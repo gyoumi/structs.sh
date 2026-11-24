@@ -4,11 +4,11 @@ import { afterAll, beforeAll, vi } from 'vitest';
 import { CODE_CANVAS, CODE_CONTAINER, VISUALISER_CANVAS } from '@/visualiser-src/common/constants';
 import GraphicalSortsElement from '@/visualiser-src/sorting-visualiser/data-structure/GraphicalSortsElement';
 
-/** Shared setup for the sorting visualiser vs puzzles wasm parity tests. Needs `pnpm run puzzles` first. */
+/** Shared setup for the sorting visualiser vs challenges wasm parity tests. Needs `pnpm run challenges` first. */
 
-const PUZZLES_WASM_PATH = resolve(__dirname, '../Services/puzzles/generated/puzzles.wasm');
+const PUZZLES_WASM_PATH = resolve(__dirname, '../Services/challenges/generated/challenges.wasm');
 
-/** Stubs the SVG layout calls jsdom lacks, and serves puzzles.wasm from disk (jsdom resolves it to http:). */
+/** Stubs the SVG layout calls jsdom lacks, and serves challenges.wasm from disk (jsdom resolves it to http:). */
 export const setUpParityEnvironment = () => {
   let restoreFetch: (() => void) | null = null;
   beforeAll(() => {
@@ -19,7 +19,7 @@ export const setUpParityEnvironment = () => {
     const spy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       const href =
         typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-      if (href.endsWith('/puzzles.wasm')) {
+      if (href.endsWith('/challenges.wasm')) {
         const bytes = await readFile(PUZZLES_WASM_PATH);
         return new Response(new Uint8Array(bytes), {
           status: 200,

@@ -57,7 +57,7 @@ describe('debug-tags', () => {
     { added: { path: 'client/src/App.tsx', line: 12, text: "console.log('[DEBUG-a1b2] state', s);" }, files: [{ status: 'M', path: 'client/src/App.tsx' }] },
     { added: { path: 'e2e/support/debugger-page.ts', line: 3, text: "console.log('[DEBUG-c3d4]');" }, files: [] },
     { added: { path: 'instrumenter/src/lib.rs', line: 8, text: 'eprintln!("[DEBUG-e5f6] {x}");' }, files: [] },
-    { added: { path: 'crates/structs-puzzles/src/lib.rs', line: 12, text: 'eprintln!("[DEBUG-1234] {x}");' }, files: [] },
+    { added: { path: 'game-server/challenges/src/lib.rs', line: 12, text: 'eprintln!("[DEBUG-1234] {x}");' }, files: [] },
   ];
   for (const { added, files } of productCode) {
     it(`rejects a temporary [DEBUG-xxxx] line added to ${added.path}`, () => {
@@ -75,8 +75,8 @@ describe('debug-tags', () => {
     const result = checkPr(pr({ addedLines }));
     assert.deepEqual(
       result.map((f) => `${f.rule} ${f.path}`),
-      ['debug-tags e2e/support/debugger-page.ts', 'debug-tags instrumenter/src/lib.rs', 'debug-tags crates/structs-puzzles/src/lib.rs'],
-      `[DEBUG- lines added in e2e/support/debugger-page.ts, instrumenter/src/lib.rs and crates/structs-puzzles/src/lib.rs in one PR should each hit debug-tags. Got findings: ${show(result)}`,
+      ['debug-tags e2e/support/debugger-page.ts', 'debug-tags instrumenter/src/lib.rs', 'debug-tags game-server/challenges/src/lib.rs'],
+      `[DEBUG- lines added in e2e/support/debugger-page.ts, instrumenter/src/lib.rs and game-server/challenges/src/lib.rs in one PR should each hit debug-tags. Got findings: ${show(result)}`,
     );
   });
 

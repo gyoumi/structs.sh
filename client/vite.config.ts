@@ -26,9 +26,9 @@ export default defineConfig(({ mode }) => ({
   build: { outDir: 'build' },
   server: {
     port: 3000,
-    proxy: { '/api': process.env.VITE_GAME_SERVER_URL ?? 'http://127.0.0.1:8080' },
+    proxy: { '/api': process.env.VITE_DAILY_SERVER_URL ?? 'http://127.0.0.1:8080' },
   },
-  ...(process.env.VITE_GAME_SERVER_URL
-    ? { preview: { proxy: { '/api': process.env.VITE_GAME_SERVER_URL } } }
+  ...(process.env.VITE_DAILY_SERVER_URL
+    ? { preview: { proxy: { '/api': process.env.VITE_DAILY_SERVER_URL } } }
     : {}),
 }));

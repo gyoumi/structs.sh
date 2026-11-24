@@ -22,10 +22,12 @@ import StepScrubber from './StepScrubber';
 import { usePlayback, usePlaybackSnapshot } from './playback';
 import styles from './Transport.module.css';
 
-const SPEEDS = ['0.25', '0.5', '0.75', '1', '1.25', '1.5', '1.75', '2'].map((value) => ({
-  value,
-  label: `${value}×`,
-}));
+const SPEEDS = ['0.25', '0.5', '0.75', '1', '1.25', '1.5', '1.75', '2', '3', '4', '5'].map(
+  (value) => ({
+    value,
+    label: `${value}×`,
+  })
+);
 
 const IconTooltip = ({
   label,

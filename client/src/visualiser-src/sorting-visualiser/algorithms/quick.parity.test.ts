@@ -2,22 +2,22 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { scorePuzzle, type PuzzleInstance } from '@/Services/puzzles/puzzles';
+import { scoreChallenge, type ChallengeInstance } from '@/Services/challenges/challenges';
 import { CODE_CANVAS, CODE_CONTAINER, VISUALISER_CANVAS } from '@/visualiser-src/common/constants';
 import GraphicalSortsElement from '../data-structure/GraphicalSortsElement';
 import { quickSort } from './quick';
 
-// Needs the puzzles wasm built first: `pnpm run wasm` (or `pnpm run puzzles`) from the repo root.
+// Needs the challenges wasm built first: `pnpm run wasm` (or `pnpm run challenges`) from the repo root.
 
 const QUICKSORT_TEMPLATE = 'quicksort-most-comparisons';
 
-const DAILY_12: PuzzleInstance = {
+const DAILY_12: ChallengeInstance = {
   template: QUICKSORT_TEMPLATE,
   values: [8, 1, 6, 3, 2, 7, 4, 5],
   fixed: [1, 4, 6],
 };
 
-const DAILY_7: PuzzleInstance = {
+const DAILY_7: ChallengeInstance = {
   template: QUICKSORT_TEMPLATE,
   values: [4, 2, 6, 8, 1, 5, 3, 7],
   fixed: [2, 5],
@@ -25,11 +25,11 @@ const DAILY_7: PuzzleInstance = {
 
 type FixedParityCase = {
   label: string;
-  puzzle: PuzzleInstance;
+  puzzle: ChallengeInstance;
   arrangement: number[];
 };
 
-const freePuzzle = (values: number[]): PuzzleInstance => ({
+const freePuzzle = (values: number[]): ChallengeInstance => ({
   template: QUICKSORT_TEMPLATE,
   values,
   fixed: [],
@@ -42,7 +42,7 @@ const fixedCase = (label: string, values: number[]): FixedParityCase => ({
 });
 
 const FIXED_CASES: FixedParityCase[] = [
-  // Hand-counted puzzle arrangements from crates/structs-puzzles/tests/quicksort.rs
+  // Hand-counted challenge arrangements from game-server/challenges/tests/quicksort.rs
   { label: 'DAILY_12 start', puzzle: DAILY_12, arrangement: [8, 1, 6, 3, 2, 7, 4, 5] },
   { label: 'DAILY_12 par', puzzle: DAILY_12, arrangement: [8, 1, 5, 3, 2, 7, 4, 6] },
   { label: 'DAILY_12 bestFromStart', puzzle: DAILY_12, arrangement: [8, 1, 6, 3, 2, 5, 4, 7] },
@@ -143,7 +143,10 @@ const runTypeScriptQuicksort = (values: number[]): number => {
   return producer.comparisons;
 };
 
-const PUZZLES_WASM_PATH = resolve(__dirname, '../../../Services/puzzles/generated/puzzles.wasm');
+const CHALLENGES_WASM_PATH = resolve(
+  __dirname,
+  '../../../Services/challenges/generated/challenges.wasm'
+);
 
 let restoreFetch: (() => void) | null = null;
 
@@ -152,13 +155,13 @@ beforeAll(() => {
     ({ x: 0, y: 0, width: 0, height: 0 }) as DOMRect;
   (SVGElement.prototype as unknown as SVGGraphicsElement).getCTM = () => null;
 
-  // Under jsdom, Vite resolves `new URL('./generated/puzzles.wasm', import.meta.url)`
-  // to an http: URL rather than file:, so puzzles.ts fetches it instead of using readFile.
+  // Under jsdom, Vite resolves `new URL('./generated/challenges.wasm', import.meta.url)`
+  // to an http: URL rather than file:, so challenges.ts fetches it instead of using readFile.
   const originalFetch = globalThis.fetch;
   const spy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
     const href = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-    if (href.endsWith('/puzzles.wasm')) {
-      const bytes = await readFile(PUZZLES_WASM_PATH);
+    if (href.endsWith('/challenges.wasm')) {
+      const bytes = await readFile(CHALLENGES_WASM_PATH);
       return new Response(new Uint8Array(bytes), {
         status: 200,
         headers: { 'content-type': 'application/wasm' },
@@ -178,12 +181,12 @@ describe('quicksort comparison parity (TypeScript visualiser vs wasm scorer)', (
     it.each(FIXED_CASES)(
       'matches wasm count for $label',
       async ({ label, puzzle, arrangement }) => {
-        const wasmCount = await scorePuzzle(puzzle, arrangement);
+        const wasmCount = await scoreChallenge(puzzle, arrangement);
         const tsCount = runTypeScriptQuicksort(arrangement);
 
         expect(
           tsCount,
-          `${label} on input ${formatArray(arrangement)}: TS quickSort reported ${tsCount} comparisons, wasm scorePuzzle reported ${wasmCount}`
+          `${label} on input ${formatArray(arrangement)}: TS quickSort reported ${tsCount} comparisons, wasm scoreChallenge reported ${wasmCount}`
         ).toBe(wasmCount);
       }
     );
@@ -193,12 +196,12 @@ describe('quicksort comparison parity (TypeScript visualiser vs wasm scorer)', (
     it.each(RANDOM_CASES)(
       'matches wasm count for seed $seed ($kind, length $values.length)',
       async ({ seed, kind, values }) => {
-        const wasmCount = await scorePuzzle(freePuzzle(values), values);
+        const wasmCount = await scoreChallenge(freePuzzle(values), values);
         const tsCount = runTypeScriptQuicksort(values);
 
         expect(
           tsCount,
-          `seed ${seed} (${kind}) on input ${formatArray(values)}: TS quickSort reported ${tsCount} comparisons, wasm scorePuzzle reported ${wasmCount}`
+          `seed ${seed} (${kind}) on input ${formatArray(values)}: TS quickSort reported ${tsCount} comparisons, wasm scoreChallenge reported ${wasmCount}`
         ).toBe(wasmCount);
       }
     );

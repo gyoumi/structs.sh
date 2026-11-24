@@ -13,8 +13,8 @@
     background-color 140ms ease;
 }
 
-.tool:active:not(:disabled),
-.play:active:not(:disabled) {
+.tool:active:not(:disabled):not([data-disabled]),
+.play:active:not(:disabled):not([data-disabled]) {
   transform: translate(3px, 3px);
   box-shadow: 0 0 0 var(--shadow);
 }
@@ -54,9 +54,18 @@
 }
 
 .tool:disabled,
-.play:disabled {
-  opacity: 0.35;
-  cursor: default;
+.tool[data-disabled],
+.play:disabled,
+.play[data-disabled] {
+  opacity: 0.45;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.play:disabled,
+.play[data-disabled] {
+  background: var(--ground);
+  color: var(--muted) !important;
 }
 
 .slider {
@@ -244,7 +253,7 @@
   }
 }
 
-/* Narrow phones, as in the daily puzzle's panel: tighten so the controls never overflow. */
+/* Narrow phones, as in the daily challenge's panel: tighten so the controls never overflow. */
 @media (max-width: 420px) {
   .transport {
     padding: 10px 10px 12px;

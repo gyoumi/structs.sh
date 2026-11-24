@@ -1,6 +1,7 @@
 .structure,
 .more,
 .debugger,
+.daily,
 .iconButton {
   border: 2px solid var(--line);
   border-radius: 10px;
@@ -19,6 +20,7 @@
 .more:active,
 .more[data-popup-open],
 .debugger:active,
+.daily:active,
 .iconButton:active {
   transform: translate(3px, 3px);
   box-shadow: 0 0 0 var(--shadow);
@@ -157,17 +159,30 @@
   margin-left: auto;
 }
 
-.debugger {
+.debugger,
+.daily {
   display: inline-flex;
   flex: none;
   align-items: center;
   gap: 6px;
   height: 44px;
   padding: 0 14px;
-  background: var(--indigo-deep);
-  color: var(--white);
   font-weight: 700;
   text-decoration: none;
+}
+
+.debugger {
+  background: var(--indigo-deep);
+  color: var(--white);
+}
+
+.daily {
+  background: var(--sand);
+  color: var(--indigo-deep);
+}
+
+.daily:hover {
+  background: var(--sand-light);
 }
 
 .iconButton {
@@ -179,7 +194,7 @@
 }
 
 @media (max-width: 1120px) {
-  .debuggerText {
+  .actionText {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -188,7 +203,8 @@
     white-space: nowrap;
   }
 
-  .debugger {
+  .debugger,
+  .daily {
     width: 44px;
     padding: 0;
     justify-content: center;
@@ -238,6 +254,7 @@
   .structure,
   .more,
   .debugger,
+  .daily,
   .iconButton,
   .moreMenu {
     transition: none;

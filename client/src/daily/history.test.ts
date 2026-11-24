@@ -2,40 +2,42 @@ import { describe, expect, it } from 'vitest';
 import {
   HISTORY_STORAGE_KEY,
   HISTORY_VERSION,
+  LEGACY_HISTORY_STORAGE_KEY,
   currentStreak,
   isIsoDate,
   loadHistory,
   longestStreak,
-  recordPuzzleTries,
+  persistChallengeTries,
+  recordChallengeTries,
   saveHistory,
   type DailyHistory,
   type SavedTry,
   type StorageLike,
 } from './history';
 import type { PlayInput, TryScore } from './playMachine';
-import type { Puzzle } from './puzzle';
+import type { Challenge } from './challenge';
 
 /**
- * Daily history: which dated puzzles were played, each try's input and score, and the streaks
- * worked out from them. QUICK_12 and DRIFT_26 are the puzzles worked in e2e/support/daily-fixtures.ts
+ * Daily history: which dated challenges were played, each try's input and score, and the streaks
+ * worked out from them. QUICK_12 and DRIFT_26 are the challenges worked in e2e/support/daily-fixtures.ts
  * and e2e/support/daily-list-fixtures.ts, with a calendar date added.
  */
 
-const QUICK_12: Puzzle = {
+const QUICK_12: Challenge = {
   number: 12,
   template: 'quicksort-most-comparisons',
   values: [8, 1, 6, 3, 2, 7, 4, 5],
   fixed: [1, 4, 6],
-  par: 34,
+  goal: 34,
   date: '2026-12-21',
 };
 
-const DRIFT_26: Puzzle = {
+const DRIFT_26: Challenge = {
   number: 26,
   template: 'linked-list-index-drift',
   start: [8, 3, 6, 1],
   target: [3, 6, 5, 1],
-  par: 6,
+  goal: 6,
   date: '2026-12-22',
 };
 
@@ -85,20 +87,20 @@ const throwingStorage: StorageLike = {
 const finished = (dates: string[], start: DailyHistory = emptyHistory()) =>
   dates.reduce(
     (history, date) =>
-      recordPuzzleTries(history, { ...QUICK_12, date }, [tryOf(30), tryOf(34), tryOf(31)]),
+      recordChallengeTries(history, { ...QUICK_12, date }, [tryOf(30), tryOf(34), tryOf(31)]),
     start
   );
 
 const started = (date: string, start: DailyHistory) =>
-  recordPuzzleTries(start, { ...QUICK_12, date }, [tryOf(30)]);
+  recordChallengeTries(start, { ...QUICK_12, date }, [tryOf(30)]);
 
 describe('history storage constants', () => {
-  it('uses version 1 under the structs.daily.history key', () => {
+  it('uses version 1 under the daily.history key', () => {
     expect(HISTORY_VERSION, `HISTORY_VERSION: expected 1, got ${HISTORY_VERSION}`).toBe(1);
     expect(
       HISTORY_STORAGE_KEY,
-      `HISTORY_STORAGE_KEY: expected 'structs.daily.history', got ${JSON.stringify(HISTORY_STORAGE_KEY)}`
-    ).toBe('structs.daily.history');
+      `HISTORY_STORAGE_KEY: expected 'daily.history', got ${JSON.stringify(HISTORY_STORAGE_KEY)}`
+    ).toBe('daily.history');
   });
 });
 
@@ -143,17 +145,17 @@ describe('loadHistory and saveHistory', () => {
 
   it('round-trips arrangement and operations tries under the storage key with version 1', () => {
     const { items, storage } = memoryStorage();
-    const withQuick = recordPuzzleTries(emptyHistory(), QUICK_12, [
+    const withQuick = recordChallengeTries(emptyHistory(), QUICK_12, [
       tryOf(34, arrangement([8, 1, 5, 3, 2, 7, 4, 6])),
       tryOf(MISS, arrangement([5, 1, 8, 3, 2, 7, 4, 6])),
     ]);
-    const history = recordPuzzleTries(withQuick, DRIFT_26, [tryOf(5, OPERATIONS)]);
+    const history = recordChallengeTries(withQuick, DRIFT_26, [tryOf(5, OPERATIONS)]);
     saveHistory(history, storage);
 
-    const raw = items.get('structs.daily.history');
+    const raw = items.get('daily.history');
     expect(
       raw,
-      `saveHistory: expected a value under 'structs.daily.history', keys were ${JSON.stringify([...items.keys()])}`
+      `saveHistory: expected a value under 'daily.history', keys were ${JSON.stringify([...items.keys()])}`
     ).toBeTypeOf('string');
     const stored = JSON.parse(raw ?? 'null') as { version?: unknown };
     expect(stored?.version, `saveHistory: stored JSON ${raw} should have version 1`).toBe(1);
@@ -216,7 +218,7 @@ describe('loadHistory and saveHistory', () => {
   });
 });
 
-describe('recordPuzzleTries', () => {
+describe('recordChallengeTries', () => {
   it.each([
     {
       label: 'two tries, the first reaching goal 34',
@@ -255,8 +257,8 @@ describe('recordPuzzleTries', () => {
     },
   ])('records QUICK_12 (higher wins): $label', ({ label, scores, completed, best, goal }) => {
     const tries = scores.map((score) => tryOf(score));
-    const call = `recordPuzzleTries(empty, QUICK_12 2026-12-21 goal 34, scores ${describeScores(tries)}) [${label}]`;
-    const results = resultsFor(recordPuzzleTries(emptyHistory(), QUICK_12, tries), '2026-12-21');
+    const call = `recordChallengeTries(empty, QUICK_12 2026-12-21 goal 34, scores ${describeScores(tries)}) [${label}]`;
+    const results = resultsFor(recordChallengeTries(emptyHistory(), QUICK_12, tries), '2026-12-21');
     expect(
       results.length,
       `${call}: expected one result dated 2026-12-21, got ${JSON.stringify(results)}`
@@ -265,7 +267,7 @@ describe('recordPuzzleTries', () => {
       date: '2026-12-21',
       number: 12,
       template: 'quicksort-most-comparisons',
-      par: 34,
+      goal: 34,
       tries,
       completed,
       bestScore: best,
@@ -278,8 +280,11 @@ describe('recordPuzzleTries', () => {
     { label: 'cheapest try 7 above goal 6', scores: [9, 8, 7], best: 7, goal: false },
   ])('records DRIFT_26 (lower wins): $label', ({ label, scores, best, goal }) => {
     const tries = scores.map((score) => tryOf(score, OPERATIONS));
-    const call = `recordPuzzleTries(empty, DRIFT_26 2026-12-22 goal 6, costs ${describeScores(tries)}) [${label}]`;
-    const [result] = resultsFor(recordPuzzleTries(emptyHistory(), DRIFT_26, tries), '2026-12-22');
+    const call = `recordChallengeTries(empty, DRIFT_26 2026-12-22 goal 6, costs ${describeScores(tries)}) [${label}]`;
+    const [result] = resultsFor(
+      recordChallengeTries(emptyHistory(), DRIFT_26, tries),
+      '2026-12-22'
+    );
     expect(
       result?.bestScore,
       `${call}: bestScore should be the lowest solved cost ${best}, got ${JSON.stringify(result)}`
@@ -293,11 +298,11 @@ describe('recordPuzzleTries', () => {
   });
 
   it('replaces the earlier record for the same day and leaves the input history untouched', () => {
-    const before = recordPuzzleTries(emptyHistory(), QUICK_12, [tryOf(30)]);
+    const before = recordChallengeTries(emptyHistory(), QUICK_12, [tryOf(30)]);
     const snapshot = JSON.stringify(before);
-    const after = recordPuzzleTries(before, QUICK_12, [tryOf(30), tryOf(34), tryOf(31)]);
+    const after = recordChallengeTries(before, QUICK_12, [tryOf(30), tryOf(34), tryOf(31)]);
     const results = resultsFor(after, '2026-12-21');
-    const call = 'recordPuzzleTries(history with 1 try on 2026-12-21, QUICK_12, 3 tries)';
+    const call = 'recordChallengeTries(history with 1 try on 2026-12-21, QUICK_12, 3 tries)';
     expect(
       results.length,
       `${call}: expected a single 2026-12-21 result, got ${JSON.stringify(results)}`
@@ -314,13 +319,13 @@ describe('recordPuzzleTries', () => {
     ['no date', { ...QUICK_12, date: undefined }],
     ['a display label "Mon 23 Nov"', { ...QUICK_12, date: 'Mon 23 Nov' }],
     ['an impossible date 2026-02-30', { ...QUICK_12, date: '2026-02-30' }],
-  ])('leaves history unchanged for a puzzle with %s', (label, puzzle) => {
+  ])('leaves history unchanged for a challenge with %s', (label, challenge) => {
     const history = finished(['2026-12-20']);
     const snapshot = JSON.parse(JSON.stringify(history)) as DailyHistory;
-    const result = recordPuzzleTries(history, puzzle, [tryOf(30), tryOf(34), tryOf(31)]);
+    const result = recordChallengeTries(history, challenge, [tryOf(30), tryOf(34), tryOf(31)]);
     expect(
       result,
-      `recordPuzzleTries(history with 2026-12-20, QUICK_12 with ${label}, 3 tries): expected history unchanged, got ${JSON.stringify(result)}`
+      `recordChallengeTries(history with 2026-12-20, QUICK_12 with ${label}, 3 tries): expected history unchanged, got ${JSON.stringify(result)}`
     ).toEqual(snapshot);
   });
 });
@@ -406,5 +411,64 @@ describe('currentStreak and longestStreak', () => {
       got,
       `streaks for days ${days(restarted)} on '2026-12-24': finishing after a missed day should restart at 1 while the longest stays 3; got ${JSON.stringify(got)}`
     ).toEqual({ current: 1, longest: 3 });
+  });
+
+  it('migrates legacy structs.daily.history records with par and prefers daily.history on conflict', () => {
+    const legacyDay = (date: string, number: number, tries: SavedTry[], completed: boolean) => ({
+      date,
+      number,
+      template: 'quicksort-most-comparisons',
+      par: 34,
+      tries,
+      completed,
+      bestScore: 36,
+      goalReached: true,
+    });
+    const { storage, items } = memoryStorage();
+    storage.setItem(
+      LEGACY_HISTORY_STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        results: {
+          '2026-12-20': legacyDay('2026-12-20', 11, [tryOf(30), tryOf(34), tryOf(36)], true),
+          '2026-12-21': legacyDay('2026-12-21', 12, [tryOf(25), tryOf(31)], false),
+        },
+      })
+    );
+    const fromLegacyOnly = loadHistory(storage);
+    expect(fromLegacyOnly.results['2026-12-20']?.goal, 'legacy par should map to goal').toBe(34);
+    expect(currentStreak(fromLegacyOnly, '2026-12-21'), 'legacy day keeps streak alive').toBe(1);
+
+    storage.setItem(
+      HISTORY_STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        results: {
+          '2026-12-21': {
+            date: '2026-12-21',
+            number: 12,
+            template: 'quicksort-most-comparisons',
+            goal: 34,
+            tries: [tryOf(34)],
+            completed: false,
+            bestScore: 34,
+            goalReached: true,
+          },
+        },
+      })
+    );
+    const merged = loadHistory(storage);
+    expect(merged.results['2026-12-21']?.tries, 'new key must win on same-day conflict').toEqual([
+      tryOf(34),
+    ]);
+    expect(merged.results['2026-12-20']?.goal, 'legacy-only older day should still load').toBe(34);
+
+    persistChallengeTries(QUICK_12, [tryOf(34), tryOf(36)], storage);
+    const upgraded = JSON.parse(items.get(HISTORY_STORAGE_KEY) ?? '{}');
+    expect(upgraded.results?.['2026-12-20']?.goal, 'upgraded save keeps legacy day').toBe(34);
+    expect(upgraded.results?.['2026-12-21']?.tries, 'upgraded save keeps new tries').toEqual([
+      tryOf(34),
+      tryOf(36),
+    ]);
   });
 });

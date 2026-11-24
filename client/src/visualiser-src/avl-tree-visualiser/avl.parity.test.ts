@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { formatArray, seededCases, setUpParityEnvironment } from '@/test/sortingParity';
 import { TREE_CASES, buildAvl, checkCounters, wasmTreeCounts } from '@/test/treeParity';
 
-/** Needs the puzzles wasm built first: `pnpm run puzzles` from the repo root. */
+/** Needs the challenges wasm built first: `pnpm run challenges` from the repo root. */
 
 type Shape = { keys: number[]; unbalancedAt: number | null };
 

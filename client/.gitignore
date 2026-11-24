@@ -8,5 +8,5 @@ build
 # Built from instrumenter/ by `pnpm run instrumenter`
 src/Services/debugger/wasm/generated/
 
-# Built from crates/ by `pnpm run puzzles`
-src/Services/puzzles/generated/
+# Built from game-server/ by `pnpm run challenges`
+src/Services/challenges/generated/

@@ -29,7 +29,7 @@ jobs:
         run: pnpm exec playwright install --only-shell chromium
 
       # The debugger loads the instrumenter's .wasm, built from instrumenter/,
-      # and the daily game loads the puzzles' .wasm, built from crates/. Both
+      # and the daily challenge loads its scoring .wasm, built from game-server/. Both
       # use the Rust in rust-toolchain.toml and are built by the `wasm` script
       # in package.json. The built files are reused until one of those changes.
       - name: Restore wasm
@@ -38,8 +38,8 @@ jobs:
         with:
           path: |
             client/src/Services/debugger/wasm/generated/instrumenter.wasm
-            client/src/Services/puzzles/generated/puzzles.wasm
-          key: wasm-${{ hashFiles('instrumenter/**', 'crates/**', 'rust-toolchain.toml', 'package.json') }}
+            client/src/Services/challenges/generated/challenges.wasm
+          key: wasm-${{ hashFiles('instrumenter/**', 'game-server/**', 'rust-toolchain.toml', 'package.json') }}
 
       - name: Build wasm
         if: steps.wasm-cache.outputs.cache-hit != 'true'
@@ -83,8 +83,8 @@ jobs:
 
       - name: Start the daily stack
         env:
-          STRUCTS_NOW: 2026-10-03T13:59:59Z
-          STRUCTS_TEST_CLOCK_BIND: 0.0.0.0:8081
+          DAILY_NOW: 2026-10-03T13:59:59Z
+          DAILY_TEST_CLOCK_BIND: 0.0.0.0:8081
           SEED_ONLY_FIXTURES: "1"
         run: docker compose -f docker-compose.daily.yml up -d --build --wait
 

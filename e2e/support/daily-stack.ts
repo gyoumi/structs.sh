@@ -7,8 +7,8 @@ export type ClockReading = { now: string; sydneyDate: string };
 export type DailyReply = { status: number; cacheControl: string | undefined; body: Record<string, unknown> };
 
 /**
- * Drives /daily against the live stack: the real structs-game-server, Postgres seeded by
- * `structs_game_db::seed`, and the server's test-only clock control. Nothing is mocked:
+ * Drives /daily against the live stack: the real daily-server, Postgres seeded by
+ * `daily_db::seed`, and the server's test-only clock control. Nothing is mocked:
  * GET /api/daily goes to the real server, and the day is moved with PUT on E2E_CLOCK_URL.
  *
  * E2E_CLOCK_URL is the full URL of the clock endpoint, for example http://127.0.0.1:8081/clock.
@@ -41,22 +41,22 @@ export class DailyStackPage {
     return { status: response.status(), cacheControl: response.headers()['cache-control'], body };
   }
 
-  /** Opens /daily and waits for Puzzle rules, which every template shows (the linked list has no Puzzle array). */
+  /** Opens /daily and waits for Challenge rules, which every template shows (the linked list has no Challenge array). */
   async openDaily(context: string): Promise<void> {
     await this.page.goto('/daily');
-    await expect(this.rules, `${context}: /daily should load today's puzzle from the server and show a Puzzle rules region`).toBeVisible();
+    await expect(this.rules, `${context}: /daily should load today's challenge from the server and show a Challenge rules region`).toBeVisible();
   }
 
-  /** Reloads /daily and waits for Puzzle rules again. */
+  /** Reloads /daily and waits for Challenge rules again. */
   async reloadDaily(context: string): Promise<void> {
     await this.page.reload();
-    await expect(this.rules, `${context}: after reloading /daily, the Puzzle rules region should be shown again`).toBeVisible();
+    await expect(this.rules, `${context}: after reloading /daily, the Challenge rules region should be shown again`).toBeVisible();
   }
 
-  /** Puzzle rules is visible and its text matches `pattern`. */
+  /** Challenge rules is visible and its text matches `pattern`. */
   async expectRulesContain(pattern: RegExp, context: string): Promise<void> {
-    await expect(this.rules, `${context}: /daily should show a Puzzle rules region`).toBeVisible();
-    await expect(this.rules, `${context}: Puzzle rules should describe today's template (text matching ${pattern})`).toContainText(pattern);
+    await expect(this.rules, `${context}: /daily should show a Challenge rules region`).toBeVisible();
+    await expect(this.rules, `${context}: Challenge rules should describe today's template (text matching ${pattern})`).toContainText(pattern);
   }
 
   /**
@@ -73,7 +73,7 @@ export class DailyStackPage {
   }
 
   private get rules(): Locator {
-    return this.page.getByRole('region', { name: 'Puzzle rules' });
+    return this.page.getByRole('region', { name: 'Challenge rules' });
   }
 }
 
@@ -81,7 +81,7 @@ function clockUrl(): string {
   const url = process.env.E2E_CLOCK_URL;
   if (!url) {
     throw new Error(
-      'E2E_CLOCK_URL is not set. The live-stack tests need the full URL of the server\'s test-only clock control (for example http://127.0.0.1:8081/clock), served when structs-game-server runs with STRUCTS_TEST_CLOCK_BIND and STRUCTS_NOW.',
+      'E2E_CLOCK_URL is not set. The live-stack tests need the full URL of the server\'s test-only clock control (for example http://127.0.0.1:8081/clock), served when daily-server runs with DAILY_TEST_CLOCK_BIND and DAILY_NOW.',
     );
   }
   return url;

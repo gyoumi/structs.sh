@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { describe, expect, it } from 'vitest';
-import { evaluatePuzzle } from '@/Services/puzzles/puzzles';
+import { evaluateChallenge } from '@/Services/challenges/challenges';
 import {
   finalCounter,
   firstDecrease,
@@ -12,7 +12,7 @@ import {
 import { insertionSort } from './insertion';
 import { mergeSort } from './merge';
 
-/** Needs the puzzles wasm built first: `pnpm run puzzles` from the repo root. */
+/** Needs the challenges wasm built first: `pnpm run challenges` from the repo root. */
 
 type Counts = { insertionComparisons: number; mergeComparisons: number };
 
@@ -48,13 +48,13 @@ const RANDOM_CASES = seededCases(20261124, 35, 15);
 
 const wasmCounts = async (values: number[]): Promise<Counts> => {
   const sorted = [...values].sort((a, b) => a - b);
-  const result = await evaluatePuzzle(
+  const result = await evaluateChallenge(
     { template: 'insertion-beats-merge', values: sorted, fixed: [] },
     values
   );
   if (result.template !== 'insertion-beats-merge') {
     throw new Error(
-      `evaluatePuzzle(insertion-beats-merge, ${formatArray(values)}) answered for template ${result.template}`
+      `evaluateChallenge(insertion-beats-merge, ${formatArray(values)}) answered for template ${result.template}`
     );
   }
   return counts(result.insertionComparisons, result.mergeComparisons);
@@ -65,7 +65,7 @@ type Producer = { comparisons: number; allRunners: readonly { counter?: number }
 const checkProducer = (context: string, sort: string, producer: Producer, wasm: number) => {
   expect(
     producer.comparisons,
-    `${context}: TS ${sort} producer reported ${producer.comparisons} comparisons, wasm evaluatePuzzle reported ${wasm}`
+    `${context}: TS ${sort} producer reported ${producer.comparisons} comparisons, wasm evaluateChallenge reported ${wasm}`
   ).toBe(wasm);
   const last = finalCounter(producer.allRunners) ?? 0;
   expect(

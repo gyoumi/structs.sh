@@ -216,55 +216,55 @@
 
 @media (max-width: 860px) {
   .mobileHud {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.5rem;
-      min-height: 2.6rem;
-      padding: 0.35rem 0.75rem;
-      border-bottom: 2px solid var(--edge);
-      font-variant-numeric: tabular-nums;
-      box-sizing: border-box;
-    }
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    min-height: 2.6rem;
+    padding: 0.35rem 0.75rem;
+    border-bottom: 2px solid var(--edge);
+    font-variant-numeric: tabular-nums;
+    box-sizing: border-box;
+  }
 
   .hudScore {
-      display: inline-flex;
-      align-items: baseline;
-      gap: 0.28rem;
-    }
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.28rem;
+  }
 
   .hudNum {
-      font-size: 1.35rem;
-      font-weight: 700;
-      line-height: 1;
-    }
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1;
+  }
 
   .hudStar {
-      font-size: 0.9rem;
-      line-height: 1;
-    }
+    font-size: 0.9rem;
+    line-height: 1;
+  }
 
   .hudGoal,
-    .hudRight {
-      color: var(--muted);
-      font-size: 0.8rem;
-      font-weight: 700;
-    }
+  .hudRight {
+    color: var(--muted);
+    font-size: 0.8rem;
+    font-weight: 700;
+  }
 
   .hudRight {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
 
   .hudChip {
-      gap: 0.3rem;
-      padding: 0.15rem 0.5rem;
-      border: 1.5px solid var(--dash);
-      border-radius: 999px;
-      background: var(--bg);
-      color: var(--ink);
-    }
+    gap: 0.3rem;
+    padding: 0.15rem 0.5rem;
+    border: 1.5px solid var(--dash);
+    border-radius: 999px;
+    background: var(--bg);
+    color: var(--ink);
+  }
 
   /* Keep Step card in the accessibility tree for mobile screen readers while hiding it visually. */
   .stepCard {

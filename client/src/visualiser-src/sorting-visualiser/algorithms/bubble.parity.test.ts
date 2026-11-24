@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { describe, expect, it } from 'vitest';
-import { evaluatePuzzle } from '@/Services/puzzles/puzzles';
+import { evaluateChallenge } from '@/Services/challenges/challenges';
 import {
   finalCounters,
   firstDecrease,
@@ -11,7 +11,7 @@ import {
 } from '@/test/sortingParity';
 import { bubbleSort } from './bubble';
 
-/** Needs the puzzles wasm built first: `pnpm run puzzles` from the repo root. */
+/** Needs the challenges wasm built first: `pnpm run challenges` from the repo root. */
 
 type Counts = { passes: number; swaps: number };
 
@@ -52,13 +52,13 @@ const RANDOM_CASES = seededCases(20261123, 35, 15);
 
 const wasmCounts = async (values: number[]): Promise<Counts> => {
   const sorted = [...values].sort((a, b) => a - b);
-  const result = await evaluatePuzzle(
+  const result = await evaluateChallenge(
     { template: 'bubble-exact-passes', values: sorted, fixed: [], targetPasses: 1 },
     values
   );
   if (result.template !== 'bubble-exact-passes') {
     throw new Error(
-      `evaluatePuzzle(bubble-exact-passes, ${formatArray(values)}) answered for template ${result.template}`
+      `evaluateChallenge(bubble-exact-passes, ${formatArray(values)}) answered for template ${result.template}`
     );
   }
   return { passes: result.passes, swaps: result.swaps };
@@ -73,7 +73,7 @@ const checkParity = async (context: string, values: number[]) => {
   const ts: Counts = { passes: producer.passes, swaps: producer.swaps };
   expect(
     ts,
-    `${context} on ${formatArray(values)}: TS bubbleSort producer reported passes ${ts.passes} / swaps ${ts.swaps}, wasm evaluatePuzzle reported passes ${wasm.passes} / swaps ${wasm.swaps}`
+    `${context} on ${formatArray(values)}: TS bubbleSort producer reported passes ${ts.passes} / swaps ${ts.swaps}, wasm evaluateChallenge reported passes ${wasm.passes} / swaps ${wasm.swaps}`
   ).toEqual(wasm);
   const last = finalCounters(producer.allRunners) ?? { passes: 0, swaps: 0 };
   expect(

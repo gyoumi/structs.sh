@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useEffectEvent, useReducer, useRef, useState } from 'react';
 import landing from '@/landing/Landing.module.css';
-import { ListOperation, loadPuzzles } from '@/Services/puzzles/puzzles';
+import { ListOperation, loadChallenges } from '@/Services/challenges/challenges';
 import { Theme } from '@/ui/theme';
 import Transport from '@/visualiser/Transport';
 import { canvasThemes } from '@/visualiser/canvasThemes';
@@ -18,8 +18,8 @@ import {
 } from './playMachine';
 import { messageFor, mobileOutcomeOf } from './playMessages';
 import { validateOperations } from './OperationBuilder';
-import { PuzzleStages } from './PuzzleStages';
-import { IndexDriftPuzzle, Puzzle, shareText } from './puzzle';
+import { ChallengeStages } from './ChallengeStages';
+import { IndexDriftChallenge, Challenge, shareText } from './challenge';
 import {
   drawnArrangement,
   Rig,
@@ -36,7 +36,7 @@ import styles from './Daily.module.css';
 /** Draws `values` on every stage now, as after a swap. */
 type Redraw = (values: number[]) => void;
 
-type ArrayPuzzle = Exclude<Puzzle, IndexDriftPuzzle>;
+type ArrayChallenge = Exclude<Challenge, IndexDriftChallenge>;
 
 type PlayBaseProps = {
   rig: Rig;
@@ -51,20 +51,20 @@ type PlayBaseProps = {
   streak?: number;
   /** Saves every try so far under a cross-tab lock and reports the persistence outcome. */
   onRecordTries: (tries: SavedTry[]) => Promise<PersistOutcome>;
-  /** Restores the editor input when another tab's completion freezes this puzzle. */
+  /** Restores the editor input when another tab's completion freezes this challenge. */
   onRestoreInput: (input: PlayInput) => void;
 };
 
 type PlayProps = PlayBaseProps &
   (
-    | { puzzle: ArrayPuzzle; input: { kind: 'arrangement'; arrangement: number[] } }
-    | { puzzle: IndexDriftPuzzle; input: { kind: 'operations'; operations: ListOperation[] } }
+    | { challenge: ArrayChallenge; input: { kind: 'arrangement'; arrangement: number[] } }
+    | { challenge: IndexDriftChallenge; input: { kind: 'operations'; operations: ListOperation[] } }
   );
 
 /** The game itself: the player's input, the stages, the actions, and the score cards. */
 export const Play = (props: PlayProps) => {
   const {
-    puzzle,
+    challenge,
     rig,
     theme,
     input,
@@ -79,8 +79,8 @@ export const Play = (props: PlayProps) => {
   const hasTimeline = useHasTimeline(rig);
   const [firstStage] = rig.stages;
   const trace = useStageSnapshot(firstStage, (s) => s.trace);
-  const values = valuesForInput(puzzle, input);
-  const readouts = readoutsFor(puzzle, values);
+  const values = valuesForInput(challenge, input);
+  const readouts = readoutsFor(challenge, values);
   const primaryValue = useReadoutValue(rig, readouts.primary.value);
   const [play, dispatch] = useReducer(
     playReducer,
@@ -109,7 +109,7 @@ export const Play = (props: PlayProps) => {
       const finalInput = tries.at(-1)?.input;
       if (finalInput) {
         onRestoreInput(finalInput);
-        draw(valuesForInput(puzzle, finalInput));
+        draw(valuesForInput(challenge, finalInput));
       }
     }
     dispatch({ type: 'synced', scores: tries.map((saved) => saved.score) });
@@ -131,17 +131,17 @@ export const Play = (props: PlayProps) => {
   );
 
   useEffect(() => {
-    loadPuzzles().catch(() => {});
+    loadChallenges().catch(() => {});
   }, []);
 
   const busy = play.stage === 'running' || play.stage === 'scoring';
   const ended = play.stage === 'ended';
-  const mobileOutcome = mobileOutcomeOf(play, puzzle, busy);
+  const mobileOutcome = mobileOutcomeOf(play, challenge, busy);
   const unrunnable =
-    puzzle.template === 'linked-list-index-drift' &&
+    challenge.template === 'linked-list-index-drift' &&
     input.kind === 'operations' &&
     (input.operations.length === 0 ||
-      validateOperations(puzzle.start.length, input.operations).status === 'invalid');
+      validateOperations(challenge.start.length, input.operations).status === 'invalid');
 
   useEffect(() => {
     if (stageTheme === theme || busy || hasTimeline) return;
@@ -176,10 +176,10 @@ export const Play = (props: PlayProps) => {
   useEffect(() => {
     if (play.stage !== 'scoring') return undefined;
     let cancelled = false;
-    scoreRun(puzzle, play.input)
+    scoreRun(challenge, play.input)
       .then(async (evaluation) => {
         if (cancelled) return;
-        const score = tryScoreOf(puzzle, evaluation);
+        const score = tryScoreOf(challenge, evaluation);
         await recordTry(play.input, score, () => cancelled);
       })
       .catch((error) => {
@@ -189,7 +189,7 @@ export const Play = (props: PlayProps) => {
     return () => {
       cancelled = true;
     };
-  }, [play, puzzle]);
+  }, [play, challenge]);
 
   const run = () => {
     if (unrunnable) return;
@@ -212,7 +212,7 @@ export const Play = (props: PlayProps) => {
       return;
     }
     clipboard
-      .writeText(shareText(puzzle, sharedScores(play.scores), streak))
+      .writeText(shareText(challenge, sharedScores(play.scores), streak))
       .then(() => dispatch({ type: 'share-copied' }))
       .catch(() => dispatch({ type: 'share-failed' }));
   };
@@ -223,7 +223,7 @@ export const Play = (props: PlayProps) => {
         <div className={styles.panel}>
           <MobileHud
             value={primaryValue}
-            par={puzzle.par}
+            goal={challenge.goal}
             comparison={trace?.comparison}
             triesLeft={ended ? 0 : MAX_TRIES - play.scores.length}
             stageTheme={stageTheme}
@@ -231,7 +231,7 @@ export const Play = (props: PlayProps) => {
           />
           <div className={styles.tilesZone}>{editor(busy || ended, draw)}</div>
           <div ref={runner} className={styles.runner}>
-            <PuzzleStages rig={rig} stageTheme={stageTheme} readouts={readouts.others} />
+            <ChallengeStages rig={rig} stageTheme={stageTheme} readouts={readouts.others} />
             <PlaybackContext value={rig.playback}>
               <Transport />
             </PlaybackContext>
@@ -273,7 +273,7 @@ export const Play = (props: PlayProps) => {
           )}
         </div>
         <span aria-live="polite" className={styles.message}>
-          {messageFor(play, puzzle)}
+          {messageFor(play, challenge)}
         </span>
         {saveFailed && (
           <p role="alert" className={styles.note}>
@@ -282,9 +282,11 @@ export const Play = (props: PlayProps) => {
         )}
       </div>
       <aside className={styles.sidebar}>
-        <ScoreCard puzzle={puzzle} rig={rig} readouts={readouts} play={play} />
-        {puzzle.template === 'bst-forced-order' && <TargetTree preorder={puzzle.targetTree} />}
-        {puzzle.template === 'quicksort-most-comparisons' && (
+        <ScoreCard challenge={challenge} rig={rig} readouts={readouts} play={play} />
+        {challenge.template === 'bst-forced-order' && (
+          <TargetTree preorder={challenge.targetTree} />
+        )}
+        {challenge.template === 'quicksort-most-comparisons' && (
           <StepCard trace={trace} stageTheme={stageTheme} />
         )}
       </aside>

@@ -1,17 +1,19 @@
-import type { ListOperation } from '@/Services/puzzles/puzzles';
-import type { Template } from './puzzle';
+import type { ListOperation } from '@/Services/challenges/challenges';
+import type { Template } from './challenge';
 
 export const MAX_TRIES = 3;
 
 const lowerWins = (template?: Template) => template === 'linked-list-index-drift';
 
-/** Whether `score` reaches the goal: at or below par when lower wins, at or above it otherwise. */
-export const reachesGoal = (puzzle: { template: Template; par: number }, score: number): boolean =>
-  lowerWins(puzzle.template) ? score <= puzzle.par : score >= puzzle.par;
+/** Whether `score` reaches the goal: at or below goal when lower wins, at or above it otherwise. */
+export const reachesGoal = (
+  challenge: { template: Template; goal: number },
+  score: number
+): boolean => (lowerWins(challenge.template) ? score <= challenge.goal : score >= challenge.goal);
 
 export type ShareStatus = 'idle' | 'copied' | 'failed';
 
-/** A try that ran but missed the puzzle's condition, with why, as shown to the player. */
+/** A try that ran but missed the challenge's condition, with why, as shown to the player. */
 export type UnsolvedTry = { kind: 'unsolved'; reason: string };
 
 /** A solved try's score, or an unsolved try. */
@@ -120,7 +122,7 @@ export const shownScore = (play: PlayState, template?: Template): number | undef
   return typeof latest === 'number' ? latest : undefined;
 };
 
-/** Why the latest try missed, or undefined when it solved the puzzle or no try has run. */
+/** Why the latest try missed, or undefined when it solved the challenge or no try has run. */
 export const latestMiss = (play: PlayState): string | undefined => {
   const latest = play.scores.at(-1);
   return typeof latest === 'object' ? latest.reason : undefined;

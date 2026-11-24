@@ -49,11 +49,11 @@ Streaks and history are kept in the browser.
 ```
 
 1. **One puzzle plays.** A quicksort puzzle, hard-coded in the client, is
-   scored in the browser by `structs-puzzles` built to wasm, then
+   scored in the browser by `daily-challenges` built to wasm, then
    playtested.
 2. **Every day is new.** All seven launch templates play, and
-   `structs-forge` generates, checks and schedules their puzzles.
-3. **It runs daily.** `structs-game-server` serves today's puzzle, the
+   `daily-generator` generates, checks and schedules their puzzles.
+3. **It runs daily.** `daily-server` serves today's puzzle, the
    browser keeps streaks, and the whole stack runs in CI.
 
 **Done when** someone with no context can play today's puzzle, share the
@@ -85,13 +85,13 @@ The game track:
 An algorithm is finished when it has a step log, a visual and at least one
 template. Moving the visualisers onto the step log also removes the second
 copy of each algorithm that stage 1 adds, since game mode can then animate
-from the step log `structs-puzzles` produces.
+from the step log `daily-challenges` produces.
 
 ### 3. Accounts and leaderboard
 
 - Sign in with GitHub or Google.
 - `POST /api/submit` takes the input and the run history. The server
-  re-scores the input with `structs-puzzles` and records the time on its own
+  re-scores the input with `daily-challenges` and records the time on its own
   clock.
 - Friends boards need only a sign-in.
 - The global board needs one of these on the account:
@@ -216,32 +216,32 @@ These steps make cheating harder, and the rest is accepted:
 
 ```
 client/ (TypeScript)
-  game page ── imports ──► api.ts (generated from structs-game-api)
+  game page ── imports ──► api.ts (generated from daily-api)
             ── imports ──► the existing visualisers
-            ── loads ────► puzzles.wasm (built from structs-puzzles)
-            ── HTTP ─────► structs-game-server
+            ── loads ────► challenges.wasm (built from daily-challenges)
+            ── HTTP ─────► daily-server
 
-crates/ (Rust, public, in this repo)
-  structs-game-server ──► structs-game-api, structs-game-db, structs-puzzles
-  structs-game-api ─────► structs-puzzles
-  structs-game-db ──────► structs-puzzles, and Postgres at runtime
-  structs-puzzles (depends on none of the others)
+game-server/ (Rust, public, in this repo)
+  daily-server ──► daily-api, daily-db, daily-challenges
+  daily-api ─────► daily-challenges
+  daily-db ──────► daily-challenges, and Postgres at runtime
+  daily-challenges (depends on none of the others)
 
 private repo (Rust, in the devsoc-unsw org)
-  structs-forge ────────► structs-puzzles, structs-game-db
-  structs-review ───────► structs-game-db
+  daily-generator ────────► daily-challenges, daily-db
+  structs-review ───────► daily-db
 ```
 
 | Crate | Holds | Used by |
 |---|---|---|
-| `structs-puzzles` | The `Template` trait, the instance, input and step log types, and each template's `run`, `score`, `rules` and `generate`. No networking, database or file access. Built as a Rust library and as `.wasm`. | Every other crate, and the browser |
-| `structs-game-api` | Every HTTP request and response type. Generates `client/src/game/api.ts` with `ts-rs`. | The server, and the client through `api.ts` |
-| `structs-game-db` | The schema, migrations and queries | The server, `structs-forge`, `structs-review` |
-| `structs-game-server` | The HTTP server: today's puzzle, submissions, sign-in, leaderboards | Runs in DevSoc's cluster |
-| `structs-forge` (private) | The schedule of which template runs on which date, the solver, the bot player, and the loop that turns a `generate` candidate into a stored puzzle | Runs on a schedule |
+| `daily-challenges` | The `Template` trait, the instance, input and step log types, and each template's `run`, `score`, `rules` and `generate`. No networking, database or file access. Built as a Rust library and as `.wasm`. | Every other crate, and the browser |
+| `daily-api` | Every HTTP request and response type. Generates `client/src/daily/api.ts` with `ts-rs`. | The server, and the client through `api.ts` |
+| `daily-db` | The schema, migrations and queries | The server, `daily-generator`, `structs-review` |
+| `daily-server` | The HTTP server: today's puzzle, submissions, sign-in, leaderboards | Runs in DevSoc's cluster |
+| `daily-generator` (private) | The schedule of which template runs on which date, the solver, the bot player, and the loop that turns a `generate` candidate into a stored puzzle | Runs on a schedule |
 | `structs-review` (private) | The cheat-flag rules | Runs on a schedule |
 
-`structs-forge` does this for each upcoming date: pick the template, call
+`daily-generator` does this for each upcoming date: pick the template, call
 its `generate` with a random seed, find the best score with the solver and
 set the goal from it, reroll if the instance has no solution or one of the
 template's shortcuts reaches the best, grade difficulty with the bot player,
@@ -258,7 +258,7 @@ hard the puzzle is.
   tests without access to the private one. The private repo pins the public
   crates to a commit through a git dependency.
 - **The database is the only link between the private and public code.**
-  `structs-forge` writes puzzles, the server reads them, and
+  `daily-generator` writes puzzles, the server reads them, and
   `structs-review` writes flags.
 - **The solver works on any template**, using only what the `Template` trait
   exposes: the moves a player can make, and the score. A template added in
@@ -274,9 +274,9 @@ hard the puzzle is.
 
 ### Builds
 
-- `crates/` is its own Cargo workspace. The instrumenter stays a separate
+- `game-server/` is its own Cargo workspace. The instrumenter stays a separate
   crate with its own build profile.
-- The client's Dockerfile builds `structs-puzzles` in its own stage next to
+- The client's Dockerfile builds `daily-challenges` in its own stage next to
   the instrumenter's, so Docker builds the two at the same time.
 - In CI and locally, one root script runs both wasm builds at the same time.
 - Rust dependencies are cached in CI and in Docker.
@@ -330,7 +330,7 @@ In this repo:
 - A `game-server` entry in the Deploy workflow's build matrix and dispatch,
   with a Dockerfile that follows CHAOS (`sqlx` offline query data, cached
   cargo dependencies, cached Docker layers).
-- The `structs-puzzles` stage in the client's Dockerfile.
+- The `daily-challenges` stage in the client's Dockerfile.
 
 In DevSoc's deployment repo, for prod and staging:
 
@@ -339,7 +339,7 @@ In DevSoc's deployment repo, for prod and staging:
   as the client lets sign-in cookies work without cross-origin setup.
 - A Postgres database.
 - The runtime secrets listed under "Rules".
-- Kubernetes CronJobs for `structs-forge` and `structs-review`, so they reach
+- Kubernetes CronJobs for `daily-generator` and `structs-review`, so they reach
   Postgres from inside the cluster. Their images come from the private repo,
   so the cluster needs permission to pull them.
 
@@ -375,14 +375,14 @@ For this project:
 - **Instance**: one puzzle made from a template, such as one particular
   graph. Each day's puzzle is one instance.
 - **Seed**: a number that makes random choices repeatable.
-- **Generator**: `structs-forge`, which makes the daily puzzles ahead of
+- **Generator**: `daily-generator`, which makes the daily puzzles ahead of
   time.
-- **Solver**: the part of `structs-forge` that finds the best score for an
+- **Solver**: the part of `daily-generator` that finds the best score for an
   instance, by trying every input or by searching when there are too many.
 - **Best**: the solver's best score for an instance. The generator uses it
   offline to work out the Goal, and the page never shows it.
 - **Goal**: the day's target score, 65% of the way from a typical random
-  input's score to the best (stored as `par` in the puzzle file).
+  input's score to the best (stored as `goal` in the puzzle file).
 - **Shortcut**: a rule that solves a template without working through the
   instance, such as "insert the keys in preorder". The generator rerolls any
   instance a shortcut solves.

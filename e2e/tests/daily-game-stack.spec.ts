@@ -3,8 +3,8 @@ import { DAILY_12 } from '../support/daily-fixtures';
 import type { DailyPage } from '../support/daily-page';
 
 /**
- * Checkpoint 3 step 3c: the whole stack. The page, the real structs-game-server and Postgres seeded by
- * `structs_game_db::seed` (fixtures on 2026-04-04..06 and 2026-10-03..05, 2026-10-07; 2026-10-06 is
+ * Checkpoint 3 step 3c: the whole stack. The page, the real daily-server and Postgres seeded by
+ * `daily_db::seed` (fixtures on 2026-04-04..06 and 2026-10-03..05, 2026-10-07; 2026-10-06 is
  * left unscheduled). Nothing is mocked: the day moves only through the server's test-only clock control.
  */
 
@@ -37,13 +37,13 @@ const MIDNIGHTS = [
 test.describe('daily game live stack', () => {
   test.describe.configure({ mode: 'serial' });
 
-  test("today's puzzle comes from the live server without leaking private fields and survives a refresh", async ({ dailyStack, dailyPage, dailyHistory }) => {
+  test("today's challenge comes from the live server without leaking private fields and survives a refresh", async ({ dailyStack, dailyPage, dailyHistory }) => {
     const clock = await dailyStack.setClock('2026-10-03T13:59:59Z');
     expect(clock.sydneyDate, `PUT clock 2026-10-03T13:59:59Z (23:59:59 AEST): sydneyDate should be 2026-10-03, got ${JSON.stringify(clock)}`).toBe('2026-10-03');
 
     const reply = await dailyStack.fetchDailyRaw();
     const call = `GET /api/daily at 2026-10-03T13:59:59Z, got ${reply.status} ${JSON.stringify(reply.body)}`;
-    expect(reply.status, `${call}: should answer 200 with the seeded puzzle`).toBe(200);
+    expect(reply.status, `${call}: should answer 200 with the seeded challenge`).toBe(200);
     expect(reply.cacheControl ?? '', `${call}: Cache-Control should contain no-store, got ${reply.cacheControl}`).toContain('no-store');
     expect(reply.body.date, `${call}: date should be the server's Sydney day 2026-10-03`).toBe('2026-10-03');
     expect(reply.body.template, `${call}: template should be the seeded quicksort-most-comparisons`).toBe('quicksort-most-comparisons');
@@ -52,30 +52,30 @@ test.describe('daily game live stack', () => {
 
     const ctx = `/daily on 2026-10-03 (${DAILY_12.name}, from the live server)`;
     await dailyStack.openDaily(ctx);
-    expect(await dailyPage.values(), `${ctx}: Puzzle array should show the seeded values ${fmt(DAILY_12.start.values)}`).toEqual([...DAILY_12.start.values]);
-    expect(await dailyPage.goal(ctx), `${ctx}: Goal should show the seeded par ${DAILY_12.puzzle.par}`).toBe(DAILY_12.puzzle.par);
+    expect(await dailyPage.values(), `${ctx}: Challenge array should show the seeded values ${fmt(DAILY_12.start.values)}`).toEqual([...DAILY_12.start.values]);
+    expect(await dailyPage.goal(ctx), `${ctx}: Goal should show the seeded goal ${DAILY_12.challenge.goal}`).toBe(DAILY_12.challenge.goal);
 
     await dailyPage.run();
     await dailyPage.skip(`${ctx} try 1 ${fmt(DAILY_12.start.values)}`);
-    await dailyPage.swap(...DAILY_12.par.swap);
+    await dailyPage.swap(...DAILY_12.goal.swap);
     await dailyPage.run();
-    await dailyPage.skip(`${ctx} try 2 ${fmt(DAILY_12.par.values)}`);
-    await dailyPage.swap(...DAILY_12.highFromPar.swap);
+    await dailyPage.skip(`${ctx} try 2 ${fmt(DAILY_12.goal.values)}`);
+    await dailyPage.swap(...DAILY_12.highFromGoal.swap);
     await dailyPage.run();
-    await dailyPage.skip(`${ctx} try 3 ${fmt(DAILY_12.highFromPar.values)}`);
-    const end = `${ctx} after tries ${DAILY_12.start.count}, ${DAILY_12.par.count}, ${DAILY_12.highFromPar.count}`;
+    await dailyPage.skip(`${ctx} try 3 ${fmt(DAILY_12.highFromGoal.values)}`);
+    const end = `${ctx} after tries ${DAILY_12.start.count}, ${DAILY_12.goal.count}, ${DAILY_12.highFromGoal.count}`;
     await dailyPage.expectStatusNumber('Tries left', 0, `${end}: Tries left`);
-    await dailyHistory.expectStreak(1, `${end}: finishing today's puzzle should start a streak`);
+    await dailyHistory.expectStreak(1, `${end}: finishing today's challenge should start a streak`);
 
     await dailyStack.reloadDaily(`${end} then reload`);
     const after = `${end}, after reloading /daily`;
-    await dailyPage.expectStatusNumber('Tries left', 0, `${after}: the finished puzzle should come back finished`);
-    await dailyPage.expectStatusNumber('Score', DAILY_12.highFromPar.count, `${after}: Score should be the best saved try`);
+    await dailyPage.expectStatusNumber('Tries left', 0, `${after}: the finished challenge should come back finished`);
+    await dailyPage.expectStatusNumber('Score', DAILY_12.highFromGoal.count, `${after}: Score should be the best saved try`);
     await dailyHistory.expectStreak(1, after);
-    expect(await dailyPage.canShare(), `${after}: Share should be enabled for the finished puzzle`).toBe(true);
+    expect(await dailyPage.canShare(), `${after}: Share should be enabled for the finished challenge`).toBe(true);
   });
 
-  test('the puzzle changes at midnight in Sydney, including spring-forward (23h) and fall-back (25h) daylight saving days', async ({ dailyStack }) => {
+  test('the challenge changes at midnight in Sydney, including spring-forward (23h) and fall-back (25h) daylight saving days', async ({ dailyStack }) => {
     for (const step of MIDNIGHTS) {
       const ctx = `server clock ${step.instant} (Sydney ${step.date} ${step.why})`;
       const clock = await dailyStack.setClock(step.instant);
@@ -114,7 +114,7 @@ test.describe('daily game live stack', () => {
     const day6 = await dailyStack.setClock('2026-10-06T01:00:00Z');
     expect(day6.sydneyDate, `PUT clock 2026-10-06T01:00:00Z: sydneyDate should be 2026-10-06, got ${JSON.stringify(day6)}`).toBe('2026-10-06');
     await dailyHistory.goto();
-    await dailyHistory.expectNotReady('2026-10-06 has no seeded puzzle, so the live server answers GET /api/daily with 404');
+    await dailyHistory.expectNotReady('2026-10-06 has no seeded challenge, so the live server answers GET /api/daily with 404');
 
     const day7 = await dailyStack.setClock('2026-10-07T01:00:00Z');
     expect(day7.sydneyDate, `PUT clock 2026-10-07T01:00:00Z: sydneyDate should be 2026-10-07, got ${JSON.stringify(day7)}`).toBe('2026-10-07');

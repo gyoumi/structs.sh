@@ -1,0 +1,13 @@
+# Fills the daily stack's database with daily-generator from the private snitch
+# repo instead of the fixture seeder. Needs a checkout of snitch, by default
+# next to this repo:
+#
+#   GENERATOR_DIR=../snitch docker compose -f docker-compose.daily.yml \
+#     -f docker-compose.daily.generator.yml up -d --build --wait
+services:
+  daily-seed:
+    build:
+      context: ${GENERATOR_DIR:-../snitch}
+      dockerfile: generator/Dockerfile
+      target: !reset null
+    command: ["fill", "--days", "${GENERATOR_DAYS:-21}"]

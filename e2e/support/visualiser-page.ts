@@ -98,6 +98,15 @@ export class VisualiserPage {
     await this.page.getByRole('link', { name: 'Debugger' }).click();
   }
 
+  async openDaily(): Promise<void> {
+    const link = this.page.getByRole('link', { name: 'Daily', exact: true });
+    await expect(
+      link,
+      `/visualiser/${this.topic}: the top <header> should contain a link named "Daily" (to /daily) beside Debugger`,
+    ).toBeVisible();
+    await link.click();
+  }
+
   // -------------------------------------------------------------- operations
 
   /** The engine commands offered for the current topic. */

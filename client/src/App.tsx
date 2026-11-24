@@ -16,11 +16,19 @@ import { useEffect, useLayoutEffect } from 'react';
 import { useFrontendStateStore } from '@/visualiser-debugger/Store/frontendStateStore';
 import Toast from '@/visualiser-debugger/Component/Toast/Toast';
 
-/** Opens each new page at the top. Back and forward keep the browser's restored position, and anchors scroll themselves. */
+/** Opens each new page at the top, or scrolls to the hash target when a route includes one. */
 const useScrollToTopOnNavigate = () => {
   const { pathname, hash } = useLocation();
   const navigationType = useNavigationType();
   useLayoutEffect(() => {
+    if (hash) {
+      const target = document.getElementById(hash.slice(1));
+      if (target) {
+        target.scrollIntoView();
+        target.focus({ preventScroll: true });
+        return;
+      }
+    }
     if (navigationType !== 'POP' && !hash) window.scrollTo(0, 0);
   }, [pathname, hash, navigationType]);
 };
@@ -46,7 +54,7 @@ const App = () => {
             {/* Visualiser routes */}
             <Route path="/visualiser/:topic/:data?" element={<Visualiser />} />
 
-            {/* Daily puzzle */}
+            {/* Daily challenge */}
             <Route path="/daily" element={<Daily />} />
 
             {/* Feedback and feature request page */}

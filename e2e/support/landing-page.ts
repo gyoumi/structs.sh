@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import { topicTitles, type TopicSlug } from './topics';
 
 /**
@@ -21,6 +21,75 @@ export class LandingPage {
 
   async openDebugger(): Promise<void> {
     await this.page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Debugger' }).click();
+  }
+
+  /** Clicks the `Daily` link in the landing page's Main navigation. */
+  async openDailyFromNav(): Promise<void> {
+    const link = this.page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Daily', exact: true });
+    await expect(
+      link,
+      'Landing page <nav aria-label="Main"> should contain a link named "Daily" (to /daily) beside Visualiser, Debugger and GitHub',
+    ).toBeVisible();
+    await link.click();
+  }
+
+  /** Clicks the "Play today's challenge" action in the hero (the section labelled by the structs.sh heading). */
+  async openDailyFromHero(): Promise<void> {
+    const hero = this.page.getByRole('region', { name: 'structs.sh', exact: true });
+    await expect(hero, 'Landing page should show the hero <section aria-labelledby="hero-title"> named "structs.sh"').toBeVisible();
+    const link = hero.getByRole('link', { name: /play today.?s challenge/i });
+    await expect(
+      link,
+      'Hero actions should include a link matching /play today.?s challenge/i (to /daily) beside "Pick a structure" and "Open the debugger"',
+    ).toBeVisible();
+    await link.click();
+  }
+
+  /** The landing page section that introduces the daily challenge. */
+  dailyPromoRegion(): Locator {
+    return this.page.getByRole('region', { name: /daily challenge/i });
+  }
+
+  /** Asserts the daily challenge section is shown and says what the game is: three tries, and streaks. */
+  async expectDailyPromoInfo(): Promise<void> {
+    const region = this.dailyPromoRegion();
+    await expect(
+      region,
+      'Landing page should have a <section> whose accessible name matches /daily challenge/i (aria-label or aria-labelledby a "Daily challenge" h2)',
+    ).toBeVisible();
+    await expect(
+      region.getByRole('heading', { level: 2 }),
+      'The Daily challenge section should have a level-2 heading introducing the challenge',
+    ).toBeVisible();
+    await expect(
+      region,
+      'The Daily challenge section should say how many tries a player gets (text matching /3 tries|three tries/i)',
+    ).toContainText(/3 tries|three tries/i);
+    await expect(region, 'The Daily challenge section should mention streaks (text matching /streak/i)').toContainText(
+      /streak/i,
+    );
+  }
+
+  /** Clicks the "Play today's challenge" link inside the daily challenge section. */
+  async openDailyFromPromo(): Promise<void> {
+    const link = this.dailyPromoRegion().getByRole('link', { name: /play today.?s challenge/i });
+    await expect(
+      link,
+      'The Daily challenge section should contain a link matching /play today.?s challenge/i (to /daily)',
+    ).toBeVisible();
+    await link.click();
+  }
+
+  /** Asserts the current document has no horizontal overflow. */
+  async expectNoHorizontalOverflow(context: string): Promise<void> {
+    const { scrollWidth, clientWidth } = await this.page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+    }));
+    expect(
+      scrollWidth,
+      `${context}: page should fit without horizontal overflow (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
+    ).toBeLessThanOrEqual(clientWidth);
   }
 
   /** Every external link on the page. */
