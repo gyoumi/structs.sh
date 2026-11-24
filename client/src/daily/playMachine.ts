@@ -46,6 +46,8 @@ export type PlayEvent =
       focusSkip: boolean;
     }
   | { type: 'animation-completed'; runId: number }
+  /** The running try was started again under a new id, as when a theme switch redraws it. */
+  | { type: 'rerun'; runId: number }
   | { type: 'scored'; score: TryScore }
   | { type: 'synced'; scores: TryScore[] }
   | { type: 'score-failed' }
@@ -83,6 +85,9 @@ export const playReducer = (state: PlayState, event: PlayEvent): PlayState => {
         scores: state.scores,
         input: state.input,
       };
+    case 'rerun':
+      if (state.stage !== 'running') return state;
+      return { ...state, runId: event.runId };
     case 'scored': {
       if (state.stage !== 'scoring') return state;
       const scores = [...state.scores, event.score];

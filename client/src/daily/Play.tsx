@@ -3,7 +3,6 @@ import landing from '@/landing/Landing.module.css';
 import { ListOperation, loadChallenges } from '@/Services/challenges/challenges';
 import { Theme } from '@/ui/theme';
 import Transport from '@/visualiser/Transport';
-import { canvasThemes } from '@/visualiser/canvasThemes';
 import { PlaybackContext } from '@/visualiser/playback';
 import { usePrefersReducedMotion } from '@/visualiser/useVisualiser';
 import { MobileHud, StepCard } from './DailyCards';
@@ -20,17 +19,11 @@ import { messageFor, mobileOutcomeOf } from './playMessages';
 import { validateOperations } from './OperationBuilder';
 import { ChallengeStages } from './ChallengeStages';
 import { IndexDriftChallenge, Challenge, shareText } from './challenge';
-import {
-  drawnArrangement,
-  Rig,
-  useCompletedRunId,
-  useHasTimeline,
-  useReadoutValue,
-  useStageSnapshot,
-} from './rig';
+import { Rig, useCompletedRunId, useReadoutValue, useStageSnapshot } from './rig';
 import { ScoreCard } from './ScoreCard';
 import { TargetTree } from './TargetTree';
 import { readoutsFor, scoreRun, tryScoreOf, valuesForInput } from './templates';
+import { restoredRunOf, stageRunOf, useStageRun } from './useStageRun';
 import styles from './Daily.module.css';
 
 /** Draws `values` on every stage now, as after a swap. */
@@ -76,7 +69,6 @@ export const Play = (props: PlayProps) => {
     onRestoreInput,
   } = props;
   const completedRunId = useCompletedRunId(rig);
-  const hasTimeline = useHasTimeline(rig);
   const [firstStage] = rig.stages;
   const trace = useStageSnapshot(firstStage, (s) => s.trace);
   const values = valuesForInput(challenge, input);
@@ -94,13 +86,12 @@ export const Play = (props: PlayProps) => {
   const runButton = useRef<HTMLButtonElement>(null);
   const skipButton = useRef<HTMLButtonElement>(null);
   const reducedMotion = usePrefersReducedMotion();
-  const [stageTheme, setStageTheme] = useState(theme);
-
-  const draw = (arrangement: number[]) => {
-    setStageTheme(theme);
-    const drawn = drawnArrangement(rig.mode, arrangement);
-    rig.stages.forEach(({ session }) => session.loadData(drawn, canvasThemes[theme], true));
-  };
+  const { stageTheme, draw, start } = useStageRun({
+    rig,
+    theme,
+    restored: restoredRunOf(challenge, initialTries.at(-1)?.input),
+    onRerun: (runId) => dispatch({ type: 'rerun', runId }),
+  });
 
   const applySynced = useEffectEvent((tries: SavedTry[]) => {
     savedTries.current = tries;
@@ -142,12 +133,6 @@ export const Play = (props: PlayProps) => {
     input.kind === 'operations' &&
     (input.operations.length === 0 ||
       validateOperations(challenge.start.length, input.operations).status === 'invalid');
-
-  useEffect(() => {
-    if (stageTheme === theme || busy || hasTimeline) return;
-    setStageTheme(theme);
-    rig.stages.forEach(({ session }) => session.retheme(canvasThemes[theme]));
-  }, [stageTheme, theme, busy, hasTimeline, rig]);
 
   useEffect(() => {
     if (play.stage === 'running' && play.focusSkip) {
@@ -194,10 +179,8 @@ export const Play = (props: PlayProps) => {
   const run = () => {
     if (unrunnable) return;
     const focusSkip = document.activeElement === runButton.current;
-    draw(values);
-    const ops = input.kind === 'operations' ? input.operations : undefined;
-    if (!rig.run(values, ops)) return;
-    const runId = firstStage.session.getSnapshot().lastRun?.id ?? 0;
+    const runId = start(stageRunOf(challenge, input));
+    if (runId === null) return;
     dispatch({ type: 'run', input, runId, focusSkip });
     runner.current?.scrollIntoView?.({
       behavior: reducedMotion ? 'auto' : 'smooth',

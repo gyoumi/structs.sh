@@ -80,7 +80,3 @@ export const useCompletedRunId = (rig: Rig): number | null =>
       rig.stages.every(({ session }) => isStageComplete(session.getSnapshot()));
     return done ? (rig.stages[0].session.getSnapshot().lastRun?.id ?? null) : null;
   });
-
-/** Whether any stage holds a run's timeline. */
-export const useHasTimeline = (rig: Rig): boolean =>
-  useSyncExternalStore(rig.playback.subscribe, () => rig.playback.getSnapshot().duration > 0);
