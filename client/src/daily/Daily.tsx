@@ -13,6 +13,7 @@ import { ChallengeIntro } from './ChallengeIntro';
 import { ChallengeRig } from './ChallengeStages';
 import {
   HISTORY_STORAGE_KEY,
+  LEGACY_HISTORY_STORAGE_KEY,
   isIsoDate,
   loadHistory,
   type PersistOutcome,
@@ -133,7 +134,11 @@ const ChallengeView = ({ challenge, theme }: { challenge: Challenge; theme: Them
   const persistedTries = useRef(savedTriesForChallenge(history, challenge));
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
-      if (event.key === null || event.key === HISTORY_STORAGE_KEY) {
+      if (
+        event.key === null ||
+        event.key === HISTORY_STORAGE_KEY ||
+        event.key === LEGACY_HISTORY_STORAGE_KEY
+      ) {
         const nextHistory = loadHistory();
         setHistory(nextHistory);
         const nextTries = savedTriesForChallenge(nextHistory, challenge);

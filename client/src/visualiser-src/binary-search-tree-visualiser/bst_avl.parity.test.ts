@@ -11,7 +11,7 @@ import {
   wasmTreeCounts,
 } from '@/test/treeParity';
 
-/** Needs the puzzles wasm built first: `pnpm run puzzles` from the repo root. */
+/** Needs the challenges wasm built first: `pnpm run challenges` from the repo root. */
 
 const same = (a: readonly number[], b: readonly number[]) =>
   a.length === b.length && a.every((value, i) => value === b[i]);

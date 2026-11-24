@@ -11,7 +11,7 @@ import {
 } from '@/test/sortingParity';
 import { bubbleSort } from './bubble';
 
-/** Needs the puzzles wasm built first: `pnpm run puzzles` from the repo root. */
+/** Needs the challenges wasm built first: `pnpm run challenges` from the repo root. */
 
 type Counts = { passes: number; swaps: number };
 

@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 import {
   HISTORY_STORAGE_KEY,
   HISTORY_VERSION,
+  LEGACY_HISTORY_STORAGE_KEY,
   currentStreak,
   isIsoDate,
   loadHistory,
   longestStreak,
+  persistChallengeTries,
   recordChallengeTries,
   saveHistory,
   type DailyHistory,
@@ -409,5 +411,37 @@ describe('currentStreak and longestStreak', () => {
       got,
       `streaks for days ${days(restarted)} on '2026-12-24': finishing after a missed day should restart at 1 while the longest stays 3; got ${JSON.stringify(got)}`
     ).toEqual({ current: 1, longest: 3 });
+  });
+
+  it('migrates legacy structs.daily.history records with par and preserves streaks', () => {
+    const { storage, items } = memoryStorage();
+    const legacy = {
+      version: 1,
+      results: {
+        '2026-12-20': {
+          date: '2026-12-20',
+          number: 11,
+          template: 'quicksort-most-comparisons',
+          par: 34,
+          tries: [tryOf(30), tryOf(34), tryOf(36)],
+          completed: true,
+          bestScore: 36,
+          goalReached: true,
+        },
+      },
+    };
+    storage.setItem(LEGACY_HISTORY_STORAGE_KEY, JSON.stringify(legacy));
+    const loaded = loadHistory(storage);
+    expect(loaded.results['2026-12-20']?.goal, 'legacy par should map to goal').toBe(34);
+    expect(
+      currentStreak(loaded, '2026-12-21'),
+      'legacy finished day should keep streak alive'
+    ).toBe(1);
+    persistChallengeTries(QUICK_12, [tryOf(34)], storage);
+    const upgraded = JSON.parse(items.get(HISTORY_STORAGE_KEY) ?? '{}');
+    expect(upgraded.results?.['2026-12-20']?.goal, 'upgraded save should keep legacy day').toBe(34);
+    expect(upgraded.results?.['2026-12-21']?.tries, 'upgraded save should include new day').toEqual(
+      [tryOf(34)]
+    );
   });
 });

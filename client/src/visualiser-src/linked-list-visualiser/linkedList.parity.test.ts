@@ -9,7 +9,7 @@ import GraphicalLinkedList from './data-structure/GraphicalLinkedList';
 import { nodePathWidth } from './util/constants';
 
 /**
- * GraphicalLinkedList.runOperations vs the puzzles wasm. Needs `pnpm run puzzles` first.
+ * GraphicalLinkedList.runOperations vs the challenges wasm. Needs `pnpm run challenges` first.
  * Hand-worked counts use the rule in docs/puzzle-ideas.md (see e2e/support/daily-list-fixtures.ts):
  * insert(v, i) walks min(i, length before) and lands there, delete(i) walks i + 1,
  * cost = operations + nodes walked.

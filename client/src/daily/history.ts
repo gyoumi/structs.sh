@@ -21,6 +21,9 @@ export const HISTORY_VERSION = 1 as const;
 
 export const HISTORY_STORAGE_KEY = 'daily.history';
 
+/** Storage key used before the rename; read as a fallback so existing players keep their streaks. */
+export const LEGACY_HISTORY_STORAGE_KEY = 'structs.daily.history';
+
 /** Everything saved about one day's challenge. */
 // eslint-disable-next-line structs/one-stage-value -- completed (all tries used) and goalReached (best score hits goal) are independent facts, not stages
 export type SavedChallengeResult = {
@@ -79,13 +82,18 @@ const summarizeResult = (
 };
 
 const parseSavedResult = (value: unknown): SavedChallengeResult | null => {
+  if (!isPlainObject(value)) return null;
+  const goal = isFiniteNumber(value.goal)
+    ? value.goal
+    : isFiniteNumber(value.par)
+      ? value.par
+      : null;
   if (
-    !isPlainObject(value) ||
     typeof value.date !== 'string' ||
     !isIsoDate(value.date) ||
     !isFiniteNumber(value.number) ||
     !TEMPLATES.includes(value.template as Template) ||
-    !isFiniteNumber(value.goal) ||
+    goal === null ||
     !Array.isArray(value.tries) ||
     value.tries.length > MAX_TRIES ||
     !value.tries.every(isSavedTry)
@@ -95,35 +103,40 @@ const parseSavedResult = (value: unknown): SavedChallengeResult | null => {
   const template = value.template as Template;
   const expectedKind = template === 'linked-list-index-drift' ? 'operations' : 'arrangement';
   if (!value.tries.every((saved) => saved.input.kind === expectedKind)) return null;
-  return summarizeResult(
-    { date: value.date, number: value.number, template, goal: value.goal },
-    value.tries
-  );
+  return summarizeResult({ date: value.date, number: value.number, template, goal }, value.tries);
 };
 
-/** The saved history, or an empty one when nothing valid is saved. Malformed days are skipped. */
+const readStoredEntries = (store: StorageLike, key: string): SavedChallengeResult[] => {
+  let parsed: unknown;
+  try {
+    const raw = store.getItem(key);
+    if (raw === null) return [];
+    parsed = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+  if (
+    !isPlainObject(parsed) ||
+    parsed.version !== HISTORY_VERSION ||
+    !isPlainObject(parsed.results)
+  )
+    return [];
+  return Object.values(parsed.results)
+    .map(parseSavedResult)
+    .filter((result): result is SavedChallengeResult => result !== null);
+};
+
+/** The saved history, or an empty one when nothing valid is saved. Malformed days are skipped; legacy saves are merged. */
 export function loadHistory(storage?: StorageLike | null): DailyHistory {
   const store = storage === undefined ? defaultStorage() : storage;
   if (!store) return emptyHistory();
-  let parsed: unknown;
-  try {
-    const raw = store.getItem(HISTORY_STORAGE_KEY);
-    if (raw === null) return emptyHistory();
-    parsed = JSON.parse(raw);
-  } catch {
-    return emptyHistory();
-  }
-  if (!isPlainObject(parsed) || parsed.version !== HISTORY_VERSION) return emptyHistory();
-  if (!isPlainObject(parsed.results)) return emptyHistory();
   const results: Record<string, SavedChallengeResult> = {};
-  Object.values(parsed.results).forEach((entry) => {
-    const result = parseSavedResult(entry);
-    if (!result) return;
-    const existing = results[result.date];
-    if (!existing || result.tries.length >= existing.tries.length) {
-      results[result.date] = result;
-    }
-  });
+  [LEGACY_HISTORY_STORAGE_KEY, HISTORY_STORAGE_KEY]
+    .flatMap((key) => readStoredEntries(store, key))
+    .forEach((result) => {
+      const existing = results[result.date];
+      if (!existing || result.tries.length >= existing.tries.length) results[result.date] = result;
+    });
   return { version: HISTORY_VERSION, results };
 }
 

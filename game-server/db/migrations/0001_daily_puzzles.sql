@@ -1,5 +1,5 @@
-CREATE TABLE daily_challenges (
-    challenge_date   DATE PRIMARY KEY,
+CREATE TABLE daily_puzzles (
+    puzzle_date      DATE PRIMARY KEY,
     number           INTEGER NOT NULL UNIQUE CHECK (number >= 1),
     template         TEXT NOT NULL,
     template_version INTEGER NOT NULL DEFAULT 1 CHECK (template_version >= 1),
