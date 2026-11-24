@@ -201,10 +201,11 @@ export const puzzleTitle = (template: string) => {
 /** A try's score, or null when the try did not solve the puzzle. */
 export type SharedScore = number | null;
 
-/** One line per try: its score, marked ⭐ at the goal, or ✗ when unsolved. Never the try's input. */
+/** One line per try: its score, marked ⭐ at the goal, or ✗ when unsolved, then the streak when there is one. Never the try's input. */
 export const shareText = (
   puzzle: Pick<Puzzle, 'number' | 'template' | 'par'>,
-  scores: SharedScore[]
+  scores: SharedScore[],
+  streak?: number
 ) =>
   [
     `structs.sh daily #${puzzle.number} · ${puzzleTitle(puzzle.template)} · Goal ${puzzle.par}`,
@@ -212,6 +213,9 @@ export const shareText = (
       if (score === null) return '✗';
       return `${score}${reachesGoal(puzzle, score) ? ' ⭐' : ''}`;
     }),
+    ...(streak !== undefined && streak > 0
+      ? [`Streak: ${streak} ${streak === 1 ? 'day' : 'days'} 🔥`]
+      : []),
     'structs.sh/daily',
   ].join('\n');
 
@@ -230,28 +234,56 @@ export const nextFreeSlot = (
 
 export type PuzzleState =
   | { status: 'loading' }
+  | { status: 'unreachable' }
+  | { status: 'unavailable' }
   | { status: 'error' }
   | { status: 'ready'; puzzle: Puzzle };
 
-export const usePuzzle = (): PuzzleState => {
+/** What a failed response means: no puzzle for today yet, a gateway or server outage, or another error. */
+const failedStatus = (status: number): PuzzleState => {
+  if (status === 404) return { status: 'unavailable' };
+  if (status === 502 || status === 503 || status === 504) return { status: 'unreachable' };
+  return { status: 'error' };
+};
+
+/** Today's puzzle from the server, and `retry` to ask again after a failure. */
+export const usePuzzle = (): { state: PuzzleState; retry: () => void } => {
   const [state, setState] = useState<PuzzleState>({ status: 'loading' });
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
+    const settle = (next: PuzzleState) => {
+      if (!controller.signal.aborted) setState(next);
+    };
     fetch(PUZZLE_URL, { signal: controller.signal })
-      .then((response) => {
-        if (!response.ok) throw new Error(`Fetching the puzzle failed: ${response.status}`);
-        return response.json();
-      })
-      .then((data) => setState({ status: 'ready', puzzle: parsePuzzle(data) }))
-      .catch((error) => {
-        if (!controller.signal.aborted) {
+      .then(
+        async (response) => {
+          if (!response.ok) {
+            settle(failedStatus(response.status));
+            return;
+          }
+          try {
+            settle({ status: 'ready', puzzle: parsePuzzle(await response.json()) });
+          } catch (error) {
+            console.error(error);
+            settle({ status: 'error' });
+          }
+        },
+        (error) => {
+          if (controller.signal.aborted) return;
           console.error(error);
-          setState({ status: 'error' });
+          settle({ status: 'unreachable' });
         }
-      });
+      )
+      .catch(() => {});
     return () => controller.abort();
-  }, []);
+  }, [attempt]);
 
-  return state;
+  const retry = () => {
+    setState({ status: 'loading' });
+    setAttempt((n) => n + 1);
+  };
+
+  return { state, retry };
 };

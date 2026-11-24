@@ -1,13 +1,21 @@
-import { ReactNode, useEffect, useReducer, useRef, useState } from 'react';
+import { ReactNode, useEffect, useEffectEvent, useReducer, useRef, useState } from 'react';
 import landing from '@/landing/Landing.module.css';
-import { evaluatePuzzle, ListOperation, loadPuzzles } from '@/Services/puzzles/puzzles';
+import { ListOperation, loadPuzzles } from '@/Services/puzzles/puzzles';
 import { Theme } from '@/ui/theme';
 import Transport from '@/visualiser/Transport';
 import { canvasThemes } from '@/visualiser/canvasThemes';
 import { PlaybackContext } from '@/visualiser/playback';
 import { usePrefersReducedMotion } from '@/visualiser/useVisualiser';
 import { MobileHud, StepCard } from './DailyCards';
-import { initialPlayState, MAX_TRIES, PlayInput, playReducer, sharedScores } from './playMachine';
+import { extendsExisting, sameTries, type PersistOutcome, type SavedTry } from './history';
+import {
+  MAX_TRIES,
+  PlayInput,
+  playReducer,
+  restoredPlayState,
+  sharedScores,
+  TryScore,
+} from './playMachine';
 import { messageFor, mobileOutcomeOf } from './playMessages';
 import { validateOperations } from './OperationBuilder';
 import { PuzzleStages } from './PuzzleStages';
@@ -22,7 +30,7 @@ import {
 } from './rig';
 import { ScoreCard } from './ScoreCard';
 import { TargetTree } from './TargetTree';
-import { instanceOf, readoutsFor, tryScoreOf } from './templates';
+import { readoutsFor, scoreRun, tryScoreOf, valuesForInput } from './templates';
 import styles from './Daily.module.css';
 
 /** Draws `values` on every stage now, as after a swap. */
@@ -35,6 +43,16 @@ type PlayBaseProps = {
   theme: Theme;
   /** The player's input: the swappable array, or the operation builder. */
   editor: (frozen: boolean, redraw: Redraw) => ReactNode;
+  /** Tries saved from an earlier visit today, resumed on load. */
+  initialTries: SavedTry[];
+  /** Bumps when another tab updates saved history via the storage event. */
+  storageRevision: number;
+  /** Days in a row finished, shown in the share text. */
+  streak?: number;
+  /** Saves every try so far under a cross-tab lock and reports the persistence outcome. */
+  onRecordTries: (tries: SavedTry[]) => Promise<PersistOutcome>;
+  /** Restores the editor input when another tab's completion freezes this puzzle. */
+  onRestoreInput: (input: PlayInput) => void;
 };
 
 type PlayProps = PlayBaseProps &
@@ -43,40 +61,74 @@ type PlayProps = PlayBaseProps &
     | { puzzle: IndexDriftPuzzle; input: { kind: 'operations'; operations: ListOperation[] } }
   );
 
-const scoreRun = (puzzle: Puzzle, input: PlayInput) => {
-  if (puzzle.template === 'linked-list-index-drift') {
-    if (input.kind !== 'operations') {
-      return Promise.reject(new Error('Expected list operations for linked-list-index-drift.'));
-    }
-    return evaluatePuzzle(instanceOf(puzzle), input.operations);
-  }
-  if (input.kind !== 'arrangement') {
-    return Promise.reject(new Error(`Expected an arrangement for ${puzzle.template}.`));
-  }
-  return evaluatePuzzle(instanceOf(puzzle), input.arrangement);
-};
-
 /** The game itself: the player's input, the stages, the actions, and the score cards. */
 export const Play = (props: PlayProps) => {
-  const { puzzle, rig, theme, input, editor } = props;
+  const {
+    puzzle,
+    rig,
+    theme,
+    input,
+    editor,
+    initialTries,
+    storageRevision,
+    streak,
+    onRecordTries,
+    onRestoreInput,
+  } = props;
   const completedRunId = useCompletedRunId(rig);
   const hasTimeline = useHasTimeline(rig);
   const [firstStage] = rig.stages;
   const trace = useStageSnapshot(firstStage, (s) => s.trace);
-  const values =
-    puzzle.template === 'linked-list-index-drift'
-      ? puzzle.start
-      : input.kind === 'arrangement'
-        ? input.arrangement
-        : puzzle.values;
+  const values = valuesForInput(puzzle, input);
   const readouts = readoutsFor(puzzle, values);
   const primaryValue = useReadoutValue(rig, readouts.primary.value);
-  const [play, dispatch] = useReducer(playReducer, initialPlayState);
+  const [play, dispatch] = useReducer(
+    playReducer,
+    initialTries.map((saved) => saved.score),
+    restoredPlayState
+  );
+  const [saveFailed, setSaveFailed] = useState(false);
+  const savedTries = useRef(initialTries);
+  const appliedRevision = useRef(storageRevision);
   const runner = useRef<HTMLDivElement>(null);
   const runButton = useRef<HTMLButtonElement>(null);
   const skipButton = useRef<HTMLButtonElement>(null);
   const reducedMotion = usePrefersReducedMotion();
   const [stageTheme, setStageTheme] = useState(theme);
+
+  const draw = (arrangement: number[]) => {
+    setStageTheme(theme);
+    const drawn = drawnArrangement(rig.mode, arrangement);
+    rig.stages.forEach(({ session }) => session.loadData(drawn, canvasThemes[theme], true));
+  };
+
+  const applySynced = useEffectEvent((tries: SavedTry[]) => {
+    savedTries.current = tries;
+    setSaveFailed(false);
+    if (tries.length >= MAX_TRIES) {
+      const finalInput = tries.at(-1)?.input;
+      if (finalInput) {
+        onRestoreInput(finalInput);
+        draw(valuesForInput(puzzle, finalInput));
+      }
+    }
+    dispatch({ type: 'synced', scores: tries.map((saved) => saved.score) });
+  });
+
+  const recordTry = useEffectEvent(
+    async (tried: PlayInput, score: TryScore, isCancelled: () => boolean) => {
+      const nextTries = [...savedTries.current, { input: tried, score }];
+      const outcome = await onRecordTries(nextTries);
+      if (isCancelled()) return;
+      if (outcome.status === 'synced') {
+        applySynced(outcome.tries);
+        return;
+      }
+      setSaveFailed(outcome.status === 'failed');
+      savedTries.current = outcome.status === 'saved' ? outcome.tries : nextTries;
+      dispatch({ type: 'scored', score });
+    }
+  );
 
   useEffect(() => {
     loadPuzzles().catch(() => {});
@@ -97,12 +149,6 @@ export const Play = (props: PlayProps) => {
     rig.stages.forEach(({ session }) => session.retheme(canvasThemes[theme]));
   }, [stageTheme, theme, busy, hasTimeline, rig]);
 
-  const draw = (arrangement: number[]) => {
-    setStageTheme(theme);
-    const drawn = drawnArrangement(rig.mode, arrangement);
-    rig.stages.forEach(({ session }) => session.loadData(drawn, canvasThemes[theme], true));
-  };
-
   useEffect(() => {
     if (play.stage === 'running' && play.focusSkip) {
       skipButton.current?.focus({ preventScroll: true });
@@ -116,11 +162,25 @@ export const Play = (props: PlayProps) => {
   }, [play, completedRunId]);
 
   useEffect(() => {
+    if (storageRevision === appliedRevision.current) return;
+    if (play.stage === 'running' || play.stage === 'scoring') return;
+    appliedRevision.current = storageRevision;
+    if (sameTries(initialTries, savedTries.current)) {
+      setSaveFailed(false);
+      return;
+    }
+    if (initialTries.length > 0 && extendsExisting(initialTries, savedTries.current)) return;
+    applySynced(initialTries);
+  }, [initialTries, play.stage, storageRevision]);
+
+  useEffect(() => {
     if (play.stage !== 'scoring') return undefined;
     let cancelled = false;
     scoreRun(puzzle, play.input)
-      .then((evaluation) => {
-        if (!cancelled) dispatch({ type: 'scored', score: tryScoreOf(puzzle, evaluation) });
+      .then(async (evaluation) => {
+        if (cancelled) return;
+        const score = tryScoreOf(puzzle, evaluation);
+        await recordTry(play.input, score, () => cancelled);
       })
       .catch((error) => {
         console.error(error);
@@ -152,7 +212,7 @@ export const Play = (props: PlayProps) => {
       return;
     }
     clipboard
-      .writeText(shareText(puzzle, sharedScores(play.scores)))
+      .writeText(shareText(puzzle, sharedScores(play.scores), streak))
       .then(() => dispatch({ type: 'share-copied' }))
       .catch(() => dispatch({ type: 'share-failed' }));
   };
@@ -215,6 +275,11 @@ export const Play = (props: PlayProps) => {
         <span aria-live="polite" className={styles.message}>
           {messageFor(play, puzzle)}
         </span>
+        {saveFailed && (
+          <p role="alert" className={styles.note}>
+            Couldn’t save progress to this browser.
+          </p>
+        )}
       </div>
       <aside className={styles.sidebar}>
         <ScoreCard puzzle={puzzle} rig={rig} readouts={readouts} play={play} />

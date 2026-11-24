@@ -274,6 +274,35 @@ describe('shareText', () => {
   });
 });
 
+describe('shareText — streak line', () => {
+  const header = 'structs.sh daily #12 · Quicksort · Goal 34';
+  const scores = [34, 25, 31];
+
+  it.each([
+    { streak: 1, line: 'Streak: 1 day 🔥' },
+    { streak: 4, line: 'Streak: 4 days 🔥' },
+  ])('adds "$line" before the link for a streak of $streak', ({ streak, line }) => {
+    const text = shareText(DAILY_12, scores, streak);
+    const want = [header, '34 ⭐', '25', '31', line, 'structs.sh/daily'].join('\n');
+    expect(
+      text,
+      `shareText(puzzle #12 goal 34, ${JSON.stringify(scores)}, streak ${streak}): expected ${JSON.stringify(want)}, got ${JSON.stringify(text)}`
+    ).toBe(want);
+  });
+
+  it.each([{ streak: 0 }, { streak: undefined }, { streak: -2 }])(
+    'adds no streak line for a streak of $streak',
+    ({ streak }) => {
+      const text = shareText(DAILY_12, scores, streak);
+      const want = [header, '34 ⭐', '25', '31', 'structs.sh/daily'].join('\n');
+      expect(
+        text,
+        `shareText(puzzle #12 goal 34, ${JSON.stringify(scores)}, streak ${streak}): expected no "Streak:" line, ${JSON.stringify(want)}, got ${JSON.stringify(text)}`
+      ).toBe(want);
+    }
+  );
+});
+
 describe('PUZZLE_URL', () => {
   it("fetches today's puzzle from the game server", () => {
     expect(

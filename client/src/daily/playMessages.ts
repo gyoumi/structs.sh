@@ -13,6 +13,7 @@ export const mobileOutcomeOf = (play: PlayState, puzzle: Puzzle, busy: boolean):
 /** The line under the actions: how the game ended, or a nudge once the goal is reached. */
 export const messageFor = (play: PlayState, puzzle: Puzzle) => {
   if (play.stage === 'score-failed') return 'Couldn’t score that try. Press Run to try again.';
+  if (play.stage === 'synced') return 'Updated from another tab.';
   if (play.stage === 'running' || play.stage === 'scoring') return '';
   const lowerWins = puzzle.template === 'linked-list-index-drift';
   const score = shownScore(play, puzzle.template);

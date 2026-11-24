@@ -33,6 +33,7 @@ export type PlayState =
     }
   | { stage: 'scoring'; scores: TryScore[]; input: PlayInput }
   | { stage: 'score-failed'; scores: TryScore[] }
+  | { stage: 'synced'; scores: TryScore[] }
   | { stage: 'ended'; scores: TryScore[]; share: ShareStatus };
 
 export type PlayEvent =
@@ -44,16 +45,27 @@ export type PlayEvent =
     }
   | { type: 'animation-completed'; runId: number }
   | { type: 'scored'; score: TryScore }
+  | { type: 'synced'; scores: TryScore[] }
   | { type: 'score-failed' }
   | { type: 'share-copied' }
   | { type: 'share-failed' };
 
 export const initialPlayState: PlayState = { stage: 'ready', scores: [] };
 
+/** The state to resume at after a reload: ended once every try is used, ready otherwise. */
+export const restoredPlayState = (scores: TryScore[]): PlayState => {
+  const capped = scores.slice(0, MAX_TRIES);
+  return capped.length >= MAX_TRIES
+    ? { stage: 'ended', scores: capped, share: 'idle' }
+    : { stage: 'ready', scores: capped };
+};
+
 export const playReducer = (state: PlayState, event: PlayEvent): PlayState => {
   switch (event.type) {
     case 'run': {
-      if (state.stage !== 'ready' && state.stage !== 'score-failed') return state;
+      if (state.stage !== 'ready' && state.stage !== 'score-failed' && state.stage !== 'synced') {
+        return state;
+      }
       return {
         stage: 'running',
         scores: state.scores,
@@ -74,6 +86,11 @@ export const playReducer = (state: PlayState, event: PlayEvent): PlayState => {
       const scores = [...state.scores, event.score];
       if (scores.length >= MAX_TRIES) return { stage: 'ended', scores, share: 'idle' };
       return { stage: 'ready', scores };
+    }
+    case 'synced': {
+      const capped = event.scores.slice(0, MAX_TRIES);
+      if (capped.length >= MAX_TRIES) return { stage: 'ended', scores: capped, share: 'idle' };
+      return { stage: 'synced', scores: capped };
     }
     case 'score-failed':
       if (state.stage !== 'scoring') return state;

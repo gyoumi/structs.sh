@@ -52,14 +52,22 @@ const introFor = (puzzle: Puzzle): Intro => {
   }
 };
 
-export const PuzzleIntro = ({ puzzle }: { puzzle: Puzzle }) => {
+/** The puzzle's heading and rules, with the streak badge when a streak is running. */
+export const PuzzleIntro = ({ puzzle, streak }: { puzzle: Puzzle; streak?: number }) => {
   const { title, lede, rule } = introFor(puzzle);
   return (
     <>
-      <div className={styles.eyebrow}>
-        {`Daily #${puzzle.number}${puzzle.date ? ` · ${puzzle.date}` : ''} · ${puzzleTitle(
-          puzzle.template
-        )}`}
+      <div className={styles.introHeader}>
+        <div className={styles.eyebrow}>
+          {`Daily #${puzzle.number}${puzzle.date ? ` · ${puzzle.date}` : ''} · ${puzzleTitle(
+            puzzle.template
+          )}`}
+        </div>
+        {streak !== undefined && streak > 0 && (
+          <output aria-label="Streak" className={styles.streakBadge}>
+            {streak} {streak === 1 ? 'day' : 'days'} 🔥
+          </output>
+        )}
       </div>
       <h1 className={styles.title}>{title}</h1>
       <section aria-label="Puzzle rules" className={styles.rules}>

@@ -498,6 +498,8 @@ stages, comments, tests) without changing what a player sees.
 
 ### 3a. Game server
 
+**Done in #84.**
+
 `structs-game-server`, `structs-game-api` and `api.ts`, which `ts-rs`
 generates from `structs-game-api`. The server returns today's puzzle from
 Postgres. Its Docker image follows CHAOS (`sqlx` offline query data and

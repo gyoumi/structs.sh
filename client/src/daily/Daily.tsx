@@ -1,5 +1,5 @@
 import '@fontsource-variable/fredoka';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import logo from '@/assets/img/structs.png';
 import hero from '@/landing/HeroSection.module.css';
@@ -11,17 +11,48 @@ import { Play } from './Play';
 import PuzzleArray from './PuzzleArray';
 import { PuzzleIntro } from './PuzzleIntro';
 import { PuzzleRig } from './PuzzleStages';
+import {
+  HISTORY_STORAGE_KEY,
+  isIsoDate,
+  loadHistory,
+  type PersistOutcome,
+  persistPuzzleTriesLocked,
+  sameTries,
+  SavedTry,
+  savedTriesForPuzzle,
+  streakForPuzzle,
+} from './history';
 import { IndexDriftPuzzle, Puzzle, usePuzzle } from './puzzle';
 import { stagePlanFor } from './templates';
 import styles from './Daily.module.css';
 
 type ArrayPuzzle = Exclude<Puzzle, IndexDriftPuzzle>;
 
+/** What `Play` needs to resume today's tries and save new ones. */
+type Progress = {
+  initialTries: SavedTry[];
+  storageRevision: number;
+  streak?: number;
+  onRecordTries: (tries: SavedTry[]) => Promise<PersistOutcome>;
+};
+
+type ViewProps<P> = { puzzle: P; theme: Theme; progress: Progress };
+
+const lastInput = (progress: Progress) => progress.initialTries.at(-1)?.input;
+
+/** The last arrangement tried today, or the puzzle's own when none fits. */
+const restoredValues = (puzzle: ArrayPuzzle, progress: Progress) => {
+  const input = lastInput(progress);
+  return input?.kind === 'arrangement' && input.arrangement.length === puzzle.values.length
+    ? [...input.arrangement]
+    : puzzle.values;
+};
+
 const swapValues = (values: number[], a: number, b: number) =>
   values.map((value, index) => (index === a ? values[b] : index === b ? values[a] : value));
 
-const ArrayPuzzleView = ({ puzzle, theme }: { puzzle: ArrayPuzzle; theme: Theme }) => {
-  const [values, setValues] = useState(puzzle.values);
+const ArrayPuzzleView = ({ puzzle, theme, progress }: ViewProps<ArrayPuzzle>) => {
+  const [values, setValues] = useState(() => restoredValues(puzzle, progress));
   const [fixed] = useState(() => new Set(puzzle.fixed));
   const [plan] = useState(() => stagePlanFor(puzzle));
 
@@ -32,7 +63,16 @@ const ArrayPuzzleView = ({ puzzle, theme }: { puzzle: ArrayPuzzle; theme: Theme 
           puzzle={puzzle}
           rig={rig}
           theme={theme}
+          {...progress}
           input={{ kind: 'arrangement', arrangement: values }}
+          onRestoreInput={(restored) => {
+            if (
+              restored.kind === 'arrangement' &&
+              restored.arrangement.length === puzzle.values.length
+            ) {
+              setValues([...restored.arrangement]);
+            }
+          }}
           editor={(frozen, redraw) => (
             <PuzzleArray
               values={values}
@@ -50,8 +90,11 @@ const ArrayPuzzleView = ({ puzzle, theme }: { puzzle: ArrayPuzzle; theme: Theme 
   );
 };
 
-const IndexDriftView = ({ puzzle, theme }: { puzzle: IndexDriftPuzzle; theme: Theme }) => {
-  const [operations, setOperations] = useState<ListOperation[]>([]);
+const IndexDriftView = ({ puzzle, theme, progress }: ViewProps<IndexDriftPuzzle>) => {
+  const [operations, setOperations] = useState<ListOperation[]>(() => {
+    const input = lastInput(progress);
+    return input?.kind === 'operations' ? [...input.operations] : [];
+  });
   const [plan] = useState(() => stagePlanFor(puzzle));
 
   return (
@@ -61,7 +104,11 @@ const IndexDriftView = ({ puzzle, theme }: { puzzle: IndexDriftPuzzle; theme: Th
           puzzle={puzzle}
           rig={rig}
           theme={theme}
+          {...progress}
           input={{ kind: 'operations', operations }}
+          onRestoreInput={(restored) => {
+            if (restored.kind === 'operations') setOperations([...restored.operations]);
+          }}
           editor={(frozen, redraw) => (
             <OperationBuilder
               start={puzzle.start}
@@ -80,20 +127,71 @@ const IndexDriftView = ({ puzzle, theme }: { puzzle: IndexDriftPuzzle; theme: Th
   );
 };
 
-const PuzzleView = ({ puzzle, theme }: { puzzle: Puzzle; theme: Theme }) => (
-  <>
-    <PuzzleIntro puzzle={puzzle} />
-    {puzzle.template === 'linked-list-index-drift' ? (
-      <IndexDriftView puzzle={puzzle} theme={theme} />
-    ) : (
-      <ArrayPuzzleView puzzle={puzzle} theme={theme} />
-    )}
-  </>
+const PuzzleView = ({ puzzle, theme }: { puzzle: Puzzle; theme: Theme }) => {
+  const [history, setHistory] = useState(() => loadHistory());
+  const [storageRevision, setStorageRevision] = useState(0);
+  const persistedTries = useRef(savedTriesForPuzzle(history, puzzle));
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === null || event.key === HISTORY_STORAGE_KEY) {
+        const nextHistory = loadHistory();
+        setHistory(nextHistory);
+        const nextTries = savedTriesForPuzzle(nextHistory, puzzle);
+        if (!sameTries(nextTries, persistedTries.current)) {
+          persistedTries.current = nextTries;
+          setStorageRevision((revision) => revision + 1);
+        }
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [puzzle]);
+  const dated = isIsoDate(puzzle.date);
+  const initialTries = savedTriesForPuzzle(history, puzzle);
+  const streak = dated ? streakForPuzzle(history, puzzle) : undefined;
+  const progress: Progress = {
+    initialTries,
+    storageRevision,
+    streak,
+    onRecordTries: async (tries) => {
+      const outcome = await persistPuzzleTriesLocked(puzzle, tries);
+      persistedTries.current = savedTriesForPuzzle(outcome.history, puzzle);
+      setHistory(outcome.history);
+      return outcome;
+    },
+  };
+
+  return (
+    <>
+      <PuzzleIntro puzzle={puzzle} streak={streak} />
+      {puzzle.template === 'linked-list-index-drift' ? (
+        <IndexDriftView puzzle={puzzle} theme={theme} progress={progress} />
+      ) : (
+        <ArrayPuzzleView puzzle={puzzle} theme={theme} progress={progress} />
+      )}
+    </>
+  );
+};
+
+const NOTICES = {
+  unreachable: 'Can’t reach the puzzle server right now. Check your connection and try again.',
+  unavailable: 'Today’s puzzle isn’t ready yet. Check back soon.',
+  error: 'Couldn’t load today’s puzzle. Try again in a moment.',
+} as const;
+
+/** Why the puzzle didn't load, with a button that asks the server again. */
+const Notice = ({ text, retry }: { text: string; retry: () => void }) => (
+  <div className={styles.notice}>
+    <p role="alert">{text}</p>
+    <button type="button" className={`${landing.secondary} ${styles.action}`} onClick={retry}>
+      Try again
+    </button>
+  </div>
 );
 
 const Daily = () => {
   const theme = useTheme();
-  const state = usePuzzle();
+  const { state, retry } = usePuzzle();
 
   return (
     <div className={`${landing.page} ${styles.page}`} data-theme={theme}>
@@ -107,9 +205,9 @@ const Daily = () => {
       </header>
       <main className={styles.main}>
         {state.status === 'loading' && <p>Loading today’s puzzle…</p>}
-        {state.status === 'error' && (
-          <p role="alert">Couldn’t load today’s puzzle. Reload the page to try again.</p>
-        )}
+        {(state.status === 'unreachable' ||
+          state.status === 'unavailable' ||
+          state.status === 'error') && <Notice text={NOTICES[state.status]} retry={retry} />}
         {state.status === 'ready' && <PuzzleView puzzle={state.puzzle} theme={theme} />}
       </main>
     </div>
