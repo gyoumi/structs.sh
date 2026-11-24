@@ -19,9 +19,11 @@
 //!
 //! No slot is fixed. Inputs are validated in [`InputError`] order.
 
+use crate::bst_space::Shape;
+use crate::rng::Rng;
 use crate::tree::{self, Event};
 use crate::validate::{count, validate};
-use crate::{InputError, Template};
+use crate::{InputError, SearchSpace, Shortcut, Template};
 
 /// Forced order puzzle template (`ID = "bst-forced-order"`).
 pub struct BstForcedOrder;
@@ -113,7 +115,67 @@ impl Template for BstForcedOrder {
         let outcome = self.evaluate(instance, input)?;
         Ok(outcome.solved.then_some(outcome.longest_increasing_run))
     }
+
+    fn generate(&self, seed: u64) -> Self::Instance {
+        let mut rng = Rng::new(seed);
+        let mut values: Vec<i32> = (1..=KEYS).collect();
+        rng.shuffle(&mut values);
+        let mut order = values.clone();
+        rng.shuffle(&mut order);
+        let target_tree = tree::preorder(&tree::build_bst_unlogged(&order));
+        Instance {
+            values,
+            target_tree,
+        }
+    }
+
+    fn search_space(&self, instance: &Self::Instance) -> SearchSpace<Self::Input> {
+        match Shape::from_verified(&instance.values, &instance.target_tree) {
+            Some(shape) => SearchSpace::Exhaustive(shape.orders()),
+            None => SearchSpace::Exhaustive(Box::new(std::iter::empty())),
+        }
+    }
+
+    fn shortcuts(&self, instance: &Self::Instance) -> Vec<Shortcut<Self::Input>> {
+        let Some(shape) = Shape::from_verified(&instance.values, &instance.target_tree) else {
+            return Vec::new();
+        };
+        vec![
+            Shortcut {
+                name: "preorder",
+                input: instance.target_tree.clone(),
+            },
+            Shortcut {
+                name: "levelorder",
+                input: shape.level_order(),
+            },
+            Shortcut {
+                name: "min-available",
+                input: shape.min_available(),
+            },
+        ]
+    }
+
+    fn random_input(&self, instance: &Self::Instance, seed: u64) -> Option<Self::Input> {
+        Shape::from_verified(&instance.values, &instance.target_tree)
+            .map(|shape| shape.random_order(seed))
+    }
+
+    fn random_neighbor(
+        &self,
+        instance: &Self::Instance,
+        input: &Self::Input,
+        seed: u64,
+    ) -> Option<Self::Input> {
+        let shape = Shape::from_verified(&instance.values, &instance.target_tree)?;
+        if !self.evaluate(instance, input).is_ok_and(|o| o.solved) {
+            return None;
+        }
+        Some(shape.neighbor(input, seed))
+    }
 }
+
+const KEYS: i32 = 10;
 
 fn longest_increasing_run(keys: &[i32]) -> u32 {
     let mut longest = 0;

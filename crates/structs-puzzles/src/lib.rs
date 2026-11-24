@@ -11,12 +11,17 @@
 
 pub mod avl_rotations;
 pub mod bst_forced_order;
+mod bst_space;
 pub mod bubble;
+mod fixed_slots;
 pub mod insertion_beats_merge;
 pub mod linked_list_index_drift;
+mod list_space;
 mod list_wire;
 pub mod quicksort;
 mod request;
+mod rng;
+mod search;
 mod tree;
 pub mod upset_bst_beats_avl;
 mod validate;
@@ -24,6 +29,8 @@ pub mod wire;
 
 #[cfg(target_arch = "wasm32")]
 mod ffi;
+
+pub use search::{ExtendFn, SearchSpace, Shortcut, StateKeyFn};
 
 use std::cmp::Ordering;
 
@@ -107,6 +114,35 @@ pub trait Template {
     ) -> Result<Option<u32>, InputError> {
         self.score(instance, input).map(Some)
     }
+
+    /// Generates the puzzle instance for `seed`; the same seed always gives
+    /// the same instance.
+    fn generate(&self, seed: u64) -> Self::Instance;
+
+    /// Inputs a search may consider for `instance` (empty when `instance` is
+    /// invalid or has no valid search candidates). Yielded inputs are valid,
+    /// though not every one need satisfy the puzzle's solve condition.
+    fn search_space(&self, instance: &Self::Instance) -> SearchSpace<Self::Input>;
+
+    /// Named, hand-picked valid inputs for `instance` (empty when `instance`
+    /// is invalid or has no valid shortcut candidates). A shortcut need not
+    /// satisfy the puzzle's solve condition.
+    fn shortcuts(&self, instance: &Self::Instance) -> Vec<Shortcut<Self::Input>>;
+
+    /// A valid input for `instance`, determined by `seed`, or `None` when
+    /// `instance` is invalid or has no valid inputs to sample. The returned
+    /// input need not satisfy the puzzle's solve condition.
+    fn random_input(&self, instance: &Self::Instance, seed: u64) -> Option<Self::Input>;
+
+    /// A valid input close to `input`, determined by `seed`, for local search,
+    /// or `None` when `instance` or `input` is invalid. The returned input
+    /// need not satisfy the puzzle's solve condition.
+    fn random_neighbor(
+        &self,
+        instance: &Self::Instance,
+        input: &Self::Input,
+        seed: u64,
+    ) -> Option<Self::Input>;
 }
 
 /// Reason a player's input is rejected for a puzzle instance.

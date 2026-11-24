@@ -28,8 +28,13 @@
 //!
 //! Inputs are validated in [`InputError`] order.
 
+use crate::fixed_slots::{
+    ascending, bubble_recipe, descending, exhaustive_free_permutations, generate_fixed_instance,
+    random_fixed_input, random_fixed_neighbor, shortcut, valid_fixed, zigzag,
+};
+use crate::rng::Rng;
 use crate::validate::{count, validate};
-use crate::{InputError, Template};
+use crate::{InputError, SearchSpace, Shortcut, Template};
 
 /// Bubble sort puzzle template (`ID = "bubble-exact-passes"`).
 pub struct Bubble;
@@ -73,12 +78,7 @@ impl Bubble {
     pub fn evaluate(&self, instance: &Instance, input: &[i32]) -> Result<Outcome, InputError> {
         validate(&instance.values, &instance.fixed, input)?;
         let steps = sort(input);
-        let passes = count(
-            steps
-                .iter()
-                .filter(|step| matches!(step, Step::PassEnd { .. }))
-                .count(),
-        );
+        let passes = pass_count(&steps);
         let swaps = count(
             steps
                 .iter()
@@ -129,6 +129,67 @@ impl Template for Bubble {
         let outcome = self.evaluate(instance, input)?;
         Ok(outcome.solved.then_some(outcome.swaps))
     }
+
+    fn generate(&self, seed: u64) -> Self::Instance {
+        let mut rng = Rng::new(seed);
+        let (values, fixed) = generate_fixed_instance(SIZE, FIXED, rng.next_u64());
+        let span = (MAX_TARGET - MIN_TARGET + 1) as usize;
+        let target_passes = MIN_TARGET + rng.gen_range(span) as u32;
+        Instance {
+            values,
+            fixed,
+            target_passes,
+        }
+    }
+
+    fn search_space(&self, instance: &Self::Instance) -> SearchSpace<Self::Input> {
+        SearchSpace::Exhaustive(exhaustive_free_permutations(
+            &instance.values,
+            &instance.fixed,
+        ))
+    }
+
+    fn shortcuts(&self, instance: &Self::Instance) -> Vec<Shortcut<Self::Input>> {
+        let (values, fixed) = (&instance.values, &instance.fixed);
+        if !valid_fixed(values.len(), fixed) {
+            return Vec::new();
+        }
+        vec![
+            shortcut("ascending", values, fixed, ascending),
+            shortcut("descending", values, fixed, descending),
+            shortcut("zigzag", values, fixed, zigzag),
+            shortcut("bubble-recipe", values, fixed, |sorted| {
+                bubble_recipe(sorted, instance.target_passes as usize)
+            }),
+        ]
+    }
+
+    fn random_input(&self, instance: &Self::Instance, seed: u64) -> Option<Self::Input> {
+        random_fixed_input(&instance.values, &instance.fixed, seed)
+    }
+
+    fn random_neighbor(
+        &self,
+        instance: &Self::Instance,
+        input: &Self::Input,
+        seed: u64,
+    ) -> Option<Self::Input> {
+        random_fixed_neighbor(&instance.values, &instance.fixed, input, seed)
+    }
+}
+
+const SIZE: usize = 8;
+const FIXED: usize = 3;
+const MIN_TARGET: u32 = 3;
+const MAX_TARGET: u32 = SIZE as u32 - 2;
+
+fn pass_count(steps: &[Step]) -> u32 {
+    count(
+        steps
+            .iter()
+            .filter(|step| matches!(step, Step::PassEnd { .. }))
+            .count(),
+    )
 }
 
 fn sort(input: &[i32]) -> Vec<Step> {

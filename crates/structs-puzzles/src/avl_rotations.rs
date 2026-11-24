@@ -21,9 +21,13 @@
 //!
 //! Inputs are validated in [`InputError`] order.
 
+use crate::fixed_slots::{
+    ascending, descending, exhaustive_free_permutations, generate_fixed_instance,
+    random_fixed_input, random_fixed_neighbor, shortcut, valid_fixed,
+};
 use crate::tree::{self, Event};
 use crate::validate::{count, validate};
-use crate::{InputError, Template};
+use crate::{InputError, SearchSpace, Shortcut, Template};
 
 /// AVL rotations puzzle template (`ID = "avl-most-rotations"`).
 pub struct AvlRotations;
@@ -109,5 +113,41 @@ impl Template for AvlRotations {
 
     fn score(&self, instance: &Self::Instance, input: &Self::Input) -> Result<u32, InputError> {
         Ok(self.evaluate(instance, input)?.rotations)
+    }
+
+    fn generate(&self, seed: u64) -> Self::Instance {
+        let (values, fixed) = generate_fixed_instance(9, 3, seed);
+        Instance { values, fixed }
+    }
+
+    fn search_space(&self, instance: &Self::Instance) -> SearchSpace<Self::Input> {
+        SearchSpace::Exhaustive(exhaustive_free_permutations(
+            &instance.values,
+            &instance.fixed,
+        ))
+    }
+
+    fn shortcuts(&self, instance: &Self::Instance) -> Vec<Shortcut<Self::Input>> {
+        let (values, fixed) = (&instance.values, &instance.fixed);
+        if !valid_fixed(values.len(), fixed) {
+            return Vec::new();
+        }
+        vec![
+            shortcut("ascending", values, fixed, ascending),
+            shortcut("descending", values, fixed, descending),
+        ]
+    }
+
+    fn random_input(&self, instance: &Self::Instance, seed: u64) -> Option<Self::Input> {
+        random_fixed_input(&instance.values, &instance.fixed, seed)
+    }
+
+    fn random_neighbor(
+        &self,
+        instance: &Self::Instance,
+        input: &Self::Input,
+        seed: u64,
+    ) -> Option<Self::Input> {
+        random_fixed_neighbor(&instance.values, &instance.fixed, input, seed)
     }
 }
