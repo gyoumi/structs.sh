@@ -8,12 +8,12 @@ const fmt = (values: readonly number[]) => `[${values.join(', ')}]`;
 const RULES_SENTENCE = 'Swap the numbers to make as many comparisons as possible.';
 
 test.describe('daily game', () => {
-  test('the puzzle shows its rules, goal and fixed values', async ({ dailyPage }) => {
-    const servedPuzzle = { ...DAILY_7.puzzle, par: 35 };
-    await dailyPage.serve(servedPuzzle);
+  test('the challenge shows its rules, goal and fixed values', async ({ dailyPage }) => {
+    const servedChallenge = { ...DAILY_7.challenge, goal: 35 };
+    await dailyPage.serve(servedChallenge);
     await dailyPage.open();
 
-    const startCtx = `DAILY_7 (#7, served goal ${servedPuzzle.par}, formula goal ${DAILY_7.puzzle.par}, no best field) ${fmt(DAILY_7.start.values)}`;
+    const startCtx = `DAILY_7 (#7, served goal ${servedChallenge.goal}, formula goal ${DAILY_7.challenge.goal}, no best field) ${fmt(DAILY_7.start.values)}`;
     await dailyPage.expectRulesToContain(RULES_SENTENCE, startCtx);
     await dailyPage.expectRulesToExplainPivot(startCtx);
     await dailyPage.expectRulesWithoutHandHolding(startCtx);
@@ -21,40 +21,40 @@ test.describe('daily game', () => {
     await dailyPage.expectNoStaticPivotLabel(startCtx);
     expect(
       await dailyPage.goal(startCtx),
-      `${startCtx}: Goal status must show the served goal ${servedPuzzle.par} rather than work out the formula goal ${DAILY_7.puzzle.par}`,
-    ).toBe(servedPuzzle.par);
-    expect(await dailyPage.values(), `${startCtx}: Puzzle array should show starting values ${fmt(DAILY_7.puzzle.values)}`).toEqual([...DAILY_7.puzzle.values]);
-    expect(await dailyPage.fixedIndices(), `${startCtx}: fixed slots ${fmt(DAILY_7.puzzle.fixed)} should be disabled and all others enabled`).toEqual([...DAILY_7.puzzle.fixed]);
+      `${startCtx}: Goal status must show the served goal ${servedChallenge.goal} rather than work out the formula goal ${DAILY_7.challenge.goal}`,
+    ).toBe(servedChallenge.goal);
+    expect(await dailyPage.values(), `${startCtx}: Challenge array should show starting values ${fmt(DAILY_7.challenge.values)}`).toEqual([...DAILY_7.challenge.values]);
+    expect(await dailyPage.fixedIndices(), `${startCtx}: fixed slots ${fmt(DAILY_7.challenge.fixed)} should be disabled and all others enabled`).toEqual([...DAILY_7.challenge.fixed]);
     await dailyPage.expectNoBestShown(`${startCtx} before any try`);
   });
 
   test('tapping two free values swaps them, and fixed values cannot be selected', async ({ dailyPage }) => {
-    await dailyPage.serve(DAILY_12.puzzle);
+    await dailyPage.serve(DAILY_12.challenge);
     await dailyPage.open();
 
     const startCtx = `${DAILY_12.name} ${fmt(DAILY_12.start.values)}`;
-    const goalCtx = `${DAILY_12.name} ${fmt(DAILY_12.par.values)}`;
+    const goalCtx = `${DAILY_12.name} ${fmt(DAILY_12.goal.values)}`;
 
     await dailyPage.select(2);
     expect(await dailyPage.selectedIndices(), `${startCtx}: selecting free slot 2 (value 6) should set aria-pressed="true" only on slot 2`).toEqual([2]);
 
     await dailyPage.select(7);
-    expect(await dailyPage.values(), `${startCtx}: tapping free slots 2 and 7 should swap 6 and 5 to ${fmt(DAILY_12.par.values)}`).toEqual([...DAILY_12.par.values]);
+    expect(await dailyPage.values(), `${startCtx}: tapping free slots 2 and 7 should swap 6 and 5 to ${fmt(DAILY_12.goal.values)}`).toEqual([...DAILY_12.goal.values]);
     expect(await dailyPage.selectedIndices(), `${goalCtx}: selection should clear after swapping slots 2 and 7`).toEqual([]);
-    expect(await dailyPage.fixedIndices(), `${DAILY_12.name}: fixed slots ${fmt(DAILY_12.puzzle.fixed)} should be disabled`).toEqual([...DAILY_12.puzzle.fixed]);
+    expect(await dailyPage.fixedIndices(), `${DAILY_12.name}: fixed slots ${fmt(DAILY_12.challenge.fixed)} should be disabled`).toEqual([...DAILY_12.challenge.fixed]);
 
     await dailyPage.trySelectFixed(1);
     expect(await dailyPage.selectedIndices(), `${goalCtx}: clicking fixed slot 1 (value 1) must not select it`).toEqual([]);
 
     await dailyPage.select(0);
-    expect(await dailyPage.values(), `${goalCtx}: clicking fixed slot 1 then free slot 0 must not swap them`).toEqual([...DAILY_12.par.values]);
+    expect(await dailyPage.values(), `${goalCtx}: clicking fixed slot 1 then free slot 0 must not swap them`).toEqual([...DAILY_12.goal.values]);
     expect(await dailyPage.selectedIndices(), `${goalCtx}: clicking free slot 0 after fixed slot 1 should select slot 0`).toEqual([0]);
 
     await dailyPage.trySelectFixed(1);
     expect(
       await dailyPage.values(),
-      `${goalCtx}: with free slot 0 (value 8) selected, clicking fixed slot 1 (value 1) must not move either value; expected ${fmt(DAILY_12.par.values)}`,
-    ).toEqual([...DAILY_12.par.values]);
+      `${goalCtx}: with free slot 0 (value 8) selected, clicking fixed slot 1 (value 1) must not move either value; expected ${fmt(DAILY_12.goal.values)}`,
+    ).toEqual([...DAILY_12.goal.values]);
     expect(
       await dailyPage.selectedIndices(),
       `${goalCtx}: targeting fixed slot 1 (value 1) while free slot 0 is selected must not select slot 1`,
@@ -62,7 +62,7 @@ test.describe('daily game', () => {
   });
 
   test('free values can be swapped with the keyboard', async ({ dailyPage }) => {
-    await dailyPage.serve(DAILY_12.puzzle);
+    await dailyPage.serve(DAILY_12.challenge);
     await dailyPage.open();
 
     const startCtx = `${DAILY_12.name} ${fmt(DAILY_12.start.values)}`;
@@ -129,7 +129,7 @@ test.describe('daily game', () => {
     test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 
     test('Run scrolls the drawing and its playback controls into view on a phone', async ({ dailyPage }) => {
-      await dailyPage.serve(DAILY_12.puzzle);
+      await dailyPage.serve(DAILY_12.challenge);
       await dailyPage.open();
 
       const ctx = `${DAILY_12.name} ${fmt(DAILY_12.start.values)} at 390x844 touch`;
@@ -149,17 +149,17 @@ test.describe('daily game', () => {
     });
 
     test('swapping works on a phone-sized screen', async ({ dailyPage }) => {
-      await dailyPage.serve(DAILY_12.puzzle);
+      await dailyPage.serve(DAILY_12.challenge);
       await dailyPage.open();
 
       const phoneStartCtx = `${DAILY_12.name} ${fmt(DAILY_12.start.values)} at 390x844 touch`;
-      await dailyPage.expectAllSlotsInViewport(phoneStartCtx, DAILY_12.puzzle.values.length);
+      await dailyPage.expectAllSlotsInViewport(phoneStartCtx, DAILY_12.challenge.values.length);
 
       await dailyPage.tapSwap(2, 7);
-      expect(await dailyPage.values(), `${DAILY_12.name} ${fmt(DAILY_12.start.values)} at 390x844 touch: tapping free slots 2 and 7 should swap 6 and 5 to ${fmt(DAILY_12.par.values)}`).toEqual([...DAILY_12.par.values]);
-      expect(await dailyPage.fixedIndices(), `${DAILY_12.name} at 390x844 touch: fixed slots ${fmt(DAILY_12.puzzle.fixed)} should remain disabled`).toEqual([...DAILY_12.puzzle.fixed]);
+      expect(await dailyPage.values(), `${DAILY_12.name} ${fmt(DAILY_12.start.values)} at 390x844 touch: tapping free slots 2 and 7 should swap 6 and 5 to ${fmt(DAILY_12.goal.values)}`).toEqual([...DAILY_12.goal.values]);
+      expect(await dailyPage.fixedIndices(), `${DAILY_12.name} at 390x844 touch: fixed slots ${fmt(DAILY_12.challenge.fixed)} should remain disabled`).toEqual([...DAILY_12.challenge.fixed]);
 
-      const goalCtx = `${DAILY_12.name} ${fmt(DAILY_12.par.values)} at 390x844 touch`;
+      const goalCtx = `${DAILY_12.name} ${fmt(DAILY_12.goal.values)} at 390x844 touch`;
       await dailyPage.tryTapFixed(1);
       expect(
         await dailyPage.selectedIndices(),
@@ -175,8 +175,8 @@ test.describe('daily game', () => {
       await dailyPage.tryTapFixed(1);
       expect(
         await dailyPage.values(),
-        `${goalCtx}: with free slot 0 (value 8) selected, tapping fixed slot 1 (value 1) must not move either value; expected ${fmt(DAILY_12.par.values)}`,
-      ).toEqual([...DAILY_12.par.values]);
+        `${goalCtx}: with free slot 0 (value 8) selected, tapping fixed slot 1 (value 1) must not move either value; expected ${fmt(DAILY_12.goal.values)}`,
+      ).toEqual([...DAILY_12.goal.values]);
       expect(
         await dailyPage.selectedIndices(),
         `${goalCtx}: targeting fixed slot 1 (value 1) while free slot 0 is selected must not select slot 1`,
@@ -185,7 +185,7 @@ test.describe('daily game', () => {
   });
 
   test('starting Run from the keyboard moves focus to Skip', async ({ dailyPage }) => {
-    await dailyPage.serve(DAILY_12.puzzle);
+    await dailyPage.serve(DAILY_12.challenge);
     await dailyPage.open();
 
     const ctx = `${DAILY_12.name} ${fmt(DAILY_12.start.values)}`;

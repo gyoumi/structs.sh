@@ -12,19 +12,19 @@ describe('inScope: all code files by default', () => {
     'client/src/daily/puzzle.test.ts',
     'client/src/landing/Hero.tsx',
     'client/src/visualiser/Stage.tsx',
-    'client/src/Services/puzzles/puzzles.ts',
-    'client/src/Services/puzzles/puzzles.test.ts',
+    'client/src/Services/challenges/puzzles.ts',
+    'client/src/Services/challenges/puzzles.test.ts',
     'client/src/visualiser-src/controller/VisualiserController.ts',
     'client/src/visualiser-src/controller/TimelineTrack.ts',
     'client/src/visualiser-src/controller/operationArgs.ts',
     'client/src/test/FakeSession.ts',
-    'crates/structs-puzzles/src/lib.rs',
-    'crates/structs-puzzles/src/wire.rs',
-    'crates/structs-puzzles/tests/quicksort.rs',
-    'crates/structs-game-server/src/main.rs',
-    'crates/structs-game-server/tests/api.rs',
+    'game-server/challenges/src/lib.rs',
+    'game-server/challenges/src/wire.rs',
+    'game-server/challenges/tests/quicksort.rs',
+    'game-server/server/src/main.rs',
+    'game-server/server/tests/api.rs',
     'instrumenter/build.rs',
-    'crates/structs-puzzles/build.rs',
+    'game-server/challenges/build.rs',
   ];
 
   for (const path of included) {
@@ -35,12 +35,12 @@ describe('inScope: all code files by default', () => {
 
   const excluded = [
     ['client/src/daily/Daily.module.css', 'a CSS module'],
-    ['client/src/Services/puzzles/generated/puzzles.wasm', 'a generated wasm file'],
-    ['client/src/Services/puzzles/generated/glue.ts', 'a file in generated/'],
+    ['client/src/Services/challenges/generated/challenges.wasm', 'a generated wasm file'],
+    ['client/src/Services/challenges/generated/glue.ts', 'a file in generated/'],
     ['client/__mocks__/styleMock.js', 'a file in __mocks__/'],
-    ['crates/structs-puzzles/Cargo.toml', 'a Cargo manifest'],
-    ['crates/structs-puzzles/tests/fixtures/helper.rs', 'a file in fixtures/'],
-    ['crates/structs-puzzles/src/generated/tables.rs', 'a file in generated/'],
+    ['game-server/challenges/Cargo.toml', 'a Cargo manifest'],
+    ['game-server/challenges/tests/fixtures/helper.rs', 'a file in fixtures/'],
+    ['game-server/challenges/src/generated/tables.rs', 'a file in generated/'],
     ['crates/README.md', 'a markdown file'],
   ];
 
@@ -57,11 +57,11 @@ describe('kindOf: daily game, client test helpers and crates workspace', () => {
     ['client/src/daily/Daily.tsx', 'source'],
     ['client/src/daily/puzzle.test.ts', 'test'],
     ['client/src/test/FakeSession.ts', 'test'],
-    ['client/src/Services/puzzles/puzzles.ts', 'source'],
-    ['client/src/Services/puzzles/puzzles.test.ts', 'test'],
-    ['crates/structs-puzzles/src/lib.rs', 'source'],
-    ['crates/structs-puzzles/tests/quicksort.rs', 'test'],
-    ['crates/structs-puzzles/tests/common/mod.rs', 'test'],
+    ['client/src/Services/challenges/puzzles.ts', 'source'],
+    ['client/src/Services/challenges/puzzles.test.ts', 'test'],
+    ['game-server/challenges/src/lib.rs', 'source'],
+    ['game-server/challenges/tests/quicksort.rs', 'test'],
+    ['game-server/challenges/tests/common/mod.rs', 'test'],
   ];
 
   for (const [path, expected] of cases) {
@@ -77,17 +77,17 @@ describe('oversized: default limits and legacy ceilings', () => {
       { path: 'client/src/App.tsx', lines: 301 },
       { path: 'client/src/daily/Daily.tsx', lines: 300 },
       { path: 'client/src/daily/DailyCards.tsx', lines: 301 },
-      { path: 'client/src/Services/puzzles/puzzles.test.ts', lines: 500 },
+      { path: 'client/src/Services/challenges/puzzles.test.ts', lines: 500 },
       { path: 'client/src/daily/puzzle.test.ts', lines: 501 },
-      { path: 'crates/structs-puzzles/src/lib.rs', lines: 301 },
-      { path: 'crates/structs-puzzles/tests/quicksort.rs', lines: 501 },
+      { path: 'game-server/challenges/src/lib.rs', lines: 301 },
+      { path: 'game-server/challenges/tests/quicksort.rs', lines: 501 },
     ];
     assert.deepStrictEqual(oversized(files, {}), [
       { path: 'client/src/App.tsx', lines: 301, limit: 300, kind: 'source' },
       { path: 'client/src/daily/DailyCards.tsx', lines: 301, limit: 300, kind: 'source' },
       { path: 'client/src/daily/puzzle.test.ts', lines: 501, limit: 500, kind: 'test' },
-      { path: 'crates/structs-puzzles/src/lib.rs', lines: 301, limit: 300, kind: 'source' },
-      { path: 'crates/structs-puzzles/tests/quicksort.rs', lines: 501, limit: 500, kind: 'test' },
+      { path: 'game-server/challenges/src/lib.rs', lines: 301, limit: 300, kind: 'source' },
+      { path: 'game-server/challenges/tests/quicksort.rs', lines: 501, limit: 500, kind: 'test' },
     ]);
   });
 

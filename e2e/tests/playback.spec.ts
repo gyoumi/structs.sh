@@ -86,9 +86,9 @@ test.describe('playback', () => {
     expect(midway).not.toEqual([50, 40, 30, 20, 10]);
   });
 
-  test('offers speeds from 0.25x to 2x', async ({ visualiser }) => {
+  test('offers speeds from 0.25x to 5x', async ({ visualiser }) => {
     expect(await visualiser.speed()).toBe(1);
-    expect(await visualiser.speeds()).toEqual([0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2]);
+    expect(await visualiser.speeds()).toEqual([0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 3, 4, 5]);
   });
 
   test('a speed can be chosen', async ({ visualiser }) => {

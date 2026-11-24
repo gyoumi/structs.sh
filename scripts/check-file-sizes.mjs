@@ -17,7 +17,7 @@ const CODE_EXTENSIONS = ['.ts', '.tsx', '.rs', '.mjs', '.js'];
 const IGNORED_FOLDERS = new Set(['fixtures', 'generated', '__mocks__']);
 const TEST_SUFFIXES = ['.test.ts', '.test.tsx', '.spec.ts', '.test.mjs'];
 const TEST_FOLDERS = ['instrumenter/tests/', 'e2e/', 'client/src/test/'];
-const CRATE_TESTS = /^crates\/[^/]+\/tests\//;
+const CRATE_TESTS = /^game-server\/[^/]+\/tests\//;
 
 /** Whether the size check covers this repo-relative path. */
 export function inScope(path) {

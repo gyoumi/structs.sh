@@ -1,4 +1,4 @@
-import type { IndexDriftPuzzle } from './daily-puzzle-shapes';
+import type { IndexDriftChallenge } from './daily-challenge-shapes';
 
 /** One step in the Index drift operation list: insert `value` at `index`, or delete the node at `index`. */
 export type ListOperation =
@@ -6,15 +6,15 @@ export type ListOperation =
   | { kind: 'delete'; index: number };
 
 /**
- * Linked list test puzzle for checkpoint 2 (step 2a-3), costed with the rule in docs/puzzle-ideas.md
+ * Linked list test challenge for checkpoint 2 (step 2a-3), costed with the rule in docs/challenge-ideas.md
  * ("Linked list costs"; the list has no tail pointer):
  * insert(value, i) costs 1 + min(i, lengthBefore) and delete(i) costs 1 + (i + 1).
- * Cost = operations + nodes walked; lower wins, so a solved try reaches the goal when cost <= par.
+ * Cost = operations + nodes walked; lower wins, so a solved try reaches the goal when cost <= goal.
  *
  * Puzzle #26, `linked-list-index-drift`: start [8, 3, 6, 1], target [3, 6, 5, 1].
  * A Dijkstra search over list states finds the cheapest solution costs 5. The cheap rebuild shortcut
  * (delete 8, 3, 6 from the front for 2 + 2 + 2, then prepend 5, 6, 3 for 1 + 1 + 1) costs 9.
- * Par is Math.round(9 - 0.65 * (9 - 5)) = 6.
+ * Goal is Math.round(9 - 0.65 * (9 - 5)) = 6.
  *
  * - unsolved: insert(5, 0) walks 0 -> 1 operation, 0 walked, cost 1; final [5, 8, 3, 6, 1] is not the target.
  * - cheap: delete(0) walks 1 -> [3, 6, 1]; insert(5, 2) walks min(2, 3) = 2 -> [3, 6, 5, 1].
@@ -25,13 +25,13 @@ export type ListOperation =
  */
 export const DRIFT_26 = {
   name: 'DRIFT_26 (#26, index drift, goal cost 6)',
-  puzzle: {
+  challenge: {
     number: 26,
     template: 'linked-list-index-drift',
     start: [8, 3, 6, 1],
     target: [3, 6, 5, 1],
-    par: 6,
-  } satisfies IndexDriftPuzzle,
+    goal: 6,
+  } satisfies IndexDriftChallenge,
   unsolved: {
     operations: [{ kind: 'insert', value: 5, index: 0 }] satisfies readonly ListOperation[],
     listed: ['insert(5, 0)'],

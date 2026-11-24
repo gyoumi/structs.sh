@@ -47,7 +47,7 @@ const layout = (preorder: number[]) => {
   return { nodes, edges, width, height, nodeWidth };
 };
 
-/** The tree a forced-order puzzle asks the player to build, drawn as the BST visualiser draws it, with its preorder. */
+/** The tree a forced-order challenge asks the player to build, drawn as the BST visualiser draws it, with its preorder. */
 export const TargetTree = ({ preorder }: { preorder: number[] }) => {
   const { nodes, edges, width, height, nodeWidth } = layout(preorder);
   return (

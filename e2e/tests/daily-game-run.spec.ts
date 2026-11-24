@@ -8,11 +8,13 @@ const fmt = (values: readonly number[]) => `[${values.join(', ')}]`;
 
 test.describe('daily game', () => {
   test('Run animates the sort, and the counter goes up with each comparison', async ({ dailyPage }) => {
-    await dailyPage.serve(DAILY_12.puzzle);
+    await dailyPage.serve(DAILY_12.challenge);
     await dailyPage.open();
 
     const ctx = `${DAILY_12.name} ${fmt(DAILY_12.start.values)}`;
     const sorted = [...DAILY_12.start.values].sort((a, b) => a - b);
+    await dailyPage.expectPlayDisabledBeforeRun(ctx);
+    expect(await dailyPage.speed(), `${ctx}: default playback speed on /daily should be 1×`).toBe(1);
     const initialCounter = await dailyPage.counter(ctx);
     expect(
       initialCounter,
@@ -43,6 +45,7 @@ test.describe('daily game', () => {
     ).toBe(false);
 
     await dailyPage.rewind();
+    await dailyPage.setSpeed(5);
     await expect
       .poll(() => dailyPage.counter(ctx), {
         intervals: [50],
@@ -103,9 +106,10 @@ test.describe('daily game', () => {
   });
 
   test('the final count matches the score shown, and both match the hand-worked count', async ({ dailyPage }) => {
-    await dailyPage.serve(DAILY_7.puzzle);
+    await dailyPage.serve(DAILY_7.challenge);
     await dailyPage.open();
 
+    await dailyPage.setSpeed(5);
     await dailyPage.run();
     await dailyPage.waitForRunToFinish();
 
@@ -120,7 +124,7 @@ test.describe('daily game', () => {
   });
 
   test('Skip jumps straight to the final count', async ({ dailyPage }) => {
-    await dailyPage.serve(DAILY_12.puzzle);
+    await dailyPage.serve(DAILY_12.challenge);
     await dailyPage.open();
 
     const ctx = `${DAILY_12.name} ${fmt(DAILY_12.start.values)}`;
@@ -150,7 +154,7 @@ test.describe('daily game', () => {
   });
 
   test('stepping back lowers the counter', async ({ dailyPage }) => {
-    await dailyPage.serve(DAILY_12.puzzle);
+    await dailyPage.serve(DAILY_12.challenge);
     await dailyPage.open();
 
     const ctx = `${DAILY_12.name} ${fmt(DAILY_12.start.values)}`;
@@ -195,27 +199,29 @@ test.describe('daily game', () => {
     );
 
     const speeds = await dailyPage.speeds();
-    expect(speeds, `${ctx}: Speed combobox should offer 0.25× (got [${speeds.join(', ')}])`).toContain(0.25);
-    expect(speeds, `${ctx}: Speed combobox should offer 2× (got [${speeds.join(', ')}])`).toContain(2);
-    await dailyPage.setSpeed(2);
-    expect(await dailyPage.speed(), `${ctx}: selecting 2× in the Speed combobox should stick (expected 2)`).toBe(2);
+    expect(
+      speeds,
+      `${ctx}: Speed combobox should offer 0.25× through 5× (got [${speeds.join(', ')}])`,
+    ).toEqual([0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 3, 4, 5]);
+    await dailyPage.setSpeed(5);
+    expect(await dailyPage.speed(), `${ctx}: selecting 5× in the Speed combobox should stick (expected 5)`).toBe(5);
   });
 
   test('reaching the goal is announced, and the next try is still offered', async ({ dailyPage }) => {
-    await dailyPage.serve(DAILY_12.puzzle);
+    await dailyPage.serve(DAILY_12.challenge);
     await dailyPage.open();
 
-    const ctx = `${DAILY_12.name} try 1 ${fmt(DAILY_12.par.values)} (score ${DAILY_12.par.count} = goal ${DAILY_12.puzzle.par})`;
-    await dailyPage.swap(DAILY_12.par.swap[0], DAILY_12.par.swap[1]);
+    const ctx = `${DAILY_12.name} try 1 ${fmt(DAILY_12.goal.values)} (score ${DAILY_12.goal.count} = goal ${DAILY_12.challenge.goal})`;
+    await dailyPage.swap(DAILY_12.goal.swap[0], DAILY_12.goal.swap[1]);
     await dailyPage.run();
     await dailyPage.skip(ctx);
 
     await dailyPage.expectStatusNumber(
       'Score',
-      DAILY_12.par.count,
-      `${ctx}: Score should be ${DAILY_12.par.count}`,
+      DAILY_12.goal.count,
+      `${ctx}: Score should be ${DAILY_12.goal.count}`,
     );
-    expect(await dailyPage.goalReached(), `${ctx}: "Goal reached" status should be visible when score ${DAILY_12.par.count} >= goal ${DAILY_12.puzzle.par}`).toBe(true);
+    expect(await dailyPage.goalReached(), `${ctx}: "Goal reached" status should be visible when score ${DAILY_12.goal.count} >= goal ${DAILY_12.challenge.goal}`).toBe(true);
     await dailyPage.expectStatusNumber(
       'Tries left',
       2,
@@ -223,15 +229,15 @@ test.describe('daily game', () => {
     );
     expect(await dailyPage.canRun(), `${ctx}: Run button should stay enabled for the next try after reaching the goal`).toBe(true);
     expect(await dailyPage.canShare(), `${ctx}: Share should not be offered while tries remain`).toBe(false);
-    expect(await dailyPage.values(), `${ctx}: Puzzle array should stay as the player left it`).toEqual([...DAILY_12.par.values]);
+    expect(await dailyPage.values(), `${ctx}: Challenge array should stay as the player left it`).toEqual([...DAILY_12.goal.values]);
     await dailyPage.expectNoBestShown(ctx);
   });
 
   test('beating the goal still offers the next try and never reveals a best score', async ({ dailyPage }) => {
-    await dailyPage.serve(DAILY_12.puzzle);
+    await dailyPage.serve(DAILY_12.challenge);
     await dailyPage.open();
 
-    const ctx = `${DAILY_12.name} try 1 ${fmt(DAILY_12.highFromStart.values)} (score ${DAILY_12.highFromStart.count} > goal ${DAILY_12.puzzle.par}; also the solver's best, which the page is never told)`;
+    const ctx = `${DAILY_12.name} try 1 ${fmt(DAILY_12.highFromStart.values)} (score ${DAILY_12.highFromStart.count} > goal ${DAILY_12.challenge.goal}; also the solver's best, which the page is never told)`;
     await dailyPage.swap(DAILY_12.highFromStart.swap[0], DAILY_12.highFromStart.swap[1]);
     await dailyPage.run();
     await dailyPage.skip(ctx);
@@ -241,44 +247,44 @@ test.describe('daily game', () => {
       DAILY_12.highFromStart.count,
       `${ctx}: Score should be ${DAILY_12.highFromStart.count}`,
     );
-    expect(await dailyPage.goalReached(), `${ctx}: "Goal reached" status should be visible when score ${DAILY_12.highFromStart.count} >= goal ${DAILY_12.puzzle.par}`).toBe(true);
+    expect(await dailyPage.goalReached(), `${ctx}: "Goal reached" status should be visible when score ${DAILY_12.highFromStart.count} >= goal ${DAILY_12.challenge.goal}`).toBe(true);
     await dailyPage.expectStatusNumber(
       'Tries left',
       2,
-      `${ctx}: beating the goal must not end the puzzle early; Tries left should still be 2`,
+      `${ctx}: beating the goal must not end the challenge early; Tries left should still be 2`,
     );
-    expect(await dailyPage.canRun(), `${ctx}: beating the goal must not end the puzzle early; Run button should still be enabled`).toBe(true);
-    expect(await dailyPage.canShare(), `${ctx}: beating the goal must not end the puzzle early; Share should not be offered while 2 tries remain`).toBe(false);
+    expect(await dailyPage.canRun(), `${ctx}: beating the goal must not end the challenge early; Run button should still be enabled`).toBe(true);
+    expect(await dailyPage.canShare(), `${ctx}: beating the goal must not end the challenge early; Share should not be offered while 2 tries remain`).toBe(false);
     await dailyPage.expectNoBestShown(ctx);
   });
 
-  test('after three tries, the puzzle ends with the highest score', async ({ dailyPage }) => {
-    await dailyPage.serve(DAILY_12.puzzle);
+  test('after three tries, the challenge ends with the highest score', async ({ dailyPage }) => {
+    await dailyPage.serve(DAILY_12.challenge);
     await dailyPage.open();
 
-    const try1Ctx = `${DAILY_12.name} try 1 ${fmt(DAILY_12.par.values)}`;
-    const try2Ctx = `${DAILY_12.name} try 2 ${fmt(DAILY_12.lowFromPar.values)}`;
+    const try1Ctx = `${DAILY_12.name} try 1 ${fmt(DAILY_12.goal.values)}`;
+    const try2Ctx = `${DAILY_12.name} try 2 ${fmt(DAILY_12.lowFromGoal.values)}`;
     const try3Ctx = `${DAILY_12.name} try 3 ${fmt(DAILY_12.thirdFromLow.values)}`;
-    const endCtx = `${DAILY_12.name} after tries [${DAILY_12.par.count}, ${DAILY_12.lowFromPar.count}, ${DAILY_12.thirdFromLow.count}]`;
+    const endCtx = `${DAILY_12.name} after tries [${DAILY_12.goal.count}, ${DAILY_12.lowFromGoal.count}, ${DAILY_12.thirdFromLow.count}]`;
 
-    await dailyPage.expectStatusNumber('Tries left', 3, `${DAILY_12.name} ${fmt(DAILY_12.start.values)}: new puzzle should start with 3 tries left`);
+    await dailyPage.expectStatusNumber('Tries left', 3, `${DAILY_12.name} ${fmt(DAILY_12.start.values)}: new challenge should start with 3 tries left`);
 
     // Try 1: 34 (reaches goal; highest of the three tries)
-    await dailyPage.swap(DAILY_12.par.swap[0], DAILY_12.par.swap[1]);
+    await dailyPage.swap(DAILY_12.goal.swap[0], DAILY_12.goal.swap[1]);
     await dailyPage.run();
     await dailyPage.skip(try1Ctx);
-    await dailyPage.expectStatusNumber('Score', DAILY_12.par.count, `${try1Ctx}: Score should be ${DAILY_12.par.count}`);
+    await dailyPage.expectStatusNumber('Score', DAILY_12.goal.count, `${try1Ctx}: Score should be ${DAILY_12.goal.count}`);
     await dailyPage.expectStatusNumber('Tries left', 2, `${try1Ctx}: Tries left should be 2`);
-    expect(await dailyPage.values(), `${try1Ctx}: Puzzle array should stay at ${fmt(DAILY_12.par.values)}`).toEqual([...DAILY_12.par.values]);
+    expect(await dailyPage.values(), `${try1Ctx}: Challenge array should stay at ${fmt(DAILY_12.goal.values)}`).toEqual([...DAILY_12.goal.values]);
 
     // Try 2: 25 (lower than try 1; Score must show the last run while tries remain)
-    await dailyPage.swap(DAILY_12.lowFromPar.swap[0], DAILY_12.lowFromPar.swap[1]);
+    await dailyPage.swap(DAILY_12.lowFromGoal.swap[0], DAILY_12.lowFromGoal.swap[1]);
     await dailyPage.run();
     await dailyPage.skip(try2Ctx);
     await dailyPage.expectStatusNumber(
       'Score',
-      DAILY_12.lowFromPar.count,
-      `${try2Ctx}: while tries remain, Score must show the last run (${DAILY_12.lowFromPar.count}), not the highest (${DAILY_12.par.count})`,
+      DAILY_12.lowFromGoal.count,
+      `${try2Ctx}: while tries remain, Score must show the last run (${DAILY_12.lowFromGoal.count}), not the highest (${DAILY_12.goal.count})`,
     );
     await dailyPage.expectStatusNumber('Tries left', 1, `${try2Ctx}: Tries left should be 1`);
 
@@ -289,45 +295,45 @@ test.describe('daily game', () => {
 
     expect(await dailyPage.counter(try3Ctx), `${try3Ctx}: Comparisons counter should be ${DAILY_12.thirdFromLow.count}`).toBe(DAILY_12.thirdFromLow.count);
     await dailyPage.expectStatusNumber('Tries left', 0, `${try3Ctx}: Tries left should be 0`);
-    await dailyPage.expectStatusNumber('Score', DAILY_12.par.count, `${endCtx}: once the puzzle ends, Score should be the highest try (${DAILY_12.par.count}), not the last (${DAILY_12.thirdFromLow.count})`);
+    await dailyPage.expectStatusNumber('Score', DAILY_12.goal.count, `${endCtx}: once the challenge ends, Score should be the highest try (${DAILY_12.goal.count}), not the last (${DAILY_12.thirdFromLow.count})`);
     expect(
       await dailyPage.goalReached(),
-      `${endCtx}: "Goal reached" should be visible at the end because the highest try ${DAILY_12.par.count} >= goal ${DAILY_12.puzzle.par} (even though the last try ${DAILY_12.thirdFromLow.count} was below it)`,
+      `${endCtx}: "Goal reached" should be visible at the end because the highest try ${DAILY_12.goal.count} >= goal ${DAILY_12.challenge.goal} (even though the last try ${DAILY_12.thirdFromLow.count} was below it)`,
     ).toBe(true);
     expect(await dailyPage.canRun(), `${endCtx}: Run button should be disabled or hidden after the third try`).toBe(false);
-    expect(await dailyPage.canShare(), `${endCtx}: Share button should be visible and enabled once the puzzle ends`).toBe(true);
+    expect(await dailyPage.canShare(), `${endCtx}: Share button should be visible and enabled once the challenge ends`).toBe(true);
     await dailyPage.expectNoBestShown(endCtx);
   });
 
   test('the share text has one line per try with ⭐ marks, and does not include the arrangement', async ({ dailyPage }) => {
-    await dailyPage.serve(DAILY_12.puzzle);
+    await dailyPage.serve(DAILY_12.challenge);
     await dailyPage.open();
 
     // Try 1: 30 (below goal), Try 2: 34 ⭐ (equals goal), Try 3: 36 ⭐ (beats goal)
     await dailyPage.run();
     await dailyPage.skip(`${DAILY_12.name} try 1 ${fmt(DAILY_12.start.values)}`);
-    await dailyPage.swap(DAILY_12.par.swap[0], DAILY_12.par.swap[1]);
+    await dailyPage.swap(DAILY_12.goal.swap[0], DAILY_12.goal.swap[1]);
     await dailyPage.run();
-    await dailyPage.skip(`${DAILY_12.name} try 2 ${fmt(DAILY_12.par.values)}`);
-    await dailyPage.swap(DAILY_12.highFromPar.swap[0], DAILY_12.highFromPar.swap[1]);
+    await dailyPage.skip(`${DAILY_12.name} try 2 ${fmt(DAILY_12.goal.values)}`);
+    await dailyPage.swap(DAILY_12.highFromGoal.swap[0], DAILY_12.highFromGoal.swap[1]);
     await dailyPage.run();
-    await dailyPage.skip(`${DAILY_12.name} try 3 ${fmt(DAILY_12.highFromPar.values)}`);
+    await dailyPage.skip(`${DAILY_12.name} try 3 ${fmt(DAILY_12.highFromGoal.values)}`);
 
     const expectedShare = [
-      `structs.sh daily #12 · Quicksort · Goal ${DAILY_12.puzzle.par}`,
+      `structs.sh daily #12 · Quicksort · Goal ${DAILY_12.challenge.goal}`,
       `${DAILY_12.start.count}`,
-      `${DAILY_12.par.count} ⭐`,
-      `${DAILY_12.highFromPar.count} ⭐`,
+      `${DAILY_12.goal.count} ⭐`,
+      `${DAILY_12.highFromGoal.count} ⭐`,
       'structs.sh/daily',
     ].join('\n');
 
-    const ctx = `${DAILY_12.name} tries [${DAILY_12.start.count}, ${DAILY_12.par.count}, ${DAILY_12.highFromPar.count}]`;
+    const ctx = `${DAILY_12.name} tries [${DAILY_12.start.count}, ${DAILY_12.goal.count}, ${DAILY_12.highFromGoal.count}]`;
     const shared = (await dailyPage.shareText()).trim();
     expect(
       shared,
-      `${ctx}: Share text should be exactly ${JSON.stringify(expectedShare)} (header with goal, one bare score per try, " ⭐" at or above goal ${DAILY_12.puzzle.par}, no "/ best", no 🏆, no arrangement)`,
+      `${ctx}: Share text should be exactly ${JSON.stringify(expectedShare)} (header with goal, one bare score per try, " ⭐" at or above goal ${DAILY_12.challenge.goal}, no "/ best", no 🏆, no arrangement)`,
     ).toBe(expectedShare);
-    for (const arrangement of [DAILY_12.start.values, DAILY_12.par.values, DAILY_12.highFromPar.values]) {
+    for (const arrangement of [DAILY_12.start.values, DAILY_12.goal.values, DAILY_12.highFromGoal.values]) {
       expect(
         shared.includes(arrangement.join(', ')) || shared.includes(arrangement.join(',')) || shared.includes(arrangement.join(' ')),
         `${ctx}: Share text must not include the arrangement ${fmt(arrangement)}; got ${JSON.stringify(shared)}`,

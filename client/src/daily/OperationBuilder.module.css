@@ -269,16 +269,38 @@
 }
 
 @media (hover: hover) {
-  .add:enabled:hover { background: var(--sand-hover); }
+  .add:enabled:hover {
+    background: var(--sand-hover);
+  }
   .clear:enabled:hover,
-  .remove:hover { background: var(--surface-hover); color: var(--ink); }
+  .remove:hover {
+    background: var(--surface-hover);
+    color: var(--ink);
+  }
 }
 
 @media (max-width: 640px) {
-  .listRow { grid-template-columns: 3.6rem minmax(0, 1fr); }
-  .node { min-width: 2rem; height: 2rem; font-size: 0.88rem; }
-  .controls { padding: 0.45rem; }
-  .valueInput { flex: 1 1 9.5rem; min-width: 9.5rem; max-width: none; }
-  .indexInput { width: 4.8rem; }
-  .add { flex: 1 0 100%; margin-left: 0; }
+  .listRow {
+    grid-template-columns: 3.6rem minmax(0, 1fr);
+  }
+  .node {
+    min-width: 2rem;
+    height: 2rem;
+    font-size: 0.88rem;
+  }
+  .controls {
+    padding: 0.45rem;
+  }
+  .valueInput {
+    flex: 1 1 9.5rem;
+    min-width: 9.5rem;
+    max-width: none;
+  }
+  .indexInput {
+    width: 4.8rem;
+  }
+  .add {
+    flex: 1 0 100%;
+    margin-left: 0;
+  }
 }

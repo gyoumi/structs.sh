@@ -16,7 +16,7 @@ const HeroSection = () => (
       </Link>
       <nav aria-label="Main" className={`${styles.nav} ${styles.landingNav}`}>
         <a href="#structures">Visualiser</a>
-        <Link to="/daily">Daily puzzle</Link>
+        <Link to="/daily">Daily</Link>
         <Link to="/debugger">Debugger</Link>
         <a href={GITHUB_URL} target="_blank" rel="noreferrer">
           GitHub
@@ -40,7 +40,7 @@ const HeroSection = () => (
             <ArrowRightIcon size={18} />
           </Link>
           <Link to="/daily" className={landing.secondary}>
-            Play today’s puzzle
+            Play today’s challenge
             <ArrowRightIcon size={18} />
           </Link>
         </div>

@@ -7,17 +7,17 @@ import type { DailyTemplatePage } from '../support/daily-template-page';
 const fmt = (values: readonly number[]) => `[${values.join(', ')}]`;
 
 test.describe('daily AVL: most rotations', () => {
-  const { puzzle, start, doubles } = AVL_23;
+  const { challenge, start, doubles } = AVL_23;
 
   test('loads and plays, counting single rotations as keys are inserted in order', async ({ dailyPage, dailyTemplate }) => {
-    await dailyPage.serve(puzzle);
+    await dailyPage.serve(challenge);
     await dailyPage.open();
 
     const ctx = `${AVL_23.name} insert order ${fmt(start.values)}`;
     await dailyTemplate.expectRules([/rotations/i], ctx);
-    await dailyPage.expectStatusNumber('Goal', puzzle.par, `${ctx}: Goal should show the served par ${puzzle.par}`);
-    expect(await dailyPage.values(), `${ctx}: Puzzle array should show the insert order`).toEqual([...puzzle.values]);
-    expect(await dailyPage.fixedIndices(), `${ctx}: fixed slots ${fmt(puzzle.fixed)} should be disabled`).toEqual([...puzzle.fixed]);
+    await dailyPage.expectStatusNumber('Goal', challenge.goal, `${ctx}: Goal should show the served goal ${challenge.goal}`);
+    expect(await dailyPage.values(), `${ctx}: Challenge array should show the insert order`).toEqual([...challenge.values]);
+    expect(await dailyPage.fixedIndices(), `${ctx}: fixed slots ${fmt(challenge.fixed)} should be disabled`).toEqual([...challenge.fixed]);
     await dailyPage.expectStatusNumber('Rotations', 0, `${ctx}: Rotations should start at 0 before Run`);
 
     await dailyPage.run();
@@ -29,8 +29,8 @@ test.describe('daily AVL: most rotations', () => {
       `${ctx}: after Skip, Rotations should be ${start.rotations} single rotations (LR at 5 = 2, RL at 5 = 2, RR at 3 = 1)`,
     );
     await dailyPage.expectStatusNumber('Score', start.rotations, `${ctx}: Score should match Rotations (${start.rotations})`);
-    await dailyPage.expectStatusNumber('Goal', puzzle.par, `${ctx}: Goal should still show ${puzzle.par}`);
-    await dailyTemplate.expectGoalReached(false, `${ctx}: ${start.rotations} rotations is below the goal of ${puzzle.par}`);
+    await dailyPage.expectStatusNumber('Goal', challenge.goal, `${ctx}: Goal should still show ${challenge.goal}`);
+    await dailyTemplate.expectGoalReached(false, `${ctx}: ${start.rotations} rotations is below the goal of ${challenge.goal}`);
     await dailyTemplate.expectTryChips([`${start.rotations}`], ctx);
 
     await dailyPage.rewind();
@@ -41,7 +41,7 @@ test.describe('daily AVL: most rotations', () => {
   });
 
   test('a double rotation counts as two, and reaching the goal is announced', async ({ dailyPage, dailyTemplate }) => {
-    await dailyPage.serve(puzzle);
+    await dailyPage.serve(challenge);
     await dailyPage.open();
 
     const ctx = `${AVL_23.name} insert order ${fmt(doubles.values)} (swap slots ${doubles.swap.join(' and ')})`;
@@ -56,15 +56,15 @@ test.describe('daily AVL: most rotations', () => {
       `${ctx}: Rotations should be ${doubles.rotations}: three double rotations count 2 each (LR at 5, RL at 5, LR at 5) plus RR at 2`,
     );
     await dailyPage.expectStatusNumber('Score', doubles.rotations, `${ctx}: Score should be ${doubles.rotations}`);
-    await dailyTemplate.expectGoalReached(true, `${ctx}: ${doubles.rotations} rotations >= goal ${puzzle.par}`);
+    await dailyTemplate.expectGoalReached(true, `${ctx}: ${doubles.rotations} rotations >= goal ${challenge.goal}`);
     await dailyTemplate.expectTryChips([`${doubles.rotations} ⭐`], ctx);
-    await dailyPage.expectStatusNumber('Tries left', 2, `${ctx}: reaching the goal must not end the puzzle early`);
+    await dailyPage.expectStatusNumber('Tries left', 2, `${ctx}: reaching the goal must not end the challenge early`);
     expect(await dailyPage.canRun(), `${ctx}: Run should still be offered for the next try`).toBe(true);
   });
 });
 
 test.describe('daily upset: BST builds cheaper', () => {
-  const { puzzle, start, solved } = UPSET_25;
+  const { challenge, start, solved } = UPSET_25;
   const stages = ['BST', 'AVL tree'];
   const counters = [
     { name: 'BST nodes passed', final: start.bst },
@@ -79,13 +79,13 @@ test.describe('daily upset: BST builds cheaper', () => {
   };
 
   test('loads and plays BST and AVL side by side on one Playback toolbar, counting nodes passed', async ({ dailyPage, dailyTemplate }) => {
-    await dailyPage.serve(puzzle);
+    await dailyPage.serve(challenge);
     await dailyPage.open();
 
     const ctx = `${UPSET_25.name} insert order ${fmt(start.values)}`;
     await dailyTemplate.expectRules([/\bBST\b/, /\bAVL\b/], ctx);
-    await dailyPage.expectStatusNumber('Goal', puzzle.par, `${ctx}: Goal should show the served par ${puzzle.par}`);
-    expect(await dailyPage.fixedIndices(), `${ctx}: fixed slots ${fmt(puzzle.fixed)} should be disabled`).toEqual([...puzzle.fixed]);
+    await dailyPage.expectStatusNumber('Goal', challenge.goal, `${ctx}: Goal should show the served goal ${challenge.goal}`);
+    expect(await dailyPage.fixedIndices(), `${ctx}: fixed slots ${fmt(challenge.fixed)} should be disabled`).toEqual([...challenge.fixed]);
     await dailyTemplate.expectStagesSideBySide('BST', 'AVL tree', ctx);
     await dailyTemplate.expectOnePlaybackToolbar(ctx);
 
@@ -117,7 +117,7 @@ test.describe('daily upset: BST builds cheaper', () => {
   });
 
   test('an unsolved order is marked, and a solved upset scores its margin', async ({ dailyPage, dailyTemplate }) => {
-    await dailyPage.serve(puzzle);
+    await dailyPage.serve(challenge);
     await dailyPage.open();
 
     const try1 = `${UPSET_25.name} try 1 ${fmt(start.values)} (BST ${start.bst} >= AVL ${start.avl}: unsolved)`;
@@ -141,9 +141,9 @@ test.describe('daily upset: BST builds cheaper', () => {
       `${try2}: AVL nodes passed should be ${solved.avl} (counting its 11 rotations too would wrongly give 52)`,
     );
     await dailyPage.expectStatusNumber('Score', solved.margin, `${try2}: a solved upset scores the margin AVL - BST = ${solved.avl} - ${solved.bst} = ${solved.margin}`);
-    await dailyTemplate.expectGoalReached(true, `${try2}: margin ${solved.margin} >= goal ${puzzle.par}`);
+    await dailyTemplate.expectGoalReached(true, `${try2}: margin ${solved.margin} >= goal ${challenge.goal}`);
     await dailyTemplate.expectTryChips(['✗', `${solved.margin} ⭐`], try2);
-    expect(await dailyPage.values(), `${try2}: Puzzle array should stay as the player left it`).toEqual([...solved.values]);
+    expect(await dailyPage.values(), `${try2}: Challenge array should stay as the player left it`).toEqual([...solved.values]);
     await dailyPage.expectNoBestShown(try2);
   });
 
@@ -151,15 +151,15 @@ test.describe('daily upset: BST builds cheaper', () => {
     test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 
     test('the BST and AVL tree stack on a phone and share one Playback toolbar', async ({ dailyPage, dailyTemplate }) => {
-      await dailyPage.serve(puzzle);
+      await dailyPage.serve(challenge);
       await dailyPage.open();
 
       const ctx = `${UPSET_25.name} insert order ${fmt(start.values)} at 390x844 touch`;
       await dailyTemplate.expectRules([/\bBST\b/, /\bAVL\b/], ctx);
       await dailyTemplate.expectStagesStacked('BST', 'AVL tree', ctx);
       await dailyTemplate.expectOnePlaybackToolbar(ctx);
-      expect(await dailyPage.fixedIndices(), `${ctx}: fixed slots ${fmt(puzzle.fixed)} should be disabled`).toEqual([...puzzle.fixed]);
-      await dailyPage.expectAllSlotsInViewport(ctx, puzzle.values.length);
+      expect(await dailyPage.fixedIndices(), `${ctx}: fixed slots ${fmt(challenge.fixed)} should be disabled`).toEqual([...challenge.fixed]);
+      await dailyPage.expectAllSlotsInViewport(ctx, challenge.values.length);
       await dailyPage.run();
       await dailyPage.skip(ctx);
       await dailyPage.expectStatusNumber('BST nodes passed', start.bst, `${ctx}: Skip should finish the BST at ${start.bst}`);

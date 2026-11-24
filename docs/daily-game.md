@@ -47,8 +47,8 @@ Under the e2e suite:
   TypeScript visualiser on the same fixed inputs, and check the counts match.
   The game has two copies of each algorithm, one to score and one to animate,
   so this is what stops them drifting apart.
-- **`cargo test`** covers `structs-puzzles` and the game server, in this repo.
-- **`structs-forge`'s tests**, in the private repo, check the solver against
+- **`cargo test`** covers `daily-challenges` and the game server, in this repo.
+- **`daily-generator`'s tests**, in the private repo, check the solver against
   the figures in `puzzle-ideas.md`.
 
 `.claude/rules/testing.md` applies as usual. Tests come first, and they're
@@ -67,7 +67,7 @@ A quicksort puzzle, hard-coded in the client, can be played start to finish
 in the browser. The player swaps the free values, presses Run, watches the
 existing sorting visualiser animate the run, and sees a score and a goal. They
 get three tries. The
-score comes from `structs-puzzles` built to wasm, with no server.
+score comes from `daily-challenges` built to wasm, with no server.
 
 This tests the riskiest parts first:
 
@@ -85,21 +85,21 @@ See "Checkpoint 1, step by step".
 
 ### 2. Every day is new
 
-All seven launch templates are playable. `structs-forge` generates
+All seven launch templates are playable. `daily-generator` generates
 instances for them, finds the best score and goal, rejects instances that fail the checks, and
 grades difficulty. The game page can load any puzzle it produces.
 
 **Done when:** checkpoints 1 and 2's game tests pass, every launch template has a passing
-parity test, and `structs-forge` fills three weeks of the weekday schedule
+parity test, and `daily-generator` fills three weeks of the weekday schedule
 with puzzles that pass every check.
 
 See "Checkpoint 2, step by step".
 
 ### 3. It runs daily
 
-`structs-game-server` serves today's puzzle from Postgres. The page keeps
+`daily-server` serves today's puzzle from Postgres. The page keeps
 streaks and history in the browser, and the whole stack runs locally and in
-CI, with `structs-forge` filling the database.
+CI, with `daily-generator` filling the database.
 
 **Done when:** every game test passes against the running stack in CI.
 
@@ -149,7 +149,7 @@ same time. 1f needs both.
   is visible without scrolling sideways. The sorting visualiser has no way to
   move values by hand today, so this is new.
 - **Goal is a target to reach, not the maximum.** The puzzle file carries the
-  goal (stored in the `par` field), and the page never works it out. The goal
+  goal (stored in the `goal` field), and the page never works it out. The goal
   sits 65% of the way from a typical random arrangement's score to the
   solver's best. For example, with a median of 25 and a best of 34, the goal
   is 31.
@@ -236,7 +236,7 @@ known failures, and CI is green.
 
 **Done in #65.**
 
-A `crates/` Cargo workspace with `structs-puzzles` in it. It holds the
+A `game-server/` Cargo workspace with `daily-challenges` in it. It holds the
 `Template` trait, the instance, input and step log types, and the quicksort
 template's `run`, `score` and `rules`. This step only builds it for the
 computer it runs on. CI gains a job like the instrumenter's: `cargo fmt`,
@@ -249,7 +249,7 @@ whose comparisons were counted by hand.
 
 **Done in #66.**
 
-`structs-puzzles` is built for `wasm32-unknown-unknown`, and its exports
+`daily-challenges` is built for `wasm32-unknown-unknown`, and its exports
 follow the instrumenter's (`alloc`, `result_ptr` and the rest, without
 `wasm-bindgen`). The client gains a loader like `instrumenter.ts`. One root
 script runs both wasm builds at the same time, and the client's Dockerfile
@@ -348,12 +348,12 @@ Tidy the code checkpoint 1 added or changed against the four rules (size,
 stages, comments, tests) without changing what a player sees, extend
 `structs/one-stage-value` to cover React `useState` boolean flags, and extend
 the CI tidy checks (`scripts/check-file-sizes.mjs`, `scripts/pr-rules.mjs`,
-`crates/clippy.toml`) to cover `client/src/daily/`, `client/src/Services/puzzles/`,
-`client/src/visualiser-src/controller/`, and `crates/`.
+`game-server/clippy.toml`) to cover `client/src/daily/`, `client/src/Services/challenges/`,
+`client/src/visualiser-src/controller/`, and `game-server/`.
 
 **You'll know it's done when** every checkpoint 1 file is within its line
 limit, stage flags and plain comments are cleaned up, the CI tidy checks cover
-the daily game and `crates/`, and all unit, Rust, script and e2e tests pass
+the daily game and `game-server/`, and all unit, Rust, script and e2e tests pass
 unchanged.
 
 ## Checkpoint 2, step by step
@@ -365,7 +365,7 @@ unchanged.
 ### Decisions
 
 - **Split 2a into four vertical PRs:** `2a-0` writes Checkpoint 2's Playwright tests first (on `e2e/known-failures/game.json`), then `2a-1` ships the two sorting templates (`bubble-exact-passes`, `insertion-beats-merge`), `2a-2` ships the three tree templates (`avl-most-rotations`, `bst-forced-order`, `upset-bst-beats-avl`), and `2a-3` ships the linked list template (`linked-list-index-drift`).
-- **Complete 2a with static fixtures before setting up `structs-forge`:** all of `2a` runs inside `structs.sh` using static test puzzle JSON files (and Playwright network interception in e2e). The private `structs-forge` repo is connected before `2b`.
+- **Complete 2a with static fixtures before setting up `daily-generator`:** all of `2a` runs inside `structs.sh` using static test puzzle JSON files (and Playwright network interception in e2e). The private `daily-generator` repo is connected before `2b`.
 - **Template IDs, scoring rules, and puzzle JSON shapes** (`GET /puzzles/today.json`, never carrying `best`):
   - `quicksort-most-comparisons`: `{ number, template, values, fixed, par, date? }` — Extreme (higher).
   - `bubble-exact-passes`: `{ number, template, values, fixed, targetPasses, par, date? }` — Exact target (`passes === targetPasses`, where a pass is an outer loop iteration that makes at least one comparison — including the final 0-swap stopping pass, excluding any comparison-free `i = n - 1` iteration, so at most `n - 1` passes), then swaps (higher).
@@ -373,20 +373,20 @@ unchanged.
   - `avl-most-rotations`: `{ number, template, values, fixed, par, date? }` — Extreme, total single rotations from inserting keys in order (higher; each LL/RR counts as 1 rotation and each LR/RL double rotation counts as 2 rotations).
   - `bst-forced-order`: `{ number, template, values, targetTree, par, date? }` — Exact target (inserting the player's order into an empty BST matches `targetTree`, given as its preorder traversal), then longest contiguous strictly increasing run in the insert order (higher). No fixed slots.
   - `upset-bst-beats-avl`: `{ number, template, values, fixed, par, date? }` — Disagree (`bstNodesPassed < avlNodesPassed`, counting only existing nodes passed on the way down during each insert, not rotations), then margin `avlNodesPassed - bstNodesPassed` (higher).
-  - `linked-list-index-drift`: `{ number, template, start, target, par, date? }` — Exact target (final list equals `target`), then total cost = `operations + nodesWalked` (**lower wins**, so `cost <= par` reaches the goal). `insert(value, index)` costs `1 + min(index, lengthBefore)`; `delete(index)` costs `1 + (index + 1)`.
+  - `linked-list-index-drift`: `{ number, template, start, target, par, date? }` — Exact target (final list equals `target`), then total cost = `operations + nodesWalked` (**lower wins**, so `cost <= goal` reaches the goal). `insert(value, index)` costs `1 + min(index, lengthBefore)`; `delete(index)` costs `1 + (index + 1)`.
 - **Unsolved tries on Exact-target and Disagree puzzles:**
   - An unsolved try still uses a try, explains clearly why the condition wasn't met (for example *"Took 3 passes — needed 4"* or *"Insertion made 16 comparisons — merge made 15"*), still shows the secondary count so the player can learn, and marks the try unsolved (`✗` in try chips and share text).
-  - Any solved try always outranks any unsolved try (especially important for lower-wins like Index drift, where an incomplete cheap run must not beat a solved one). While tries remain, `Score` and `Goal reached` reflect the latest try (so an unsolved try leaves `Score` without a number and hides `Goal reached`). Once the third try finishes, `Try result` still describes that final try, while `Score` and `Goal reached` report the best solved try across all three tries (`score >= par` for higher-wins, `score <= par` for lower-wins; if all three tries are unsolved, `Score` has no number and `Goal reached` stays hidden).
+  - Any solved try always outranks any unsolved try (especially important for lower-wins like Index drift, where an incomplete cheap run must not beat a solved one). While tries remain, `Score` and `Goal reached` reflect the latest try (so an unsolved try leaves `Score` without a number and hides `Goal reached`). Once the third try finishes, `Try result` still describes that final try, while `Score` and `Goal reached` report the best solved try across all three tries (`score >= goal` for higher-wins, `score <= par` for lower-wins; if all three tries are unsolved, `Score` has no number and `Goal reached` stays hidden).
   - In share text, solved tries follow Checkpoint 1 (`<score>` or `<score> ⭐`), and unsolved tries appear as `✗`.
 - **Two-algorithm puzzles (`insertion-beats-merge` and `upset-bst-beats-avl`):** render both stages side by side on desktop (stacked on phone) synced to one shared `Playback` toolbar (`Transport`). `Skip` finishes both stages; stepping, rewind, replay, and speed control both together.
-- **`structs-forge` starts in the private repo** in the `devsoc-unsw` org.
+- **`daily-generator` starts in the private repo** in the `devsoc-unsw` org.
   Its first tests are the check scripts from `puzzle-checks/`, rewritten in
   Rust. The figures in `puzzle-ideas.md` become the ranges they expect.
 - **The solver uses only the `Template` trait**, as `roadmap.md` requires, so
   each template's `generate` and its shortcut list are the only extra code it
   needs.
 - **Puzzles are stored in Postgres from the start**, through
-  `structs-game-db`. A local Postgres runs in Docker.
+  `daily-db`. A local Postgres runs in Docker.
 - **The weekday schedule** uses the bot player's grades. Forced order is the
   easy-day template, and the upset is the hard-day one, used sparingly.
 
@@ -415,7 +415,7 @@ green.
 
 **Done in #78.**
 
-Add both sorting templates to `structs-puzzles` and the wasm wire layer, add
+Add both sorting templates to `daily-challenges` and the wasm wire layer, add
 counters and Vitest parity tests for bubble, insertion, and merge sort, and add
 exact-target / disagree try outcomes and synced dual-stage playback to `/daily`.
 
@@ -427,7 +427,7 @@ videos are reviewed and approved.
 
 **Done in #79.**
 
-Add all three tree templates to `structs-puzzles`, add BST/AVL node-pass and
+Add all three tree templates to `daily-challenges`, add BST/AVL node-pass and
 rotation counters with Vitest parity tests, and add the insert-order, target
 BST, and side-by-side BST/AVL views to `/daily`.
 
@@ -439,7 +439,7 @@ desktop/phone videos are reviewed and approved.
 
 **Done in #80.**
 
-Add `linked-list-index-drift` to `structs-puzzles`, add linked-list operation
+Add `linked-list-index-drift` to `daily-challenges`, add linked-list operation
 and node-walk counters with Vitest parity tests, and add the operation-list
 builder and lower-wins scoring to `/daily`.
 
@@ -449,14 +449,14 @@ passing), and desktop/phone videos are reviewed and approved.
 
 ### 2b. Solver and checks
 
-**Done in #81** (public `Template` generation/search surface) and `devsoc-unsw/snitch` (`crates/structs-forge`).
+**Done in #81** (public `Template` generation/search surface) and `devsoc-unsw/snitch` (`generator`).
 
-`structs-forge` finds the best score for an instance by searching the moves
+`daily-generator` finds the best score for an instance by searching the moves
 the `Template` trait exposes, and sets the goal 65% of the way to it from the
 median of random inputs. For each instance it runs the three checks from
 `puzzle-ideas.md`: is it solvable, does a shortcut reach the best, and how
 often does the bot player reach the goal. The best score stays private to
-`structs-forge` and the server, and is never sent to players.
+`daily-generator` and the server, and is never sent to players.
 
 **You'll know it's done when** its tests reproduce the `puzzle-checks`
 figures for every launch template. For example, sorted fills reach the best
@@ -464,9 +464,9 @@ on only 1 or 2 of 40 AVL instances.
 
 ### 2c. Schedule
 
-**Done in #82** (`crates/structs-game-db`, local Postgres compose, CI Postgres service) and `devsoc-unsw/snitch` (`structs-forge` weekday schedule, Postgres fill, and CLI).
+**Done in #82** (`game-server/db`, local Postgres compose, CI Postgres service) and `devsoc-unsw/snitch` (`daily-generator` weekday schedule, Postgres fill, and CLI).
 
-`structs-forge` picks a template for each upcoming date, rerolls instances
+`daily-generator` picks a template for each upcoming date, rerolls instances
 that fail a check or miss the weekday's difficulty range, and stores the
 instance, rules, seed, goal, the best score and one best solution. Only the
 puzzle and its goal are served to the page; the best score and solution stay
@@ -501,8 +501,8 @@ stages, comments, tests) without changing what a player sees.
 
 **Done in #84.**
 
-`structs-game-server`, `structs-game-api` and `api.ts`, which `ts-rs`
-generates from `structs-game-api`. The server returns today's puzzle from
+`daily-server`, `daily-api` and `api.ts`, which `ts-rs`
+generates from `daily-api`. The server returns today's puzzle from
 Postgres. Its Docker image follows CHAOS (`sqlx` offline query data and
 cached cargo dependencies).
 
@@ -525,7 +525,7 @@ stack.
 
 **Done in #86.**
 
-A Docker Compose file runs Postgres, a `structs-forge` run to fill it, the
+A Docker Compose file runs Postgres, a `daily-generator` run to fill it, the
 game server and the client. The e2e job runs the game tests against it, with
 the clock set by the test.
 
@@ -567,13 +567,13 @@ Once the debugger rewrite is in `devsoc-unsw/structs.sh`, merge `dev` into
 ### 4b. Deployment
 
 This repo gains the `game-server` image in the Deploy workflow and the
-`structs-puzzles` stage in the client's Dockerfile. DevSoc's deployment repo
+`daily-challenges` stage in the client's Dockerfile. DevSoc's deployment repo
 gains the game server, the `/api` route, Postgres, the runtime secrets and a
-CronJob for `structs-forge`. `roadmap.md` lists them under "Changes for the
+CronJob for `daily-generator`. `roadmap.md` lists them under "Changes for the
 game".
 
 ### 4c. Launch
 
-`structs-forge` queues two to three weeks of puzzles in production (the
+`daily-generator` queues two to three weeks of puzzles in production (the
 landing page has linked to `/daily` since step 3d), and the fork's `dev` goes into
 `devsoc-unsw/structs.sh` `dev`.

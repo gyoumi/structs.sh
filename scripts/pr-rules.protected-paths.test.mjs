@@ -343,7 +343,7 @@ describe('protected-paths', () => {
   });
 
   it('protects test and lint settings in crates Cargo.toml files and clippy.toml', () => {
-    for (const path of ['crates/Cargo.toml', 'crates/structs-puzzles/Cargo.toml']) {
+    for (const path of ['game-server/Cargo.toml', 'game-server/challenges/Cargo.toml']) {
       const added = checkPr(pr({ files: [{ status: 'M', path }], addedLines: [{ path, line: 5, text: 'autotests = false' }] }));
       assert.deepEqual(rulesHit(added), ['protected-paths'], `adding autotests = false to ${path} should hit protected-paths`);
       const removedLint = checkPr(pr({ files: [{ status: 'M', path }], removedLines: [{ path, line: 8, text: '[lints.clippy]' }] }));
@@ -363,7 +363,7 @@ describe('protected-paths', () => {
       );
       assert.deepEqual(depBump, [], `dependency bump in ${path} should hit no rule`);
     }
-    const clippy = checkPr(pr({ files: [{ status: 'A', path: 'crates/clippy.toml' }] }));
-    assert.deepEqual(rulesHit(clippy), ['protected-paths'], 'adding crates/clippy.toml should hit protected-paths');
+    const clippy = checkPr(pr({ files: [{ status: 'A', path: 'game-server/clippy.toml' }] }));
+    assert.deepEqual(rulesHit(clippy), ['protected-paths'], 'adding game-server/clippy.toml should hit protected-paths');
   });
 });

@@ -3,7 +3,7 @@ import { SVG, Path } from '@svgdotjs/svg.js';
 import GraphicalDataStructure from '@/visualiser-src/common/GraphicalDataStructure';
 import { Documentation } from '@/visualiser-src/common/typedefs';
 import { getCanvasTarget } from '@/visualiser-src/common/canvasTarget';
-import type { ListOperation } from '@/Services/puzzles/puzzles';
+import type { ListOperation } from '@/Services/challenges/challenges';
 import { injectIds } from '@/visualiser-src/common/helpers';
 import { generateNumbers } from '@/visualiser-src/common/RandomNumGenerator';
 import { CURRENT, PREV } from '../util/constants';

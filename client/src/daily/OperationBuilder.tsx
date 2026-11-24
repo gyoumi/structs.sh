@@ -1,5 +1,5 @@
 import { KeyboardEvent, useState } from 'react';
-import type { ListOperation } from '@/Services/puzzles/puzzles';
+import type { ListOperation } from '@/Services/challenges/challenges';
 import styles from './OperationBuilder.module.css';
 
 type Kind = ListOperation['kind'];

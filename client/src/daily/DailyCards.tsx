@@ -28,7 +28,7 @@ export type MobileOutcome = 'none' | 'goal' | 'missed';
 
 type MobileHudProps = {
   value: number;
-  par: number;
+  goal: number;
   comparison: StepComparison | undefined;
   triesLeft: number;
   stageTheme: Theme;
@@ -38,7 +38,7 @@ type MobileHudProps = {
 /** A phone-only strip above the array. It repeats the cards for sight only, so it is hidden from assistive tech. */
 export const MobileHud = ({
   value,
-  par,
+  goal,
   comparison,
   triesLeft,
   stageTheme,
@@ -47,7 +47,7 @@ export const MobileHud = ({
   <div className={cards.mobileHud} aria-hidden="true">
     <span className={cards.hudScore}>
       <span className={cards.hudNum}>{value}</span>
-      <span className={cards.hudGoal}>/ {par}</span>
+      <span className={cards.hudGoal}>/ {goal}</span>
       {outcome === 'goal' && <span className={cards.hudStar}>⭐</span>}
       {outcome === 'missed' && <span className={cards.resultNo}>✗</span>}
     </span>

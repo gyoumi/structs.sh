@@ -20,10 +20,10 @@ export class DailyOperationBuilder {
     return this.page.getByRole('list', { name: 'Operation list', exact: true }).getByRole('listitem');
   }
 
-  /** Opens /daily for a served Index drift puzzle and waits for the operation builder (there is no Puzzle array). */
+  /** Opens /daily for a served Index drift challenge and waits for the operation builder (there is no Challenge array). */
   async open(context: string): Promise<void> {
     await this.page.goto('/daily');
-    await expect(this.builder, `${context}: /daily should show a group named "Operation builder" for an Index drift puzzle`).toBeVisible();
+    await expect(this.builder, `${context}: /daily should show a group named "Operation builder" for an Index drift challenge`).toBeVisible();
   }
 
   /** The numbers in the named list (`Start list` or `Target list`), front to back. */

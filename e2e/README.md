@@ -83,13 +83,13 @@ which returns:
   "template": "quicksort-most-comparisons",
   "values": [8, 1, 6, 3, 2, 7, 4, 5],
   "fixed": [1, 4, 6],
-  "par": 34,
+  "goal": 34,
   "date": "2026-12-23"
 }
 ```
 
 `values` is the starting arrangement and `fixed` holds the 0-based indices of
-locked slots. The page shows what the server returns and never computes `par`.
+locked slots. The page shows what the server returns and never computes `goal`.
 There is no `best` field: the solver's best score stays on the server, and the
 page must never show a best score. If a response does carry an extra field such
 as `best`, the page ignores it.
@@ -108,7 +108,7 @@ The sorting visualiser draws into `#visualiser-canvas` as it does today. The
 rest of the e2e tests drive `/daily` only through ARIA roles and accessible
 names:
 
-- **Rules:** `region` named `Puzzle rules`. It must contain the sentence
+- **Rules:** `region` named `Challenge rules`. It must contain the sentence
   `Reorder the numbers so quicksort makes as many comparisons as possible.`
   It also explains that quicksort picks the leftmost number in each range as
   the pivot (the text mentions both `leftmost` and `pivot`), for example
@@ -122,7 +122,7 @@ names:
     `<summary>` text is exactly `Keyboard controls`. It is closed when the page
     loads, so the keyboard help (text matching `/Enter or Space/i`) is hidden.
     Clicking the summary opens it and shows the help; clicking again closes it.
-- **Puzzle array:** `group` named `Puzzle array`, containing one `button` per
+- **Challenge array:** `group` named `Challenge array`, containing one `button` per
   slot in left-to-right order.
   - The group shows no static `Pivot` label (no text containing `pivot`).
     Slot 0 is only the first pivot; the pivot moves right as quicksort
@@ -165,12 +165,12 @@ names:
   buttons `Play`, `Pause`, `Replay`, `Previous step`, `Next step`,
   `Back to the start`, and `Skip to the end`; `slider` `Animation progress` from
   `0` to `100`, using either a native range input or `aria-valuenow`; `combobox`
-  `Speed` from `0.25×` to `2×`). Replaying a finished run does not use a try.
+  `Speed` from `0.25×` to `5×`). Replaying a finished run does not use a try.
 - **Status readouts** (`role="status"` or `<output>`). Give each readout its
   accessible name with `aria-label`, `aria-labelledby`, or a `<label for>` on
   `<output>`, because `role="status"` does not take its accessible name from its
   inner text:
-  - `status` `Goal`: shows the puzzle's goal (the `par` field in the JSON).
+  - `status` `Goal`: shows the puzzle's goal (the `goal` field in the JSON).
   - `status` `Comparisons`: starts at `0`, rises with each comparison during the
     animation (changing by at most `1` per timeline step), and follows the
     timeline so stepping back lowers it (add `aria-live="off"` if you want to
@@ -180,7 +180,7 @@ names:
   - `status` `Tries left`: starts at `3` and decrements after each try (`2`,
     `1`, `0`).
   - `status` `Goal reached`: visible whenever the score shown in `Score`
-    reaches or beats the goal (`score >= par`): after a try that does, and at
+    reaches or beats the goal (`score >= goal`): after a try that does, and at
     the end when the highest try did. The text inside is up to the page.
   - There is no `Best` or `Best reached` status, at any point.
 
@@ -207,14 +207,14 @@ structs.sh/daily
 The checkpoint 2 tests (`tests/daily-game-sorting.spec.ts`, `daily-game-trees.spec.ts`,
 `daily-game-forced-order.spec.ts` and `daily-game-linked-list.spec.ts`) serve one
 puzzle per template. Everything above still applies to every template unless this
-section says otherwise: `Puzzle rules`, `Puzzle array` and its slots (swapping by
+section says otherwise: `Challenge rules`, `Challenge array` and its slots (swapping by
 tap, keyboard and phone), `Run`, `Skip`, `Share`, the `Playback` toolbar, `Goal`,
 `Score`, `Tries left` and `Goal reached`, three tries, and no best score anywhere.
 `Comparisons` belongs to quicksort only. The JSON shapes are the ones in
 `docs/daily-game.md` (Checkpoint 2, Decisions); `bst-forced-order` has no `fixed`
 field, so none of its slots is locked.
 
-**Rules.** `Puzzle rules` describes the served template and must contain no text
+**Rules.** `Challenge rules` describes the served template and must contain no text
 matching `/quicksort|pivot/i`. It must contain:
 
 | Template | Text the rules must match |
@@ -296,7 +296,7 @@ A solved try always outranks an unsolved one. What `Try result`, `Score` and
   solved. `Score` and `Goal reached` instead describe the best solved try across
   all three tries (the highest score, or for index drift the lowest cost), even
   when the third try was unsolved. `Goal reached` shows when that best solved try
-  meets the goal (`score >= par`, or `cost <= par` for index drift). If all three
+  meets the goal (`score >= goal`, or `cost <= goal` for index drift). If all three
   tries were unsolved, `Score` has no number and `Goal reached` stays hidden.
 
 **Try chips:** `list` `Tries` holds 3 `listitem`s. A spent chip reads `✗` when
@@ -338,7 +338,7 @@ above its children, as in the BST visualiser) and contains its preorder as text
 joined by `, ` (for example `Preorder: 6, 3, 1, 2, 5, 4, 9, 7, 8, 10`, visible
 or visually hidden). It stays visible after each try.
 
-**Operation builder** (`linked-list-index-drift`, which has no `Puzzle array`):
+**Operation builder** (`linked-list-index-drift`, which has no `Challenge array`):
 
 - `list` `Start list` and `list` `Target list`, one `listitem` per node, front to
   back, each starting with its number.

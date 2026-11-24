@@ -31,7 +31,7 @@ const under = (prefix) => changed.filter((p) => p.startsWith(prefix));
 const client = under('client/');
 const e2e = under('e2e/');
 const instrumenter = changed.filter((p) => p.startsWith('instrumenter/') || p === 'rust-toolchain.toml');
-const puzzles = changed.filter((p) => p.startsWith('crates/') || p === 'rust-toolchain.toml');
+const challenges = changed.filter((p) => p.startsWith('game-server/') || p === 'rust-toolchain.toml');
 const scripts = under('scripts/');
 const lintable = (files, prefix) => present(files).filter((p) => /\.(ts|tsx)$/.test(p)).map((p) => p.slice(prefix.length));
 
@@ -80,15 +80,15 @@ if (instrumenter.length) {
     add('instrumenter: tests', 'cargo', ['test'], cwd);
   } else skipped.push('instrumenter: fmt, clippy and tests (cargo is not installed)');
 }
-if (checkClient || instrumenter.length || puzzles.length) {
+if (checkClient || instrumenter.length || challenges.length) {
   const generated = 'client/src/Services';
   const built = {
     instrumenter: existsSync(join(root, generated, 'debugger/wasm/generated/instrumenter.wasm')),
-    puzzles: existsSync(join(root, generated, 'puzzles/generated/puzzles.wasm')),
+    challenges: existsSync(join(root, generated, 'challenges/generated/challenges.wasm')),
   };
   const stale = {
     instrumenter: instrumenter.length > 0 || !built.instrumenter,
-    puzzles: puzzles.length > 0 || !built.puzzles,
+    challenges: challenges.length > 0 || !built.challenges,
   };
   const toBuild = Object.keys(stale).filter((name) => stale[name]);
   const missing = toBuild.filter((name) => !built[name]);

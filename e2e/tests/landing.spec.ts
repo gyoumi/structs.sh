@@ -32,26 +32,26 @@ test.describe('landing page', () => {
     await expect(page, 'Clicking Debugger in the landing Main navbar should go to /debugger').toHaveURL(/\/debugger$/);
   });
 
-  test('opens the daily puzzle from the navbar', async ({ landingPage, page }) => {
+  test('opens the daily challenge from the navbar', async ({ landingPage, page }) => {
     await landingPage.open();
     await landingPage.openDailyFromNav();
-    await expect(page, 'Clicking "Daily puzzle" in the landing Main navbar should go to /daily').toHaveURL(/\/daily$/);
+    await expect(page, 'Clicking "Daily" in the landing Main navbar should go to /daily').toHaveURL(/\/daily$/);
   });
 
-  test('opens the daily puzzle from the hero', async ({ landingPage, page }) => {
+  test('opens the daily challenge from the hero', async ({ landingPage, page }) => {
     await landingPage.open();
     await landingPage.openDailyFromHero();
-    await expect(page, 'Clicking "Play today\'s puzzle" in the landing hero should go to /daily').toHaveURL(/\/daily$/);
+    await expect(page, 'Clicking "Play today\'s challenge" in the landing hero should go to /daily').toHaveURL(/\/daily$/);
   });
 
-  test('introduces the daily puzzle and opens it', async ({ landingPage, dailyPage, page }) => {
-    await dailyPage.serve(DAILY_12.puzzle);
+  test('introduces the daily challenge and opens it', async ({ landingPage, dailyPage, page }) => {
+    await dailyPage.serve(DAILY_12.challenge);
     await landingPage.open();
     await landingPage.expectDailyPromoInfo();
     await landingPage.openDailyFromPromo();
     await expect(
       page,
-      'Clicking "Play today\'s puzzle" in the landing Daily puzzle section should go to /daily',
+      'Clicking "Play today\'s challenge" in the landing Daily challenge section should go to /daily',
     ).toHaveURL(/\/daily$/);
     await dailyPage.openFromMainNav('Debugger');
     await expect(page, '/daily (serving DAILY_12): clicking Debugger in the header Main nav should go to /debugger').toHaveURL(
@@ -59,24 +59,26 @@ test.describe('landing page', () => {
     );
   });
 
-  test('returns from /daily to the structure picker on desktop and phone without overflow', async ({
+  test('opens the visualiser directly from /daily on desktop and phone without overflow', async ({
     landingPage,
     dailyPage,
     page,
   }) => {
-    await dailyPage.serve(DAILY_12.puzzle);
+    await dailyPage.serve(DAILY_12.challenge);
     await dailyPage.open();
     await dailyPage.openFromMainNav('Visualiser');
-    await expect(page, '/daily (desktop): clicking Visualiser in Main nav should go to /#structures').toHaveURL(/\/#structures$/);
-    await landingPage.expectStructuresInViewport('/daily -> Visualiser at desktop');
+    await expect(page, '/daily (desktop): clicking Visualiser in Main nav should go to /visualiser/linked-lists').toHaveURL(
+      /\/visualiser\/linked-lists$/,
+    );
 
     await page.setViewportSize({ width: 390, height: 844 });
     await dailyPage.open();
     await landingPage.expectNoHorizontalOverflow('/daily at 390x844');
     await dailyPage.openFromMainNav('Visualiser');
-    await expect(page, '/daily (390x844): clicking Visualiser in Main nav should go to /#structures').toHaveURL(/\/#structures$/);
-    await landingPage.expectStructuresInViewport('/daily -> Visualiser at 390x844');
-    await landingPage.expectNoHorizontalOverflow('landing /#structures at 390x844');
+    await expect(page, '/daily (390x844): clicking Visualiser in Main nav should go to /visualiser/linked-lists').toHaveURL(
+      /\/visualiser\/linked-lists$/,
+    );
+    await landingPage.expectNoHorizontalOverflow('/visualiser/linked-lists at 390x844');
   });
 
   test('links to the source code and the team', async ({ landingPage }) => {

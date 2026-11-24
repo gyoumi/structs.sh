@@ -111,8 +111,8 @@ describe('debugger-needs-test', () => {
     { what: 'the e2e test e2e/tests/stepping.spec.ts deleted (removal-ok)', file: { status: 'D', path: 'e2e/tests/stepping.spec.ts' }, labels: ['removal-ok'] },
     { what: 'the Vitest test client/src/Services/debugger/wasm/recording.test.ts deleted (removal-ok)', file: { status: 'D', path: 'client/src/Services/debugger/wasm/recording.test.ts' }, labels: ['removal-ok'] },
     { what: 'the cargo test instrumenter/tests/instrument.rs deleted (removal-ok)', file: { status: 'D', path: 'instrumenter/tests/instrument.rs' }, labels: ['removal-ok'] },
-    { what: 'a puzzle crate test crates/structs-puzzles/tests/quicksort.rs changed', file: { status: 'M', path: 'crates/structs-puzzles/tests/quicksort.rs' } },
-    { what: 'a puzzle crate fixture crates/structs-puzzles/tests/fixtures/input.json added', file: { status: 'A', path: 'crates/structs-puzzles/tests/fixtures/input.json' } },
+    { what: 'a puzzle crate test game-server/challenges/tests/quicksort.rs changed', file: { status: 'M', path: 'game-server/challenges/tests/quicksort.rs' } },
+    { what: 'a puzzle crate fixture game-server/challenges/tests/fixtures/input.json added', file: { status: 'A', path: 'game-server/challenges/tests/fixtures/input.json' } },
   ];
   for (const { what, file, labels = [] } of notTestChanges) {
     it(`does not count it as the test change: ${what}`, () => {

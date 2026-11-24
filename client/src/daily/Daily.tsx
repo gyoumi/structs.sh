@@ -4,29 +4,29 @@ import { Link } from 'react-router-dom';
 import logo from '@/assets/img/structs.png';
 import hero from '@/landing/HeroSection.module.css';
 import landing from '@/landing/Landing.module.css';
-import type { ListOperation } from '@/Services/puzzles/puzzles';
+import type { ListOperation } from '@/Services/challenges/challenges';
 import { Theme, ThemeToggle, useTheme } from '@/ui/theme';
 import { OperationBuilder } from './OperationBuilder';
 import { Play } from './Play';
-import PuzzleArray from './PuzzleArray';
-import { PuzzleIntro } from './PuzzleIntro';
-import { PuzzleRig } from './PuzzleStages';
+import ChallengeArray from './ChallengeArray';
+import { ChallengeIntro } from './ChallengeIntro';
+import { ChallengeRig } from './ChallengeStages';
 import {
   HISTORY_STORAGE_KEY,
   isIsoDate,
   loadHistory,
   type PersistOutcome,
-  persistPuzzleTriesLocked,
+  persistChallengeTriesLocked,
   sameTries,
   SavedTry,
-  savedTriesForPuzzle,
-  streakForPuzzle,
+  savedTriesForChallenge,
+  streakForChallenge,
 } from './history';
-import { IndexDriftPuzzle, Puzzle, usePuzzle } from './puzzle';
+import { IndexDriftChallenge, Challenge, useChallenge } from './challenge';
 import { stagePlanFor } from './templates';
 import styles from './Daily.module.css';
 
-type ArrayPuzzle = Exclude<Puzzle, IndexDriftPuzzle>;
+type ArrayChallenge = Exclude<Challenge, IndexDriftChallenge>;
 
 /** What `Play` needs to resume today's tries and save new ones. */
 type Progress = {
@@ -36,31 +36,31 @@ type Progress = {
   onRecordTries: (tries: SavedTry[]) => Promise<PersistOutcome>;
 };
 
-type ViewProps<P> = { puzzle: P; theme: Theme; progress: Progress };
+type ViewProps<P> = { challenge: P; theme: Theme; progress: Progress };
 
 const lastInput = (progress: Progress) => progress.initialTries.at(-1)?.input;
 
-/** The last arrangement tried today, or the puzzle's own when none fits. */
-const restoredValues = (puzzle: ArrayPuzzle, progress: Progress) => {
+/** The last arrangement tried today, or the challenge's own when none fits. */
+const restoredValues = (challenge: ArrayChallenge, progress: Progress) => {
   const input = lastInput(progress);
-  return input?.kind === 'arrangement' && input.arrangement.length === puzzle.values.length
+  return input?.kind === 'arrangement' && input.arrangement.length === challenge.values.length
     ? [...input.arrangement]
-    : puzzle.values;
+    : challenge.values;
 };
 
 const swapValues = (values: number[], a: number, b: number) =>
   values.map((value, index) => (index === a ? values[b] : index === b ? values[a] : value));
 
-const ArrayPuzzleView = ({ puzzle, theme, progress }: ViewProps<ArrayPuzzle>) => {
-  const [values, setValues] = useState(() => restoredValues(puzzle, progress));
-  const [fixed] = useState(() => new Set(puzzle.fixed));
-  const [plan] = useState(() => stagePlanFor(puzzle));
+const ArrayChallengeView = ({ challenge, theme, progress }: ViewProps<ArrayChallenge>) => {
+  const [values, setValues] = useState(() => restoredValues(challenge, progress));
+  const [fixed] = useState(() => new Set(challenge.fixed));
+  const [plan] = useState(() => stagePlanFor(challenge));
 
   return (
-    <PuzzleRig plan={plan} theme={theme} values={values}>
+    <ChallengeRig plan={plan} theme={theme} values={values}>
       {(rig) => (
         <Play
-          puzzle={puzzle}
+          challenge={challenge}
           rig={rig}
           theme={theme}
           {...progress}
@@ -68,13 +68,13 @@ const ArrayPuzzleView = ({ puzzle, theme, progress }: ViewProps<ArrayPuzzle>) =>
           onRestoreInput={(restored) => {
             if (
               restored.kind === 'arrangement' &&
-              restored.arrangement.length === puzzle.values.length
+              restored.arrangement.length === challenge.values.length
             ) {
               setValues([...restored.arrangement]);
             }
           }}
           editor={(frozen, redraw) => (
-            <PuzzleArray
+            <ChallengeArray
               values={values}
               fixed={fixed}
               frozen={frozen}
@@ -86,22 +86,22 @@ const ArrayPuzzleView = ({ puzzle, theme, progress }: ViewProps<ArrayPuzzle>) =>
           )}
         />
       )}
-    </PuzzleRig>
+    </ChallengeRig>
   );
 };
 
-const IndexDriftView = ({ puzzle, theme, progress }: ViewProps<IndexDriftPuzzle>) => {
+const IndexDriftView = ({ challenge, theme, progress }: ViewProps<IndexDriftChallenge>) => {
   const [operations, setOperations] = useState<ListOperation[]>(() => {
     const input = lastInput(progress);
     return input?.kind === 'operations' ? [...input.operations] : [];
   });
-  const [plan] = useState(() => stagePlanFor(puzzle));
+  const [plan] = useState(() => stagePlanFor(challenge));
 
   return (
-    <PuzzleRig plan={plan} theme={theme} values={puzzle.start}>
+    <ChallengeRig plan={plan} theme={theme} values={challenge.start}>
       {(rig) => (
         <Play
-          puzzle={puzzle}
+          challenge={challenge}
           rig={rig}
           theme={theme}
           {...progress}
@@ -111,32 +111,32 @@ const IndexDriftView = ({ puzzle, theme, progress }: ViewProps<IndexDriftPuzzle>
           }}
           editor={(frozen, redraw) => (
             <OperationBuilder
-              start={puzzle.start}
-              target={puzzle.target}
+              start={challenge.start}
+              target={challenge.target}
               operations={operations}
               frozen={frozen}
               onChange={(next) => {
                 setOperations(next);
-                redraw(puzzle.start);
+                redraw(challenge.start);
               }}
             />
           )}
         />
       )}
-    </PuzzleRig>
+    </ChallengeRig>
   );
 };
 
-const PuzzleView = ({ puzzle, theme }: { puzzle: Puzzle; theme: Theme }) => {
+const ChallengeView = ({ challenge, theme }: { challenge: Challenge; theme: Theme }) => {
   const [history, setHistory] = useState(() => loadHistory());
   const [storageRevision, setStorageRevision] = useState(0);
-  const persistedTries = useRef(savedTriesForPuzzle(history, puzzle));
+  const persistedTries = useRef(savedTriesForChallenge(history, challenge));
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
       if (event.key === null || event.key === HISTORY_STORAGE_KEY) {
         const nextHistory = loadHistory();
         setHistory(nextHistory);
-        const nextTries = savedTriesForPuzzle(nextHistory, puzzle);
+        const nextTries = savedTriesForChallenge(nextHistory, challenge);
         if (!sameTries(nextTries, persistedTries.current)) {
           persistedTries.current = nextTries;
           setStorageRevision((revision) => revision + 1);
@@ -145,17 +145,17 @@ const PuzzleView = ({ puzzle, theme }: { puzzle: Puzzle; theme: Theme }) => {
     };
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);
-  }, [puzzle]);
-  const dated = isIsoDate(puzzle.date);
-  const initialTries = savedTriesForPuzzle(history, puzzle);
-  const streak = dated ? streakForPuzzle(history, puzzle) : undefined;
+  }, [challenge]);
+  const dated = isIsoDate(challenge.date);
+  const initialTries = savedTriesForChallenge(history, challenge);
+  const streak = dated ? streakForChallenge(history, challenge) : undefined;
   const progress: Progress = {
     initialTries,
     storageRevision,
     streak,
     onRecordTries: async (tries) => {
-      const outcome = await persistPuzzleTriesLocked(puzzle, tries);
-      persistedTries.current = savedTriesForPuzzle(outcome.history, puzzle);
+      const outcome = await persistChallengeTriesLocked(challenge, tries);
+      persistedTries.current = savedTriesForChallenge(outcome.history, challenge);
       setHistory(outcome.history);
       return outcome;
     },
@@ -163,23 +163,23 @@ const PuzzleView = ({ puzzle, theme }: { puzzle: Puzzle; theme: Theme }) => {
 
   return (
     <>
-      <PuzzleIntro puzzle={puzzle} streak={streak} />
-      {puzzle.template === 'linked-list-index-drift' ? (
-        <IndexDriftView puzzle={puzzle} theme={theme} progress={progress} />
+      <ChallengeIntro challenge={challenge} streak={streak} />
+      {challenge.template === 'linked-list-index-drift' ? (
+        <IndexDriftView challenge={challenge} theme={theme} progress={progress} />
       ) : (
-        <ArrayPuzzleView puzzle={puzzle} theme={theme} progress={progress} />
+        <ArrayChallengeView challenge={challenge} theme={theme} progress={progress} />
       )}
     </>
   );
 };
 
 const NOTICES = {
-  unreachable: 'Can’t reach the puzzle server right now. Check your connection and try again.',
-  unavailable: 'Today’s puzzle isn’t ready yet. Check back soon.',
-  error: 'Couldn’t load today’s puzzle. Try again in a moment.',
+  unreachable: 'Can’t reach the challenge server right now. Check your connection and try again.',
+  unavailable: 'Today’s challenge isn’t ready yet. Check back soon.',
+  error: 'Couldn’t load today’s challenge. Try again in a moment.',
 } as const;
 
-/** Why the puzzle didn't load, with a button that asks the server again. */
+/** Why the challenge didn't load, with a button that asks the server again. */
 const Notice = ({ text, retry }: { text: string; retry: () => void }) => (
   <div className={styles.notice}>
     <p role="alert">{text}</p>
@@ -191,28 +191,28 @@ const Notice = ({ text, retry }: { text: string; retry: () => void }) => (
 
 const Daily = () => {
   const theme = useTheme();
-  const { state, retry } = usePuzzle();
+  const { state, retry } = useChallenge();
 
   return (
     <div className={`${landing.page} ${styles.page}`} data-theme={theme}>
-      <title>Daily puzzle | structs.sh</title>
+      <title>Daily challenge | structs.sh</title>
       <header className={`${hero.header} ${styles.header}`}>
         <Link to="/" className={`${hero.brand} ${styles.brand}`} aria-label="structs.sh home">
           <img src={logo} alt="" width={36} height={36} />
           <span>structs.sh</span>
         </Link>
         <nav aria-label="Main" className={hero.nav}>
-          <Link to="/#structures">Visualiser</Link>
+          <Link to="/visualiser/linked-lists">Visualiser</Link>
           <Link to="/debugger">Debugger</Link>
           <ThemeToggle className={hero.themeToggle} />
         </nav>
       </header>
       <main className={styles.main}>
-        {state.status === 'loading' && <p>Loading today’s puzzle…</p>}
+        {state.status === 'loading' && <p>Loading today’s challenge…</p>}
         {(state.status === 'unreachable' ||
           state.status === 'unavailable' ||
           state.status === 'error') && <Notice text={NOTICES[state.status]} retry={retry} />}
-        {state.status === 'ready' && <PuzzleView puzzle={state.puzzle} theme={theme} />}
+        {state.status === 'ready' && <ChallengeView challenge={state.challenge} theme={theme} />}
       </main>
     </div>
   );

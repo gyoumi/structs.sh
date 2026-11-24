@@ -1,5 +1,5 @@
 import { latestMiss, MAX_TRIES, PlayState, reachesGoal, shownScore, TryScore } from './playMachine';
-import type { Puzzle } from './puzzle';
+import type { Challenge } from './challenge';
 import { Rig, useReadoutValue } from './rig';
 import type { Readout, Readouts } from './templates';
 import cards from './DailyCards.module.css';
@@ -18,14 +18,14 @@ const ReadoutRow = ({ rig, readout }: { rig: Rig; readout: Readout }) => {
   );
 };
 
-type TryChipProps = { tried: TryScore | undefined; puzzle: Puzzle; live: number | undefined };
+type TryChipProps = { tried: TryScore | undefined; challenge: Challenge; live: number | undefined };
 
-const TryChip = ({ tried, puzzle, live }: TryChipProps) => {
+const TryChip = ({ tried, challenge, live }: TryChipProps) => {
   if (typeof tried === 'number') {
     return (
       <li className={cards.tryChip}>
         {tried}
-        {reachesGoal(puzzle, tried) && ' ⭐'}
+        {reachesGoal(challenge, tried) && ' ⭐'}
       </li>
     );
   }
@@ -37,22 +37,22 @@ const TryChip = ({ tried, puzzle, live }: TryChipProps) => {
 };
 
 type ScoreCardProps = {
-  puzzle: Puzzle;
+  challenge: Challenge;
   rig: Rig;
   readouts: Readouts;
   play: PlayState;
 };
 
-export const ScoreCard = ({ puzzle, rig, readouts, play }: ScoreCardProps) => {
+export const ScoreCard = ({ challenge, rig, readouts, play }: ScoreCardProps) => {
   const { primary, others } = readouts;
   const primaryValue = useReadoutValue(rig, primary.value);
   const { scores } = play;
   const ended = play.stage === 'ended';
   const running = play.stage === 'running' || play.stage === 'scoring';
   const triesLeft = ended ? 0 : MAX_TRIES - scores.length;
-  const score = shownScore(play, puzzle.template);
-  const goalReached = score !== undefined && reachesGoal(puzzle, score);
-  const bestLabel = puzzle.template === 'linked-list-index-drift' ? 'Lowest' : 'Highest';
+  const score = shownScore(play, challenge.template);
+  const goalReached = score !== undefined && reachesGoal(challenge, score);
+  const bestLabel = challenge.template === 'linked-list-index-drift' ? 'Lowest' : 'Highest';
   const miss = running ? undefined : latestMiss(play);
 
   return (
@@ -74,7 +74,7 @@ export const ScoreCard = ({ puzzle, rig, readouts, play }: ScoreCardProps) => {
         <span className={cards.goalSlash}>
           / goal{' '}
           <output aria-label="Goal" className={cards.goalVal}>
-            {puzzle.par}
+            {challenge.goal}
           </output>
         </span>
       </div>
@@ -90,7 +90,7 @@ export const ScoreCard = ({ puzzle, rig, readouts, play }: ScoreCardProps) => {
           <TryChip
             key={index}
             tried={scores[index]}
-            puzzle={puzzle}
+            challenge={challenge}
             live={running && index === scores.length ? primaryValue : undefined}
           />
         ))}

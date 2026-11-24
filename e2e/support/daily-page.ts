@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test';
-import type { DailyPuzzle } from './daily-fixtures';
+import type { DailyChallenge } from './daily-fixtures';
 import {
   expectAllSlotsInViewport,
   expectNoBestShown,
@@ -12,7 +12,7 @@ import { readDrawing } from './visualiser-drawing';
 export type { StepReading } from './daily-stepping';
 
 /**
- * Drives the /daily puzzle page using only ARIA roles and accessible names. Locators live in
+ * Drives the /daily challenge page using only ARIA roles and accessible names. Locators live in
  * `daily-locators.ts`, layout/a11y checks in `daily-layout.ts`, stepping in `daily-stepping.ts`.
  * See "The daily game" in e2e/README.md for the page contract these locators rely on.
  */
@@ -25,18 +25,18 @@ export class DailyPage {
 
   // -------------------------------------------------------- setup / opening
 
-  /** Serves `puzzle` in response to GET /api/daily. */
-  async serve(puzzle: DailyPuzzle): Promise<void> {
+  /** Serves `challenge` in response to GET /api/daily. */
+  async serve(challenge: DailyChallenge): Promise<void> {
     await this.page.route('**/api/daily', (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(puzzle) }),
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(challenge) }),
     );
   }
 
-  /** Opens /daily and waits for the puzzle array to appear. */
+  /** Opens /daily and waits for the challenge array to appear. */
   async open(): Promise<void> {
     await this.page.goto('/daily');
-    await expect(this.ui.arrayGroup, '/daily should render the Puzzle array group').toBeVisible();
-    await expect(this.ui.slots.first(), '/daily should render slot buttons inside Puzzle array').toBeVisible();
+    await expect(this.ui.arrayGroup, '/daily should render the Challenge array group').toBeVisible();
+    await expect(this.ui.slots.first(), '/daily should render slot buttons inside Challenge array').toBeVisible();
   }
 
   /** Clicks a link in the /daily header's Main navigation, such as `Debugger` or `Visualiser`. */
@@ -53,40 +53,40 @@ export class DailyPage {
 
   async expectRulesToContain(expected: string, context: string): Promise<void> {
     const rules = this.ui.rulesRegion;
-    await expect(rules, `${context}: /daily should show a Puzzle rules region`).toBeVisible();
-    await expect(rules, `${context}: Puzzle rules region should contain "${expected}"`).toContainText(expected);
+    await expect(rules, `${context}: /daily should show a Challenge rules region`).toBeVisible();
+    await expect(rules, `${context}: Challenge rules region should contain "${expected}"`).toContainText(expected);
   }
 
   /** Asserts the rules say quicksort picks the leftmost number in each range as the pivot. */
   async expectRulesToExplainPivot(context: string): Promise<void> {
     const rules = this.ui.rulesRegion;
-    await expect(rules, `${context}: /daily should show a Puzzle rules region`).toBeVisible();
+    await expect(rules, `${context}: /daily should show a Challenge rules region`).toBeVisible();
     await expect(
       rules,
-      `${context}: Puzzle rules region must state that quicksort picks the leftmost number in each range as the pivot (expected text matching /leftmost.*pivot/i, e.g. "Quicksort always picks the leftmost number in each range as the pivot.")`,
+      `${context}: Challenge rules region must state that quicksort picks the leftmost number in each range as the pivot (expected text matching /leftmost.*pivot/i, e.g. "Quicksort always picks the leftmost number in each range as the pivot.")`,
     ).toContainText(/\bleftmost\b.*\bpivot\b/i);
   }
 
   /**
-   * Asserts Puzzle rules drops the hand-holding prose: no "You have N tries" sentence and no
+   * Asserts Challenge rules drops the hand-holding prose: no "You have N tries" sentence and no
    * "Tap or click two unlocked numbers..." instructions. The lock icons, slots, Tries left and
    * Run already say this.
    */
   async expectRulesWithoutHandHolding(context: string): Promise<void> {
     const rules = this.ui.rulesRegion;
-    await expect(rules, `${context}: /daily should show a Puzzle rules region`).toBeVisible();
+    await expect(rules, `${context}: /daily should show a Challenge rules region`).toBeVisible();
     await expect(
       rules,
-      `${context}: Puzzle rules must not repeat the tries count in prose (no text matching /you have \\d+ tries/i); Tries left already shows it`,
+      `${context}: Challenge rules must not repeat the tries count in prose (no text matching /you have \\d+ tries/i); Tries left already shows it`,
     ).not.toContainText(/you have \d+ tries/i);
     await expect(
       rules,
-      `${context}: Puzzle rules must not include "Tap or click..." swap instructions (no text matching /tap or click/i)`,
+      `${context}: Challenge rules must not include "Tap or click..." swap instructions (no text matching /tap or click/i)`,
     ).not.toContainText(/tap or click/i);
   }
 
   /**
-   * Asserts the keyboard help sits in a native <details> inside Puzzle rules whose <summary> reads
+   * Asserts the keyboard help sits in a native <details> inside Challenge rules whose <summary> reads
    * "Keyboard controls": closed on load with the /Enter or Space/i text hidden, opened by clicking
    * the summary, and closed again by a second click.
    */
@@ -100,7 +100,7 @@ export class DailyPage {
     const help = details.getByText(/Enter or Space/i);
     await expect(
       summary,
-      `${context}: Puzzle rules should contain one <details> whose <summary> text is "Keyboard controls"`,
+      `${context}: Challenge rules should contain one <details> whose <summary> text is "Keyboard controls"`,
     ).toHaveCount(1);
     await expect(summary, `${context}: the "Keyboard controls" summary should be visible`).toBeVisible();
     await expect(details, `${context}: the Keyboard controls <details> should be closed on page load`).toHaveJSProperty('open', false);
@@ -117,24 +117,24 @@ export class DailyPage {
   }
 
   /**
-   * Asserts Puzzle array carries no static `Pivot` label. Slot 0 is only the first pivot;
+   * Asserts Challenge array carries no static `Pivot` label. Slot 0 is only the first pivot;
    * the pivot moves as quicksort recurses, so a fixed tag over slot 0 would mislead.
    */
   async expectNoStaticPivotLabel(context: string): Promise<void> {
     await expect(
       this.ui.arrayGroup,
-      `${context}: Puzzle array must not show a static "Pivot" label (the pivot changes as quicksort recurses, so a tag fixed over slot 0 is misleading)`,
+      `${context}: Challenge array must not show a static "Pivot" label (the pivot changes as quicksort recurses, so a tag fixed over slot 0 is misleading)`,
     ).not.toContainText(/pivot/i);
   }
 
-  /** The values shown in Puzzle array from left to right. */
+  /** The values shown in Challenge array from left to right. */
   async values(): Promise<number[]> {
     const count = await this.ui.slots.count();
     const result: number[] = [];
     for (let i = 0; i < count; i += 1) {
       const text = ((await this.ui.slot(i).textContent()) ?? '').trim();
       const match = text.match(/-?\d+/);
-      if (!match) throw new Error(`Expected slot ${i} in Puzzle array to start with a number, got "${text}"`);
+      if (!match) throw new Error(`Expected slot ${i} in Challenge array to start with a number, got "${text}"`);
       result.push(Number(match[0]));
     }
     return result;
@@ -169,7 +169,7 @@ export class DailyPage {
     }
   }
 
-  /** 0-based index of the focused slot in Puzzle array, or null if no slot has focus. */
+  /** 0-based index of the focused slot in Challenge array, or null if no slot has focus. */
   async focusedSlotIndex(): Promise<number | null> {
     const count = await this.ui.slots.count();
     for (let i = 0; i < count; i += 1) {
@@ -286,7 +286,7 @@ export class DailyPage {
   // -------------------------------------------------------------- playback
 
   async run(): Promise<void> {
-    await this.ui.clickWhenReady(this.ui.button('Run'), 'Run button', 'running the puzzle');
+    await this.ui.clickWhenReady(this.ui.button('Run'), 'Run button', 'running the challenge');
   }
 
   /** See `expectVisualiserInViewport` in daily-layout.ts. */
@@ -353,6 +353,19 @@ export class DailyPage {
 
   async playPlayback(): Promise<void> {
     await this.ui.clickWhenReady(this.ui.playbackButton('Play'), 'Play button in Playback toolbar', 'resuming playback');
+  }
+
+  /** Asserts the Play button is disabled and visually dimmed before the first Run. */
+  async expectPlayDisabledBeforeRun(context: string): Promise<void> {
+    const play = this.ui.playbackButton('Play');
+    await expect(play, `${context}: Play button should be visible before Run`).toBeVisible();
+    await expect(play, `${context}: Play button should be disabled before Run`).toBeDisabled();
+    const { opacity, cursor } = await play.evaluate((el) => {
+      const style = getComputedStyle(el);
+      return { opacity: Number(style.opacity), cursor: style.cursor };
+    });
+    expect(opacity, `${context}: disabled Play button should be visually dimmed (opacity < 0.8)`).toBeLessThan(0.8);
+    expect(cursor, `${context}: disabled Play button should not show pointer cursor`).not.toBe('pointer');
   }
 
   async pausePlayback(): Promise<void> {

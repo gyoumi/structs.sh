@@ -1,4 +1,4 @@
-import type { ListOperation } from '@/Services/puzzles/puzzles';
+import type { ListOperation } from '@/Services/challenges/challenges';
 
 const splitNumbers = (raw: string): string[] => raw.split(/,| /g).filter((str) => str !== '');
 

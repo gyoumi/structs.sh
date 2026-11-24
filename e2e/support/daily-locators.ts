@@ -10,8 +10,8 @@ import { expect, type Locator, type Page } from '@playwright/test';
 export class DailyLocators {
   constructor(readonly page: Page) {}
 
-  get rulesRegion(): Locator { return this.page.getByRole('region', { name: 'Puzzle rules' }); }
-  get arrayGroup(): Locator { return this.page.getByRole('group', { name: 'Puzzle array' }); }
+  get rulesRegion(): Locator { return this.page.getByRole('region', { name: 'Challenge rules' }); }
+  get arrayGroup(): Locator { return this.page.getByRole('group', { name: 'Challenge array' }); }
   get slots(): Locator { return this.arrayGroup.getByRole('button'); }
   slot(index: number): Locator { return this.slots.nth(index); }
   button(name: string): Locator { return this.page.getByRole('button', { name, exact: true }); }

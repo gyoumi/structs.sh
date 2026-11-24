@@ -1,5 +1,5 @@
 import { MAX_TRIES, type PlayInput, type TryScore } from './playMachine';
-import type { Puzzle, Template } from './puzzle';
+import type { Challenge, Template } from './challenge';
 
 /** One finished try: what the player ran and what it scored. */
 export type SavedTry = { input: PlayInput; score: TryScore };
@@ -117,26 +117,26 @@ const isValidOperationsForLength = (
 };
 
 const isValidArrangementForPuzzle = (
-  puzzle: Exclude<Puzzle, { template: 'linked-list-index-drift' }>,
+  challenge: Exclude<Challenge, { template: 'linked-list-index-drift' }>,
   arrangement: number[]
 ): boolean => {
-  if (arrangement.length !== puzzle.values.length) return false;
-  if (!puzzle.fixed.every((slot) => arrangement[slot] === puzzle.values[slot])) return false;
-  const expected = [...puzzle.values].sort((a, b) => a - b);
+  if (arrangement.length !== challenge.values.length) return false;
+  if (!challenge.fixed.every((slot) => arrangement[slot] === challenge.values[slot])) return false;
+  const expected = [...challenge.values].sort((a, b) => a - b);
   const actual = [...arrangement].sort((a, b) => a - b);
   return expected.every((value, i) => value === actual[i]);
 };
 
-/** Whether a saved try's input is legal for `puzzle` (matching fixed slots, multiplicity, and list bounds). */
-export const isValidTryForPuzzle = (puzzle: Puzzle, saved: SavedTry): boolean => {
-  if (puzzle.template === 'linked-list-index-drift') {
+/** Whether a saved try's input is legal for `challenge` (matching fixed slots, multiplicity, and list bounds). */
+export const isValidTryForChallenge = (challenge: Challenge, saved: SavedTry): boolean => {
+  if (challenge.template === 'linked-list-index-drift') {
     return (
       saved.input.kind === 'operations' &&
-      isValidOperationsForLength(puzzle.start.length, saved.input.operations)
+      isValidOperationsForLength(challenge.start.length, saved.input.operations)
     );
   }
   return (
     saved.input.kind === 'arrangement' &&
-    isValidArrangementForPuzzle(puzzle, saved.input.arrangement)
+    isValidArrangementForPuzzle(challenge, saved.input.arrangement)
   );
 };

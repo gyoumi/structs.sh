@@ -1,5 +1,5 @@
 import type { DrawingBounds } from '@/visualiser-src/common/AnimationProducer';
-import type { ListOperation } from '@/Services/puzzles/puzzles';
+import type { ListOperation } from '@/Services/challenges/challenges';
 import { actualNodeDiameter } from '../../common/constants';
 import LinkedListRunAnimationProducer from '../animation-producer/LinkedListRunAnimationProducer';
 import {

@@ -53,10 +53,10 @@ test.describe('visualiser navigation', () => {
     );
   });
 
-  test('opens the daily puzzle', async ({ visualiser, page }) => {
+  test('opens the daily challenge', async ({ visualiser, page }) => {
     await visualiser.open('linked-lists');
     await visualiser.openDaily();
-    await expect(page, 'Clicking "Daily puzzle" in the /visualiser/linked-lists header should go to /daily').toHaveURL(
+    await expect(page, 'Clicking "Daily" in the /visualiser/linked-lists header should go to /daily').toHaveURL(
       /\/daily$/,
     );
   });

@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { describe, expect, it } from 'vitest';
-import { evaluatePuzzle, type ListOperation } from '@/Services/puzzles/puzzles';
+import { evaluateChallenge, type ListOperation } from '@/Services/challenges/challenges';
 import { DEFAULT_CANVAS_TARGET } from '@/visualiser-src/common/canvasTarget';
 import { actualNodeDiameter } from '@/visualiser-src/common/constants';
 import { formatArray, setUpParityEnvironment } from '@/test/sortingParity';
@@ -146,12 +146,12 @@ const freshCanvas = () => {
 };
 
 const wasmCounts = async (start: number[], target: number[], operations: ListOperation[]) => {
-  const result = await evaluatePuzzle(
+  const result = await evaluateChallenge(
     { template: 'linked-list-index-drift', start, target },
     operations
   );
   if (result.template !== 'linked-list-index-drift') {
-    throw new Error(`evaluatePuzzle(linked-list-index-drift) answered for ${result.template}`);
+    throw new Error(`evaluateChallenge(linked-list-index-drift) answered for ${result.template}`);
   }
   const { solved, operations: ops, nodesWalked, cost } = result;
   return { solved, counts: { operations: ops, nodesWalked, cost } };

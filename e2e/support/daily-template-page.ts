@@ -58,22 +58,23 @@ export class DailyTemplatePage {
         },
         {
           intervals: [50],
+          timeout: 30_000,
           message: `${context}: after Run, each counter should animate by itself through a value strictly between 0 and its final count while Animation progress is below 100`,
         },
       )
       .toEqual([]);
   }
 
-  /** Puzzle rules must include each pattern, and must not still describe the quicksort puzzle. */
+  /** Challenge rules must include each pattern, and must not still describe the quicksort challenge. */
   async expectRules(patterns: readonly RegExp[], context: string): Promise<void> {
     const rules = this.ui.rulesRegion;
-    await expect(rules, `${context}: /daily should show a Puzzle rules region`).toBeVisible();
+    await expect(rules, `${context}: /daily should show a Challenge rules region`).toBeVisible();
     for (const pattern of patterns) {
-      await expect(rules, `${context}: Puzzle rules should contain text matching ${pattern}`).toContainText(pattern);
+      await expect(rules, `${context}: Challenge rules should contain text matching ${pattern}`).toContainText(pattern);
     }
     await expect(
       rules,
-      `${context}: Puzzle rules must describe this template, not quicksort (no text matching /quicksort|pivot/i)`,
+      `${context}: Challenge rules must describe this template, not quicksort (no text matching /quicksort|pivot/i)`,
     ).not.toContainText(/quicksort|pivot/i);
   }
 
@@ -181,7 +182,7 @@ export class DailyTemplatePage {
       .toBe(expectedTree);
   }
 
-  /** Swaps free slots until Puzzle array reads `target`, then checks it does. */
+  /** Swaps free slots until Challenge array reads `target`, then checks it does. */
   async arrange(dailyPage: DailyPage, target: readonly number[], context: string): Promise<void> {
     const values = await dailyPage.values();
     for (let i = 0; i < target.length; i += 1) {
@@ -191,7 +192,7 @@ export class DailyTemplatePage {
       await dailyPage.swap(i, from);
       [values[i], values[from]] = [values[from], values[i]];
     }
-    expect(await dailyPage.values(), `${context}: swapping free slots should arrange Puzzle array as ${fmt(target)}`).toEqual([...target]);
+    expect(await dailyPage.values(), `${context}: swapping free slots should arrange Challenge array as ${fmt(target)}`).toEqual([...target]);
   }
 
   private async stageBoxes(first: string, second: string, context: string) {

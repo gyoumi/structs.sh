@@ -7,11 +7,11 @@
 !pnpm-workspace.yaml
 !client
 !instrumenter
-!crates
+!game-server
 !rust-toolchain.toml
 client/node_modules
 client/build
 client/src/Services/debugger/wasm/generated
 instrumenter/target
-client/src/Services/puzzles/generated
-crates/target
+client/src/Services/challenges/generated
+game-server/target

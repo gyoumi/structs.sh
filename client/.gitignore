@@ -9,4 +9,4 @@ build
 src/Services/debugger/wasm/generated/
 
 # Built from crates/ by `pnpm run puzzles`
-src/Services/puzzles/generated/
+src/Services/challenges/generated/

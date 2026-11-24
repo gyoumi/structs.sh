@@ -54,7 +54,7 @@ const App = () => {
             {/* Visualiser routes */}
             <Route path="/visualiser/:topic/:data?" element={<Visualiser />} />
 
-            {/* Daily puzzle */}
+            {/* Daily challenge */}
             <Route path="/daily" element={<Daily />} />
 
             {/* Feedback and feature request page */}

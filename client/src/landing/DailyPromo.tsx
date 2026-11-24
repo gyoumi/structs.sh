@@ -5,7 +5,7 @@ import styles from './DailyPromo.module.css';
 
 const highlights = [
   {
-    title: '7 puzzle modes:',
+    title: '7 challenge modes:',
     text: 'Quicksort, bubble, merge, insertion, BST, AVL, and linked lists.',
   },
   {
@@ -33,7 +33,7 @@ const previewTries = [
   { score: 36, reached: true },
 ];
 
-/** A decorative taste of a finished daily puzzle. */
+/** A decorative taste of a finished daily challenge. */
 const Preview = () => (
   <div className={styles.preview} aria-hidden="true">
     <div className={styles.previewHeader}>
@@ -70,14 +70,14 @@ const Preview = () => (
 );
 
 const DailyPromo = () => (
-  <section aria-label="Daily puzzle" className={styles.promo}>
+  <section aria-label="Daily challenge" className={styles.promo}>
     <div className={`${landing.wrap} ${styles.grid}`}>
       <div className={styles.copy}>
-        <span className={styles.eyebrow}>Daily puzzle</span>
+        <span className={styles.eyebrow}>Daily challenge</span>
         <h2 className={landing.sectionTitle}>Push an algorithm to its limit</h2>
         <p className={styles.lede}>
-          A new puzzle drops every midnight in Sydney. Design an input, run the visualiser, and beat
-          the goal.
+          A new challenge drops every midnight in Sydney. Design an input, run the visualiser, and
+          beat the goal.
         </p>
         <ul className={styles.highlights}>
           {highlights.map((item) => (
@@ -87,7 +87,7 @@ const DailyPromo = () => (
           ))}
         </ul>
         <Link to="/daily" className={landing.primary}>
-          Play today’s puzzle
+          Play today’s challenge
           <ArrowRightIcon size={18} />
         </Link>
       </div>

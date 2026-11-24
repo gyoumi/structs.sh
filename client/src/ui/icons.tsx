@@ -164,7 +164,7 @@ export const LockIcon = (props: IconProps) => (
   </Icon>
 );
 
-export const PuzzleIcon = (props: IconProps) => (
+export const DailyIcon = (props: IconProps) => (
   <Icon {...props}>
     <path d="M5.5 7.5H9a2 2 0 1 1 4 0h3.5V11a2 2 0 1 1 0 4v3.5H13a2 2 0 1 0-4 0H5.5z" />
   </Icon>

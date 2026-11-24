@@ -1,21 +1,21 @@
 import { useSyncExternalStore } from 'react';
-import type { ListOperation } from '@/Services/puzzles/puzzles';
+import type { ListOperation } from '@/Services/challenges/challenges';
 import type { CanvasTarget } from '@/visualiser-src/common/canvasTarget';
 import type { Playback } from '@/visualiser/playback';
 import type { VisualiserSession, VisualiserSnapshot } from '@/visualiser/session';
 import type { CounterSource, ReadoutValue, StageMode } from './templates';
 
-/** One stage of the puzzle: its session, the sort it runs, and the elements it draws into. */
+/** One stage of the challenge: its session, the sort it runs, and the elements it draws into. */
 export type StageRig = {
   session: VisualiserSession;
   command: string;
   label: string;
   target: CanvasTarget;
-  /** The name of the stage's region when the puzzle plays two sorts side by side. */
+  /** The name of the stage's region when the challenge plays two sorts side by side. */
   region?: string;
 };
 
-/** The stages a puzzle plays, how they draw an arrangement, and what the shared `Playback` toolbar drives. */
+/** The stages a challenge plays, how they draw an arrangement, and what the shared `Playback` toolbar drives. */
 export type Rig = {
   playback: Playback;
   stages: StageRig[];

@@ -1,5 +1,5 @@
 import { expect, vi } from 'vitest';
-import { evaluatePuzzle } from '@/Services/puzzles/puzzles';
+import { evaluateChallenge } from '@/Services/challenges/challenges';
 import { DEFAULT_CANVAS_TARGET } from '@/visualiser-src/common/canvasTarget';
 import type AnimationProducer from '@/visualiser-src/common/AnimationProducer';
 import GraphicalAVL from '@/visualiser-src/avl-tree-visualiser/data-structure/GraphicalAVL';
@@ -7,7 +7,7 @@ import GraphicalBST from '@/visualiser-src/binary-search-tree-visualiser/data-st
 import VisualiserController from '@/visualiser-src/controller/VisualiserController';
 import { finalCounters, firstDecrease, formatArray } from './sortingParity';
 
-/** Shared setup for the BST and AVL visualiser vs puzzles wasm parity tests. Needs `pnpm run puzzles` first. */
+/** Shared setup for the BST and AVL visualiser vs challenges wasm parity tests. Needs `pnpm run challenges` first. */
 
 export type TreeCase = {
   label: string;
@@ -142,17 +142,17 @@ const sorted = (values: number[]) => [...values].sort((a, b) => a - b);
 
 /** The wasm oracle's rotations and nodes passed for inserting `values` in order. */
 export const wasmTreeCounts = async (values: number[]) => {
-  const rotations = await evaluatePuzzle(
+  const rotations = await evaluateChallenge(
     { template: 'avl-most-rotations', values: sorted(values), fixed: [] },
     values
   );
-  const upset = await evaluatePuzzle(
+  const upset = await evaluateChallenge(
     { template: 'upset-bst-beats-avl', values: sorted(values), fixed: [] },
     values
   );
   if (rotations.template !== 'avl-most-rotations' || upset.template !== 'upset-bst-beats-avl') {
     throw new Error(
-      `evaluatePuzzle on ${formatArray(values)} answered for templates ${rotations.template} and ${upset.template}`
+      `evaluateChallenge on ${formatArray(values)} answered for templates ${rotations.template} and ${upset.template}`
     );
   }
   return { rotations: rotations.rotations, ...upset };
@@ -160,12 +160,12 @@ export const wasmTreeCounts = async (values: number[]) => {
 
 /** Whether the wasm oracle says inserting `values` in order builds the BST with preorder `targetTree`. */
 export const wasmForcedSolved = async (values: number[], targetTree: number[]) => {
-  const result = await evaluatePuzzle(
+  const result = await evaluateChallenge(
     { template: 'bst-forced-order', values: sorted(values), targetTree },
     values
   );
   if (result.template !== 'bst-forced-order') {
-    throw new Error(`evaluatePuzzle(bst-forced-order) answered for template ${result.template}`);
+    throw new Error(`evaluateChallenge(bst-forced-order) answered for template ${result.template}`);
   }
   return result.solved;
 };

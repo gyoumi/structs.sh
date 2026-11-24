@@ -8,7 +8,7 @@ import {
   shownScore,
 } from './playMachine';
 import { messageFor } from './playMessages';
-import { Puzzle } from './puzzle';
+import { Challenge } from './challenge';
 import { tryScoreOf } from './templates';
 
 const arrangementInput = (arrangement: number[]) => ({ kind: 'arrangement' as const, arrangement });
@@ -176,13 +176,13 @@ describe('playReducer', () => {
   });
 
   it('consumes a try as unsolved on a singleton 0-0 insertion-vs-merge tie', () => {
-    const singleton: Puzzle = {
+    const singleton: Challenge = {
       number: 99,
       date: '2026-04-20',
       template: 'insertion-beats-merge',
       values: [42],
       fixed: [],
-      par: 1,
+      goal: 1,
     };
     const score = tryScoreOf(singleton, {
       template: 'insertion-beats-merge',
@@ -208,22 +208,23 @@ describe('playReducer', () => {
   });
 
   it('reconciles to saved scores on synced, allows continuing under MAX_TRIES, and ends at MAX_TRIES', () => {
-    const puzzle: Puzzle = {
+    const challenge: Challenge = {
       number: 12,
       date: '2026-12-21',
       template: 'quicksort-most-comparisons',
       values: [8, 1, 6, 3, 2, 7, 4, 5],
       fixed: [1, 4, 6],
-      par: 34,
+      goal: 34,
     };
     const syncedOne = playReducer(initialPlayState, { type: 'synced', scores: [34] });
     expect(syncedOne, 'syncing 1 saved try should enter synced with that score').toEqual({
       stage: 'synced',
       scores: [34],
     });
-    expect(messageFor(syncedOne, puzzle), 'synced stage should explain another tab updated').toBe(
-      'Updated from another tab.'
-    );
+    expect(
+      messageFor(syncedOne, challenge),
+      'synced stage should explain another tab updated'
+    ).toBe('Updated from another tab.');
 
     const resumed = playReducer(syncedOne, {
       type: 'run',

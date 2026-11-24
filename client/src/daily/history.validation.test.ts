@@ -4,32 +4,32 @@ import {
   HISTORY_VERSION,
   currentStreak,
   loadHistory,
-  persistPuzzleTries,
-  persistPuzzleTriesLocked,
-  recordPuzzleTries,
-  savedTriesForPuzzle,
-  streakForPuzzle,
+  persistChallengeTries,
+  persistChallengeTriesLocked,
+  recordChallengeTries,
+  savedTriesForChallenge,
+  streakForChallenge,
   type DailyHistory,
   type StorageLike,
 } from './history';
 import type { PlayInput, TryScore } from './playMachine';
-import type { Puzzle } from './puzzle';
+import type { Challenge } from './challenge';
 
-const QUICK_12: Puzzle = {
+const QUICK_12: Challenge = {
   number: 12,
   template: 'quicksort-most-comparisons',
   values: [8, 1, 6, 3, 2, 7, 4, 5],
   fixed: [1, 4, 6],
-  par: 34,
+  goal: 34,
   date: '2026-12-21',
 };
 
-const DRIFT_26: Puzzle = {
+const DRIFT_26: Challenge = {
   number: 26,
   template: 'linked-list-index-drift',
   start: [8, 3, 6, 1],
   target: [3, 6, 5, 1],
-  par: 6,
+  goal: 6,
   date: '2026-12-22',
 };
 
@@ -71,7 +71,7 @@ describe('corrupt history, restored-input validation, and cross-tab merging', ()
             date: '2026-12-21',
             number: 12,
             template: 'quicksort-most-comparisons',
-            par: 34,
+            goal: 34,
             tries: [],
             completed: true,
             bestScore: 99,
@@ -81,7 +81,7 @@ describe('corrupt history, restored-input validation, and cross-tab merging', ()
             date: '2026-12-22',
             number: 13,
             template: 'quicksort-most-comparisons',
-            par: 34,
+            goal: 34,
             tries: [tryOf(30), tryOf(31), tryOf(32), tryOf(33)],
             completed: true,
             bestScore: 33,
@@ -103,45 +103,47 @@ describe('corrupt history, restored-input validation, and cross-tab merging', ()
     );
   });
 
-  it('rejects saved tries whose puzzle identity or inputs do not match the fetched puzzle', () => {
-    const movedFixed = recordPuzzleTries(emptyHistory(), QUICK_12, [
+  it('rejects saved tries whose challenge identity or inputs do not match the fetched challenge', () => {
+    const movedFixed = recordChallengeTries(emptyHistory(), QUICK_12, [
       tryOf(30, arrangement([1, 8, 6, 3, 2, 7, 4, 5])),
     ]);
-    expect(savedTriesForPuzzle(movedFixed, QUICK_12), 'moved fixed slot must be rejected').toEqual(
-      []
-    );
-    const wrongMultiplicity = recordPuzzleTries(emptyHistory(), QUICK_12, [
+    expect(
+      savedTriesForChallenge(movedFixed, QUICK_12),
+      'moved fixed slot must be rejected'
+    ).toEqual([]);
+    const wrongMultiplicity = recordChallengeTries(emptyHistory(), QUICK_12, [
       tryOf(30, arrangement([8, 1, 8, 3, 2, 7, 4, 5])),
     ]);
     expect(
-      savedTriesForPuzzle(wrongMultiplicity, QUICK_12),
+      savedTriesForChallenge(wrongMultiplicity, QUICK_12),
       'wrong value multiplicity must be rejected'
     ).toEqual([]);
-    const changedPuzzle = recordPuzzleTries(emptyHistory(), QUICK_12, [tryOf(30)]);
+    const changedPuzzle = recordChallengeTries(emptyHistory(), QUICK_12, [tryOf(30)]);
     expect(
-      savedTriesForPuzzle(changedPuzzle, { ...QUICK_12, number: 99 }),
-      'mismatched puzzle number must be rejected'
+      savedTriesForChallenge(changedPuzzle, { ...QUICK_12, number: 99 }),
+      'mismatched challenge number must be rejected'
     ).toEqual([]);
-    const badOps = recordPuzzleTries(emptyHistory(), DRIFT_26, [
+    const badOps = recordChallengeTries(emptyHistory(), DRIFT_26, [
       tryOf(5, { kind: 'operations', operations: [{ kind: 'delete', index: 9 }] }),
     ]);
-    expect(savedTriesForPuzzle(badOps, DRIFT_26), 'out-of-range delete must be rejected').toEqual(
-      []
-    );
-    const valid = recordPuzzleTries(emptyHistory(), DRIFT_26, [tryOf(5, OPERATIONS)]);
-    expect(savedTriesForPuzzle(valid, DRIFT_26), 'valid ops must restore').toHaveLength(1);
+    expect(
+      savedTriesForChallenge(badOps, DRIFT_26),
+      'out-of-range delete must be rejected'
+    ).toEqual([]);
+    const valid = recordChallengeTries(emptyHistory(), DRIFT_26, [tryOf(5, OPERATIONS)]);
+    expect(savedTriesForChallenge(valid, DRIFT_26), 'valid ops must restore').toHaveLength(1);
   });
 
   it('merges into fresh storage without erasing another tab or regressing same-day tries', () => {
     const { storage } = memoryStorage();
     const day22 = { ...QUICK_12, number: 13, date: '2026-12-22' };
-    persistPuzzleTries(day22, [tryOf(30), tryOf(34), tryOf(31)], storage);
-    const afterStaleTab = persistPuzzleTries(QUICK_12, [tryOf(30)], storage);
+    persistChallengeTries(day22, [tryOf(30), tryOf(34), tryOf(31)], storage);
+    const afterStaleTab = persistChallengeTries(QUICK_12, [tryOf(30)], storage);
     expect(
       afterStaleTab.results['2026-12-22']?.completed,
       'writing 2026-12-21 must preserve 2026-12-22 saved by another tab'
     ).toBe(true);
-    const afterRegress = persistPuzzleTries(day22, [tryOf(30)], storage);
+    const afterRegress = persistChallengeTries(day22, [tryOf(30)], storage);
     expect(
       afterRegress.results['2026-12-22']?.tries.length,
       'stale tab with 1 try must not overwrite 3 completed tries for the same day'
@@ -150,19 +152,19 @@ describe('corrupt history, restored-input validation, and cross-tab merging', ()
     const day23 = { ...QUICK_12, number: 14, date: '2026-12-23' };
     const tabATry = tryOf(34, arrangement([8, 1, 5, 3, 2, 7, 4, 6]));
     const tabBTry = tryOf(30, arrangement([8, 1, 6, 3, 2, 7, 4, 5]));
-    persistPuzzleTries(day23, [tabATry], storage);
-    const afterEqualStale = persistPuzzleTries(day23, [tabBTry], storage);
+    persistChallengeTries(day23, [tabATry], storage);
+    const afterEqualStale = persistChallengeTries(day23, [tabBTry], storage);
     expect(
       afterEqualStale.results['2026-12-23']?.tries,
       'equal-length divergent write from a second tab must not erase the first tab try'
     ).toEqual([tabATry]);
-    const afterDivergentLonger = persistPuzzleTries(day23, [tabBTry, tryOf(31)], storage);
+    const afterDivergentLonger = persistChallengeTries(day23, [tabBTry, tryOf(31)], storage);
     expect(
       afterDivergentLonger.results['2026-12-23']?.tries,
       'divergent multi-try write must not erase the first tab try'
     ).toEqual([tabATry]);
 
-    const afterOverCap = persistPuzzleTries(
+    const afterOverCap = persistChallengeTries(
       day22,
       [tryOf(30), tryOf(34), tryOf(31), tryOf(36)],
       storage
@@ -173,42 +175,42 @@ describe('corrupt history, restored-input validation, and cross-tab merging', ()
     ).toHaveLength(3);
   });
 
-  it('excludes today from streakForPuzzle when saved tries fail validation for today', () => {
+  it('excludes today from streakForChallenge when saved tries fail validation for today', () => {
     const movedFixed = arrangement([1, 8, 6, 3, 2, 7, 4, 5]);
     const day20 = { ...QUICK_12, number: 11, date: '2026-12-20' };
-    const validYesterday = recordPuzzleTries(emptyHistory(), day20, [
+    const validYesterday = recordChallengeTries(emptyHistory(), day20, [
       tryOf(30),
       tryOf(34),
       tryOf(31),
     ]);
-    const withInvalidToday = recordPuzzleTries(validYesterday, QUICK_12, [
+    const withInvalidToday = recordChallengeTries(validYesterday, QUICK_12, [
       tryOf(30, movedFixed),
       tryOf(34, movedFixed),
       tryOf(31, movedFixed),
     ]);
     expect(
-      savedTriesForPuzzle(withInvalidToday, QUICK_12),
+      savedTriesForChallenge(withInvalidToday, QUICK_12),
       'invalid saved tries for today must not restore'
     ).toEqual([]);
     expect(
-      streakForPuzzle(withInvalidToday, QUICK_12),
+      streakForChallenge(withInvalidToday, QUICK_12),
       'invalid today entry must not increment streak past valid yesterday (expected 1, not 2)'
     ).toBe(1);
 
-    const onlyInvalidToday = recordPuzzleTries(emptyHistory(), QUICK_12, [
+    const onlyInvalidToday = recordChallengeTries(emptyHistory(), QUICK_12, [
       tryOf(30, movedFixed),
       tryOf(34, movedFixed),
       tryOf(31, movedFixed),
     ]);
     expect(
-      streakForPuzzle(onlyInvalidToday, QUICK_12),
+      streakForChallenge(onlyInvalidToday, QUICK_12),
       'invalid today entry with no yesterday must give streak 0'
     ).toBe(0);
   });
 
   it('reports failed write without claiming completion or incrementing streak when setItem throws', async () => {
     const { items, storage } = memoryStorage();
-    await persistPuzzleTriesLocked(QUICK_12, [tryOf(30), tryOf(34)], storage);
+    await persistChallengeTriesLocked(QUICK_12, [tryOf(30), tryOf(34)], storage);
 
     const quotaStorage: StorageLike = {
       getItem: (key) => items.get(key) ?? null,
@@ -216,7 +218,7 @@ describe('corrupt history, restored-input validation, and cross-tab merging', ()
         throw new Error('QuotaExceededError');
       },
     };
-    const outcome = await persistPuzzleTriesLocked(
+    const outcome = await persistChallengeTriesLocked(
       QUICK_12,
       [tryOf(30), tryOf(34), tryOf(31)],
       quotaStorage
@@ -231,7 +233,7 @@ describe('corrupt history, restored-input validation, and cross-tab merging', ()
       'failed 3rd try must not mark the day completed in returned history'
     ).toBe(false);
     expect(
-      streakForPuzzle(outcome.history, QUICK_12),
+      streakForChallenge(outcome.history, QUICK_12),
       'failed 3rd try must not increment streak'
     ).toBe(0);
   });
@@ -258,8 +260,8 @@ describe('corrupt history, restored-input validation, and cross-tab merging', ()
     try {
       const day22 = { ...QUICK_12, number: 13, date: '2026-12-22' };
       const [first, second] = await Promise.all([
-        persistPuzzleTriesLocked(QUICK_12, [tryOf(30), tryOf(34), tryOf(31)], storage),
-        persistPuzzleTriesLocked(day22, [tryOf(30), tryOf(34), tryOf(36)], storage),
+        persistChallengeTriesLocked(QUICK_12, [tryOf(30), tryOf(34), tryOf(31)], storage),
+        persistChallengeTriesLocked(day22, [tryOf(30), tryOf(34), tryOf(36)], storage),
       ]);
       expect(lockNames, 'both writes should acquire the shared history lock').toEqual([
         HISTORY_STORAGE_KEY,

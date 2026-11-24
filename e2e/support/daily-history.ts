@@ -1,10 +1,10 @@
 import { expect, type Locator, type Page, type Route } from '@playwright/test';
-import type { DailyPuzzle } from './daily-fixtures';
+import type { DailyChallenge } from './daily-fixtures';
 
-export const HISTORY_STORAGE_KEY = 'structs.daily.history';
+export const HISTORY_STORAGE_KEY = 'daily.history';
 
-/** A served puzzle with the calendar day it is for. */
-export type DatedPuzzle = DailyPuzzle & { date: string };
+/** A served challenge with the calendar day it is for. */
+export type DatedChallenge = DailyChallenge & { date: string };
 
 /** One saved day as read back from localStorage, loosely typed so a wrong shape shows up in the failure message. */
 export type StoredResult = {
@@ -16,11 +16,11 @@ export type StoredResult = {
 export type StoredHistory = { version?: unknown; results?: Record<string, StoredResult> };
 
 const UNREACHABLE = /can['’]?t reach.*server|server.*unreachable/i;
-const NOT_READY = /not ready|isn['’]?t ready|no puzzle/i;
+const NOT_READY = /not ready|isn['’]?t ready|no challenge/i;
 
 /**
  * Checkpoint 3 additions to the /daily page object: what GET /api/daily answers, the saved history in
- * localStorage, the `Streak` readout, and the alerts shown when the puzzle can't load.
+ * localStorage, the `Streak` readout, and the alerts shown when the challenge can't load.
  * Playing a try stays in `DailyPage`; try chips and `Goal reached` stay in `DailyTemplatePage`.
  */
 export class DailyHistoryPage {
@@ -33,14 +33,14 @@ export class DailyHistoryPage {
     return this.requests;
   }
 
-  /** Replaces any earlier /api/daily route so the next GET /api/daily is answered with `puzzle`. */
-  async serveOnly(puzzle: DatedPuzzle | DailyPuzzle): Promise<void> {
+  /** Replaces any earlier /api/daily route so the next GET /api/daily is answered with `challenge`. */
+  async serveOnly(challenge: DatedChallenge | DailyChallenge): Promise<void> {
     await this.answer((route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(puzzle) }),
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(challenge) }),
     );
   }
 
-  /** Replaces any earlier /api/daily route so GET /api/daily answers with `status` and no puzzle. */
+  /** Replaces any earlier /api/daily route so GET /api/daily answers with `status` and no challenge. */
   async failWith(status: number): Promise<void> {
     await this.answer((route) => route.fulfill({ status, contentType: 'text/plain', body: `HTTP ${status}` }));
   }
@@ -50,26 +50,26 @@ export class DailyHistoryPage {
     await this.answer((route) => route.abort('failed'));
   }
 
-  /** Opens /daily without waiting for a puzzle, for the error states. */
+  /** Opens /daily without waiting for a challenge, for the error states. */
   async goto(): Promise<void> {
     await this.page.goto('/daily');
   }
 
-  /** Reloads /daily and waits for the restored puzzle array. */
+  /** Reloads /daily and waits for the restored challenge array. */
   async reload(context: string): Promise<void> {
     await this.page.reload();
-    await expect(this.arrayGroup, `${context}: after reloading /daily the Puzzle array should be shown again`).toBeVisible();
+    await expect(this.arrayGroup, `${context}: after reloading /daily the Challenge array should be shown again`).toBeVisible();
   }
 
-  /** Every slot in Puzzle array is disabled, so a finished puzzle can't be edited. */
+  /** Every slot in Challenge array is disabled, so a finished challenge can't be edited. */
   async expectArrayFrozen(count: number, context: string): Promise<void> {
     const slots = this.arrayGroup.getByRole('button');
-    await expect(slots, `${context}: Puzzle array should show ${count} slots`).toHaveCount(count);
+    await expect(slots, `${context}: Challenge array should show ${count} slots`).toHaveCount(count);
     const enabled: number[] = [];
     for (let i = 0; i < count; i += 1) {
       if (await slots.nth(i).isEnabled()) enabled.push(i);
     }
-    expect(enabled, `${context}: a finished puzzle must lock every slot, but slots ${JSON.stringify(enabled)} are still enabled`).toEqual([]);
+    expect(enabled, `${context}: a finished challenge must lock every slot, but slots ${JSON.stringify(enabled)} are still enabled`).toEqual([]);
   }
 
   /** The `Streak` readout shows `days` and "day"/"days" (`null`: the readout is hidden). */
@@ -86,7 +86,7 @@ export class DailyHistoryPage {
     ).toHaveText(new RegExp(`(?<!\\d)${days}\\s*${unit}(?!\\w)`));
   }
 
-  /** The history saved under `structs.daily.history`, or null when nothing is saved. */
+  /** The history saved under `daily.history`, or null when nothing is saved. */
   async savedHistory(): Promise<{ raw: string | null; parsed: StoredHistory | null }> {
     const raw = await this.page.evaluate((key) => window.localStorage.getItem(key), HISTORY_STORAGE_KEY);
     if (raw === null) return { raw, parsed: null };
@@ -94,29 +94,29 @@ export class DailyHistoryPage {
   }
 
   /** Writes a single saved arrangement try directly to localStorage, simulating another tab saving first. */
-  async seedSavedTry(puzzle: DatedPuzzle, values: readonly number[], score: number): Promise<void> {
+  async seedSavedTry(challenge: DatedChallenge, values: readonly number[], score: number): Promise<void> {
     await this.page.evaluate(
-      ({ key, savedPuzzle, arrangement, savedScore }) => {
+      ({ key, savedChallenge, arrangement, savedScore }) => {
         window.localStorage.setItem(
           key,
           JSON.stringify({
             version: 1,
             results: {
-              [savedPuzzle.date]: {
-                date: savedPuzzle.date,
-                number: savedPuzzle.number,
-                template: savedPuzzle.template,
-                par: savedPuzzle.par,
+              [savedChallenge.date]: {
+                date: savedChallenge.date,
+                number: savedChallenge.number,
+                template: savedChallenge.template,
+                goal: savedChallenge.goal,
                 tries: [{ input: { kind: 'arrangement', arrangement }, score: savedScore }],
                 completed: false,
                 bestScore: savedScore,
-                goalReached: savedScore >= savedPuzzle.par,
+                goalReached: savedScore >= savedChallenge.goal,
               },
             },
           }),
         );
       },
-      { key: HISTORY_STORAGE_KEY, savedPuzzle: puzzle, arrangement: [...values], savedScore: score },
+      { key: HISTORY_STORAGE_KEY, savedChallenge: challenge, arrangement: [...values], savedScore: score },
     );
   }
 
@@ -163,9 +163,9 @@ export class DailyHistoryPage {
     await this.expectAlert(UNREACHABLE, `${context}: an alert should say the server can't be reached`);
   }
 
-  /** An alert says today's puzzle isn't ready, not that the server is unreachable, with an enabled `Try again` button. */
+  /** An alert says today's challenge isn't ready, not that the server is unreachable, with an enabled `Try again` button. */
   async expectNotReady(context: string): Promise<void> {
-    await this.expectAlert(NOT_READY, `${context}: an alert should say today's puzzle isn't ready yet`);
+    await this.expectAlert(NOT_READY, `${context}: an alert should say today's challenge isn't ready yet`);
     await expect(
       this.page.getByRole('alert').filter({ hasText: UNREACHABLE }),
       `${context}: the server answered 404, so no alert should say it can't be reached (${UNREACHABLE})`,
@@ -181,18 +181,18 @@ export class DailyHistoryPage {
       .toBeGreaterThan(before);
   }
 
-  /** No load-error alert or `Try again` button is left once the puzzle shows. */
+  /** No load-error alert or `Try again` button is left once the challenge shows. */
   async expectNoLoadError(context: string): Promise<void> {
-    await expect(this.arrayGroup, `${context}: the Puzzle array should be shown`).toBeVisible();
+    await expect(this.arrayGroup, `${context}: the Challenge array should be shown`).toBeVisible();
     await expect(
       this.page.getByRole('alert').filter({ hasText: UNREACHABLE }),
-      `${context}: the "can't reach the server" alert should be gone once the puzzle loads`,
+      `${context}: the "can't reach the server" alert should be gone once the challenge loads`,
     ).toHaveCount(0);
-    await expect(this.tryAgainButton, `${context}: Try again should be gone once the puzzle loads`).toBeHidden();
+    await expect(this.tryAgainButton, `${context}: Try again should be gone once the challenge loads`).toBeHidden();
   }
 
   private get arrayGroup(): Locator {
-    return this.page.getByRole('group', { name: 'Puzzle array' });
+    return this.page.getByRole('group', { name: 'Challenge array' });
   }
 
   private get streak(): Locator {
