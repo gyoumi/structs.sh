@@ -74,7 +74,7 @@ gives a reason. CI runs it on every PR.
 
 ## The daily game
 
-The daily game lives at `/daily`. On load, it fetches `GET /puzzles/today.json`,
+The daily game lives at `/daily`. On load, it fetches `GET /api/daily`,
 which returns:
 
 ```json
@@ -83,15 +83,16 @@ which returns:
   "template": "quicksort-most-comparisons",
   "values": [8, 1, 6, 3, 2, 7, 4, 5],
   "fixed": [1, 4, 6],
-  "par": 34
+  "par": 34,
+  "date": "2026-12-23"
 }
 ```
 
 `values` is the starting arrangement and `fixed` holds the 0-based indices of
-locked slots. The page shows what the file says and never computes `par`.
+locked slots. The page shows what the server returns and never computes `par`.
 There is no `best` field: the solver's best score stays on the server, and the
-page must never show a best score. If a file does carry an extra field such as
-`best`, the page ignores it.
+page must never show a best score. If a response does carry an extra field such
+as `best`, the page ignores it.
 
 A comparison is every evaluation of a comparison between two array values in
 the C code shown beside the animation

@@ -1,5 +1,5 @@
 /**
- * Shapes of GET /puzzles/today.json, one per daily game template.
+ * Shapes of GET /api/daily, one per daily game template.
  * None has a `best` field: the solver's best score stays on the server and is never sent to players.
  * `fixed` holds 0-based indices of locked slots; `par` is the goal the page shows and never computes.
  */

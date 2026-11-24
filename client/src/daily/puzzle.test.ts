@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parsePuzzle, shareText, type Puzzle } from './puzzle';
+import { PUZZLE_URL, parsePuzzle, shareText, type Puzzle } from './puzzle';
 
 const DAILY_12: Puzzle = {
   number: 12,
@@ -271,5 +271,14 @@ describe('shareText', () => {
         `${call}: must not contain the arrangement ${JSON.stringify(arrangement)}, got ${JSON.stringify(text)}`
       ).toBe(false);
     });
+  });
+});
+
+describe('PUZZLE_URL', () => {
+  it("fetches today's puzzle from the game server", () => {
+    expect(
+      PUZZLE_URL,
+      `PUZZLE_URL: expected the server endpoint '/api/daily' (the server decides the day), got ${JSON.stringify(PUZZLE_URL)}`
+    ).toBe('/api/daily');
   });
 });
