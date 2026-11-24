@@ -13,9 +13,9 @@ import type GraphicalLinkedList from './GraphicalLinkedList';
 import GraphicalLinkedListNode from './GraphicalLinkedListNode';
 
 const runEnvelope = (maxLength: number): DrawingBounds => ({
-  x: 0,
+  x: actualNodeDiameter / 2,
   y: LIST_ENVELOPE_TOP,
-  width: Math.max(1, maxLength) * nodePathWidth + actualNodeDiameter,
+  width: Math.max(1, maxLength) * nodePathWidth + actualNodeDiameter / 2,
   height: LIST_ENVELOPE_BOTTOM - LIST_ENVELOPE_TOP,
 });
 

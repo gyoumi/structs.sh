@@ -62,6 +62,8 @@ const Stage = ({
   const complete = useSnapshot((s) => s.playback === 'complete');
   const step = useSnapshot((s) => s.step);
   const targetBounds = useSnapshot((s) => s.bounds);
+  const targetBoundsRef = useRef(targetBounds);
+  targetBoundsRef.current = targetBounds;
   const prevStep = useRef(step);
 
   const zoomAround = useCallback((factor: number, cx: number, cy: number, animate: boolean) => {
@@ -148,13 +150,13 @@ const Stage = ({
 
   useLayoutEffect(() => {
     prevStep.current = 0;
-    fit(false, false);
+    fit(false, false, targetBoundsRef.current);
   }, [layoutVersion, fit]);
 
   useEffect(() => {
     let second = 0;
     const first = requestAnimationFrame(() => {
-      second = requestAnimationFrame(() => fit(false, false));
+      second = requestAnimationFrame(() => fit(false, false, targetBoundsRef.current));
     });
     return () => {
       cancelAnimationFrame(first);
