@@ -80,6 +80,24 @@ export class LandingPage {
     await link.click();
   }
 
+  /** Asserts the "Pick a structure" section is scrolled into the viewport. */
+  async expectStructuresInViewport(context: string): Promise<void> {
+    const heading = this.page.getByRole('heading', { level: 2, name: 'Pick a structure' });
+    await expect(heading, `${context}: "Pick a structure" heading should be scrolled into the viewport`).toBeInViewport();
+  }
+
+  /** Asserts the current document has no horizontal overflow. */
+  async expectNoHorizontalOverflow(context: string): Promise<void> {
+    const { scrollWidth, clientWidth } = await this.page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+    }));
+    expect(
+      scrollWidth,
+      `${context}: page should fit without horizontal overflow (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
+    ).toBeLessThanOrEqual(clientWidth);
+  }
+
   /** Every external link on the page. */
   async externalLinks(): Promise<string[]> {
     const hrefs = await this.page

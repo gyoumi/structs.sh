@@ -59,6 +59,26 @@ test.describe('landing page', () => {
     );
   });
 
+  test('returns from /daily to the structure picker on desktop and phone without overflow', async ({
+    landingPage,
+    dailyPage,
+    page,
+  }) => {
+    await dailyPage.serve(DAILY_12.puzzle);
+    await dailyPage.open();
+    await dailyPage.openFromMainNav('Visualiser');
+    await expect(page, '/daily (desktop): clicking Visualiser in Main nav should go to /#structures').toHaveURL(/\/#structures$/);
+    await landingPage.expectStructuresInViewport('/daily -> Visualiser at desktop');
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await dailyPage.open();
+    await landingPage.expectNoHorizontalOverflow('/daily at 390x844');
+    await dailyPage.openFromMainNav('Visualiser');
+    await expect(page, '/daily (390x844): clicking Visualiser in Main nav should go to /#structures').toHaveURL(/\/#structures$/);
+    await landingPage.expectStructuresInViewport('/daily -> Visualiser at 390x844');
+    await landingPage.expectNoHorizontalOverflow('landing /#structures at 390x844');
+  });
+
   test('links to the source code and the team', async ({ landingPage }) => {
     await landingPage.open();
     expect(await landingPage.externalLinks(), 'Landing page external links should include GitHub, the team email, DevSoc and Facebook').toEqual(

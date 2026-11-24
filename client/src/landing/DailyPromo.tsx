@@ -50,7 +50,7 @@ const Preview = () => (
     </div>
     <div className={styles.scoreRow}>
       <span className={styles.score}>
-        <strong>34</strong> / goal 34
+        <strong>36</strong> / goal 34
       </span>
       <span className={styles.reached}>Goal reached ⭐</span>
     </div>
