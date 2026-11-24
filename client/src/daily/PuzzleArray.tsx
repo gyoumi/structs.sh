@@ -120,6 +120,11 @@ const PuzzleArray = ({ values, fixed, frozen = false, onSwap }: Props) => {
                   valueEls.current[index] = element;
                 }}
                 className={styles.value}
+                style={
+                  String(value).length > 2
+                    ? ({ '--chars': String(value).length } as CSSProperties)
+                    : undefined
+                }
               >
                 {value}
               </span>
