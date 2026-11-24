@@ -1,5 +1,5 @@
 [workspace]
-members = ["structs-puzzles", "structs-game-db"]
+members = ["structs-puzzles", "structs-game-db", "structs-game-api", "structs-game-server"]
 resolver = "3"
 
 # Clippy reads the thresholds from clippy.toml, not from here.
