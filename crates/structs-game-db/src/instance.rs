@@ -71,7 +71,7 @@ impl PuzzleInstance {
                         "bst-forced-order requires at least one value".to_owned(),
                     ));
                 }
-                if !is_valid_target_tree(values, target_tree) {
+                if !bst_forced_order::is_valid_target_tree(values, target_tree) {
                     return Err(DbError::InvalidData(
                         "bst-forced-order targetTree must be a canonical BST preorder of the \
                          distinct keys in values"
@@ -186,44 +186,6 @@ fn score_arrangement(instance: PuzzleInstance, input: &Vec<i32>) -> Result<Optio
         }
     };
     result.map_err(invalid_input)
-}
-
-/// Whether `keys` is the canonical preorder traversal of a BST with distinct
-/// keys.
-fn is_valid_bst_preorder(keys: &[i32]) -> bool {
-    let mut stack: Vec<i32> = Vec::with_capacity(keys.len());
-    let mut lower: Option<i32> = None;
-    for &key in keys {
-        if lower.is_some_and(|bound| key <= bound) {
-            return false;
-        }
-        while let Some(&top) = stack.last() {
-            if key == top {
-                return false;
-            }
-            if key > top {
-                lower = stack.pop();
-            } else {
-                break;
-            }
-        }
-        stack.push(key);
-    }
-    true
-}
-
-/// Whether `target_tree` is a canonical BST preorder over the distinct keys in
-/// `values`.
-fn is_valid_target_tree(values: &[i32], target_tree: &[i32]) -> bool {
-    if !is_valid_bst_preorder(target_tree) {
-        return false;
-    }
-    let mut want = values.to_vec();
-    want.sort_unstable();
-    want.dedup();
-    let mut got = target_tree.to_vec();
-    got.sort_unstable();
-    got == want
 }
 
 /// Maps a template's input rejection to [`DbError::InvalidData`].

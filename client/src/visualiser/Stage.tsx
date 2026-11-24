@@ -11,20 +11,21 @@ import {
 } from 'react';
 import type { DrawingBounds } from '@/visualiser-src/common/AnimationProducer';
 import { CanvasTarget, DEFAULT_CANVAS_TARGET } from '@/visualiser-src/common/canvasTarget';
-import { insetOf, unionBounds, visibleBounds } from './stageBounds';
+import {
+  clamp,
+  FitMode,
+  fitView,
+  insetOf,
+  unionBounds,
+  View,
+  ViewTransition,
+  visibleBounds,
+} from './stageBounds';
 import { useSnapshot } from './useVisualiser';
 import styles from './Stage.module.css';
 
-type View =
-  | { status: 'unfitted' }
-  | { status: 'fitted'; x: number; y: number; scale: number; transition: 'instant' | 'smooth' };
-
 const MIN_SCALE = 0.3;
-const MIN_FIT_SCALE = 0.05;
 const MAX_SCALE = 3;
-const FIT_PADDING = 56;
-
-const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 export interface StageView {
   zoomIn: () => void;
@@ -93,14 +94,18 @@ const Stage = ({
   );
 
   const fit = useCallback(
-    (onlyIfOverflowing = false, animate = true, upcoming: DrawingBounds | null = null) => {
+    (
+      mode: FitMode = 'always',
+      transition: ViewTransition = 'smooth',
+      upcoming: DrawingBounds | null = null
+    ) => {
       const svg = svgRef.current;
       const container = containerRef.current;
       if (!svg || !container) return;
       const box = unionBounds(visibleBounds(svg), upcoming);
       const { width, height } = container.getBoundingClientRect();
       if (!box || box.width === 0 || box.height === 0 || width === 0) {
-        if (!onlyIfOverflowing) {
+        if (mode === 'always') {
           userMoved.current = false;
           setView({ status: 'unfitted' });
         }
@@ -108,41 +113,9 @@ const Stage = ({
       }
       const insetTop = insetOf(container, 'top');
       const insetRight = insetOf(container, 'right');
-      const availableWidth = width - insetRight;
-      const availableHeight = height - insetTop;
-      const paddingX = Math.min(FIT_PADDING, availableWidth * 0.05);
-      const paddingY = Math.min(FIT_PADDING, availableHeight * 0.08);
-      const edgeMarginX = Math.min(12, paddingX * 0.5);
-      const edgeMarginY = Math.min(12, paddingY * 0.5);
-      setView((prev) => {
-        if (onlyIfOverflowing && prev.status === 'fitted') {
-          const left = prev.x + box.x * prev.scale;
-          const top = prev.y + box.y * prev.scale;
-          const right = left + box.width * prev.scale;
-          const bottom = top + box.height * prev.scale;
-          const inside =
-            left >= edgeMarginX &&
-            top >= insetTop + edgeMarginY &&
-            right <= width - insetRight - edgeMarginX &&
-            bottom <= height - edgeMarginY;
-          if (inside) return prev;
-        }
-        const scale = clamp(
-          Math.min(
-            (availableWidth - paddingX * 2) / box.width,
-            (availableHeight - paddingY * 2) / box.height
-          ),
-          MIN_FIT_SCALE,
-          1.25
-        );
-        return {
-          status: 'fitted',
-          scale,
-          x: availableWidth / 2 - scale * (box.x + box.width / 2),
-          y: insetTop + availableHeight / 2 - scale * (box.y + box.height / 2),
-          transition: animate && prev.status === 'fitted' ? 'smooth' : 'instant',
-        };
-      });
+      setView((prev) =>
+        fitView(prev, box, { width, height }, { mode, transition, insetTop, insetRight })
+      );
       userMoved.current = false;
     },
     []
@@ -150,13 +123,13 @@ const Stage = ({
 
   useLayoutEffect(() => {
     prevStep.current = 0;
-    fit(false, false, targetBoundsRef.current);
+    fit('always', 'instant', targetBoundsRef.current);
   }, [layoutVersion, fit]);
 
   useEffect(() => {
     let second = 0;
     const first = requestAnimationFrame(() => {
-      second = requestAnimationFrame(() => fit(false, false, targetBoundsRef.current));
+      second = requestAnimationFrame(() => fit('always', 'instant', targetBoundsRef.current));
     });
     return () => {
       cancelAnimationFrame(first);
@@ -168,7 +141,11 @@ const Stage = ({
     const jumped = Math.abs(step - prevStep.current) > 1;
     prevStep.current = step;
     if (!userMoved.current || view.status === 'unfitted') {
-      fit(!complete, !jumped, complete ? null : targetBounds);
+      fit(
+        complete ? 'always' : 'if-overflowing',
+        jumped ? 'instant' : 'smooth',
+        complete ? null : targetBounds
+      );
     }
   }, [step, complete, targetBounds, fit, view.status]);
 
@@ -176,7 +153,7 @@ const Stage = ({
     const container = containerRef.current;
     if (!container) return undefined;
     const observer = new ResizeObserver(() => {
-      if (!userMoved.current) fit(false, false);
+      if (!userMoved.current) fit('always', 'instant');
     });
     observer.observe(container);
     return () => observer.disconnect();

@@ -199,7 +199,7 @@ fn forced_order(request: &ArrayRequest) -> Result<Reply, String> {
     let target_tree = request.target_tree.clone().flatten().ok_or_else(|| {
         "The puzzle is broken: a bst-forced-order puzzle needs targetTree.".to_owned()
     })?;
-    if !is_valid_target_tree(&request.values, &target_tree) {
+    if !bst_forced_order::is_valid_target_tree(&request.values, &target_tree) {
         return Err(
             "The puzzle is broken: targetTree is not a valid BST preorder of the puzzle's values."
                 .to_owned(),
@@ -217,40 +217,6 @@ fn forced_order(request: &ArrayRequest) -> Result<Reply, String> {
         score: outcome.solved.then_some(outcome.longest_increasing_run),
         longest_increasing_run: outcome.longest_increasing_run,
     }))
-}
-
-fn is_valid_bst_preorder(keys: &[i32]) -> bool {
-    let mut stack: Vec<i32> = Vec::with_capacity(keys.len());
-    let mut lower: Option<i32> = None;
-    for &key in keys {
-        if lower.is_some_and(|bound| key <= bound) {
-            return false;
-        }
-        while let Some(&top) = stack.last() {
-            if key == top {
-                return false;
-            }
-            if key > top {
-                lower = stack.pop();
-            } else {
-                break;
-            }
-        }
-        stack.push(key);
-    }
-    true
-}
-
-fn is_valid_target_tree(values: &[i32], target_tree: &[i32]) -> bool {
-    if !is_valid_bst_preorder(target_tree) {
-        return false;
-    }
-    let mut want = values.to_vec();
-    want.sort_unstable();
-    want.dedup();
-    let mut got = target_tree.to_vec();
-    got.sort_unstable();
-    got == want
 }
 
 /// Slots are numbered from 1 in messages, as players count them. Indexes widen

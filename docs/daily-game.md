@@ -391,6 +391,8 @@ unchanged.
 
 ### 2a-0. Tests
 
+**Done in #77.**
+
 A separate test writer writes Checkpoint 2's Playwright e2e tests and adds them
 to `e2e/known-failures/game.json`, working from the decisions above and
 `docs/puzzle-ideas.md`. Each test serves its own hand-worked puzzle fixture.
@@ -410,6 +412,8 @@ green.
 
 ### 2a-1. Sorting templates (`bubble-exact-passes`, `insertion-beats-merge`)
 
+**Done in #78.**
+
 Add both sorting templates to `structs-puzzles` and the wasm wire layer, add
 counters and Vitest parity tests for bubble, insertion, and merge sort, and add
 exact-target / disagree try outcomes and synced dual-stage playback to `/daily`.
@@ -419,6 +423,8 @@ exact-target / disagree try outcomes and synced dual-stage playback to `/daily`.
 videos are reviewed and approved.
 
 ### 2a-2. Tree templates (`avl-most-rotations`, `bst-forced-order`, `upset-bst-beats-avl`)
+
+**Done in #79.**
 
 Add all three tree templates to `structs-puzzles`, add BST/AVL node-pass and
 rotation counters with Vitest parity tests, and add the insert-order, target
@@ -430,6 +436,8 @@ desktop/phone videos are reviewed and approved.
 
 ### 2a-3. Linked list template (`linked-list-index-drift`)
 
+**Done in #80.**
+
 Add `linked-list-index-drift` to `structs-puzzles`, add linked-list operation
 and node-walk counters with Vitest parity tests, and add the operation-list
 builder and lower-wins scoring to `/daily`.
@@ -439,6 +447,8 @@ builder and lower-wins scoring to `/daily`.
 passing), and desktop/phone videos are reviewed and approved.
 
 ### 2b. Solver and checks
+
+**Done in #81** (public `Template` generation/search surface) and `devsoc-unsw/snitch` (`crates/structs-forge`).
 
 `structs-forge` finds the best score for an instance by searching the moves
 the `Template` trait exposes, and sets the goal 65% of the way to it from the
@@ -452,6 +462,8 @@ figures for every launch template. For example, sorted fills reach the best
 on only 1 or 2 of 40 AVL instances.
 
 ### 2c. Schedule
+
+**Done in #82** (`crates/structs-game-db`, local Postgres compose, CI Postgres service) and `devsoc-unsw/snitch` (`structs-forge` weekday schedule, Postgres fill, and CLI).
 
 `structs-forge` picks a template for each upcoming date, rerolls instances
 that fail a check or miss the weekday's difficulty range, and stores the
