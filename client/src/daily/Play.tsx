@@ -3,34 +3,21 @@ import landing from '@/landing/Landing.module.css';
 import { ListOperation, loadChallenges } from '@/Services/challenges/challenges';
 import { Theme } from '@/ui/theme';
 import Transport from '@/visualiser/Transport';
-import { canvasThemes } from '@/visualiser/canvasThemes';
 import { PlaybackContext } from '@/visualiser/playback';
 import { usePrefersReducedMotion } from '@/visualiser/useVisualiser';
 import { MobileHud, StepCard } from './DailyCards';
 import { extendsExisting, sameTries, type PersistOutcome, type SavedTry } from './history';
-import {
-  MAX_TRIES,
-  PlayInput,
-  playReducer,
-  restoredPlayState,
-  sharedScores,
-  TryScore,
-} from './playMachine';
+import { MAX_TRIES, PlayInput, playReducer, restoredPlayState, sharedScores } from './playMachine';
 import { messageFor, mobileOutcomeOf } from './playMessages';
 import { validateOperations } from './OperationBuilder';
 import { ChallengeStages } from './ChallengeStages';
 import { IndexDriftChallenge, Challenge, shareText } from './challenge';
-import {
-  drawnArrangement,
-  Rig,
-  useCompletedRunId,
-  useHasTimeline,
-  useReadoutValue,
-  useStageSnapshot,
-} from './rig';
+import { Rig, useCompletedRunId, useReadoutValue, useStageSnapshot } from './rig';
 import { ScoreCard } from './ScoreCard';
 import { TargetTree } from './TargetTree';
-import { readoutsFor, scoreRun, tryScoreOf, valuesForInput } from './templates';
+import { readoutsFor, valuesForInput } from './templates';
+import { HeldTry, useHeldTry } from './useHeldTry';
+import { stageRunOf, useStageRun } from './useStageRun';
 import styles from './Daily.module.css';
 
 /** Draws `values` on every stage now, as after a swap. */
@@ -51,6 +38,8 @@ type PlayBaseProps = {
   streak?: number;
   /** Saves every try so far under a cross-tab lock and reports the persistence outcome. */
   onRecordTries: (tries: SavedTry[]) => Promise<PersistOutcome>;
+  /** Called when a try saved at Run is shown at its run's end, so the page catches up. */
+  onTriesShown: () => void;
   /** Restores the editor input when another tab's completion freezes this challenge. */
   onRestoreInput: (input: PlayInput) => void;
 };
@@ -73,10 +62,10 @@ export const Play = (props: PlayProps) => {
     storageRevision,
     streak,
     onRecordTries,
+    onTriesShown,
     onRestoreInput,
   } = props;
   const completedRunId = useCompletedRunId(rig);
-  const hasTimeline = useHasTimeline(rig);
   const [firstStage] = rig.stages;
   const trace = useStageSnapshot(firstStage, (s) => s.trace);
   const values = valuesForInput(challenge, input);
@@ -94,13 +83,13 @@ export const Play = (props: PlayProps) => {
   const runButton = useRef<HTMLButtonElement>(null);
   const skipButton = useRef<HTMLButtonElement>(null);
   const reducedMotion = usePrefersReducedMotion();
-  const [stageTheme, setStageTheme] = useState(theme);
-
-  const draw = (arrangement: number[]) => {
-    setStageTheme(theme);
-    const drawn = drawnArrangement(rig.mode, arrangement);
-    rig.stages.forEach(({ session }) => session.loadData(drawn, canvasThemes[theme], true));
-  };
+  const lastTry = initialTries.at(-1);
+  const { stageTheme, draw, start } = useStageRun({
+    rig,
+    theme,
+    restored: lastTry && stageRunOf(challenge, lastTry.input),
+    onRerun: (runId) => dispatch({ type: 'rerun', runId }),
+  });
 
   const applySynced = useEffectEvent((tries: SavedTry[]) => {
     savedTries.current = tries;
@@ -115,20 +104,17 @@ export const Play = (props: PlayProps) => {
     dispatch({ type: 'synced', scores: tries.map((saved) => saved.score) });
   });
 
-  const recordTry = useEffectEvent(
-    async (tried: PlayInput, score: TryScore, isCancelled: () => boolean) => {
-      const nextTries = [...savedTries.current, { input: tried, score }];
-      const outcome = await onRecordTries(nextTries);
-      if (isCancelled()) return;
-      if (outcome.status === 'synced') {
-        applySynced(outcome.tries);
-        return;
-      }
+  const { hold, held } = useHeldTry(challenge, savedTries, onRecordTries);
+  const showHeld = useEffectEvent(({ score, tries, outcome }: HeldTry) => {
+    if (outcome.status === 'synced') {
+      applySynced(outcome.tries);
+    } else {
       setSaveFailed(outcome.status === 'failed');
-      savedTries.current = outcome.status === 'saved' ? outcome.tries : nextTries;
+      savedTries.current = outcome.status === 'saved' ? outcome.tries : tries;
       dispatch({ type: 'scored', score });
     }
-  );
+    onTriesShown();
+  });
 
   useEffect(() => {
     loadChallenges().catch(() => {});
@@ -143,17 +129,10 @@ export const Play = (props: PlayProps) => {
     (input.operations.length === 0 ||
       validateOperations(challenge.start.length, input.operations).status === 'invalid');
 
+  const runWantsSkipFocus = play.stage === 'running' && play.focusSkip;
   useEffect(() => {
-    if (stageTheme === theme || busy || hasTimeline) return;
-    setStageTheme(theme);
-    rig.stages.forEach(({ session }) => session.retheme(canvasThemes[theme]));
-  }, [stageTheme, theme, busy, hasTimeline, rig]);
-
-  useEffect(() => {
-    if (play.stage === 'running' && play.focusSkip) {
-      skipButton.current?.focus({ preventScroll: true });
-    }
-  }, [play]);
+    if (runWantsSkipFocus) skipButton.current?.focus({ preventScroll: true });
+  }, [runWantsSkipFocus]);
 
   useEffect(() => {
     if (play.stage === 'running' && completedRunId === play.runId) {
@@ -176,11 +155,9 @@ export const Play = (props: PlayProps) => {
   useEffect(() => {
     if (play.stage !== 'scoring') return undefined;
     let cancelled = false;
-    scoreRun(challenge, play.input)
-      .then(async (evaluation) => {
-        if (cancelled) return;
-        const score = tryScoreOf(challenge, evaluation);
-        await recordTry(play.input, score, () => cancelled);
+    held()
+      .then((result) => {
+        if (!cancelled) showHeld(result);
       })
       .catch((error) => {
         console.error(error);
@@ -189,15 +166,14 @@ export const Play = (props: PlayProps) => {
     return () => {
       cancelled = true;
     };
-  }, [play, challenge]);
+  }, [play, held]);
 
   const run = () => {
     if (unrunnable) return;
     const focusSkip = document.activeElement === runButton.current;
-    draw(values);
-    const ops = input.kind === 'operations' ? input.operations : undefined;
-    if (!rig.run(values, ops)) return;
-    const runId = firstStage.session.getSnapshot().lastRun?.id ?? 0;
+    const runId = start(stageRunOf(challenge, input));
+    if (runId === null) return;
+    hold(input);
     dispatch({ type: 'run', input, runId, focusSkip });
     runner.current?.scrollIntoView?.({
       behavior: reducedMotion ? 'auto' : 'smooth',
