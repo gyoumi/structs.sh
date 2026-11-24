@@ -1,44 +1,38 @@
 import type { DrawingBounds } from '@/visualiser-src/common/AnimationProducer';
 import type { ListOperation } from '@/Services/puzzles/puzzles';
 import { actualNodeDiameter } from '../../common/constants';
-import { newNodePosition } from '../animation-producer/LinkedListAnimationProducer';
 import LinkedListRunAnimationProducer from '../animation-producer/LinkedListRunAnimationProducer';
-import { CURRENT, PREV, nodePathWidth, topOffset } from '../util/constants';
+import {
+  CURRENT,
+  PREV,
+  LIST_ENVELOPE_BOTTOM,
+  LIST_ENVELOPE_TOP,
+  nodePathWidth,
+} from '../util/constants';
 import type GraphicalLinkedList from './GraphicalLinkedList';
 import GraphicalLinkedListNode from './GraphicalLinkedListNode';
 
-const RADIUS = actualNodeDiameter / 2;
-const POINTER_HEIGHT = 64;
-const CURVED_ARC_TOP = 42;
+const runEnvelope = (maxLength: number): DrawingBounds => ({
+  x: 0,
+  y: LIST_ENVELOPE_TOP,
+  width: Math.max(1, maxLength) * nodePathWidth + actualNodeDiameter,
+  height: LIST_ENVELOPE_BOTTOM - LIST_ENVELOPE_TOP,
+});
 
-const listRightEdge = (head: GraphicalLinkedListNode | null): number => {
-  let maxX = 0;
-  for (let curr = head; curr !== null; curr = curr.next) {
-    maxX = Math.max(maxX, curr.x);
-  }
-  return maxX;
-};
-
-const boundsWith = (
-  head: GraphicalLinkedListNode | null,
-  [newX, newY]: [number, number],
-  nextLength: number,
-  usesPointer: boolean
-): DrawingBounds => {
-  const maxX = Math.max(newX, listRightEdge(head), nextLength * nodePathWidth + RADIUS);
-  let maxY = Math.max(newY, usesPointer ? topOffset + POINTER_HEIGHT : topOffset);
-  for (let curr = head; curr !== null; curr = curr.next) {
-    maxY = Math.max(maxY, curr.y);
-  }
-  const top = topOffset - RADIUS;
-  return { x: 0, y: top, width: maxX + RADIUS, height: maxY + RADIUS - top };
-};
-
-const deleteBounds = (head: GraphicalLinkedListNode | null, willCurve: boolean): DrawingBounds => {
-  const maxX = Math.max(listRightEdge(head), nodePathWidth + RADIUS);
-  const top = willCurve ? CURVED_ARC_TOP : topOffset - RADIUS;
-  const bottom = topOffset + RADIUS + POINTER_HEIGHT;
-  return { x: 0, y: top, width: maxX + RADIUS, height: bottom - top };
+const maxLengthFor = (startLength: number, operations: ListOperation[]): number => {
+  let length = startLength;
+  let max = startLength;
+  operations.every((op) => {
+    if (op.kind === 'delete') {
+      if (op.index < 0 || op.index >= length) return false;
+      length -= 1;
+    } else {
+      length += 1;
+      max = Math.max(max, length);
+    }
+    return true;
+  });
+  return max;
 };
 
 const insertAt = (
@@ -50,9 +44,6 @@ const insertAt = (
   const at = Math.min(index, list.length);
   list.length += 1;
   const newNode = GraphicalLinkedListNode.from(value);
-  producer.setTargetBounds(
-    boundsWith(list.head, newNodePosition(at, list.length), list.length, at > 0)
-  );
   producer.doAnimation(producer.addNodeAt, at, newNode, list.length);
   if (at === 0) {
     if (list.head === null) {
@@ -88,13 +79,7 @@ const deleteAt = (
   producer: LinkedListRunAnimationProducer,
   index: number
 ) => {
-  let target: GraphicalLinkedListNode | null = list.head;
-  for (let i = 0; i < index && target !== null; i += 1) {
-    target = target.next;
-  }
-  const willCurve = target?.next !== null;
   list.length -= 1;
-  producer.setTargetBounds(deleteBounds(list.head, willCurve));
   let curr = list.head!;
   let prev: GraphicalLinkedListNode | null = null;
   producer.doAnimation(producer.initialisePointer, CURRENT);
@@ -137,6 +122,7 @@ export const runListOperations = (
   operations: ListOperation[]
 ): LinkedListRunAnimationProducer => {
   const producer = new LinkedListRunAnimationProducer();
+  producer.setTargetBounds(runEnvelope(maxLengthFor(list.length, operations)));
   operations.every((operation) => {
     if (operation.kind === 'delete' && (operation.index < 0 || operation.index >= list.length)) {
       return false;

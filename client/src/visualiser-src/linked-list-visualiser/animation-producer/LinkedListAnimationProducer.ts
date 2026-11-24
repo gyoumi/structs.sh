@@ -8,7 +8,7 @@ import { getPointerPath } from '../util/util';
 import { canvasTheme } from '../../common/canvasTheme';
 
 /** Where a node created at `index` of a list that is `length` long once it holds the node first appears. */
-export const newNodePosition = (index: number, length: number): [number, number] =>
+const newNodePosition = (index: number, length: number): [number, number] =>
   index < length - 1
     ? [index * nodePathWidth + (3 * actualNodeDiameter) / 2, insertedNodeTopOffset]
     : [length * nodePathWidth + actualNodeDiameter / 2, topOffset];

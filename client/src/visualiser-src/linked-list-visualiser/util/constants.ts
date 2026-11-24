@@ -7,6 +7,9 @@ export const nodePathWidth = actualNodeDiameter + pathLength;
 export const topOffset = 150;
 export const insertedNodeTopOffset =
   topOffset + (actualNodeDiameter + pathLength) * Math.sin(Math.PI / 3);
+export const CURVED_ARC_CONTROL_Y = 45;
+export const LIST_ENVELOPE_TOP = 80;
+export const LIST_ENVELOPE_BOTTOM = Math.ceil(insertedNodeTopOffset + actualNodeDiameter / 2) + 4;
 export const CURRENT = '#current';
 export const PREV = '#prev';
 export const CANVAS = '#visualiser-canvas';

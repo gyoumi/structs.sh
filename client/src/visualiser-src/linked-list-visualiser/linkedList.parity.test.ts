@@ -232,13 +232,15 @@ describe('linked list index drift parity (GraphicalLinkedList.runOperations vs w
     expect(firstBounds!.x + firstBounds!.width).toBeGreaterThanOrEqual(expectedWidth);
   });
 
-  it('pre-zooms a delete with a bypass arc before the arc is drawn', () => {
+  it('keeps one fixed envelope across a run, fitting both bypass arcs and inserted nodes', () => {
     freshCanvas();
     const list = new GraphicalLinkedList();
     list.load([8, 3, 6, 1]);
-    const producer = list.runOperations([del(0)]);
+    const producer = list.runOperations([del(0), ins(5, 2)]);
     const firstBounds = producer.allRunners[0]?.bounds;
     expect(firstBounds).toBeDefined();
-    expect(firstBounds!.y).toBeLessThanOrEqual(45);
+    expect(firstBounds!.y).toBeLessThanOrEqual(80);
+    expect(firstBounds!.y + firstBounds!.height).toBeGreaterThanOrEqual(260);
+    expect(producer.allRunners.every((runner) => runner.bounds === firstBounds)).toBe(true);
   });
 });

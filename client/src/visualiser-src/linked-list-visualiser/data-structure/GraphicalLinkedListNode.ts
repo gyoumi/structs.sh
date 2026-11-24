@@ -5,6 +5,8 @@ import {
   pathAttributes,
   topOffset,
   nodePathWidth,
+  LIST_ENVELOPE_TOP,
+  LIST_ENVELOPE_BOTTOM,
 } from '../util/constants';
 import { getPointerPath, listNodeFontSize } from '../util/util';
 import { actualNodeDiameter, markerLength, pathD } from '../../common/constants';
@@ -42,6 +44,13 @@ export default class GraphicalLinkedListNode {
 
   public static newHeadPointer() {
     const { canvas } = getCanvasTarget();
+    SVG()
+      .rect(1, LIST_ENVELOPE_BOTTOM - LIST_ENVELOPE_TOP)
+      .move(actualNodeDiameter / 2, LIST_ENVELOPE_TOP)
+      .fill('none')
+      .stroke('none')
+      .attr({ 'pointer-events': 'none' })
+      .addTo(canvas);
     SVG()
       .text('head')
       .attr(textAttributes)
