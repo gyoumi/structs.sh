@@ -206,9 +206,15 @@ describe('validateOperations — queue replay after edits', () => {
       { kind: 'insert', value: 5, index: 1 },
       { kind: 'delete', index: 1 },
     ]);
-    expect(valid).toEqual({ status: 'valid', endLength: 1 });
+    expect(
+      valid,
+      `validateOperations(start length 1, [insert(5, 1), delete(1)]): the insert makes delete(1) valid, so expected { status: 'valid', endLength: 1 }, got ${JSON.stringify(valid)}`
+    ).toEqual({ status: 'valid', endLength: 1 });
 
     const broken = validateOperations(1, [{ kind: 'delete', index: 1 }]);
-    expect(broken).toMatchObject({ status: 'invalid', invalidAt: 0 });
+    expect(
+      broken,
+      `validateOperations(start length 1, [delete(1)]) after removing the insert: delete(1) is out of range for a 1-node list, so expected { status: 'invalid', invalidAt: 0 }, got ${JSON.stringify(broken)}`
+    ).toMatchObject({ status: 'invalid', invalidAt: 0 });
   });
 });

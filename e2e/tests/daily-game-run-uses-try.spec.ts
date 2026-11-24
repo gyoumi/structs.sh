@@ -67,7 +67,7 @@ test.describe('daily game: pressing Run uses the try', () => {
     await dailyHistory.serveOnly(QUICKSORT_DAY);
     await dailyPage.open();
     await dailyPage.swap(goal.swap[0], goal.swap[1]);
-    await dailyPage.setSpeed(0.25);
+    await dailyPage.transport.setSpeed(0.25);
     await dailyPage.run();
     await midRun.waitUntilPartWay(`${ctx}, playing`, 'Comparisons');
     await midRun.reload(`${ctx}, reloaded while the run plays`);
@@ -80,8 +80,8 @@ test.describe('daily game: pressing Run uses the try', () => {
     await midRun.expectSameAs(reference, counters, MID, SKIPPED, reloaded);
 
     expect(await dailyPage.canRun(), `${reloaded}: Run should stay enabled with 2 tries left`).toBe(true);
-    await dailyPage.replayPlayback();
-    await dailyPage.skipToEnd(`${reloaded}, after Replay`);
+    await dailyPage.transport.replay();
+    await dailyPage.transport.skipToEnd(`${reloaded}, after Replay`);
     await dailyPage.expectStatusNumber('Tries left', 2, `${reloaded}: replaying the restored try must not use another try`);
   });
 
@@ -95,10 +95,10 @@ test.describe('daily game: pressing Run uses the try', () => {
     await dailyPage.serve(AVL_DAY);
     await dailyPage.open();
     await dailyPage.swap(doubles.swap[0], doubles.swap[1]);
-    await dailyPage.setSpeed(0.25);
+    await dailyPage.transport.setSpeed(0.25);
     await dailyPage.run();
     await midRun.waitUntilPartWay(`${ctx}, playing`);
-    await dailyPage.pausePlayback();
+    await dailyPage.transport.pause();
     await midRun.expectStillRunning(`${ctx}, paused`);
     await midRun.reload(`${ctx}, reloaded while paused`);
 
@@ -118,10 +118,10 @@ test.describe('daily game: pressing Run uses the try', () => {
     const midRun = new DailyMidRun(page);
     await dailyPage.serve(UPSET_DAY);
     await dailyPage.open();
-    await dailyPage.setSpeed(0.25);
+    await dailyPage.transport.setSpeed(0.25);
     await dailyPage.run();
     await midRun.waitUntilPartWay(`${ctx}, playing`, 'BST nodes passed');
-    await dailyPage.pausePlayback();
+    await dailyPage.transport.pause();
     await midRun.step('Next step', `${ctx}, paused`);
     await midRun.step('Next step', `${ctx}, paused`);
     await midRun.step('Previous step', `${ctx}, paused`);
@@ -159,10 +159,10 @@ test.describe('daily game: pressing Run uses the try', () => {
     await dailyPage.serve(DRIFT_DAY);
     await dailyTemplate.operations.open(ctx);
     await dailyTemplate.operations.build(costly.operations, costly.listed, ctx);
-    await dailyPage.setSpeed(0.25);
+    await dailyPage.transport.setSpeed(0.25);
     await dailyPage.run();
     await midRun.waitUntilPartWay(`${ctx}, playing`);
-    await dailyPage.pausePlayback();
+    await dailyPage.transport.pause();
     await midRun.step('Next step', `${ctx}, paused`);
     await midRun.expectStillRunning(`${ctx}, after stepping`);
     await midRun.reload(`${ctx}, reloaded after stepping`);
@@ -201,7 +201,7 @@ test.describe('daily game: pressing Run uses the try', () => {
     await playFirstTwo(dailyPage);
     await dailyHistory.expectStreak(null, `${ctx}, before try 3: the day isn't finished yet`);
     await dailyPage.swap(highFromGoal.swap[0], highFromGoal.swap[1]);
-    await dailyPage.setSpeed(0.25);
+    await dailyPage.transport.setSpeed(0.25);
     await dailyPage.run();
     await midRun.waitUntilPartWay(`${ctx}, try 3 playing`, 'Comparisons');
     await midRun.reload(`${ctx}, reloaded while try 3 plays`);
@@ -236,7 +236,7 @@ test.describe('daily game: pressing Run uses the try', () => {
     await runSkip(dailyPage, goal.swap, `${ctx} try 1`);
     await runSkip(dailyPage, lowFromGoal.swap, `${ctx} try 2`);
     await dailyPage.swap(thirdFromLow.swap[0], thirdFromLow.swap[1]);
-    await dailyPage.setSpeed(0.25);
+    await dailyPage.transport.setSpeed(0.25);
 
     const before = await midRun.view(counters, `${ctx}, before Run`);
     expect(before.triesLeft, `${ctx}, before Run: test setup: Tries left should read 1`).toMatch(/^\D*1(?!\d)/);
@@ -246,7 +246,7 @@ test.describe('daily game: pressing Run uses the try', () => {
     await midRun.expectUnchangedWhilePlaying(before, 2, thirdFromLow.count, counters, 5, `${ctx}, right after Run`);
     await midRun.waitUntilPartWay(`${ctx}, playing`, 'Comparisons');
     await midRun.expectUnchangedWhilePlaying(before, 2, thirdFromLow.count, counters, 3, `${ctx}, with Comparisons climbing`);
-    await dailyPage.pausePlayback();
+    await dailyPage.transport.pause();
     await midRun.step('Next step', `${ctx}, paused`);
     const pausedCtx = `${ctx}, paused mid-run after a Next step`;
     const paused = await midRun.view(counters, pausedCtx);

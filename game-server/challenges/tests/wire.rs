@@ -25,7 +25,7 @@ fn scores_a_request_as_json() {
 }
 
 #[test]
-fn an_empty_puzzle_scores_zero() {
+fn an_empty_challenge_scores_zero() {
     let reply = score_request(&request(QUICKSORT, &[], &[], &[]));
     assert_eq!(
         reply,

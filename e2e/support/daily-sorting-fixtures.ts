@@ -8,7 +8,7 @@ import type { BubbleChallenge, InsertionMergeChallenge } from './daily-challenge
  */
 
 /**
- * Puzzle #21, `bubble-exact-passes`: 8 values, fixed slots [1, 4, 6] (values 2, 5, 7), target 4 passes.
+ * Challenge #21, `bubble-exact-passes`: 8 values, fixed slots [1, 4, 6] (values 2, 5, 7), target 4 passes.
  * A pass is one run of bubble.ts's outer loop that makes at least one comparison, counting the final pass that
  * makes no swaps; at most n - 1 = 7. When all 7 passes swap, bubble.ts still runs an 8th outer iteration
  * (i = 7, so `j < len - i` is `1 < 1`) that compares nothing: it is not a pass.
@@ -39,7 +39,7 @@ export const BUBBLE_21 = {
 } as const;
 
 /**
- * Puzzle #22, `insertion-beats-merge`: 8 values, fixed slots [1, 4] (values 3, 7).
+ * Challenge #22, `insertion-beats-merge`: 8 values, fixed slots [1, 4] (values 3, 7).
  * Insertion comparisons: each evaluation of `val >= a[j - 1]` in insertion.ts, so each value costs
  * 1 + the number of values it shifts past, unless it reaches slot 0. Merge comparisons: each
  * `a[left] <= a[right]` in merge.ts, which splits at floor((lo + hi) / 2) and takes left on ties.

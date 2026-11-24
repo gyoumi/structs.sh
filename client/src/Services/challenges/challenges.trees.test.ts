@@ -230,8 +230,8 @@ describe('evaluateChallenge — invalid tree arrangements', () => {
     const outcome = await settle(scoreChallenge(challenge, challenge.values));
     const message = outcome.rejected ? String((outcome.error as Error).message) : '';
     expect(
-      { rejected: outcome.rejected, namesEvaluatePuzzle: /evaluateChallenge/i.test(message) },
+      { rejected: outcome.rejected, namesEvaluateChallenge: /evaluateChallenge/i.test(message) },
       `scoreChallenge(${JSON.stringify(challenge)}, ${fmt(challenge.values)}): tree templates have more than a score, so this should reject naming evaluateChallenge; got ${outcome.rejected ? JSON.stringify(message) : `a resolved ${JSON.stringify(outcome.result)}`}`
-    ).toEqual({ rejected: true, namesEvaluatePuzzle: true });
+    ).toEqual({ rejected: true, namesEvaluateChallenge: true });
   });
 });

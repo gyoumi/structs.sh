@@ -33,9 +33,9 @@ test.describe('daily AVL: most rotations', () => {
     await dailyTemplate.expectGoalReached(false, `${ctx}: ${start.rotations} rotations is below the goal of ${challenge.goal}`);
     await dailyTemplate.expectTryChips([`${start.rotations}`], ctx);
 
-    await dailyPage.rewind();
+    await dailyPage.transport.rewind();
     await dailyPage.expectStatusNumber('Rotations', 0, `${ctx}: Back to the start should reset Rotations to 0`);
-    await dailyPage.skipToEnd(ctx);
+    await dailyPage.transport.skipToEnd(ctx);
     await dailyPage.expectStatusNumber('Rotations', start.rotations, `${ctx}: Skip to the end should bring Rotations back to ${start.rotations}`);
     await dailyPage.expectNoBestShown(ctx);
   });
@@ -102,17 +102,17 @@ test.describe('daily upset: BST builds cheaper', () => {
       `${ctx}: Skip should finish the AVL tree at ${start.avl} nodes passed (0+1+1+2+2+2+3+4+4+4+4+3+4+4); its 6 rotations must not be counted`,
     );
 
-    await dailyPage.rewind();
+    await dailyPage.transport.rewind();
     await dailyPage.expectStatusNumber('BST nodes passed', 0, `${ctx}: Back to the start on the shared toolbar should reset BST nodes passed to 0`);
     await dailyPage.expectStatusNumber('AVL nodes passed', 0, `${ctx}: Back to the start on the shared toolbar should reset AVL nodes passed to 0`);
     await expectEmptyTrees(dailyTemplate, `${ctx} Back to the start`);
     await dailyTemplate.stages.stepUntilEveryStageChanges(stages, counters, ctx);
-    await dailyPage.skipToEnd(ctx);
+    await dailyPage.transport.skipToEnd(ctx);
     await dailyPage.expectStatusNumber('BST nodes passed', start.bst, `${ctx}: Skip to the end should finish the BST at ${start.bst}`);
     await dailyPage.expectStatusNumber('AVL nodes passed', start.avl, `${ctx}: Skip to the end should finish the AVL tree at ${start.avl}`);
     await expectFinalTrees(dailyTemplate, `${ctx} Skip to the end`);
     await dailyTemplate.stages.expectReplayRedrawsEveryStage(stages, ctx);
-    await dailyPage.skipToEnd(`${ctx} after Replay`);
+    await dailyPage.transport.skipToEnd(`${ctx} after Replay`);
     await expectFinalTrees(dailyTemplate, `${ctx} Skip to the end after Replay`);
   });
 

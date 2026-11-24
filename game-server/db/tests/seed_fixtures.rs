@@ -4,20 +4,19 @@
 //!
 //! `fixture_challenges` is checked without a database. The `seed_fixtures`
 //! tests run only when `DATABASE_URL` is set, each in its own disposable
-//! schema (as in `postgres_roundtrip.rs`). `seed_today_if_missing` is tested
+//! schema (`common::with_test_db`). `seed_today_if_missing` is tested
 //! in `seed_today.rs`.
 
-use std::collections::BTreeSet;
-use std::sync::atomic::{AtomicU64, Ordering};
+mod common;
 
-use chrono::NaiveDate;
+use std::collections::BTreeSet;
+
+use common::{GAP, PRIVATE_KEYS, day, with_test_db};
 use daily_db::seed::{SeedSummary, fixture_challenges, seed_fixtures};
 use daily_db::{
     ChallengeInstance, NewDailyChallenge, get_challenge_by_date, get_public_challenge_by_date,
-    migrate,
 };
-use sqlx::postgres::PgPoolOptions;
-use sqlx::{Executor, PgPool};
+use sqlx::PgPool;
 
 /// The fixture schedule: each date and the template it runs.
 const SCHEDULE: [(&str, &str); 7] = [
@@ -30,28 +29,6 @@ const SCHEDULE: [(&str, &str); 7] = [
     ("2026-10-07", "bst-forced-order"),
 ];
 
-/// The day left unscheduled so the e2e suite sees a real 404.
-const GAP: &str = "2026-10-06";
-
-/// Keys that must never appear in a public puzzle.
-const PRIVATE_KEYS: [&str; 10] = [
-    "seed",
-    "best",
-    "bestScore",
-    "best_score",
-    "bestSolution",
-    "best_solution",
-    "botGoalRate",
-    "botBestRate",
-    "bot_goal_rate",
-    "rules",
-];
-
-fn day(text: &str) -> NaiveDate {
-    text.parse()
-        .unwrap_or_else(|e| panic!("test date {text:?} is not YYYY-MM-DD: {e}"))
-}
-
 fn summary(s: &SeedSummary) -> String {
     format!(
         "SeedSummary {{ inserted: {}, existing: {} }}",
@@ -60,8 +37,8 @@ fn summary(s: &SeedSummary) -> String {
 }
 
 /// The fixtures as `(date, template)`, sorted by date.
-fn schedule_of(puzzles: &[NewDailyChallenge]) -> Vec<(String, &'static str)> {
-    let mut got: Vec<_> = puzzles
+fn schedule_of(challenges: &[NewDailyChallenge]) -> Vec<(String, &'static str)> {
+    let mut got: Vec<_> = challenges
         .iter()
         .map(|p| (p.challenge_date.to_string(), p.instance.template_id()))
         .collect();
@@ -71,34 +48,37 @@ fn schedule_of(puzzles: &[NewDailyChallenge]) -> Vec<(String, &'static str)> {
 
 #[test]
 fn fixtures_cover_every_template_on_the_daylight_saving_dates() {
-    let puzzles = fixture_challenges();
-    let got = schedule_of(&puzzles);
+    let challenges = fixture_challenges();
+    let got = schedule_of(&challenges);
     let want: Vec<(String, &str)> = SCHEDULE.iter().map(|&(d, t)| (d.to_owned(), t)).collect();
     assert_eq!(
         got, want,
         "fixture_challenges(): expected exactly these (date, template) pairs {want:?}, got {got:?}"
     );
-    let templates: BTreeSet<_> = puzzles.iter().map(|p| p.instance.template_id()).collect();
+    let templates: BTreeSet<_> = challenges
+        .iter()
+        .map(|p| p.instance.template_id())
+        .collect();
     assert_eq!(
         templates.len(),
         7,
         "fixture_challenges(): expected all 7 launch templates once each, got {templates:?}"
     );
     assert!(
-        puzzles.iter().all(|p| p.challenge_date != day(GAP)),
+        challenges.iter().all(|p| p.challenge_date != day(GAP)),
         "fixture_challenges(): {GAP} must stay unscheduled (the e2e not-ready day), got {got:?}"
     );
     assert_eq!(
         fixture_challenges(),
-        puzzles,
-        "fixture_challenges(): two calls should return identical puzzles (deterministic seeding)"
+        challenges,
+        "fixture_challenges(): two calls should return identical challenges (deterministic seeding)"
     );
 }
 
 #[test]
 fn the_quicksort_fixture_is_daily_12() {
-    let puzzles = fixture_challenges();
-    let quicksort = puzzles
+    let challenges = fixture_challenges();
+    let quicksort = challenges
         .iter()
         .find(|p| p.challenge_date == day("2026-10-03"))
         .unwrap_or_else(|| panic!("fixture_challenges(): nothing scheduled on 2026-10-03"));
@@ -121,100 +101,37 @@ fn the_quicksort_fixture_is_daily_12() {
 
 #[test]
 fn every_fixture_is_valid_and_its_best_solution_scores_its_best_score() {
-    for puzzle in fixture_challenges() {
+    for challenge in fixture_challenges() {
         let call = format!(
             "fixture {} {}",
-            puzzle.challenge_date,
-            puzzle.instance.template_id()
+            challenge.challenge_date,
+            challenge.instance.template_id()
         );
-        if let Err(err) = puzzle.instance.validate_shape() {
+        if let Err(err) = challenge.instance.validate_shape() {
             panic!("{call}: validate_shape() should accept the instance, got {err:?}");
         }
-        let score = puzzle.instance.score_solution(&puzzle.best_solution);
+        let score = challenge.instance.score_solution(&challenge.best_solution);
         assert!(
-            matches!(score, Ok(Some(s)) if s == puzzle.best_score),
-            "{call}: best_solution {:?} should solve the puzzle with best_score {}, got {score:?}",
-            puzzle.best_solution,
-            puzzle.best_score
+            matches!(score, Ok(Some(s)) if s == challenge.best_score),
+            "{call}: best_solution {:?} should solve the challenge with best_score {}, got {score:?}",
+            challenge.best_solution,
+            challenge.best_score
         );
         assert!(
-            puzzle.template_version >= 1 && !puzzle.rules.trim().is_empty(),
+            challenge.template_version >= 1 && !challenge.rules.trim().is_empty(),
             "{call}: expected template_version >= 1 and non-empty rules, got version {} rules {:?}",
-            puzzle.template_version,
-            puzzle.rules
+            challenge.template_version,
+            challenge.rules
         );
         for (name, rate) in [
-            ("bot_goal_rate", puzzle.bot_goal_rate),
-            ("bot_best_rate", puzzle.bot_best_rate),
+            ("bot_goal_rate", challenge.bot_goal_rate),
+            ("bot_best_rate", challenge.bot_best_rate),
         ] {
             assert!(
                 (0.0..=1.0).contains(&rate),
                 "{call}: {name} should be within 0.0..=1.0, got {rate}"
             );
         }
-    }
-}
-
-static NEXT_SCHEMA: AtomicU64 = AtomicU64::new(1);
-
-/// Runs `body` against a migrated disposable schema, dropping it even when
-/// `body` panics; does nothing when `DATABASE_URL` is unset.
-async fn with_test_db<F, Fut>(test: &str, body: F)
-where
-    F: FnOnce(PgPool) -> Fut + Send + 'static,
-    Fut: std::future::Future<Output = ()> + Send + 'static,
-{
-    let Ok(url) = std::env::var("DATABASE_URL") else {
-        eprintln!("{test}: DATABASE_URL is not set, skipping the Postgres test");
-        return;
-    };
-    let seq = NEXT_SCHEMA.fetch_add(1, Ordering::Relaxed);
-    let schema = format!("daily_challenges_seed_test_{}_{seq}", std::process::id());
-    let admin = daily_db::connect(&url)
-        .await
-        .expect("connect to DATABASE_URL");
-    let drop_sql = format!("DROP SCHEMA IF EXISTS \"{schema}\" CASCADE");
-    sqlx::query(&format!("CREATE SCHEMA \"{schema}\""))
-        .execute(&admin)
-        .await
-        .expect("create disposable test schema");
-    let search_path = format!("SET search_path TO \"{schema}\"");
-    let pool = PgPoolOptions::new()
-        .max_connections(5)
-        .after_connect(move |conn, _meta| {
-            let sql = search_path.clone();
-            Box::pin(async move {
-                conn.execute(sql.as_str()).await?;
-                Ok(())
-            })
-        })
-        .connect(&url)
-        .await;
-    let result = match pool {
-        Ok(pool) => {
-            let inner = pool.clone();
-            let result = tokio::spawn(async move {
-                migrate(&inner)
-                    .await
-                    .expect("migrate the disposable test schema");
-                body(inner).await;
-            })
-            .await;
-            pool.close().await;
-            result
-        }
-        Err(err) => {
-            sqlx::query(&drop_sql).execute(&admin).await.ok();
-            panic!("connect pool to disposable test schema: {err}");
-        }
-    };
-    sqlx::query(&drop_sql)
-        .execute(&admin)
-        .await
-        .expect("drop disposable test schema");
-    admin.close().await;
-    if let Err(err) = result {
-        std::panic::resume_unwind(err.into_panic());
     }
 }
 
@@ -256,13 +173,13 @@ async fn seeding_inserts_every_fixture_once_and_is_idempotent() {
         assert_eq!(
             numbers.len(),
             7,
-            "after seeding: expected 7 distinct puzzle numbers, got {numbers:?}"
+            "after seeding: expected 7 distinct challenge numbers, got {numbers:?}"
         );
     })
     .await;
 }
 
-/// The stored puzzle numbers of every fixture date.
+/// The stored challenge numbers of every fixture date.
 async fn stored_numbers(pool: &PgPool) -> Vec<u32> {
     let mut numbers = Vec::new();
     for (date, _) in SCHEDULE {
@@ -274,9 +191,9 @@ async fn stored_numbers(pool: &PgPool) -> Vec<u32> {
 }
 
 #[tokio::test]
-async fn seeded_puzzles_are_public_without_private_fields() {
+async fn seeded_challenges_are_public_without_private_fields() {
     with_test_db(
-        "seeded_puzzles_are_public_without_private_fields",
+        "seeded_challenges_are_public_without_private_fields",
         |pool| async move {
             seed_fixtures(&pool)
                 .await
@@ -309,7 +226,7 @@ async fn seeded_puzzles_are_public_without_private_fields() {
                 for key in PRIVATE_KEYS {
                     assert!(
                         json.get(key).is_none(),
-                        "{call}: private key {key:?} must not be in the public puzzle, got {json}"
+                        "{call}: private key {key:?} must not be in the public challenge, got {json}"
                     );
                 }
             }

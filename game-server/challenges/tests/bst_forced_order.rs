@@ -11,7 +11,7 @@ fn inst(values: &[i32], target_tree: &[i32]) -> Instance {
     }
 }
 
-/// Puzzle #24: 6(3(1( , 2), 5(4, )), 9(7( , 8), 10)).
+/// Challenge #24: 6(3(1( , 2), 5(4, )), 9(7( , 8), 10)).
 const FORCED_24_TARGET: [i32; 10] = [6, 3, 1, 2, 5, 4, 9, 7, 8, 10];
 
 fn forced_24() -> Instance {
@@ -210,35 +210,35 @@ fn same_keys_in_a_different_shape_is_unsolved() {
 
 #[test]
 fn forced_24_arrangements() {
-    let puzzle = forced_24();
+    let challenge = forced_24();
     let start = Expect {
         run: 4,
         solved: false,
         preorder: &[3, 1, 2, 6, 5, 4, 9, 7, 8, 10],
         visits: 21,
     };
-    check(&puzzle, &[3, 6, 9, 1, 2, 5, 4, 7, 8, 10], start);
+    check(&challenge, &[3, 6, 9, 1, 2, 5, 4, 7, 8, 10], start);
     let solved = Expect {
         run: 6,
         solved: true,
         preorder: &FORCED_24_TARGET,
         visits: 19,
     };
-    check(&puzzle, &[6, 3, 9, 5, 1, 2, 4, 7, 8, 10], solved);
+    check(&challenge, &[6, 3, 9, 5, 1, 2, 4, 7, 8, 10], solved);
     let long_run = Expect {
         run: 7,
         solved: false,
         preorder: &[6, 3, 1, 2, 4, 5, 9, 7, 8, 10],
         visits: 19,
     };
-    check(&puzzle, &[6, 9, 3, 1, 2, 4, 5, 7, 8, 10], long_run);
+    check(&challenge, &[6, 9, 3, 1, 2, 4, 5, 7, 8, 10], long_run);
     let ascending = Expect {
         run: 10,
         solved: false,
         preorder: &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
         visits: 45,
     };
-    check(&puzzle, &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10], ascending);
+    check(&challenge, &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10], ascending);
 }
 
 #[test]
@@ -250,7 +250,7 @@ fn input_errors_come_in_order_and_agree() {
         ("too long", &[4, 1, 3, 2, 5, 6], wl(6)),
         ("wrong length beats everything", &[9, 9], wl(2)),
         (
-            "value not in the puzzle",
+            "value not in the challenge",
             &[9, 1, 3, 2, 5],
             InputError::NotAPermutation,
         ),

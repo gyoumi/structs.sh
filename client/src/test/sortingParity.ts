@@ -6,7 +6,7 @@ import GraphicalSortsElement from '@/visualiser-src/sorting-visualiser/data-stru
 
 /** Shared setup for the sorting visualiser vs challenges wasm parity tests. Needs `pnpm run challenges` first. */
 
-const PUZZLES_WASM_PATH = resolve(__dirname, '../Services/challenges/generated/challenges.wasm');
+const CHALLENGES_WASM_PATH = resolve(__dirname, '../Services/challenges/generated/challenges.wasm');
 
 /** Stubs the SVG layout calls jsdom lacks, and serves challenges.wasm from disk (jsdom resolves it to http:). */
 export const setUpParityEnvironment = () => {
@@ -20,7 +20,7 @@ export const setUpParityEnvironment = () => {
       const href =
         typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
       if (href.endsWith('/challenges.wasm')) {
-        const bytes = await readFile(PUZZLES_WASM_PATH);
+        const bytes = await readFile(CHALLENGES_WASM_PATH);
         return new Response(new Uint8Array(bytes), {
           status: 200,
           headers: { 'content-type': 'application/wasm' },

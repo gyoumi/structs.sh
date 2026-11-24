@@ -204,11 +204,11 @@ fn duplicate_keys_are_ignored() {
 
 #[test]
 fn avl_23_arrangements() {
-    let puzzle = avl_23();
+    let challenge = avl_23();
     // start: LR at 5 (2), RL at 5 (2), RR at 3 (1).
-    check(&puzzle, &[5, 1, 3, 8, 6, 7, 2, 4], 5);
+    check(&challenge, &[5, 1, 3, 8, 6, 7, 2, 4], 5);
     // doubles: LR at 5 (2), RL at 5 (2), RR at 2 (1), LR at 5 (2).
-    check(&puzzle, &[5, 1, 2, 8, 6, 7, 3, 4], 7);
+    check(&challenge, &[5, 1, 2, 8, 6, 7, 3, 4], 7);
 }
 
 #[test]

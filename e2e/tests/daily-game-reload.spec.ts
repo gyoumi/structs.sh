@@ -6,7 +6,7 @@ import { contentDifferences, type DailyStageView, type StageView } from '../supp
 import { UPSET_25 } from '../support/daily-tree-fixtures';
 
 /**
- * Step 3b promised that a refresh shows the finished puzzle again. After a reload, a day with saved tries
+ * Step 3b promised that a refresh shows the finished challenge again. After a reload, a day with saved tries
  * shows its most recent try's run as it looked right after that run ended: the live counter shows that
  * try's count, the playback sits at the run's last step ("Step N of N"), the stage draws the run's last
  * frame, and Replay, rewinding and stepping back work as they did before the reload. This holds whether the
@@ -33,7 +33,7 @@ const swapRunSkip = async (dailyPage: DailyPage, swap: readonly [number, number]
 const stepBackFromEnd = async (dailyPage: DailyPage, dailyStage: DailyStageView, from: number, context: string) => {
   const back = await dailyPage.stepBackUntilCounterDrops(from, context);
   const step = await dailyStage.stepText(`${context}, after stepping back`);
-  await dailyPage.skipToEnd(`${context}, back to the end`);
+  await dailyPage.transport.skipToEnd(`${context}, back to the end`);
   return { counter: back.counter, steps: back.steps, step };
 };
 
@@ -83,16 +83,16 @@ test.describe('daily game reload', () => {
       backAfter,
       `${reloaded}: Previous step from the end should step back through the restored run as it did before the reload (step readout and Comparisons where it first drops below ${goal.count})`,
     ).toEqual(backBefore);
-    await dailyPage.rewind();
+    await dailyPage.transport.rewind();
     await dailyPage.expectStatusNumber('Comparisons', 0, `${reloaded}: Back to the start should rewind the restored run to 0 comparisons`);
-    await dailyPage.skipToEnd(reloaded);
+    await dailyPage.transport.skipToEnd(reloaded);
     await dailyPage.expectStatusNumber('Comparisons', goal.count, `${reloaded}: Skip to the end should bring Comparisons back to ${goal.count}`);
 
-    await dailyPage.replayPlayback();
+    await dailyPage.transport.replay();
     await expect
       .poll(() => dailyPage.roundedProgress(reloaded), { message: `${reloaded}: Replay should play the restored run again from the start (Animation progress below 100)` })
       .toBeLessThan(100);
-    await dailyPage.skipToEnd(`${reloaded}, after Replay`);
+    await dailyPage.transport.skipToEnd(`${reloaded}, after Replay`);
     await dailyPage.expectStatusNumber('Tries left', 2, `${reloaded}: replaying the restored run must not use a try`);
   });
 
@@ -125,9 +125,9 @@ test.describe('daily game reload', () => {
       backAfter,
       `${reloaded}: Previous step from the end should step back through the restored run as it did before the reload`,
     ).toEqual(backBefore);
-    await dailyPage.rewind();
+    await dailyPage.transport.rewind();
     await dailyPage.expectStatusNumber('Comparisons', 0, `${reloaded}: Back to the start should rewind the restored run to 0 comparisons`);
-    await dailyPage.skipToEnd(reloaded);
+    await dailyPage.transport.skipToEnd(reloaded);
     await dailyPage.expectStatusNumber('Comparisons', last.count, `${reloaded}: Skip to the end should bring Comparisons back to ${last.count}`);
     expect(await dailyPage.canShare(), `${reloaded}: Share should stay enabled on the finished day`).toBe(true);
   });
@@ -149,7 +149,7 @@ test.describe('daily game reload', () => {
     await dailyTemplate.stages.expectTree('BST', start.bstTree, `${reloaded}: the BST stage should draw the last try's final BST`);
     await dailyTemplate.stages.expectTree('AVL tree', start.avlTree, `${reloaded}: the AVL tree stage should draw the last try's final AVL tree`);
     await expectRunRestored(dailyPage, dailyStage, before, reloaded);
-    await dailyPage.rewind();
+    await dailyPage.transport.rewind();
     await dailyPage.expectStatusNumber('BST nodes passed', 0, `${reloaded}: Back to the start should rewind both stages (BST nodes passed 0)`);
     await dailyPage.expectStatusNumber('AVL nodes passed', 0, `${reloaded}: Back to the start should rewind both stages (AVL nodes passed 0)`);
   });

@@ -6,7 +6,7 @@ use serde_json::json;
 
 // Costs are worked by hand with the rule in docs/puzzle-ideas.md ("Linked list costs"; no tail
 // pointer): insert(v, 0) walks 0, insert(v, i) walks min(i, length before) and lands there,
-// delete(i) walks i + 1. Cost = operations + nodes walked. Puzzle #26 matches
+// delete(i) walks i + 1. Cost = operations + nodes walked. Challenge #26 matches
 // `e2e/support/daily-list-fixtures.ts` (DRIFT_26).
 
 fn inst(start: &[i32], target: &[i32]) -> Instance {
@@ -108,22 +108,22 @@ fn template_id() {
 
 #[test]
 fn drift_26_tries() {
-    let puzzle = drift_26();
+    let challenge = drift_26();
     // unsolved: insert(5, 0) walks 0.
-    check(&puzzle, &[ins(5, 0)], (1, 0, &[5, 8, 3, 6, 1]));
+    check(&challenge, &[ins(5, 0)], (1, 0, &[5, 8, 3, 6, 1]));
     // cheap: delete(0) walks 1, insert(5, 2) walks min(2, 3) = 2.
-    check(&puzzle, &[del(0), ins(5, 2)], (2, 3, &[3, 6, 5, 1]));
+    check(&challenge, &[del(0), ins(5, 2)], (2, 3, &[3, 6, 5, 1]));
     // costly: delete(3) 4 + delete(0) 1 + insert(5, 2) 2 + insert(1, 3) 3.
     let costly = [del(3), del(0), ins(5, 2), ins(1, 3)];
-    check(&puzzle, &costly, (4, 10, &[3, 6, 5, 1]));
+    check(&challenge, &costly, (4, 10, &[3, 6, 5, 1]));
 }
 
 #[test]
 fn exact_log_for_drift_26_cheap() {
-    let puzzle = drift_26();
+    let challenge = drift_26();
     let input = [del(0), ins(5, 2)];
     assert_eq!(
-        log(&puzzle, &input),
+        log(&challenge, &input),
         [
             "Visit(8 at 0)",
             "Delete(8 at 0)",
@@ -132,7 +132,7 @@ fn exact_log_for_drift_26_cheap() {
             "Insert(5 at 2)"
         ],
         "{}: each operation logs the nodes its pointer lands on, front to back, then the insert or delete",
-        call(&puzzle, &input)
+        call(&challenge, &input)
     );
 }
 

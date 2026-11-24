@@ -1,5 +1,8 @@
-//! Pure model tests: template mapping, scoring, and the JSON the browser
-//! reads (`client/src/daily/puzzle.ts`). No database needed.
+//! Pure model tests: template mapping, scoring, `to_public`, and the JSON
+//! that instances and solutions are stored as. No database needed.
+//!
+//! The JSON the server sends is pinned in `api/tests/bindings.rs`, and the
+//! conversion to it in `server/tests/convert.rs`.
 
 mod common;
 
@@ -12,26 +15,9 @@ use daily_challenges::{
 use daily_db::{
     ChallengeInstance, ChallengeSolution, DailyChallengeRecord, DbError, PublicChallenge,
 };
-use serde_json::{Value, json};
+use serde_json::json;
 
 const SEEDS: [u64; 7] = [1, 2, 3, 4, 5, 6, 7];
-
-/// Keys that hold answers or generation internals and must never reach the browser.
-const PRIVATE_KEYS: [&str; 13] = [
-    "best",
-    "bestScore",
-    "best_score",
-    "bestSolution",
-    "best_solution",
-    "seed",
-    "botGoalRate",
-    "botBestRate",
-    "bot_goal_rate",
-    "bot_best_rate",
-    "templateVersion",
-    "template_version",
-    "rules",
-];
 
 #[rustfmt::skip]
 fn from_cases() -> Vec<(ChallengeInstance, ChallengeInstance)> {
@@ -162,76 +148,6 @@ fn score_solution_rejects_inputs_the_template_rejects() {
     }
 }
 
-/// One public puzzle per template, with the exact JSON `parsePuzzle` accepts.
-#[rustfmt::skip]
-fn public_cases() -> Vec<(PublicChallenge, Value)> {
-    let public = |number, instance, goal| PublicChallenge { number, instance, goal, date: date(2026, 11, 24) };
-    vec![
-        (public(1, ChallengeInstance::Quicksort { values: vec![5, 1, 4], fixed: vec![1] }, 6),
-         json!({"number": 1, "template": "quicksort-most-comparisons", "values": [5, 1, 4], "fixed": [1], "goal": 6, "date": "2026-11-24"})),
-        (public(2, ChallengeInstance::Bubble { values: vec![3, 2, 1], fixed: vec![], target_passes: 2 }, 3),
-         json!({"number": 2, "template": "bubble-exact-passes", "values": [3, 2, 1], "fixed": [], "targetPasses": 2, "goal": 3, "date": "2026-11-24"})),
-        (public(3, ChallengeInstance::InsertionBeatsMerge { values: vec![-2, 7], fixed: vec![0] }, 1),
-         json!({"number": 3, "template": "insertion-beats-merge", "values": [-2, 7], "fixed": [0], "goal": 1, "date": "2026-11-24"})),
-        (public(4, ChallengeInstance::AvlRotations { values: vec![1, 2, 3], fixed: vec![2] }, 2),
-         json!({"number": 4, "template": "avl-most-rotations", "values": [1, 2, 3], "fixed": [2], "goal": 2, "date": "2026-11-24"})),
-        (public(5, ChallengeInstance::BstForcedOrder { values: vec![1, 3, 2], target_tree: vec![2, 1, 3] }, 2),
-         json!({"number": 5, "template": "bst-forced-order", "values": [1, 3, 2], "targetTree": [2, 1, 3], "goal": 2, "date": "2026-11-24"})),
-        (public(6, ChallengeInstance::UpsetBstBeatsAvl { values: vec![9, 8, 7], fixed: vec![0, 2] }, 4),
-         json!({"number": 6, "template": "upset-bst-beats-avl", "values": [9, 8, 7], "fixed": [0, 2], "goal": 4, "date": "2026-11-24"})),
-        (public(7, ChallengeInstance::LinkedListIndexDrift { start: vec![1, 2, 3], target: vec![3, 4] }, 11),
-         json!({"number": 7, "template": "linked-list-index-drift", "start": [1, 2, 3], "target": [3, 4], "goal": 11, "date": "2026-11-24"})),
-    ]
-}
-
-/// Every private key found anywhere in `value`, at any depth.
-fn private_keys_in(value: &Value) -> Vec<String> {
-    match value {
-        Value::Object(map) => map
-            .iter()
-            .flat_map(|(key, inner)| {
-                let own = PRIVATE_KEYS.contains(&key.as_str()).then(|| key.clone());
-                own.into_iter().chain(private_keys_in(inner))
-            })
-            .collect(),
-        Value::Array(items) => items.iter().flat_map(private_keys_in).collect(),
-        _ => Vec::new(),
-    }
-}
-
-#[test]
-fn public_puzzle_json_matches_the_client_contract_exactly() {
-    for (puzzle, want) in public_cases() {
-        let got = serde_json::to_value(&puzzle).expect("PublicChallenge serializes");
-        assert_eq!(
-            got,
-            want,
-            "PublicChallenge JSON for {} (exact keys and values)",
-            puzzle.instance.template_id()
-        );
-    }
-}
-
-#[test]
-fn public_puzzle_json_omits_keys_the_client_rejects() {
-    for (puzzle, _) in public_cases() {
-        let got = serde_json::to_value(&puzzle).expect("PublicChallenge serializes");
-        let id = puzzle.instance.template_id();
-        let has = |key: &str| got.get(key).is_some();
-        match id {
-            "bst-forced-order" => assert!(!has("fixed"), "{id} JSON must leave `fixed` out: {got}"),
-            "linked-list-index-drift" => assert!(
-                !has("values") && !has("fixed"),
-                "{id} JSON must have no `values` or `fixed` (parseIndexDrift rejects them): {got}"
-            ),
-            _ => assert!(
-                has("values") && has("fixed"),
-                "{id} JSON needs `values` and `fixed`: {got}"
-            ),
-        }
-    }
-}
-
 /// A full record built from a real sample, with distinctive private values.
 fn record(sample: &Sample, number: u32) -> DailyChallengeRecord {
     let (best_solution, best_score) = sample.solved();
@@ -251,7 +167,7 @@ fn record(sample: &Sample, number: u32) -> DailyChallengeRecord {
 }
 
 #[test]
-fn to_public_maps_goal_to_par_and_challenge_date_to_date() {
+fn to_public_keeps_number_instance_goal_and_maps_challenge_date_to_date() {
     for (i, sample) in samples(SEEDS).iter().enumerate() {
         let record = record(sample, 40 + i as u32);
         let public = record.to_public();
@@ -263,62 +179,28 @@ fn to_public_maps_goal_to_par_and_challenge_date_to_date() {
         };
         assert_eq!(
             public, want,
-            "{}: to_public() should keep number/instance, goal = goal, date = challenge_date",
+            "{}: to_public() of {record:?} should keep number, instance and goal, and set \
+             date = challenge_date; expected {want:?}, got {public:?}",
             sample.template_id
         );
     }
 }
 
 #[test]
-fn to_public_json_never_leaks_private_fields() {
-    for sample in samples(SEEDS) {
-        let record = record(&sample, 1);
-        let json = serde_json::to_value(record.to_public()).expect("PublicChallenge serializes");
-        let leaked = private_keys_in(&json);
-        assert!(
-            leaked.is_empty(),
-            "{}: public JSON leaked {leaked:?}: {json}",
-            sample.template_id
-        );
-        let text = json.to_string();
-        assert!(
-            !text.contains("9876543210123"),
-            "{}: public JSON contains the seed: {text}",
-            sample.template_id
-        );
+fn every_template_instance_round_trips_through_json() {
+    for ((instance, _), id) in from_cases().into_iter().zip(TEMPLATE_IDS) {
+        let text = serde_json::to_string(&instance).expect("ChallengeInstance serializes");
+        let back: ChallengeInstance = serde_json::from_str(&text)
+            .unwrap_or_else(|e| panic!("{id}: deserialize {text} into ChallengeInstance: {e}"));
         assert_eq!(
-            json["date"], "2027-02-28",
-            "{}: date as YYYY-MM-DD",
-            sample.template_id
-        );
-        assert_eq!(
-            json["goal"], record.goal,
-            "{}: goal is the goal",
-            sample.template_id
+            back, instance,
+            "{id}: ChallengeInstance round trip via {text}: expected {instance:?}, got {back:?}"
         );
     }
 }
 
 #[test]
-fn public_puzzle_and_instance_round_trip_through_json() {
-    for (puzzle, _) in public_cases() {
-        let text = serde_json::to_string(&puzzle).expect("PublicChallenge serializes");
-        let back: PublicChallenge =
-            serde_json::from_str(&text).expect("PublicChallenge deserializes");
-        assert_eq!(back, puzzle, "PublicChallenge round trip via {text}");
-
-        let text = serde_json::to_string(&puzzle.instance).expect("ChallengeInstance serializes");
-        let back: ChallengeInstance =
-            serde_json::from_str(&text).expect("ChallengeInstance deserializes");
-        assert_eq!(
-            back, puzzle.instance,
-            "ChallengeInstance round trip via {text}"
-        );
-    }
-}
-
-#[test]
-fn puzzle_solution_json_shape_and_round_trip() {
+fn challenge_solution_json_shape_and_round_trip() {
     let cases = [
         (
             ChallengeSolution::Arrangement(vec![3, -1, 2]),
@@ -337,10 +219,16 @@ fn puzzle_solution_json_shape_and_round_trip() {
     ];
     for (solution, want) in cases {
         let got = serde_json::to_value(&solution).expect("ChallengeSolution serializes");
-        assert_eq!(got, want, "ChallengeSolution JSON shape for {solution:?}");
-        let back: ChallengeSolution =
-            serde_json::from_value(got).expect("ChallengeSolution deserializes");
-        assert_eq!(back, solution, "ChallengeSolution round trip");
+        assert_eq!(
+            got, want,
+            "serde_json::to_value({solution:?}): expected {want}, got {got}"
+        );
+        let back: ChallengeSolution = serde_json::from_value(got.clone())
+            .unwrap_or_else(|e| panic!("deserialize {got} into ChallengeSolution: {e}"));
+        assert_eq!(
+            back, solution,
+            "ChallengeSolution round trip via {got}: expected {solution:?}, got {back:?}"
+        );
     }
 }
 
@@ -350,38 +238,45 @@ fn validate_shape_accepts_duplicate_bst_values_and_rejects_bad_shapes() {
         values: vec![1, 2, 2, 3],
         target_tree: vec![1, 2, 3],
     };
+    let got = dup_bst.validate_shape();
     assert!(
-        dup_bst.validate_shape().is_ok(),
-        "duplicate input values with valid distinct-key preorder match browser parser"
+        got.is_ok(),
+        "validate_shape() of {dup_bst:?} (duplicate values, distinct-key preorder): \
+         expected Ok, got {got:?}"
     );
 
     let non_canonical = ChallengeInstance::BstForcedOrder {
         values: vec![1, 2, 3],
         target_tree: vec![2, 3, 1],
     };
-    let err = non_canonical
-        .validate_shape()
-        .expect_err("non-canonical preorder must fail validate_shape");
+    let got = non_canonical.validate_shape();
     assert!(
-        matches!(err, DbError::InvalidData(ref msg) if msg.contains("targetTree")),
-        "unexpected error: {err:?}"
+        matches!(got, Err(DbError::InvalidData(ref msg)) if msg.contains("targetTree")),
+        "validate_shape() of {non_canonical:?} (not a BST preorder): expected \
+         Err(InvalidData) naming targetTree, got {got:?}"
     );
 
-    let empty_qs = ChallengeInstance::Quicksort {
-        values: vec![],
-        fixed: vec![],
-    };
-    assert!(matches!(
-        empty_qs.validate_shape(),
-        Err(DbError::InvalidData(_))
-    ));
-
-    let bad_fixed = ChallengeInstance::Quicksort {
-        values: vec![1, 2],
-        fixed: vec![2],
-    };
-    assert!(matches!(
-        bad_fixed.validate_shape(),
-        Err(DbError::InvalidData(_))
-    ));
+    let rejected = [
+        (
+            "quicksort with no values",
+            ChallengeInstance::Quicksort {
+                values: vec![],
+                fixed: vec![],
+            },
+        ),
+        (
+            "quicksort with fixed slot 2 of 2 values",
+            ChallengeInstance::Quicksort {
+                values: vec![1, 2],
+                fixed: vec![2],
+            },
+        ),
+    ];
+    for (why, instance) in rejected {
+        let got = instance.validate_shape();
+        assert!(
+            matches!(got, Err(DbError::InvalidData(_))),
+            "validate_shape() of {instance:?} ({why}): expected Err(InvalidData), got {got:?}"
+        );
+    }
 }

@@ -14,7 +14,7 @@ test.describe('daily game', () => {
     const ctx = `${DAILY_12.name} ${fmt(DAILY_12.start.values)}`;
     const sorted = [...DAILY_12.start.values].sort((a, b) => a - b);
     await dailyPage.expectPlayDisabledBeforeRun(ctx);
-    expect(await dailyPage.speed(), `${ctx}: default playback speed on /daily should be 1×`).toBe(1);
+    expect(await dailyPage.transport.speed(), `${ctx}: default playback speed on /daily should be 1×`).toBe(1);
     const initialCounter = await dailyPage.counter(ctx);
     expect(
       initialCounter,
@@ -32,7 +32,7 @@ test.describe('daily game', () => {
       .toBeGreaterThan(0);
 
     const runEnabledWhileAnimating = await dailyPage.canRun();
-    await dailyPage.pausePlayback();
+    await dailyPage.transport.pause();
     const midProgress = await dailyPage.roundedProgress();
     const midCounter = await dailyPage.counter(ctx);
     expect(
@@ -44,8 +44,8 @@ test.describe('daily game', () => {
       `${ctx}: while Run is animating (checked before Pause at rounded progress ${midProgress}%, comparisons ${midCounter}/${DAILY_12.start.count}), Run button should be disabled`,
     ).toBe(false);
 
-    await dailyPage.rewind();
-    await dailyPage.setSpeed(5);
+    await dailyPage.transport.rewind();
+    await dailyPage.transport.setSpeed(5);
     await expect
       .poll(() => dailyPage.counter(ctx), {
         intervals: [50],
@@ -109,7 +109,7 @@ test.describe('daily game', () => {
     await dailyPage.serve(DAILY_7.challenge);
     await dailyPage.open();
 
-    await dailyPage.setSpeed(5);
+    await dailyPage.transport.setSpeed(5);
     await dailyPage.run();
     await dailyPage.waitForRunToFinish();
 
@@ -129,20 +129,20 @@ test.describe('daily game', () => {
 
     const ctx = `${DAILY_12.name} ${fmt(DAILY_12.start.values)}`;
     await dailyPage.run();
-    await dailyPage.pausePlayback();
+    await dailyPage.transport.pause();
 
     const pausedCounter = await dailyPage.counter(ctx);
     expect(await dailyPage.roundedProgress(), `${ctx}: after Run and Pause, rounded Animation progress should be below 100 before Play`).toBeLessThan(100);
     expect(pausedCounter, `${ctx}: after Run and Pause, Comparisons counter should be below ${DAILY_12.start.count} before Play`).toBeLessThan(DAILY_12.start.count);
 
-    await dailyPage.playPlayback();
+    await dailyPage.transport.play();
     await expect
       .poll(() => dailyPage.counter(ctx), {
         intervals: [50],
         message: `${ctx}: after Pause, pressing Play should resume playback and raise Comparisons counter above ${pausedCounter} without Next step`,
       })
       .toBeGreaterThan(pausedCounter);
-    await dailyPage.pausePlayback();
+    await dailyPage.transport.pause();
 
     expect(await dailyPage.roundedProgress(), `${ctx}: after Play and Pause, rounded Animation progress should remain below 100 before Skip`).toBeLessThan(100);
     expect(await dailyPage.counter(ctx), `${ctx}: after Play and Pause, Comparisons counter should remain below ${DAILY_12.start.count} before Skip`).toBeLessThan(DAILY_12.start.count);
@@ -170,8 +170,8 @@ test.describe('daily game', () => {
     expect(stepped.counter, `${ctx}: Previous step (${stepped.steps} click(s)) from ${atEnd} should lower Comparisons counter below ${atEnd}`).toBeLessThan(atEnd);
     expect(stepped.counter, `${ctx}: Comparisons counter after stepping back should stay >= 0`).toBeGreaterThanOrEqual(0);
 
-    await dailyPage.skipToEnd(ctx);
-    await dailyPage.replayPlayback();
+    await dailyPage.transport.skipToEnd(ctx);
+    await dailyPage.transport.replay();
     let afterReplay = 100;
     await expect
       .poll(
@@ -191,20 +191,20 @@ test.describe('daily game', () => {
         message: `${ctx}: after Replay restarts playback at rounded Animation progress ${afterReplay}%, rounded Animation progress should rise above ${afterReplay}`,
       })
       .toBeGreaterThan(afterReplay);
-    await dailyPage.skipToEnd(ctx);
+    await dailyPage.transport.skipToEnd(ctx);
     await dailyPage.expectStatusNumber(
       'Tries left',
       2,
       `${ctx}: a replayed run that finishes must not use a try (Tries left should stay 2)`,
     );
 
-    const speeds = await dailyPage.speeds();
+    const speeds = await dailyPage.transport.speeds();
     expect(
       speeds,
       `${ctx}: Speed combobox should offer 0.25× through 5× (got [${speeds.join(', ')}])`,
     ).toEqual([0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 3, 4, 5]);
-    await dailyPage.setSpeed(5);
-    expect(await dailyPage.speed(), `${ctx}: selecting 5× in the Speed combobox should stick (expected 5)`).toBe(5);
+    await dailyPage.transport.setSpeed(5);
+    expect(await dailyPage.transport.speed(), `${ctx}: selecting 5× in the Speed combobox should stick (expected 5)`).toBe(5);
   });
 
   test('reaching the goal is announced, and the next try is still offered', async ({ dailyPage }) => {

@@ -1,36 +1,37 @@
 import { expect, type Locator, type Page } from '@playwright/test';
+import { TransportControls } from './transport-controls';
 
 /**
  * The /daily page's ARIA locators and the small read/click helpers that
  * `DailyPage` and its helper modules (`daily-layout.ts`, `daily-stepping.ts`) share.
  *
- * See "The daily game" in e2e/README.md for the page contract these locators rely on.
+ * See "The daily game" in e2e/README.md for the page contract these locators rely on. The playback
+ * locators and progress come from `TransportControls`, which the visualisers share.
  * Tests use `DailyPage`, not this class.
  */
 export class DailyLocators {
-  constructor(readonly page: Page) {}
+  readonly transport: TransportControls;
+
+  constructor(readonly page: Page) {
+    this.transport = new TransportControls(page);
+  }
 
   get rulesRegion(): Locator { return this.page.getByRole('region', { name: 'Challenge rules' }); }
   get arrayGroup(): Locator { return this.page.getByRole('group', { name: 'Challenge array' }); }
   get slots(): Locator { return this.arrayGroup.getByRole('button'); }
   slot(index: number): Locator { return this.slots.nth(index); }
   button(name: string): Locator { return this.page.getByRole('button', { name, exact: true }); }
-  get playback(): Locator { return this.page.getByRole('toolbar', { name: 'Playback' }); }
-  playbackButton(name: string): Locator { return this.playback.getByRole('button', { name }); }
-  get timeline(): Locator { return this.page.getByRole('slider', { name: 'Animation progress' }); }
-  get speedPicker(): Locator { return this.page.getByRole('combobox', { name: 'Speed' }); }
+  get playback(): Locator { return this.transport.toolbar; }
+  playbackButton(name: string): Locator { return this.transport.button(name); }
+  get timeline(): Locator { return this.transport.timeline; }
   status(name: string): Locator { return this.page.getByRole('status', { name, exact: true }); }
 
   async progress(context?: string): Promise<number> {
-    const prefix = context ? `${context}: ` : '';
-    await this.expectVisible(this.timeline, `${prefix}Animation progress slider`, 'reading playback progress');
-    const ariaNow = await this.timeline.getAttribute('aria-valuenow');
-    if (ariaNow !== null && ariaNow.trim() !== '') return Number(ariaNow);
-    return Number(await this.timeline.inputValue());
+    return this.transport.progress(context);
   }
 
   async roundedProgress(context?: string): Promise<number> {
-    return Math.round(await this.progress(context));
+    return this.transport.roundedProgress(context);
   }
 
   async counter(context?: string): Promise<number> {

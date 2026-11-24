@@ -20,7 +20,7 @@ export type { DailyChallenge } from './daily-challenge-shapes';
  */
 
 /**
- * Puzzle #12: 8 values with 3 fixed slots [1, 4, 6] (values 1, 2, 4 locked).
+ * Challenge #12: 8 values with 3 fixed slots [1, 4, 6] (values 1, 2, 4 locked).
  * Over all 5! = 120 free permutations: min 23, median 29, best 36, goal 34.
  *
  * Hand-worked arrangements:
@@ -52,7 +52,7 @@ export const DAILY_12 = {
 } as const;
 
 /**
- * Puzzle #7: 8 values with 2 fixed slots [2, 5] (values 6, 5 locked).
+ * Challenge #7: 8 values with 2 fixed slots [2, 5] (values 6, 5 locked).
  * Over all 6! = 720 free permutations: min 23, median 30, best 42, goal 38.
  *
  * Hand-worked arrangement:

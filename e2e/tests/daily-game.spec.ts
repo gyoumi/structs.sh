@@ -143,8 +143,8 @@ test.describe('daily game', () => {
         .toBeGreaterThan(0);
 
       // Even on mobile where the Step card is visually hidden, assistive tech can still read the live comparison.
-      await dailyPage.pausePlayback();
-      await dailyPage.rewind();
+      await dailyPage.transport.pause();
+      await dailyPage.transport.rewind();
       await dailyPage.expectAccessibleStepComparison(ctx);
     });
 

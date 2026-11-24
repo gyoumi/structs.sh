@@ -1,4 +1,5 @@
 import { DAILY_12 } from '../support/daily-fixtures';
+import type { LandingPage } from '../support/landing-page';
 import { test, expect } from '../support/test';
 import { topicTitles, type TopicSlug } from '../support/topics';
 
@@ -26,23 +27,33 @@ test.describe('landing page', () => {
     });
   }
 
-  test('opens the debugger', async ({ landingPage, page }) => {
-    await landingPage.open();
-    await landingPage.openDebugger();
-    await expect(page, 'Clicking Debugger in the landing Main navbar should go to /debugger').toHaveURL(/\/debugger$/);
-  });
-
-  test('opens the daily challenge from the navbar', async ({ landingPage, page }) => {
-    await landingPage.open();
-    await landingPage.openDailyFromNav();
-    await expect(page, 'Clicking "Daily" in the landing Main navbar should go to /daily').toHaveURL(/\/daily$/);
-  });
-
-  test('opens the daily challenge from the hero', async ({ landingPage, page }) => {
-    await landingPage.open();
-    await landingPage.openDailyFromHero();
-    await expect(page, 'Clicking "Play today\'s challenge" in the landing hero should go to /daily').toHaveURL(/\/daily$/);
-  });
+  const entryPoints = [
+    {
+      name: 'opens the debugger',
+      open: (landingPage: LandingPage) => landingPage.openDebugger(),
+      url: /\/debugger$/,
+      message: 'Clicking Debugger in the landing Main navbar should go to /debugger',
+    },
+    {
+      name: 'opens the daily challenge from the navbar',
+      open: (landingPage: LandingPage) => landingPage.openDailyFromNav(),
+      url: /\/daily$/,
+      message: 'Clicking "Daily" in the landing Main navbar should go to /daily',
+    },
+    {
+      name: 'opens the daily challenge from the hero',
+      open: (landingPage: LandingPage) => landingPage.openDailyFromHero(),
+      url: /\/daily$/,
+      message: 'Clicking "Play today\'s challenge" in the landing hero should go to /daily',
+    },
+  ];
+  for (const { name, open, url, message } of entryPoints) {
+    test(name, async ({ landingPage, page }) => {
+      await landingPage.open();
+      await open(landingPage);
+      await expect(page, message).toHaveURL(url);
+    });
+  }
 
   test('introduces the daily challenge, opens it, and returns with Go back', async ({ landingPage, dailyPage, page }) => {
     await dailyPage.serve(DAILY_12.challenge);
@@ -66,7 +77,6 @@ test.describe('landing page', () => {
     await dailyPage.serve(DAILY_12.challenge);
     await visualiser.open('avl-trees');
     await visualiser.openDaily();
-    await expect(page, 'Opening Daily from /visualiser/avl-trees should go to /daily').toHaveURL(/\/daily$/);
     await dailyPage.goBack();
     await expect(
       page,

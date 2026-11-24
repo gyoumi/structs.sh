@@ -1,122 +1,33 @@
-//! Helpers shared by the `daily-server` integration tests: a disposable
-//! migrated Postgres schema per test, real template puzzles to seed it with,
-//! and a one-shot HTTP call against the router.
+//! Helpers shared by the `daily-server` integration tests: the `daily-db`
+//! test helpers (a disposable migrated Postgres schema per test, real
+//! template challenges, date parsers), scheduling challenges, and a
+//! one-shot HTTP call against the router.
 #![allow(dead_code)]
 
-/// The real-template fixtures shared with the `daily-db` tests.
+/// The `daily-db` test helpers, shared through `#[path]`.
 #[path = "../../../db/tests/common/mod.rs"]
 pub mod fixtures;
-
-use std::sync::atomic::{AtomicU64, Ordering};
 
 use axum::Router;
 use axum::body::{Body, Bytes};
 use axum::http::{HeaderMap, Method, Request, StatusCode};
 use chrono::NaiveDate;
-use daily_db::{InsertOutcome, PublicChallenge, insert_challenge, migrate};
+use daily_db::{InsertOutcome, PublicChallenge, insert_challenge};
 use http_body_util::BodyExt;
-use sqlx::postgres::PgPoolOptions;
-use sqlx::{Executor, PgPool};
+use sqlx::PgPool;
 use tower::ServiceExt;
 
-/// Keys that must never appear in a served puzzle.
-pub const PRIVATE_KEYS: [&str; 8] = [
-    "seed",
-    "best",
-    "bestScore",
-    "best_score",
-    "bestSolution",
-    "botGoalRate",
-    "botBestRate",
-    "rules",
-];
+// Not every test crate that includes this module uses every re-export.
+#[allow(unused_imports)]
+pub use fixtures::{PRIVATE_KEYS, utc, with_test_db};
 
 /// Seeds for the seven launch templates, in template order.
 pub const SEEDS: [u64; 7] = [3, 5, 7, 11, 13, 17, 19];
 
-static NEXT_SCHEMA: AtomicU64 = AtomicU64::new(1);
-
-/// A migrated pool bound to a unique disposable schema.
-struct TestDb {
-    admin: PgPool,
-    pool: PgPool,
-    schema: String,
-}
-
-async fn drop_schema(admin: &PgPool, schema: &str) {
-    sqlx::query(&format!("DROP SCHEMA IF EXISTS \"{schema}\" CASCADE"))
-        .execute(admin)
-        .await
-        .expect("drop disposable test schema");
-}
-
-/// Creates a disposable migrated schema, dropping it again if setup fails,
-/// or returns `None` when `DATABASE_URL` is unset.
-async fn setup(test: &str) -> Option<TestDb> {
-    let Ok(url) = std::env::var("DATABASE_URL") else {
-        eprintln!("{test}: DATABASE_URL is not set, skipping the Postgres test");
-        return None;
-    };
-    let seq = NEXT_SCHEMA.fetch_add(1, Ordering::Relaxed);
-    let schema = format!("daily_server_test_{}_{seq}", std::process::id());
-    let admin = daily_db::connect(&url)
-        .await
-        .expect("connect to DATABASE_URL");
-    sqlx::query(&format!("CREATE SCHEMA \"{schema}\""))
-        .execute(&admin)
-        .await
-        .expect("create disposable test schema");
-    let schema_for_conn = schema.clone();
-    let pool = match PgPoolOptions::new()
-        .max_connections(5)
-        .after_connect(move |conn, _meta| {
-            let schema_name = schema_for_conn.clone();
-            Box::pin(async move {
-                conn.execute(format!("SET search_path TO \"{schema_name}\"").as_str())
-                    .await?;
-                Ok(())
-            })
-        })
-        .connect(&url)
-        .await
-    {
-        Ok(pool) => pool,
-        Err(err) => {
-            drop_schema(&admin, &schema).await;
-            admin.close().await;
-            panic!("connect pool to disposable test schema: {err}");
-        }
-    };
-    if let Err(err) = migrate(&pool).await {
-        pool.close().await;
-        drop_schema(&admin, &schema).await;
-        admin.close().await;
-        panic!("migrate the disposable test schema: {err}");
-    }
-    Some(TestDb {
-        admin,
-        pool,
-        schema,
-    })
-}
-
-/// Runs `body` against a disposable schema and drops it even when `body` panics.
-pub async fn with_test_db<F, Fut>(test: &str, body: F)
-where
-    F: FnOnce(PgPool) -> Fut + Send + 'static,
-    Fut: std::future::Future<Output = ()> + Send + 'static,
-{
-    let Some(db) = setup(test).await else {
-        return;
-    };
-    let result = tokio::spawn(body(db.pool.clone())).await;
-    db.pool.close().await;
-    drop_schema(&db.admin, &db.schema).await;
-    db.admin.close().await;
-    if let Err(err) = result {
-        std::panic::resume_unwind(err.into_panic());
-    }
-}
+/// A DSN with a recognisable user, password and database that must never be
+/// printed or served. Port 1 on loopback is closed, so it never connects.
+pub const UNREACHABLE_DSN: &str =
+    "postgres://leaky_user:s3cret-pa55word@127.0.0.1:1/structs_secret_db";
 
 /// Schedules each `(template index, day)` in `plan`, where the index follows
 /// [`fixtures::TEMPLATE_IDS`], and returns the stored public views in order.
@@ -124,8 +35,8 @@ pub async fn schedule(pool: &PgPool, plan: &[(usize, NaiveDate)]) -> Vec<PublicC
     let samples = fixtures::samples(SEEDS);
     let mut stored = Vec::new();
     for &(template, day) in plan {
-        let puzzle = fixtures::new_puzzle(&samples[template], day);
-        match insert_challenge(pool, &puzzle).await {
+        let challenge = fixtures::new_challenge(&samples[template], day);
+        match insert_challenge(pool, &challenge).await {
             Ok(InsertOutcome::Inserted(record)) => stored.push(record.to_public()),
             other => panic!(
                 "test setup: insert {} on empty date {day}: expected Inserted, got {other:?}",
@@ -169,13 +80,26 @@ impl Reply {
     }
 }
 
-/// Sends one request with `headers` through `router` without a network.
+/// Sends one request with `headers` and an empty body through `router`
+/// without a network.
 pub async fn send(router: &Router, method: Method, uri: &str, headers: &[(&str, &str)]) -> Reply {
+    send_body(router, method, uri, headers, Vec::new()).await
+}
+
+/// Sends one request with `headers` and raw `body` bytes through `router`
+/// without a network.
+pub async fn send_body(
+    router: &Router,
+    method: Method,
+    uri: &str,
+    headers: &[(&str, &str)],
+    body: Vec<u8>,
+) -> Reply {
     let mut request = Request::builder().method(method.clone()).uri(uri);
     for &(name, value) in headers {
         request = request.header(name, value);
     }
-    let request = request.body(Body::empty()).expect("build test request");
+    let request = request.body(Body::from(body)).expect("build test request");
     let response = router
         .clone()
         .oneshot(request)
