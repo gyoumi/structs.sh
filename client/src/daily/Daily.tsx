@@ -1,5 +1,5 @@
 import '@fontsource-variable/fredoka';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import logo from '@/assets/img/structs.png';
 import hero from '@/landing/HeroSection.module.css';
@@ -17,6 +17,7 @@ import {
   loadHistory,
   type PersistOutcome,
   persistPuzzleTriesLocked,
+  sameTries,
   SavedTry,
   savedTriesForPuzzle,
   streakForPuzzle,
@@ -120,16 +121,22 @@ const PuzzleView = ({ puzzle, theme }: { puzzle: Puzzle; theme: Theme }) => {
   const [history, setHistory] = useState(() => loadHistory());
   const [storageRevision, setStorageRevision] = useState(0);
   const [saveFailed, setSaveFailed] = useState(false);
+  const persistedTries = useRef(savedTriesForPuzzle(history, puzzle));
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
       if (event.key === null || event.key === HISTORY_STORAGE_KEY) {
-        setHistory(loadHistory());
-        setStorageRevision((revision) => revision + 1);
+        const nextHistory = loadHistory();
+        setHistory(nextHistory);
+        const nextTries = savedTriesForPuzzle(nextHistory, puzzle);
+        if (!sameTries(nextTries, persistedTries.current)) {
+          persistedTries.current = nextTries;
+          setStorageRevision((revision) => revision + 1);
+        }
       }
     };
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);
-  }, []);
+  }, [puzzle]);
   const dated = isIsoDate(puzzle.date);
   const initialTries = savedTriesForPuzzle(history, puzzle);
   const streak = dated ? streakForPuzzle(history, puzzle) : undefined;
@@ -140,6 +147,7 @@ const PuzzleView = ({ puzzle, theme }: { puzzle: Puzzle; theme: Theme }) => {
     saveFailed,
     onRecordTries: async (tries) => {
       const outcome = await persistPuzzleTriesLocked(puzzle, tries);
+      persistedTries.current = savedTriesForPuzzle(outcome.history, puzzle);
       setHistory(outcome.history);
       setSaveFailed(outcome.status === 'failed');
       return outcome;

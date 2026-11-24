@@ -7,6 +7,7 @@ const fmt = (values: readonly number[]) => `[${values.join(', ')}]`;
 const dated = (number: number, date: string): DatedPuzzle => ({ ...DAILY_12.puzzle, number, date });
 const header = (number: number) => `structs.sh daily #${number} · Quicksort · Goal ${DAILY_12.puzzle.par}`;
 
+const DAY_20 = dated(11, '2026-12-20');
 const DAY_21 = dated(12, '2026-12-21');
 const DAY_22 = dated(13, '2026-12-22');
 const DAY_24 = dated(15, '2026-12-24');
@@ -190,6 +191,39 @@ test.describe('daily game streaks and history', () => {
       await dailyTemplate.expectTryChips([`${DAILY_12.par.count} ⭐`], idleCtx);
       await dailyHistory.expectSyncedNotice(idleCtx);
       expect(await dailyPage.canRun(), `${idleCtx}: Run should stay enabled with 2 tries left`).toBe(true);
+    } finally {
+      await secondPage.close();
+    }
+  });
+
+  test('another day saving in another tab does not erase an unsaved in-memory try after a quota error', async ({ context, dailyPage, dailyTemplate, dailyHistory }) => {
+    await dailyHistory.serveOnly(DAY_21);
+    await dailyPage.open();
+    await swapRunSkip(dailyPage, null, `${DAY_21.date} try 1`);
+    await swapRunSkip(dailyPage, DAILY_12.par.swap, `${DAY_21.date} try 2`);
+
+    await dailyHistory.failStorageWrites();
+    await swapRunSkip(dailyPage, DAILY_12.highFromPar.swap, `${DAY_21.date} try 3 with quota full`);
+    const chips = [`${DAILY_12.start.count}`, `${DAILY_12.par.count} ⭐`, `${DAILY_12.highFromPar.count} ⭐`];
+    const failedCtx = `${DAY_21.date} after 3rd try failed to save`;
+    await dailyHistory.expectSaveFailedAlert(failedCtx);
+    await dailyHistory.expectStreak(null, `${failedCtx}: streak must not increase for an unsaved 3rd try`);
+    await dailyTemplate.expectTryChips(chips, failedCtx);
+
+    const secondPage = await context.newPage();
+    try {
+      await secondPage.route('**/api/daily', (route) =>
+        route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(DAY_20) }),
+      );
+      const secondDaily = new DailyPage(secondPage);
+      await secondDaily.open();
+      await finishDay(secondDaily, `${DAY_20.date} in second tab`);
+
+      const afterCtx = `${DAY_21.date} tab after another tab finished ${DAY_20.date}`;
+      await dailyHistory.expectStreak(1, `${afterCtx}: storage event should deliver yesterday's streak`);
+      await dailyPage.expectStatusNumber('Tries left', 0, `${afterCtx}: in-memory finished state must stay`);
+      await dailyTemplate.expectTryChips(chips, afterCtx);
+      expect(await dailyPage.canShare(), `${afterCtx}: Share must stay enabled`).toBe(true);
     } finally {
       await secondPage.close();
     }

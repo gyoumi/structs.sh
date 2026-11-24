@@ -128,6 +128,28 @@ export class DailyHistoryPage {
     ).toBeVisible();
   }
 
+  /** Makes subsequent localStorage.setItem calls in this tab throw QuotaExceededError. */
+  async failStorageWrites(): Promise<void> {
+    await this.page.evaluate(() => {
+      const storage = window.localStorage;
+      const proto = Object.getPrototypeOf(storage) as Storage;
+      Object.defineProperty(proto, 'setItem', {
+        configurable: true,
+        value: () => {
+          throw new DOMException('QuotaExceededError', 'QuotaExceededError');
+        },
+      });
+    });
+  }
+
+  /** An alert warns that progress couldn't be saved to this browser. */
+  async expectSaveFailedAlert(context: string): Promise<void> {
+    await expect(
+      this.page.getByRole('alert').filter({ hasText: /couldn['’]?t save progress/i }),
+      `${context}: an alert should warn that progress couldn't be saved`,
+    ).toBeVisible();
+  }
+
   /** An alert says the server can't be reached, with an enabled `Try again` button. */
   async expectUnreachable(context: string): Promise<void> {
     await this.expectAlert(UNREACHABLE, `${context}: an alert should say the server can't be reached`);
