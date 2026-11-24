@@ -44,7 +44,7 @@ async fn run() -> Result<String, String> {
         fixtures.inserted, fixtures.existing
     );
     if !only_fixtures() {
-        match seed_today_if_missing(&pool)
+        match seed_today_if_missing(&pool, chrono::Utc::now())
             .await
             .map_err(|err| failed("seeding today's puzzle", &err))?
         {
