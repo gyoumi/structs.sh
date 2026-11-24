@@ -118,7 +118,8 @@
 
 @media (max-width: 640px) {
   .array {
-    gap: 4px;
+    grid-template-columns: repeat(var(--mobile-slots, var(--slots)), minmax(0, 3.2rem));
+    gap: 5px;
   }
 
   .slot {

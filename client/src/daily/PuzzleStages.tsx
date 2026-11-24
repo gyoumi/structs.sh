@@ -6,8 +6,8 @@ import { canvasThemes } from '@/visualiser/canvasThemes';
 import { DualSession } from '@/visualiser/dualSession';
 import { findTopic, Topic, TopicSlug } from '@/visualiser/topics';
 import { SessionContext, useCreateSession } from '@/visualiser/useVisualiser';
-import { drawnArrangement, Rig, runArgs } from './rig';
-import type { DualStageSpec, StageMode, StagePlan, StageSpec } from './templates';
+import { drawnArrangement, Rig, runArgs, useReadoutValue } from './rig';
+import type { DualStageSpec, Readout, StageMode, StagePlan, StageSpec } from './templates';
 import styles from './Daily.module.css';
 
 const topicFor = (slug: TopicSlug): Topic => {
@@ -90,10 +90,19 @@ export const PuzzleRig = ({ plan, ...props }: Omit<RigProps, 'mode'> & { plan: S
     <SingleRig stage={plan.stage} mode={plan.mode} {...props} />
   );
 
-type PuzzleStagesProps = { rig: Rig; stageTheme: Theme };
+const StageCount = ({ rig, readout }: { rig: Rig; readout: Readout }) => {
+  const value = useReadoutValue(rig, readout.value);
+  return (
+    <span className={styles.stageCount} aria-hidden="true">
+      {value}
+    </span>
+  );
+};
+
+type PuzzleStagesProps = { rig: Rig; stageTheme: Theme; readouts?: Readout[] };
 
 /** One stage, or two side by side (stacked on a phone) in their own named regions. */
-export const PuzzleStages = ({ rig, stageTheme }: PuzzleStagesProps) => {
+export const PuzzleStages = ({ rig, stageTheme, readouts = [] }: PuzzleStagesProps) => {
   const className = `${styles.stage} ${stageTheme === 'dark' ? styles.stageDark : styles.stageLight}`;
   if (rig.stages.length === 1) {
     const [stage] = rig.stages;
@@ -105,14 +114,22 @@ export const PuzzleStages = ({ rig, stageTheme }: PuzzleStagesProps) => {
   }
   return (
     <div className={styles.stagePair}>
-      {rig.stages.map((stage) => (
-        <section key={stage.region} aria-label={stage.region} className={styles.stageRegion}>
-          <h2 className={styles.stageName}>{stage.region}</h2>
-          <SessionContext value={stage.session}>
-            <Stage label={stage.label} target={stage.target} className={className} />
-          </SessionContext>
-        </section>
-      ))}
+      {rig.stages.map((stage, index) => {
+        const counter = readouts.find(
+          (r) => r.value.kind === 'live' && r.value.source.stage === index
+        );
+        return (
+          <section key={stage.region} aria-label={stage.region} className={styles.stageRegion}>
+            <div className={styles.stageHeader}>
+              <h2 className={styles.stageName}>{stage.region}</h2>
+              {counter && <StageCount rig={rig} readout={counter} />}
+            </div>
+            <SessionContext value={stage.session}>
+              <Stage label={stage.label} target={stage.target} className={className} />
+            </SessionContext>
+          </section>
+        );
+      })}
     </div>
   );
 };
