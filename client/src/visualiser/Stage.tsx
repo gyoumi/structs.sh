@@ -63,6 +63,7 @@ const Stage = ({
   const step = useSnapshot((s) => s.step);
   const targetBounds = useSnapshot((s) => s.bounds);
   const prevStep = useRef(step);
+  const prevBounds = useRef(targetBounds);
 
   const zoomAround = useCallback((factor: number, cx: number, cy: number, animate: boolean) => {
     userMoved.current = true;
@@ -146,6 +147,7 @@ const Stage = ({
 
   useLayoutEffect(() => {
     prevStep.current = 0;
+    prevBounds.current = null;
     fit(false, false);
   }, [layoutVersion, fit]);
 
@@ -162,9 +164,11 @@ const Stage = ({
 
   useLayoutEffect(() => {
     const jumped = Math.abs(step - prevStep.current) > 1;
+    const boundsChanged = targetBounds !== prevBounds.current;
     prevStep.current = step;
+    prevBounds.current = targetBounds;
     if (!userMoved.current || view.status === 'unfitted') {
-      fit(!complete, !jumped, complete ? null : targetBounds);
+      fit(!complete && !boundsChanged, !jumped, complete ? null : targetBounds);
     }
   }, [step, complete, targetBounds, fit, view.status]);
 

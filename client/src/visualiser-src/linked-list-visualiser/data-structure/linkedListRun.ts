@@ -128,7 +128,6 @@ const deleteAt = (
     }
   }
   producer.doAnimation(producer.deleteNode, curr);
-  producer.setTargetBounds(null);
   producer.doAnimation(producer.resetListAndColor, list.headPointer, list.head);
 };
 
