@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useEffectEvent, useReducer, useRef, useState } from 'react';
 import landing from '@/landing/Landing.module.css';
-import { evaluatePuzzle, ListOperation, loadPuzzles } from '@/Services/puzzles/puzzles';
+import { ListOperation, loadPuzzles } from '@/Services/puzzles/puzzles';
 import { Theme } from '@/ui/theme';
 import Transport from '@/visualiser/Transport';
 import { canvasThemes } from '@/visualiser/canvasThemes';
@@ -30,7 +30,7 @@ import {
 } from './rig';
 import { ScoreCard } from './ScoreCard';
 import { TargetTree } from './TargetTree';
-import { instanceOf, readoutsFor, tryScoreOf } from './templates';
+import { readoutsFor, scoreRun, tryScoreOf, valuesForInput } from './templates';
 import styles from './Daily.module.css';
 
 /** Draws `values` on every stage now, as after a swap. */
@@ -51,6 +51,8 @@ type PlayBaseProps = {
   streak?: number;
   /** Saves every try so far under a cross-tab lock and reports the persistence outcome. */
   onRecordTries: (tries: SavedTry[]) => Promise<PersistOutcome>;
+  /** Restores the editor input when another tab's completion freezes this puzzle. */
+  onRestoreInput: (input: PlayInput) => void;
 };
 
 type PlayProps = PlayBaseProps &
@@ -58,19 +60,6 @@ type PlayProps = PlayBaseProps &
     | { puzzle: ArrayPuzzle; input: { kind: 'arrangement'; arrangement: number[] } }
     | { puzzle: IndexDriftPuzzle; input: { kind: 'operations'; operations: ListOperation[] } }
   );
-
-const scoreRun = (puzzle: Puzzle, input: PlayInput) => {
-  if (puzzle.template === 'linked-list-index-drift') {
-    if (input.kind !== 'operations') {
-      return Promise.reject(new Error('Expected list operations for linked-list-index-drift.'));
-    }
-    return evaluatePuzzle(instanceOf(puzzle), input.operations);
-  }
-  if (input.kind !== 'arrangement') {
-    return Promise.reject(new Error(`Expected an arrangement for ${puzzle.template}.`));
-  }
-  return evaluatePuzzle(instanceOf(puzzle), input.arrangement);
-};
 
 /** The game itself: the player's input, the stages, the actions, and the score cards. */
 export const Play = (props: PlayProps) => {
@@ -84,17 +73,13 @@ export const Play = (props: PlayProps) => {
     storageRevision,
     streak,
     onRecordTries,
+    onRestoreInput,
   } = props;
   const completedRunId = useCompletedRunId(rig);
   const hasTimeline = useHasTimeline(rig);
   const [firstStage] = rig.stages;
   const trace = useStageSnapshot(firstStage, (s) => s.trace);
-  const values =
-    puzzle.template === 'linked-list-index-drift'
-      ? puzzle.start
-      : input.kind === 'arrangement'
-        ? input.arrangement
-        : puzzle.values;
+  const values = valuesForInput(puzzle, input);
   const readouts = readoutsFor(puzzle, values);
   const primaryValue = useReadoutValue(rig, readouts.primary.value);
   const [play, dispatch] = useReducer(
@@ -105,15 +90,38 @@ export const Play = (props: PlayProps) => {
   const [saveFailed, setSaveFailed] = useState(false);
   const savedTries = useRef(initialTries);
   const appliedRevision = useRef(storageRevision);
+  const runner = useRef<HTMLDivElement>(null);
+  const runButton = useRef<HTMLButtonElement>(null);
+  const skipButton = useRef<HTMLButtonElement>(null);
+  const reducedMotion = usePrefersReducedMotion();
+  const [stageTheme, setStageTheme] = useState(theme);
+
+  const draw = (arrangement: number[]) => {
+    setStageTheme(theme);
+    const drawn = drawnArrangement(rig.mode, arrangement);
+    rig.stages.forEach(({ session }) => session.loadData(drawn, canvasThemes[theme], true));
+  };
+
+  const applySynced = useEffectEvent((tries: SavedTry[]) => {
+    savedTries.current = tries;
+    setSaveFailed(false);
+    if (tries.length >= MAX_TRIES) {
+      const finalInput = tries.at(-1)?.input;
+      if (finalInput) {
+        onRestoreInput(finalInput);
+        draw(valuesForInput(puzzle, finalInput));
+      }
+    }
+    dispatch({ type: 'synced', scores: tries.map((saved) => saved.score) });
+  });
+
   const recordTry = useEffectEvent(
     async (tried: PlayInput, score: TryScore, isCancelled: () => boolean) => {
       const nextTries = [...savedTries.current, { input: tried, score }];
       const outcome = await onRecordTries(nextTries);
       if (isCancelled()) return;
       if (outcome.status === 'synced') {
-        savedTries.current = outcome.tries;
-        setSaveFailed(false);
-        dispatch({ type: 'synced', scores: outcome.tries.map((saved) => saved.score) });
+        applySynced(outcome.tries);
         return;
       }
       setSaveFailed(outcome.status === 'failed');
@@ -121,11 +129,6 @@ export const Play = (props: PlayProps) => {
       dispatch({ type: 'scored', score });
     }
   );
-  const runner = useRef<HTMLDivElement>(null);
-  const runButton = useRef<HTMLButtonElement>(null);
-  const skipButton = useRef<HTMLButtonElement>(null);
-  const reducedMotion = usePrefersReducedMotion();
-  const [stageTheme, setStageTheme] = useState(theme);
 
   useEffect(() => {
     loadPuzzles().catch(() => {});
@@ -145,12 +148,6 @@ export const Play = (props: PlayProps) => {
     setStageTheme(theme);
     rig.stages.forEach(({ session }) => session.retheme(canvasThemes[theme]));
   }, [stageTheme, theme, busy, hasTimeline, rig]);
-
-  const draw = (arrangement: number[]) => {
-    setStageTheme(theme);
-    const drawn = drawnArrangement(rig.mode, arrangement);
-    rig.stages.forEach(({ session }) => session.loadData(drawn, canvasThemes[theme], true));
-  };
 
   useEffect(() => {
     if (play.stage === 'running' && play.focusSkip) {
@@ -173,9 +170,7 @@ export const Play = (props: PlayProps) => {
       return;
     }
     if (initialTries.length > 0 && extendsExisting(initialTries, savedTries.current)) return;
-    savedTries.current = initialTries;
-    setSaveFailed(false);
-    dispatch({ type: 'synced', scores: initialTries.map((saved) => saved.score) });
+    applySynced(initialTries);
   }, [initialTries, play.stage, storageRevision]);
 
   useEffect(() => {

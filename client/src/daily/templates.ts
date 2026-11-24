@@ -1,12 +1,13 @@
-import type {
-  ArrayEvalPuzzleInstance,
-  EvalPuzzleInstance,
-  ListEvalPuzzleInstance,
-  PuzzleEvaluation,
+import {
+  evaluatePuzzle,
+  type ArrayEvalPuzzleInstance,
+  type EvalPuzzleInstance,
+  type ListEvalPuzzleInstance,
+  type PuzzleEvaluation,
 } from '@/Services/puzzles/puzzles';
 import { CanvasTarget, namedCanvasTarget } from '@/visualiser-src/common/canvasTarget';
 import type { TopicSlug } from '@/visualiser/topics';
-import type { TryScore } from './playMachine';
+import type { PlayInput, TryScore } from './playMachine';
 import type { IndexDriftPuzzle, Puzzle } from './puzzle';
 
 /** A running count one stage's animation keeps. */
@@ -230,3 +231,25 @@ export const tryScoreOf = (puzzle: Puzzle, evaluation: PuzzleEvaluation): TrySco
   evaluation.solved
     ? evaluation.score
     : { kind: 'unsolved', reason: missReason(puzzle, evaluation) };
+
+/** The array values to draw on the stage for `puzzle` and `input`. */
+export const valuesForInput = (puzzle: Puzzle, input: PlayInput): number[] =>
+  puzzle.template === 'linked-list-index-drift'
+    ? puzzle.start
+    : input.kind === 'arrangement'
+      ? input.arrangement
+      : puzzle.values;
+
+/** Evaluates `input` against `puzzle` through the puzzle engine. */
+export const scoreRun = (puzzle: Puzzle, input: PlayInput) => {
+  if (puzzle.template === 'linked-list-index-drift') {
+    if (input.kind !== 'operations') {
+      return Promise.reject(new Error('Expected list operations for linked-list-index-drift.'));
+    }
+    return evaluatePuzzle(instanceOf(puzzle), input.operations);
+  }
+  if (input.kind !== 'arrangement') {
+    return Promise.reject(new Error(`Expected an arrangement for ${puzzle.template}.`));
+  }
+  return evaluatePuzzle(instanceOf(puzzle), input.arrangement);
+};

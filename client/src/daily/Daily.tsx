@@ -65,6 +65,14 @@ const ArrayPuzzleView = ({ puzzle, theme, progress }: ViewProps<ArrayPuzzle>) =>
           theme={theme}
           {...progress}
           input={{ kind: 'arrangement', arrangement: values }}
+          onRestoreInput={(restored) => {
+            if (
+              restored.kind === 'arrangement' &&
+              restored.arrangement.length === puzzle.values.length
+            ) {
+              setValues([...restored.arrangement]);
+            }
+          }}
           editor={(frozen, redraw) => (
             <PuzzleArray
               values={values}
@@ -98,6 +106,9 @@ const IndexDriftView = ({ puzzle, theme, progress }: ViewProps<IndexDriftPuzzle>
           theme={theme}
           {...progress}
           input={{ kind: 'operations', operations }}
+          onRestoreInput={(restored) => {
+            if (restored.kind === 'operations') setOperations([...restored.operations]);
+          }}
           editor={(frozen, redraw) => (
             <OperationBuilder
               start={puzzle.start}

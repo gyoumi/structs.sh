@@ -191,6 +191,15 @@ test.describe('daily game streaks and history', () => {
       await dailyTemplate.expectTryChips([`${DAILY_12.par.count} ⭐`], idleCtx);
       await dailyHistory.expectSyncedNotice(idleCtx);
       expect(await dailyPage.canRun(), `${idleCtx}: Run should stay enabled with 2 tries left`).toBe(true);
+
+      await swapRunSkip(secondDaily, DAILY_12.lowFromPar.swap, 'second tab try 2');
+      await swapRunSkip(secondDaily, DAILY_12.thirdFromLow.swap, 'second tab try 3');
+      const doneCtx = 'idle first tab after second tab completed the puzzle';
+      await dailyPage.expectStatusNumber('Tries left', 0, `${doneCtx}: should end without running a try`);
+      expect(await dailyPage.values(), `${doneCtx}: frozen editor should show final saved arrangement`).toEqual([
+        ...DAILY_12.thirdFromLow.values,
+      ]);
+      await dailyHistory.expectArrayFrozen(DAILY_12.puzzle.values.length, doneCtx);
     } finally {
       await secondPage.close();
     }
