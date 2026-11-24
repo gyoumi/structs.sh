@@ -126,18 +126,22 @@ const readStoredEntries = (store: StorageLike, key: string): SavedChallengeResul
     .filter((result): result is SavedChallengeResult => result !== null);
 };
 
-/** The saved history, or an empty one when nothing valid is saved. Malformed days are skipped; legacy saves are merged. */
+const dedupeEntries = (entries: SavedChallengeResult[]): Record<string, SavedChallengeResult> => {
+  const results: Record<string, SavedChallengeResult> = {};
+  entries.forEach((result) => {
+    const existing = results[result.date];
+    if (!existing || result.tries.length >= existing.tries.length) results[result.date] = result;
+  });
+  return results;
+};
+
+/** The saved history, or an empty one when nothing valid is saved. Malformed days are skipped; legacy saves fill missing dates only. */
 export function loadHistory(storage?: StorageLike | null): DailyHistory {
   const store = storage === undefined ? defaultStorage() : storage;
   if (!store) return emptyHistory();
-  const results: Record<string, SavedChallengeResult> = {};
-  [LEGACY_HISTORY_STORAGE_KEY, HISTORY_STORAGE_KEY]
-    .flatMap((key) => readStoredEntries(store, key))
-    .forEach((result) => {
-      const existing = results[result.date];
-      if (!existing || result.tries.length >= existing.tries.length) results[result.date] = result;
-    });
-  return { version: HISTORY_VERSION, results };
+  const legacy = dedupeEntries(readStoredEntries(store, LEGACY_HISTORY_STORAGE_KEY));
+  const current = dedupeEntries(readStoredEntries(store, HISTORY_STORAGE_KEY));
+  return { version: HISTORY_VERSION, results: { ...legacy, ...current } };
 }
 
 /** Saves `history`, returning false when storage is unavailable, full, or blocked. */
