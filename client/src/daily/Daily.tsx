@@ -12,12 +12,12 @@ import PuzzleArray from './PuzzleArray';
 import { PuzzleIntro } from './PuzzleIntro';
 import { PuzzleRig } from './PuzzleStages';
 import {
-  currentStreak,
   isIsoDate,
   loadHistory,
   persistPuzzleTries,
   SavedTry,
   savedTriesForPuzzle,
+  streakForPuzzle,
 } from './history';
 import { IndexDriftPuzzle, Puzzle, usePuzzle } from './puzzle';
 import { stagePlanFor } from './templates';
@@ -116,7 +116,7 @@ const PuzzleView = ({ puzzle, theme }: { puzzle: Puzzle; theme: Theme }) => {
   const [history, setHistory] = useState(() => loadHistory());
   const dated = isIsoDate(puzzle.date);
   const initialTries = savedTriesForPuzzle(history, puzzle);
-  const streak = dated ? currentStreak(history, puzzle.date) : undefined;
+  const streak = dated ? streakForPuzzle(history, puzzle) : undefined;
   const progress: Progress = {
     initialTries,
     streak,

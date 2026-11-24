@@ -7,6 +7,7 @@ import {
   persistPuzzleTries,
   recordPuzzleTries,
   savedTriesForPuzzle,
+  streakForPuzzle,
   type DailyHistory,
   type StorageLike,
 } from './history';
@@ -144,5 +145,53 @@ describe('corrupt history, restored-input validation, and cross-tab merging', ()
       afterRegress.results['2026-12-22']?.tries.length,
       'stale tab with 1 try must not overwrite 3 completed tries for the same day'
     ).toBe(3);
+
+    const day23 = { ...QUICK_12, number: 14, date: '2026-12-23' };
+    const tabATry = tryOf(34, arrangement([8, 1, 5, 3, 2, 7, 4, 6]));
+    const tabBTry = tryOf(30, arrangement([8, 1, 6, 3, 2, 7, 4, 5]));
+    persistPuzzleTries(day23, [tabATry], storage);
+    const afterEqualStale = persistPuzzleTries(day23, [tabBTry], storage);
+    expect(
+      afterEqualStale.results['2026-12-23']?.tries,
+      'equal-length divergent write from a second tab must not erase the first tab try'
+    ).toEqual([tabATry]);
+    const afterDivergentLonger = persistPuzzleTries(day23, [tabBTry, tryOf(31)], storage);
+    expect(
+      afterDivergentLonger.results['2026-12-23']?.tries,
+      'divergent multi-try write must not erase the first tab try'
+    ).toEqual([tabATry]);
+  });
+
+  it('excludes today from streakForPuzzle when saved tries fail validation for today', () => {
+    const movedFixed = arrangement([1, 8, 6, 3, 2, 7, 4, 5]);
+    const day20 = { ...QUICK_12, number: 11, date: '2026-12-20' };
+    const validYesterday = recordPuzzleTries(emptyHistory(), day20, [
+      tryOf(30),
+      tryOf(34),
+      tryOf(31),
+    ]);
+    const withInvalidToday = recordPuzzleTries(validYesterday, QUICK_12, [
+      tryOf(30, movedFixed),
+      tryOf(34, movedFixed),
+      tryOf(31, movedFixed),
+    ]);
+    expect(
+      savedTriesForPuzzle(withInvalidToday, QUICK_12),
+      'invalid saved tries for today must not restore'
+    ).toEqual([]);
+    expect(
+      streakForPuzzle(withInvalidToday, QUICK_12),
+      'invalid today entry must not increment streak past valid yesterday (expected 1, not 2)'
+    ).toBe(1);
+
+    const onlyInvalidToday = recordPuzzleTries(emptyHistory(), QUICK_12, [
+      tryOf(30, movedFixed),
+      tryOf(34, movedFixed),
+      tryOf(31, movedFixed),
+    ]);
+    expect(
+      streakForPuzzle(onlyInvalidToday, QUICK_12),
+      'invalid today entry with no yesterday must give streak 0'
+    ).toBe(0);
   });
 });

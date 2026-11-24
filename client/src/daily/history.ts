@@ -193,7 +193,12 @@ export function recordPuzzleTries(
   };
 }
 
-/** Merges `tries` for `puzzle` into the latest stored history without losing other days or newer same-day tries. */
+const sameTry = (a: SavedTry, b: SavedTry) => JSON.stringify(a) === JSON.stringify(b);
+
+const extendsExisting = (existing: SavedTry[], next: SavedTry[]) =>
+  next.length > existing.length && existing.every((saved, i) => sameTry(saved, next[i]));
+
+/** Merges `tries` for `puzzle` into the latest stored history without losing other days or overwriting divergent same-day progress. */
 export function persistPuzzleTries(
   puzzle: Puzzle,
   tries: SavedTry[],
@@ -202,7 +207,7 @@ export function persistPuzzleTries(
   const latest = loadHistory(storage);
   if (!isIsoDate(puzzle.date)) return latest;
   const existingTries = savedTriesForPuzzle(latest, puzzle);
-  if (existingTries.length > tries.length) return latest;
+  if (existingTries.length > 0 && !extendsExisting(existingTries, tries)) return latest;
   const next = recordPuzzleTries(latest, puzzle, tries);
   saveHistory(next, storage);
   return next;
@@ -231,6 +236,22 @@ export function currentStreak(history: DailyHistory, todayDate: string | undefin
   if (days.has(today)) return runEndingAt(days, today);
   const yesterday = dayNumber(previousIsoDate(todayDate));
   return days.has(yesterday) ? runEndingAt(days, yesterday) : 0;
+}
+
+/** Streak for `puzzle`'s date, ignoring today's stored entry if it fails validation for `puzzle`. */
+export function streakForPuzzle(history: DailyHistory, puzzle: Puzzle): number {
+  if (!isIsoDate(puzzle.date)) return 0;
+  const hasEntryForToday = Object.values(history.results).some(
+    (entry) => entry.date === puzzle.date
+  );
+  if (!hasEntryForToday || savedTriesForPuzzle(history, puzzle).length > 0) {
+    return currentStreak(history, puzzle.date);
+  }
+  const filtered: Record<string, SavedPuzzleResult> = {};
+  Object.entries(history.results).forEach(([key, entry]) => {
+    if (entry.date !== puzzle.date) filtered[key] = entry;
+  });
+  return currentStreak({ version: HISTORY_VERSION, results: filtered }, puzzle.date);
 }
 
 /** The most days in a row ever finished. */
