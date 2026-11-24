@@ -91,7 +91,7 @@ async fn inserts_every_template_with_sequential_numbers_and_full_round_trip() {
     puzzles[1].bot_goal_rate = 1.0;
     puzzles[1].bot_best_rate = 0.0;
     puzzles[2].bot_goal_rate = 0.123_456_789_012_345_67;
-    puzzles[3].template_version = u32::MAX;
+    puzzles[3].template_version = i32::MAX as u32;
     for (puzzle, number) in puzzles.iter().zip(1..) {
         let id = puzzle.instance.template_id();
         let inserted = insert_new(&pool, puzzle).await;
