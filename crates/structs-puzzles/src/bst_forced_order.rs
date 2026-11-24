@@ -177,6 +177,42 @@ impl Template for BstForcedOrder {
 
 const KEYS: i32 = 10;
 
+/// Whether `target_tree` is a canonical BST preorder over the distinct keys in
+/// `values`.
+pub fn is_valid_target_tree(values: &[i32], target_tree: &[i32]) -> bool {
+    if !is_valid_bst_preorder(target_tree) {
+        return false;
+    }
+    let mut want = values.to_vec();
+    want.sort_unstable();
+    want.dedup();
+    let mut got = target_tree.to_vec();
+    got.sort_unstable();
+    got == want
+}
+
+fn is_valid_bst_preorder(keys: &[i32]) -> bool {
+    let mut stack: Vec<i32> = Vec::with_capacity(keys.len());
+    let mut lower: Option<i32> = None;
+    for &key in keys {
+        if lower.is_some_and(|bound| key <= bound) {
+            return false;
+        }
+        while let Some(&top) = stack.last() {
+            if key == top {
+                return false;
+            }
+            if key > top {
+                lower = stack.pop();
+            } else {
+                break;
+            }
+        }
+        stack.push(key);
+    }
+    true
+}
+
 fn longest_increasing_run(keys: &[i32]) -> u32 {
     let mut longest = 0;
     let mut run = 0;

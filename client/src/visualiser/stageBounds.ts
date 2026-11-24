@@ -65,3 +65,66 @@ export const unionBounds = (
 
 export const insetOf = (element: Element, side: 'top' | 'right') =>
   parseFloat(getComputedStyle(element).getPropertyValue(`--fit-inset-${side}`)) || 0;
+
+export type FitMode = 'always' | 'if-overflowing';
+export type ViewTransition = 'instant' | 'smooth';
+
+export type View =
+  | { status: 'unfitted' }
+  | { status: 'fitted'; x: number; y: number; scale: number; transition: ViewTransition };
+
+const MIN_FIT_SCALE = 0.05;
+const FIT_PADDING = 56;
+
+export const clamp = (value: number, min: number, max: number) =>
+  Math.min(max, Math.max(min, value));
+
+export interface FitOptions {
+  mode: FitMode;
+  transition: ViewTransition;
+  insetTop: number;
+  insetRight: number;
+}
+
+/** Computes the transform that fits `box` inside a `width`×`height` viewport. */
+export const fitView = (
+  prev: View,
+  box: DrawingBounds,
+  viewport: { width: number; height: number },
+  { mode, transition, insetTop, insetRight }: FitOptions
+): View => {
+  const { width, height } = viewport;
+  const availableWidth = width - insetRight;
+  const availableHeight = height - insetTop;
+  const paddingX = Math.min(FIT_PADDING, availableWidth * 0.05);
+  const paddingY = Math.min(FIT_PADDING, availableHeight * 0.08);
+  const edgeMarginX = Math.min(12, paddingX * 0.5);
+  const edgeMarginY = Math.min(12, paddingY * 0.5);
+  if (mode === 'if-overflowing' && prev.status === 'fitted') {
+    const left = prev.x + box.x * prev.scale;
+    const top = prev.y + box.y * prev.scale;
+    const right = left + box.width * prev.scale;
+    const bottom = top + box.height * prev.scale;
+    const inside =
+      left >= edgeMarginX &&
+      top >= insetTop + edgeMarginY &&
+      right <= width - insetRight - edgeMarginX &&
+      bottom <= height - edgeMarginY;
+    if (inside) return prev;
+  }
+  const scale = clamp(
+    Math.min(
+      (availableWidth - paddingX * 2) / box.width,
+      (availableHeight - paddingY * 2) / box.height
+    ),
+    MIN_FIT_SCALE,
+    1.25
+  );
+  return {
+    status: 'fitted',
+    scale,
+    x: availableWidth / 2 - scale * (box.x + box.width / 2),
+    y: insetTop + availableHeight / 2 - scale * (box.y + box.height / 2),
+    transition: transition === 'smooth' && prev.status === 'fitted' ? 'smooth' : 'instant',
+  };
+};
