@@ -23,7 +23,7 @@ import { Rig, useCompletedRunId, useReadoutValue, useStageSnapshot } from './rig
 import { ScoreCard } from './ScoreCard';
 import { TargetTree } from './TargetTree';
 import { readoutsFor, scoreRun, tryScoreOf, valuesForInput } from './templates';
-import { restoredRunOf, stageRunOf, useStageRun } from './useStageRun';
+import { stageRunOf, useStageRun } from './useStageRun';
 import styles from './Daily.module.css';
 
 /** Draws `values` on every stage now, as after a swap. */
@@ -86,10 +86,11 @@ export const Play = (props: PlayProps) => {
   const runButton = useRef<HTMLButtonElement>(null);
   const skipButton = useRef<HTMLButtonElement>(null);
   const reducedMotion = usePrefersReducedMotion();
+  const lastTry = initialTries.at(-1);
   const { stageTheme, draw, start } = useStageRun({
     rig,
     theme,
-    restored: restoredRunOf(challenge, initialTries.at(-1)?.input),
+    restored: lastTry && stageRunOf(challenge, lastTry.input),
     onRerun: (runId) => dispatch({ type: 'rerun', runId }),
   });
 
@@ -134,11 +135,10 @@ export const Play = (props: PlayProps) => {
     (input.operations.length === 0 ||
       validateOperations(challenge.start.length, input.operations).status === 'invalid');
 
+  const runWantsSkipFocus = play.stage === 'running' && play.focusSkip;
   useEffect(() => {
-    if (play.stage === 'running' && play.focusSkip) {
-      skipButton.current?.focus({ preventScroll: true });
-    }
-  }, [play]);
+    if (runWantsSkipFocus) skipButton.current?.focus({ preventScroll: true });
+  }, [runWantsSkipFocus]);
 
   useEffect(() => {
     if (play.stage === 'running' && completedRunId === play.runId) {

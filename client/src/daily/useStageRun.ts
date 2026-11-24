@@ -17,15 +17,6 @@ export const stageRunOf = (challenge: Challenge, input: PlayInput): StageRun => 
   operations: input.kind === 'operations' ? input.operations : undefined,
 });
 
-/** The run of the last saved try, to show after a reload, or undefined when there is none or it no longer fits the challenge. */
-export const restoredRunOf = (challenge: Challenge, input?: PlayInput): StageRun | undefined => {
-  if (!input) return undefined;
-  if (input.kind === 'arrangement' && input.arrangement.length !== challenge.values?.length) {
-    return undefined;
-  }
-  return stageRunOf(challenge, input);
-};
-
 /** Puts the playback back where `before` was, after the same run started again. */
 const returnTo = (rig: Rig, before: PlaybackSnapshot) => {
   if (before.playback === 'complete') {

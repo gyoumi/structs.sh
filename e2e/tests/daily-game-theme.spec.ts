@@ -1,7 +1,9 @@
 import { test, expect } from '../support/test';
 import { DAILY_12 } from '../support/daily-fixtures';
 import type { DailyChallenge } from '../support/daily-fixtures';
+import type { DatedChallenge } from '../support/daily-history';
 import type { DailyPage } from '../support/daily-page';
+import type { DailyStageView } from '../support/daily-stage-view';
 import { contentDifferences, viewInFreshPage, type Theme } from '../support/daily-stage-view';
 import { FORCED_24, UPSET_25 } from '../support/daily-tree-fixtures';
 
@@ -18,6 +20,7 @@ import { FORCED_24, UPSET_25 } from '../support/daily-tree-fixtures';
  */
 
 const WIDE = { width: 1440, height: 900 };
+const QUICKSORT_DAY: DatedChallenge = { ...DAILY_12.challenge, date: '2026-12-21' };
 
 type Play = (daily: DailyPage, context: string) => Promise<void>;
 
@@ -111,4 +114,103 @@ test.describe('daily game theme switching', () => {
       });
     }
   }
+
+  /**
+   * Switching theme while the first try is still being played for the first time (not yet scored).
+   * The try is the served arrangement [8, 1, 6, 3, 2, 7, 4, 5], 30 comparisons, played at 5× so it ends in about 12 s.
+   */
+  test.describe(`quicksort bars, ${DAILY_12.name}, switching theme during the first try`, () => {
+    test.use({ colorScheme: 'light', viewport: WIDE });
+
+    type MidTry = { name: string; finalTheme: Theme; act: (daily: DailyPage, stage: DailyStageView, context: string) => Promise<void> };
+    const midTry: MidTry[] = [
+      {
+        name: 'while it plays',
+        finalTheme: 'dark',
+        act: async (_daily, stage, context) => stage.switchTheme('dark', context),
+      },
+      {
+        name: 'while it is paused, then resuming',
+        finalTheme: 'dark',
+        act: async (daily, stage, context) => {
+          await daily.pausePlayback();
+          await stage.expectPlaybackButton('Play', true, `${context}: after Pause, the play button should offer Play`);
+          const step = await stage.stepText(`${context}, paused`);
+          await stage.switchTheme('dark', `${context}, paused at "${step}"`);
+          await stage.expectStepText(step, `${context}: switching theme while paused must keep the playback at "${step}"`);
+          await stage.expectPlaybackButton('Play', true, `${context}: switching theme while paused must leave the try paused (Play offered)`);
+          await daily.playPlayback();
+        },
+      },
+      {
+        name: 'twice in a row while it plays',
+        finalTheme: 'light',
+        act: async (_daily, stage, context) => {
+          await stage.switchTheme('dark', `${context}, first switch`);
+          await stage.switchTheme('light', `${context}, second switch`);
+        },
+      },
+    ];
+
+    for (const { name, finalTheme, act } of midTry) {
+      test(`switching theme ${name} records exactly one try, with its count, drawn in the new theme`, async ({ browser, dailyPage, dailyHistory, dailyStage, dailyTemplate }) => {
+        const { start } = DAILY_12;
+        const ctx = `${DAILY_12.name} try 1 [${start.values.join(', ')}] (${start.count} comparisons), switching theme ${name}`;
+        const fresh = await viewInFreshPage(browser, finalTheme, QUICKSORT_DAY, (daily) => runAndSkip(daily, `${ctx} (fresh ${finalTheme} reference)`), ctx);
+
+        await dailyHistory.serveOnly(QUICKSORT_DAY);
+        await dailyPage.open();
+        await dailyStage.expectTheme('light', ctx);
+        await dailyPage.expectStatusNumber('Tries left', 3, `${ctx}: before Run`);
+        await dailyPage.setSpeed(5);
+        await dailyPage.run();
+        await dailyStage.expectPlaybackButton('Pause', true, `${ctx}: right after Run the try should be playing (Pause offered)`);
+        await act(dailyPage, dailyStage, ctx);
+        expect(
+          await dailyPage.roundedProgress(ctx),
+          `${ctx}: the theme switch should have happened mid-try (Animation progress below 100), or this test checks nothing`,
+        ).toBeLessThan(100);
+
+        await dailyPage.waitForRunToFinish();
+        const done = `${ctx}, after the try played to its end`;
+        await dailyPage.expectStatusNumber('Tries left', 2, `${done}: switching theme mid-try must not use a second try or lose the first, so Tries left goes 3 -> 2`);
+        await dailyTemplate.expectTryChips([`${start.count}`], done);
+        const { raw, parsed } = await dailyHistory.savedHistory();
+        expect(
+          parsed?.results?.[QUICKSORT_DAY.date]?.tries?.map((saved) => saved.score),
+          `${done}: localStorage history should hold exactly one try for ${QUICKSORT_DAY.date}, scored ${start.count}, got ${raw}`,
+        ).toEqual([start.count]);
+        await dailyPage.expectStatusNumber('Comparisons', start.count, `${done}: Comparisons should show the try's ${start.count}`);
+        await dailyPage.expectStatusNumber('Score', start.count, `${done}: Score should show the try's ${start.count}`);
+        await expect.poll(() => dailyPage.canRun(), { message: `${done}: Run should be enabled again for try 2` }).toBe(true);
+        await dailyStage.expectTheme(finalTheme, done);
+        await dailyStage.expectLooks(
+          fresh.looks,
+          `${done}: the stage should be drawn in ${finalTheme}, like a fresh ${finalTheme} page at the end of the same run`,
+        );
+      });
+    }
+
+    for (const key of ['Enter', 'Space'] as const) {
+      test(`pressing ${key} on the theme toggle while the try plays keeps keyboard focus on the toggle`, async ({ dailyPage, dailyStage }) => {
+        const ctx = `${DAILY_12.name} try 1, pressing ${key} on the focused "Dark mode" toggle while the try plays`;
+        await dailyPage.serve(DAILY_12.challenge);
+        await dailyPage.open();
+        await dailyPage.run();
+        await dailyStage.expectPlaybackButton('Pause', true, `${ctx}: right after Run the try should be playing (Pause offered)`);
+        const [{ background }] = await dailyStage.looks();
+        await dailyStage.pressThemeToggle('dark', key, ctx);
+        await dailyStage.expectStageBackgroundChanged(background, `${ctx}: the stage should redraw in dark`);
+        await dailyStage.expectThemeToggleFocused(
+          `${ctx}: after the stage redraws, keyboard focus should stay on the "Dark mode" toggle where the player put it, not move to Skip or anywhere else`,
+        );
+        const progress = await dailyPage.progress(ctx);
+        expect(progress, `${ctx}: the switch should happen mid-try (Animation progress below 100)`).toBeLessThan(100);
+        await expect
+          .poll(() => dailyPage.progress(ctx), { message: `${ctx}: the try should keep playing after the switch (Animation progress above ${progress})` })
+          .toBeGreaterThan(progress);
+        await dailyStage.expectThemeToggleFocused(`${ctx}: as the try keeps playing, keyboard focus should still be on the "Dark mode" toggle`);
+      });
+    }
+  });
 });

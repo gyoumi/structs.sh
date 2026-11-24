@@ -89,6 +89,35 @@ export class DailyStageView {
     await this.expectTheme(to, `${context}, after clicking the "Dark mode" toggle`);
   }
 
+  /** Focuses the header's `Dark mode` toggle and presses `key` on it, as a keyboard player would, to switch to `to`. */
+  async pressThemeToggle(to: Theme, key: 'Enter' | 'Space', context: string): Promise<void> {
+    await this.expectTheme(to === 'dark' ? 'light' : 'dark', `${context}, before pressing ${key} on the theme toggle`);
+    await this.themeToggle.focus();
+    await expect(this.themeToggle, `${context}: the "Dark mode" toggle should take keyboard focus`).toBeFocused();
+    await this.page.keyboard.press(key);
+    await this.expectTheme(to, `${context}, after pressing ${key} on the focused "Dark mode" toggle`);
+  }
+
+  /** Keyboard focus is on the header's `Dark mode` toggle; the failure names the element that has focus instead. */
+  async expectThemeToggleFocused(message: string): Promise<void> {
+    await expect
+      .poll(
+        async () =>
+          (await this.themeToggle.evaluate((el) => el === document.activeElement))
+            ? 'the "Dark mode" toggle'
+            : `focus is on ${await this.ui.describeActiveElement()}`,
+        { message, timeout: 1_000, intervals: [50] },
+      )
+      .toBe('the "Dark mode" toggle');
+  }
+
+  /** Waits until the first stage's background colour is no longer `from`: the stage has been redrawn after a theme switch. */
+  async expectStageBackgroundChanged(from: string, message: string): Promise<void> {
+    await expect
+      .poll(async () => (await this.looks())[0]?.background, { message: `${message} (background behind the first stage, was ${from})`, timeout: 3_000 })
+      .not.toBe(from);
+  }
+
   /** The playback's step readout, for example `Step 96 of 96` or `No steps yet`. */
   async stepText(context: string): Promise<string> {
     await expect(
