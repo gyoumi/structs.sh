@@ -1,5 +1,5 @@
 import BSTInsertAnimationProducer from '../animation-producer/BSTInsertAnimationProducer';
-import updateNodePositions from '../util/helpers';
+import updateNodePositions, { treeBounds } from '../util/helpers';
 import GraphicalBSTNode from './GraphicalBSTNode';
 
 /** The tree an insert adds to. */
@@ -15,6 +15,12 @@ const insertBelow = (
 ): void => {
   if (root.value > input) {
     animationProducer.countNodePassed();
+    const isLeafParent = root.left == null;
+    if (isLeafParent) {
+      root.left = GraphicalBSTNode.from(input);
+      updateNodePositions(tree.root);
+      animationProducer.setTargetBounds(treeBounds(tree.root));
+    }
     animationProducer.doAnimationAndHighlight(5, animationProducer.halfHighlightNode, root);
     animationProducer.doAnimationAndHighlight(
       6,
@@ -23,21 +29,25 @@ const insertBelow = (
       root.leftArrowTarget,
       true
     );
-    if (root.left == null) {
-      root.left = GraphicalBSTNode.from(input);
-      updateNodePositions(tree.root);
+    if (isLeafParent) {
       animationProducer.doAnimationAndHighlight(
         3,
         animationProducer.createAndLayoutNode,
-        root.left,
+        root.left!,
         tree.root,
         true
       );
     } else {
-      insertBelow(tree, root.left, input, animationProducer);
+      insertBelow(tree, root.left!, input, animationProducer);
     }
   } else if (root.value < input) {
     animationProducer.countNodePassed();
+    const isLeafParent = root.right == null;
+    if (isLeafParent) {
+      root.right = GraphicalBSTNode.from(input);
+      updateNodePositions(tree.root);
+      animationProducer.setTargetBounds(treeBounds(tree.root));
+    }
     animationProducer.doAnimationAndHighlight(7, animationProducer.halfHighlightNode, root);
     animationProducer.doAnimationAndHighlight(
       8,
@@ -46,18 +56,16 @@ const insertBelow = (
       root.rightArrowTarget,
       true
     );
-    if (root.right == null) {
-      root.right = GraphicalBSTNode.from(input);
-      updateNodePositions(tree.root);
+    if (isLeafParent) {
       animationProducer.doAnimationAndHighlight(
         3,
         animationProducer.createAndLayoutNode,
-        root.right,
+        root.right!,
         tree.root,
         true
       );
     } else {
-      insertBelow(tree, root.right, input, animationProducer);
+      insertBelow(tree, root.right!, input, animationProducer);
     }
   } else {
     animationProducer.countNodePassed();
@@ -74,6 +82,7 @@ const insertOne = (
   if (tree.root === null) {
     tree.root = GraphicalBSTNode.from(input);
     updateNodePositions(tree.root);
+    animationProducer.setTargetBounds(treeBounds(tree.root));
     animationProducer.doAnimationAndHighlight(3, animationProducer.createNode, tree.root, true);
     animationProducer.doAnimation(animationProducer.unhighlightBST, tree.root);
   } else {

@@ -1,4 +1,4 @@
-import type { StepTrace } from '@/visualiser-src/common/AnimationProducer';
+import type { DrawingBounds, StepTrace } from '@/visualiser-src/common/AnimationProducer';
 import type { Documentation } from '@/visualiser-src/common/typedefs';
 import type { PlaybackStage } from '@/visualiser-src/controller/VisualiserController';
 
@@ -28,6 +28,8 @@ export interface VisualiserSnapshot {
   counters?: Record<string, number>;
   /** The sort's pivot and active comparison at the current step, or null outside a partition. */
   trace: StepTrace | null;
+  /** Upcoming drawing bounds for the active step, so the stage can zoom out before a node appears. */
+  bounds: DrawingBounds | null;
   /** How many values the structure holds, including a run that is still playing. */
   size: number;
 }
@@ -50,6 +52,7 @@ export const initialSnapshot: VisualiserSnapshot = {
   comparisons: 0,
   counters: {},
   trace: null,
+  bounds: null,
 };
 
 /** Picks the random data a topic starts with, or returns undefined to use the engine's own. */

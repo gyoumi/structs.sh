@@ -1,5 +1,7 @@
 import AVLAnimationProducer from '@/visualiser-src/avl-tree-visualiser/animation-producer/AVLAnimationProducer';
-import updateNodePositions from '@/visualiser-src/binary-search-tree-visualiser/util/helpers';
+import updateNodePositions, {
+  treeBounds,
+} from '@/visualiser-src/binary-search-tree-visualiser/util/helpers';
 import GraphicalAVLNode from './GraphicalAVLNode';
 
 /** The tree a rotation or insert changes. */
@@ -54,6 +56,7 @@ export const rotateLeft = (
     parent.right = newRoot;
   }
   updateNodePositions(tree.root);
+  animationProducer.setTargetBounds(treeBounds(tree.root));
   animationProducer.countRotation();
   animationProducer.doAnimation(
     animationProducer.updateAndUnhighlightBST,
@@ -110,6 +113,7 @@ export const rotateRight = (
     parent.right = newRoot;
   }
   updateNodePositions(tree.root);
+  animationProducer.setTargetBounds(treeBounds(tree.root));
   animationProducer.countRotation();
   animationProducer.doAnimation(
     animationProducer.updateAndUnhighlightBST,

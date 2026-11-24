@@ -1,13 +1,24 @@
 import { Line, Marker } from '@svgdotjs/svg.js';
 import { lineDiffY } from '../../common/settings';
 import { getPointerStartEndCoordinates } from '../../common/helpers';
-import AnimationProducer from '../../common/AnimationProducer';
+import AnimationProducer, { DrawingBounds } from '../../common/AnimationProducer';
 import GraphicalBSTNode from '../data-structure/GraphicalBSTNode';
 import { canvasTheme } from '../../common/canvasTheme';
 
 const DEFAULT_STUB_X = 32;
 
 export default class BSTAnimationProducer extends AnimationProducer {
+  private targetBounds: DrawingBounds | null = null;
+
+  /** Records the tree bounds upcoming steps need visible so the stage can zoom out before drawing. */
+  public setTargetBounds(bounds: DrawingBounds | null): void {
+    this.targetBounds = bounds;
+  }
+
+  protected get stepBounds(): DrawingBounds | null {
+    return this.targetBounds;
+  }
+
   public highlightNode(node: GraphicalBSTNode): void {
     this.addSequenceAnimation(
       node.nodeTarget.animate(500).attr({

@@ -258,6 +258,7 @@ export class VisualiserSession {
       comparisons: controller.counterAt(time),
       counters: controller.countersAt(time),
       trace: duration > 0 ? controller.traceAt(time) : null,
+      bounds: duration > 0 ? controller.boundsAt(time) : null,
     };
   }
 
@@ -275,7 +276,8 @@ export class VisualiserSession {
       sample.size !== snapshot.size ||
       sample.comparisons !== (snapshot.comparisons ?? 0) ||
       sample.counters !== snapshot.counters ||
-      sample.trace !== snapshot.trace;
+      sample.trace !== snapshot.trace ||
+      sample.bounds !== snapshot.bounds;
 
     if (changed) this.update(sample);
     return changed;

@@ -206,4 +206,46 @@ describe('tree step-pause arrow alignment', () => {
       vi.useRealTimers();
     }
   });
+
+  it('publishes expanded tree bounds before a new leaf becomes visible so the stage zooms out first', () => {
+    const builders = [
+      () => {
+        const { bst, producer } = buildBst([2, 1]);
+        return { child: bst.root!.left!, producer };
+      },
+      () => {
+        const { avl, producer } = buildAvl([2, 1]);
+        return { child: avl.root!.left!, producer };
+      },
+    ];
+    builders.forEach((build) => {
+      vi.useFakeTimers();
+      try {
+        const { child, producer } = build();
+        const controller = new VisualiserController();
+        controller.constructTimeline(producer, () => {});
+        controller.pause();
+
+        const initial = controller.boundsAt(0);
+        expect(initial).not.toBeNull();
+
+        const firstVisible = pauseTimestamps(producer.allRunners).find((t) => {
+          controller.seekTime(t);
+          return Number(child.nodeTarget.attr('opacity')) > 0.5;
+        });
+        expect(firstVisible).toBeDefined();
+
+        const leadTime = Math.max(0, firstVisible! - 600);
+        controller.seekTime(leadTime);
+        expect(Number(child.nodeTarget.attr('opacity'))).toBeLessThan(0.1);
+        const upcoming = controller.boundsAt(leadTime);
+        expect(upcoming).not.toBeNull();
+        expect(upcoming!.width).toBeGreaterThan(initial!.width);
+        expect(upcoming!.height).toBeGreaterThan(initial!.height);
+      } finally {
+        vi.advanceTimersByTime(100);
+        vi.useRealTimers();
+      }
+    });
+  });
 });

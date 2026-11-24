@@ -9,8 +9,9 @@ import {
   useRef,
   useState,
 } from 'react';
+import type { DrawingBounds } from '@/visualiser-src/common/AnimationProducer';
 import { CanvasTarget, DEFAULT_CANVAS_TARGET } from '@/visualiser-src/common/canvasTarget';
-import { insetOf, visibleBounds } from './stageBounds';
+import { insetOf, unionBounds, visibleBounds } from './stageBounds';
 import { useSnapshot } from './useVisualiser';
 import styles from './Stage.module.css';
 
@@ -60,6 +61,7 @@ const Stage = ({
   const layoutVersion = useSnapshot((s) => s.layoutVersion);
   const complete = useSnapshot((s) => s.playback === 'complete');
   const step = useSnapshot((s) => s.step);
+  const targetBounds = useSnapshot((s) => s.bounds);
 
   const zoomAround = useCallback((factor: number, cx: number, cy: number, animate: boolean) => {
     userMoved.current = true;
@@ -87,52 +89,59 @@ const Stage = ({
     [zoomAround]
   );
 
-  const fit = useCallback((onlyIfOverflowing = false, animate = true) => {
-    const svg = svgRef.current;
-    const container = containerRef.current;
-    if (!svg || !container) return;
-    const box = visibleBounds(svg);
-    const { width, height } = container.getBoundingClientRect();
-    if (!box || box.width === 0 || box.height === 0 || width === 0) {
-      if (!onlyIfOverflowing) {
-        userMoved.current = false;
-        setView({ status: 'unfitted' });
+  const fit = useCallback(
+    (onlyIfOverflowing = false, animate = true, upcoming: DrawingBounds | null = null) => {
+      const svg = svgRef.current;
+      const container = containerRef.current;
+      if (!svg || !container) return;
+      const box = unionBounds(visibleBounds(svg), upcoming);
+      const { width, height } = container.getBoundingClientRect();
+      if (!box || box.width === 0 || box.height === 0 || width === 0) {
+        if (!onlyIfOverflowing) {
+          userMoved.current = false;
+          setView({ status: 'unfitted' });
+        }
+        return;
       }
-      return;
-    }
-    const insetTop = insetOf(container, 'top');
-    const insetRight = insetOf(container, 'right');
-    setView((prev) => {
-      if (onlyIfOverflowing && prev.status === 'fitted') {
-        const left = prev.x + box.x * prev.scale;
-        const top = prev.y + box.y * prev.scale;
-        const right = left + box.width * prev.scale;
-        const bottom = top + box.height * prev.scale;
-        const inside =
-          left >= 0 && top >= insetTop && right <= width - insetRight && bottom <= height;
-        if (inside) return prev;
-      }
+      const insetTop = insetOf(container, 'top');
+      const insetRight = insetOf(container, 'right');
       const padding = Math.min(FIT_PADDING, width * 0.05);
-      const availableWidth = width - insetRight;
-      const availableHeight = height - insetTop;
-      const scale = clamp(
-        Math.min(
-          (availableWidth - padding * 2) / box.width,
-          (availableHeight - padding * 2) / box.height
-        ),
-        MIN_FIT_SCALE,
-        1.25
-      );
-      return {
-        status: 'fitted',
-        scale,
-        x: availableWidth / 2 - scale * (box.x + box.width / 2),
-        y: insetTop + availableHeight / 2 - scale * (box.y + box.height / 2),
-        transition: animate && prev.status === 'fitted' ? 'smooth' : 'instant',
-      };
-    });
-    userMoved.current = false;
-  }, []);
+      const edgeMargin = Math.min(12, padding * 0.5);
+      setView((prev) => {
+        if (onlyIfOverflowing && prev.status === 'fitted') {
+          const left = prev.x + box.x * prev.scale;
+          const top = prev.y + box.y * prev.scale;
+          const right = left + box.width * prev.scale;
+          const bottom = top + box.height * prev.scale;
+          const inside =
+            left >= edgeMargin &&
+            top >= insetTop + edgeMargin &&
+            right <= width - insetRight - edgeMargin &&
+            bottom <= height - edgeMargin;
+          if (inside) return prev;
+        }
+        const availableWidth = width - insetRight;
+        const availableHeight = height - insetTop;
+        const scale = clamp(
+          Math.min(
+            (availableWidth - padding * 2) / box.width,
+            (availableHeight - padding * 2) / box.height
+          ),
+          MIN_FIT_SCALE,
+          1.25
+        );
+        return {
+          status: 'fitted',
+          scale,
+          x: availableWidth / 2 - scale * (box.x + box.width / 2),
+          y: insetTop + availableHeight / 2 - scale * (box.y + box.height / 2),
+          transition: animate && prev.status === 'fitted' ? 'smooth' : 'instant',
+        };
+      });
+      userMoved.current = false;
+    },
+    []
+  );
 
   useLayoutEffect(() => {
     fit(false, false);
@@ -149,9 +158,11 @@ const Stage = ({
     };
   }, [layoutVersion, fit]);
 
-  useEffect(() => {
-    if (!userMoved.current || view.status === 'unfitted') fit(!complete, true);
-  }, [step, complete, fit, view.status]);
+  useLayoutEffect(() => {
+    if (!userMoved.current || view.status === 'unfitted') {
+      fit(!complete, true, complete ? null : targetBounds);
+    }
+  }, [step, complete, targetBounds, fit, view.status]);
 
   useEffect(() => {
     const container = containerRef.current;

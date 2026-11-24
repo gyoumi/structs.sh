@@ -3,7 +3,7 @@ import GraphicalDataStructure from '@/visualiser-src/common/GraphicalDataStructu
 import GraphicalDataStructureFactory from '@/visualiser-src/common/GraphicalDataStructureFactory';
 import { Documentation } from '@/visualiser-src/common/typedefs';
 import { defaultSpeed } from '../common/constants';
-import AnimationProducer, { StepTrace } from '../common/AnimationProducer';
+import AnimationProducer, { DrawingBounds, StepTrace } from '../common/AnimationProducer';
 import TimelineTrack from './TimelineTrack';
 import { parseOperationArgs, validateOperationArgs } from './operationArgs';
 
@@ -76,11 +76,9 @@ class VisualiserController {
 
     animationProducer.allRunners.forEach((runnerInfo) => {
       if (runnerInfo.runners.length === 0) return;
-      const segmentStart = this.timelineDuration + 25;
+      const stepStart = this.timelineDuration;
+      const segmentStart = stepStart + 25;
       this.segments.push({ start: segmentStart, line: runnerInfo.line });
-      if (runnerInfo.trace !== undefined) {
-        this.track.recordTrace(segmentStart, runnerInfo.trace);
-      }
       runnerInfo.runners.forEach((runner) => {
         this.currentTimeline.schedule(runner, segmentStart, 'absolute');
       });
@@ -89,12 +87,7 @@ class VisualiserController {
         runnerInfo.runners[0]
       );
       this.timelineDuration += maxRunner.duration() + 25;
-      if (runnerInfo.counter !== undefined) {
-        this.track.recordCounter(this.timelineDuration, runnerInfo.counter);
-      }
-      if (runnerInfo.counters !== undefined) {
-        this.track.recordCounters(this.timelineDuration, runnerInfo.counters);
-      }
+      this.track.recordStep(stepStart, segmentStart, this.timelineDuration, runnerInfo);
       if (runnerInfo.isTimestamped) {
         maxRunner.after(() => {
           if (this.mode === 'stepping') {
@@ -267,6 +260,11 @@ class VisualiserController {
   /** The sort's pivot and comparison for the step playing at `time`, or null outside a partition. */
   public traceAt(time: number): StepTrace | null {
     return this.track.traceAt(time);
+  }
+
+  /** Upcoming drawing bounds for the step at `time`, so the stage can zoom out before a node appears. */
+  public boundsAt(time: number): DrawingBounds | null {
+    return this.track.boundsAt(time);
   }
 
   public get playback(): PlaybackStage {

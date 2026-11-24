@@ -1,3 +1,5 @@
+import type { DrawingBounds } from '@/visualiser-src/common/AnimationProducer';
+
 const SHAPES = 'circle, ellipse, line, path, polygon, polyline, rect, text, image';
 
 const isShown = (element: Element, root: Element) => {
@@ -42,6 +44,23 @@ export const visibleBounds = (svg: SVGSVGElement) => {
   });
   if (minX === Infinity) return null;
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+};
+
+/** Smallest box enclosing `a` and `b`, or whichever is present. */
+export const unionBounds = (
+  a: DrawingBounds | null,
+  b: DrawingBounds | null
+): DrawingBounds | null => {
+  if (!a) return b;
+  if (!b) return a;
+  const x = Math.min(a.x, b.x);
+  const y = Math.min(a.y, b.y);
+  return {
+    x,
+    y,
+    width: Math.max(a.x + a.width, b.x + b.width) - x,
+    height: Math.max(a.y + a.height, b.y + b.height) - y,
+  };
 };
 
 export const insetOf = (element: Element, side: 'top' | 'right') =>

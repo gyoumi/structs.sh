@@ -1,5 +1,7 @@
 import AVLAnimationProducer from '@/visualiser-src/avl-tree-visualiser/animation-producer/AVLAnimationProducer';
-import updateNodePositions from '@/visualiser-src/binary-search-tree-visualiser/util/helpers';
+import updateNodePositions, {
+  treeBounds,
+} from '@/visualiser-src/binary-search-tree-visualiser/util/helpers';
 import GraphicalAVLNode from './GraphicalAVLNode';
 import { AVLRoot, rotateLeft, rotateRight } from './avlRotate';
 
@@ -14,6 +16,12 @@ const insertBelow = (
 ): boolean => {
   if (root.value > input) {
     animationProducer.countNodePassed();
+    const isLeafParent = root.left == null;
+    if (isLeafParent) {
+      root.left = GraphicalAVLNode.from(input);
+      updateNodePositions(tree.root);
+      animationProducer.setTargetBounds(treeBounds(tree.root));
+    }
     animationProducer.doAnimationAndHighlight(4, animationProducer.halfHighlightNode, root);
     animationProducer.doAnimationAndHighlight(
       5,
@@ -22,22 +30,26 @@ const insertBelow = (
       root.leftArrowTarget,
       true
     );
-    if (root.left == null) {
-      root.left = GraphicalAVLNode.from(input);
-      updateNodePositions(tree.root);
+    if (isLeafParent) {
       animationProducer.doAnimationAndHighlight(
         3,
         animationProducer.createAndLayoutNode,
-        root.left,
+        root.left!,
         tree.root,
         true
       );
-      animationProducer.doAnimation(animationProducer.unhighlightNode, root.left);
-    } else if (!insertBelow(tree, root, root.left, true, input, animationProducer)) {
+      animationProducer.doAnimation(animationProducer.unhighlightNode, root.left!);
+    } else if (!insertBelow(tree, root, root.left!, true, input, animationProducer)) {
       return false;
     }
   } else if (root.value < input) {
     animationProducer.countNodePassed();
+    const isLeafParent = root.right == null;
+    if (isLeafParent) {
+      root.right = GraphicalAVLNode.from(input);
+      updateNodePositions(tree.root);
+      animationProducer.setTargetBounds(treeBounds(tree.root));
+    }
     animationProducer.doAnimationAndHighlight(6, animationProducer.halfHighlightNode, root);
     animationProducer.doAnimationAndHighlight(
       7,
@@ -46,18 +58,16 @@ const insertBelow = (
       root.rightArrowTarget,
       true
     );
-    if (root.right == null) {
-      root.right = GraphicalAVLNode.from(input);
-      updateNodePositions(tree.root);
+    if (isLeafParent) {
       animationProducer.doAnimationAndHighlight(
         3,
         animationProducer.createAndLayoutNode,
-        root.right,
+        root.right!,
         tree.root,
         true
       );
-      animationProducer.doAnimation(animationProducer.unhighlightNode, root.right);
-    } else if (!insertBelow(tree, root, root.right, false, input, animationProducer)) {
+      animationProducer.doAnimation(animationProducer.unhighlightNode, root.right!);
+    } else if (!insertBelow(tree, root, root.right!, false, input, animationProducer)) {
       return false;
     }
   } else {
@@ -102,6 +112,7 @@ const insertOne = (tree: AVLRoot, input: number, animationProducer: AVLAnimation
   if (tree.root === null) {
     tree.root = GraphicalAVLNode.from(input);
     updateNodePositions(tree.root);
+    animationProducer.setTargetBounds(treeBounds(tree.root));
     animationProducer.doAnimationAndHighlight(3, animationProducer.createNode, tree.root, true);
     animationProducer.doAnimation(animationProducer.unhighlightBST, tree.root);
   } else {
