@@ -199,6 +199,11 @@ test.describe('daily game streaks and history', () => {
       expect(await dailyPage.values(), `${doneCtx}: frozen editor should show final saved arrangement`).toEqual([
         ...DAILY_12.thirdFromLow.values,
       ]);
+      await expect
+        .poll(() => dailyPage.drawnValues(), {
+          message: `${doneCtx}: stage SVG should redraw the final saved arrangement`,
+        })
+        .toEqual([...DAILY_12.thirdFromLow.values]);
       await dailyHistory.expectArrayFrozen(DAILY_12.puzzle.values.length, doneCtx);
     } finally {
       await secondPage.close();
