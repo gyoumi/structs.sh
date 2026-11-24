@@ -10,6 +10,8 @@ mod error;
 mod instance;
 mod model;
 mod rows;
+mod sanitize;
+pub mod seed;
 
 pub use db::{
     connect, get_public_puzzle_by_date, get_puzzle_by_date, insert_puzzle,
@@ -19,4 +21,5 @@ pub use error::DbError;
 pub use model::{
     DailyPuzzleRecord, InsertOutcome, NewDailyPuzzle, PublicPuzzle, PuzzleInstance, PuzzleSolution,
 };
+pub use sanitize::describe_db_error;
 pub use structs_puzzles::linked_list_index_drift::Operation;

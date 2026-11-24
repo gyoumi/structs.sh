@@ -10,10 +10,10 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use sqlx::PgPool;
 use structs_game_api::ApiError;
+use structs_game_db::describe_db_error;
 
 use crate::clock::{Clock, sydney_date};
 use crate::convert::to_daily_puzzle;
-use crate::sanitize::describe_db_error;
 
 /// The body sent when no puzzle is scheduled for today.
 const NOT_SCHEDULED: &str = "No puzzle is scheduled for today.";

@@ -9,6 +9,9 @@ const baseURL = process.env.E2E_BASE_URL ?? `http://localhost:${previewPort}`;
 
 export default defineConfig({
   testDir: './tests',
+  // The whole-stack spec moves the game server's clock, so it only runs
+  // against docker-compose.daily.yml, which E2E_CLOCK_URL points at.
+  testIgnore: process.env.E2E_CLOCK_URL ? [] : ['**/daily-game-stack.spec.ts'],
   // The first compile downloads clang into the browser, which is slow.
   timeout: 90_000,
   expect: { timeout: 15_000 },
