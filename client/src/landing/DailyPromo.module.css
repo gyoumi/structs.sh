@@ -3,9 +3,7 @@
 
   padding-block: clamp(2.25rem, 6vh, 3.5rem);
   border-top: 2.5px solid var(--edge);
-  background-color: var(--hero-bg);
-  background-image: radial-gradient(var(--hero-dot) 1.5px, transparent 1.5px);
-  background-size: 28px 28px;
+  background: var(--hero-bg);
 }
 
 .row {

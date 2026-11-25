@@ -7,10 +7,11 @@
   --disabled-edge: #a7aed0;
   --yes: #1d7a4a;
   --no: #b3361f;
+  --grid-dot: rgba(31, 29, 92, 0.13);
 
   min-height: 100svh;
   background-color: var(--hero-bg);
-  background-image: radial-gradient(var(--hero-dot) 1.5px, transparent 1.5px);
+  background-image: radial-gradient(var(--grid-dot) 1.5px, transparent 1.5px);
   background-size: 28px 28px;
 }
 
@@ -20,6 +21,7 @@
   --disabled-edge: #403d8f;
   --yes: #7ddba4;
   --no: #ff8f7a;
+  --grid-dot: rgba(255, 255, 255, 0.09);
 }
 
 .header {
@@ -235,7 +237,7 @@
   --ground: var(--bg);
   --white: #ffffff;
   --stage: var(--surface);
-  --dot: var(--hero-dot);
+  --dot: var(--grid-dot);
   --stage-focus: var(--steel);
 
   display: grid;
@@ -294,14 +296,14 @@
 }
 
 /* The stage keeps the theme its bars were drawn in, so a theme switch mid-run stays readable.
-   These match --surface and --hero-dot in Landing.module.css. */
+   These match --surface in Landing.module.css and --grid-dot above. */
 .stageLight {
   --stage: #ffffff;
   --dot: rgba(31, 29, 92, 0.13);
 }
 
 .stageDark {
-  --stage: #1e1c55;
+  --stage: #171538;
   --dot: rgba(255, 255, 255, 0.09);
 }
 
