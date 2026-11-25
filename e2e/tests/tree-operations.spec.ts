@@ -38,10 +38,15 @@ test.describe('binary search tree operations', () => {
 
   for (const [traversal, order] of Object.entries(traversals)) {
     test(`${traversal} visits ${order.join(', ')} and leaves the tree unchanged`, async ({ visualiser }) => {
+      const context = `/visualiser/binary-search-trees [20, 10, 30], ${traversal} at 5× speed, rewound to the start and stepped with Next step`;
+      await visualiser.transport.setSpeed(5);
       await visualiser.run(traversal);
-      expect(await visualiser.visitOrder()).toEqual(order);
-      await expect.poll(() => visualiser.values()).toEqual([10, 20, 30]);
-      await expect.poll(() => visualiser.root()).toBe(20);
+      await visualiser.transport.rewind();
+      expect(await visualiser.visitOrder(context), `${context}: the nodes should be visited in the order ${order.join(', ')}`).toEqual(order);
+      await expect
+        .poll(() => visualiser.values(), { message: `${context}: after the traversal the tree should still read 10, 20, 30 left to right` })
+        .toEqual([10, 20, 30]);
+      await expect.poll(() => visualiser.root(), { message: `${context}: after the traversal 20 should still be the root` }).toBe(20);
     });
   }
 });
@@ -90,10 +95,15 @@ test.describe('AVL tree traversals', () => {
 
   for (const [traversal, order] of Object.entries(traversals)) {
     test(`${traversal} visits ${order.join(', ')} and leaves the tree unchanged`, async ({ visualiser }) => {
+      const context = `/visualiser/avl-trees [20, 10, 30], ${traversal} at 5× speed, rewound to the start and stepped with Next step`;
+      await visualiser.transport.setSpeed(5);
       await visualiser.run(traversal);
-      expect(await visualiser.visitOrder()).toEqual(order);
-      await expect.poll(() => visualiser.values()).toEqual([10, 20, 30]);
-      await expect.poll(() => visualiser.root()).toBe(20);
+      await visualiser.transport.rewind();
+      expect(await visualiser.visitOrder(context), `${context}: the nodes should be visited in the order ${order.join(', ')}`).toEqual(order);
+      await expect
+        .poll(() => visualiser.values(), { message: `${context}: after the traversal the tree should still read 10, 20, 30 left to right` })
+        .toEqual([10, 20, 30]);
+      await expect.poll(() => visualiser.root(), { message: `${context}: after the traversal 20 should still be the root` }).toBe(20);
     });
   }
 });
