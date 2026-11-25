@@ -424,4 +424,32 @@ test.describe('daily game in two tabs', () => {
     await b.resume();
     await expectCaughtUp(b, a, true, back);
   });
+
+  /**
+   * Tab B shares tab A's run at 2× and is frozen; tab A plays on 8 steps at 2×, then the player sets Speed 0.5×
+   * and it plays one more step. When B resumes, its queued Speed message runs after `resume`. B must still move
+   * to A's step: a B that drops A's position reply and keeps its own clock counts the whole frozen time at 0.5×,
+   * so it ends several steps behind A, at the same Speed. (Changing Speed early in the frozen time hides this,
+   * because B's clock then happens to land near A's step.)
+   */
+  test('a tab frozen while sharing a run, during which the other tab changes Speed, resumes on the other tab\'s step at the new Speed (quicksort)', async ({ page }) => {
+    const { goal } = DAILY_12;
+    const ctx = `${DAILY_12.name} dated ${DATE}, tab A runs ${fmt(goal.values)} at 2× and tab B plays it too, then tab B is frozen (freeze event; its BroadcastChannel messages, timers and frames wait; it stays visible), tab A plays on 8 steps at 2×, sets Speed 0.5× and plays one more step`;
+    await withTabLifecycle(page.context());
+    const { a, b } = await openBoth(page, QUICKSORT_DAY, ctx);
+    await a.daily.swap(goal.swap[0], goal.swap[1]);
+    await a.daily.transport.setSpeed(2);
+    await a.daily.run();
+    await expectPlayingTogether([a, b], `${ctx}: test setup: both tabs should play the run before tab B is frozen`);
+    await b.freeze();
+    const frozenAt = Number((await a.playback(ctx)).step.match(/^Step (\d+)/)?.[1] ?? 0);
+    await a.waitForStep(frozenAt + 8, `${ctx}, tab A playing on at 2×`);
+    await a.daily.transport.setSpeed(0.5);
+    await a.waitForStep(frozenAt + 9, `${ctx}, tab A playing on at 0.5×`);
+    expect((await a.playback(ctx)).button, `${ctx}: test setup: tab A should still be playing when tab B resumes`).toBe('Pause');
+
+    const back = `${ctx}, then tab B resumes (resume event, then its waiting messages, including the Speed change, timers and frames run)`;
+    await b.resume();
+    await expectCaughtUp(b, a, true, back);
+  });
 });

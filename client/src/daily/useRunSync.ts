@@ -89,7 +89,10 @@ export const useRunSync = ({
   const shared = useRef<SharedRun | null>(null);
   const awaitingResult = useRef<{ key: string; resolve: (result: HeldTry) => void } | null>(null);
   const joinUntil = useRef(0);
-  /** Counts playback changes made here or applied from another tab, to spot a stale answer. */
+  /**
+   * Counts playback changes this tab's player made, to spot a stale answer. Changes from another
+   * tab don't count: a tab's answer comes after every change it sent, so it already has them.
+   */
   const changes = useRef(0);
   const changesWhenAsked = useRef(0);
   const following = useRef(false);
@@ -148,7 +151,7 @@ export const useRunSync = ({
       case 'run':
         if (data.at && run?.key === data.key) {
           // Another tab sharing this run says where it is now; the last to answer wins.
-          // A change made since asking is newer than the answer, so it stands.
+          // A change this tab's player made since asking is newer than the answer, so it stands.
           if (Date.now() > joinUntil.current || changes.current !== changesWhenAsked.current) {
             return;
           }
@@ -176,9 +179,7 @@ export const useRunSync = ({
         if (awaitingResult.current?.key === data.key) awaitingResult.current.resolve(data.result);
         return;
       case 'playback':
-        if (run?.key !== data.key) return;
-        changes.current += 1;
-        applyChange(rig.playback, data.change);
+        if (run?.key === data.key) applyChange(rig.playback, data.change);
         return;
       default:
         data satisfies never;
