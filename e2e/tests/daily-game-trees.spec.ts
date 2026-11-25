@@ -20,6 +20,7 @@ test.describe('daily AVL: most rotations', () => {
     expect(await dailyPage.fixedIndices(), `${ctx}: fixed slots ${fmt(challenge.fixed)} should be disabled`).toEqual([...challenge.fixed]);
     await dailyPage.expectStatusNumber('Rotations', 0, `${ctx}: Rotations should start at 0 before Run`);
 
+    await dailyPage.transport.setSpeed(5);
     await dailyPage.run();
     await dailyTemplate.expectCountersAnimate([{ name: 'Rotations', final: start.rotations }], ctx);
     await dailyPage.skip(ctx);
