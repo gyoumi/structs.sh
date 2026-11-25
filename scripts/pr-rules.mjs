@@ -23,13 +23,15 @@ const PROTECTED = [
   /(^|\/)\.cargo\//, // cargo config can change or skip what `cargo test` runs
 ];
 const MANIFEST = /^(client\/)?package\.json$/;
-// Cargo.toml settings that change which instrumenter tests cargo runs,
+// Cargo.toml settings that change which tests or workspace crates cargo runs,
 // matched anywhere in an added or removed line, since TOML can also write
-// them as dotted keys (lib.test), inline tables or quoted keys. `path` can
-// point a test at another file. Quoted keys can spell a setting with TOML's
-// \uXXXX and \UXXXXXXXX escapes, so those are decoded first.
+// them as dotted keys (lib.test, workspace.default-members), inline tables or
+// quoted keys. `path` can point a test at another file. Quoted keys can spell
+// a setting with TOML's \uXXXX and \UXXXXXXXX escapes, so those are decoded
+// first.
 const CARGO_MANIFEST = /^(instrumenter|game-server(\/[^/]+)?)\/Cargo\.toml$/;
-const CARGO_TEST_SETTING = /\b(autotests|autobenches|test|harness|doctest|required-features|path)\b/;
+const CARGO_TEST_SETTING =
+  /\b(autotests|autobenches|test|harness|doctest|required-features|path|members|default-members|exclude)\b/;
 const CARGO_LINT_SETTING = /\blints\b|["'](allow|warn|deny|forbid)["']|^\s*["']?workspace["']?\s*=/;
 const decodeTomlEscapes = (text) =>
   text.replace(/\\u([0-9a-fA-F]{4})|\\U([0-9a-fA-F]{8})/g, (escape, short, long) => {

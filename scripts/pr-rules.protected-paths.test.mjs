@@ -365,5 +365,23 @@ describe('protected-paths', () => {
     }
     const clippy = checkPr(pr({ files: [{ status: 'A', path: 'game-server/clippy.toml' }] }));
     assert.deepEqual(rulesHit(clippy), ['protected-paths'], 'adding game-server/clippy.toml should hit protected-paths');
+
+    const workspacePath = 'game-server/Cargo.toml';
+    for (const text of [
+      'default-members = ["challenges"]',
+      'members = ["challenges"]',
+      'exclude = ["db", "api", "server"]',
+      '"\\u0064efault-members" = ["challenges"]',
+    ]) {
+      const addedWorkspace = checkPr(pr({ files: [{ status: 'M', path: workspacePath }], addedLines: [{ path: workspacePath, line: 3, text }] }));
+      assert.deepEqual(rulesHit(addedWorkspace), ['protected-paths'], `adding ${text} to ${workspacePath} should hit protected-paths`);
+    }
+    const removedMembers = checkPr(
+      pr({
+        files: [{ status: 'M', path: workspacePath }],
+        removedLines: [{ path: workspacePath, line: 2, text: 'members = ["challenges", "db", "api", "server"]' }],
+      }),
+    );
+    assert.deepEqual(rulesHit(removedMembers), ['protected-paths'], `removing members from ${workspacePath} should hit protected-paths`);
   });
 });

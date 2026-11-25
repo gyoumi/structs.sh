@@ -10,7 +10,7 @@ export function getCx(index: number): number {
 }
 
 export function getBarHeight(value: number): number {
-  return Math.sqrt(value * 90) * canvasTheme.sortBarScale;
+  return Math.sqrt(Math.abs(value) * 90) * canvasTheme.sortBarScale;
 }
 
 export function getY(value: number): number {

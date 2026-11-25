@@ -11,6 +11,7 @@ import {
 } from '@/test/sortingParity';
 import { insertionSort } from './insertion';
 import { mergeSort } from './merge';
+import { getBarHeight, getY } from '../util/helpers';
 
 /** Needs the challenges wasm built first: `pnpm run challenges` from the repo root. */
 
@@ -42,6 +43,8 @@ const FIXED_CASES: FixedCase[] = [
   { label: 'merge takes left on ties', values: [1, 2, 1], expected: counts(3, 3) },
   { label: 'duplicates mixed', values: [3, 1, 2, 3, 1], expected: counts(8, 8) },
   { label: 'duplicate pairs reversed', values: [2, 2, 1, 1], expected: counts(6, 4) },
+  { label: 'negative and zero values', values: [-1, 0, 1], expected: counts(2, 3) },
+  { label: 'negative values unsorted', values: [1, -2, 0, -1], expected: counts(6, 5) },
 ];
 
 const RANDOM_CASES = seededCases(20261124, 35, 15);
@@ -114,4 +117,44 @@ describe('insertion and merge sort comparison parity (TypeScript visualiser vs w
       ).toSatisfy((count: number) => count >= n - 1 && count <= (n * (n - 1)) / 2);
     }
   );
+
+  it('keeps bar heights and merge vertical offsets finite for negative values', () => {
+    [-10, -1, 0, 1, 10].forEach((value) => {
+      expect(
+        getBarHeight(value),
+        `getBarHeight(${value}) should be finite and non-negative`
+      ).toBeGreaterThanOrEqual(0);
+      expect(Number.isFinite(getBarHeight(value)), `getBarHeight(${value}) should be finite`).toBe(
+        true
+      );
+      expect(Number.isFinite(getY(value)), `getY(${value}) should be finite`).toBe(true);
+    });
+    expect(getBarHeight(-1), 'negative and positive values of equal magnitude share height').toBe(
+      getBarHeight(1)
+    );
+
+    const elements = freshElements([-1, 0, 1]);
+    elements.forEach((element) => {
+      const height = Number(element.boxTarget.attr('height'));
+      expect(
+        Number.isFinite(height) && height >= 0,
+        `bar height for ${element.data.value} should be finite`
+      ).toBe(true);
+    });
+
+    const producer = mergeSort(elements);
+    producer.allRunners.forEach((step) => {
+      step.runners.forEach((runner) => runner.finish());
+      elements.forEach((element) => {
+        const rectY = element.boxTarget.attr('y');
+        const labelY = element.numberTarget.attr('y');
+        expect(Number.isFinite(Number(rectY)), `merge rect y=${rectY} should stay finite`).toBe(
+          true
+        );
+        expect(Number.isFinite(Number(labelY)), `merge label y=${labelY} should stay finite`).toBe(
+          true
+        );
+      });
+    });
+  });
 });

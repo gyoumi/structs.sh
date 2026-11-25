@@ -82,12 +82,12 @@ jobs:
         run: cargo fmt --check
       - name: Clippy
         run: |
-          cargo clippy --all-targets -- -D warnings
+          cargo clippy --workspace --all-targets -- -D warnings
           cargo clippy -p daily-challenges --release --target wasm32-unknown-unknown -- -D warnings
       - name: Tests
         env:
           DATABASE_URL: postgres://daily:daily@localhost:5432/daily_challenges
-        run: cargo test
+        run: cargo test --workspace
 
   sanity-e2e:
     runs-on: ubuntu-latest
