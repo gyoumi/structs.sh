@@ -109,10 +109,10 @@ rest of the e2e tests drive `/daily` only through ARIA roles and accessible
 names:
 
 - **Rules:** `region` named `Challenge rules`. It must contain the sentence
-  `Reorder the numbers so quicksort makes as many comparisons as possible.`
+  `Swap the numbers to make as many comparisons as possible.`
   It also explains that quicksort picks the leftmost number in each range as
   the pivot (the text mentions both `leftmost` and `pivot`), for example
-  `Quicksort always picks the leftmost number in each range as the pivot.`
+  `Leftmost number is always the pivot.`
   Those two sentences are the only rules prose shown by default. The region
   has no `You have N tries` sentence (nothing matching `/you have \d+ tries/i`)
   and no `Tap or click...` swap instructions (nothing matching

@@ -34,6 +34,7 @@ type Progress = {
   initialTries: SavedTry[];
   storageRevision: number;
   streak?: number;
+  /** Saves tries at Run; the page (streak badge, tries) catches up when `onTriesShown` runs at run end. */
   onRecordTries: (tries: SavedTry[]) => Promise<PersistOutcome>;
   onTriesShown: () => void;
 };
@@ -153,7 +154,6 @@ const ChallengeView = ({ challenge, theme }: { challenge: Challenge; theme: Them
     initialTries,
     storageRevision,
     streak,
-    // Saved at Run, but the page (the streak badge, the tries) catches up only when the run ends.
     onRecordTries: async (tries) => {
       const outcome = await persistChallengeTriesLocked(challenge, tries);
       persistedTries.current = savedTriesForChallenge(outcome.history, challenge);

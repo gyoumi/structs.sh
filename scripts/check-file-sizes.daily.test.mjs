@@ -41,7 +41,7 @@ describe('inScope: all code files by default', () => {
     ['game-server/challenges/Cargo.toml', 'a Cargo manifest'],
     ['game-server/challenges/tests/fixtures/helper.rs', 'a file in fixtures/'],
     ['game-server/challenges/src/generated/tables.rs', 'a file in generated/'],
-    ['crates/README.md', 'a markdown file'],
+    ['game-server/README.md', 'a markdown file'],
   ];
 
   for (const [path, why] of excluded) {
@@ -51,7 +51,7 @@ describe('inScope: all code files by default', () => {
   }
 });
 
-describe('kindOf: daily game, client test helpers and crates workspace', () => {
+describe('kindOf: daily game, client test helpers and game-server workspace', () => {
   const cases = [
     ['client/src/App.tsx', 'source'],
     ['client/src/daily/Daily.tsx', 'source'],

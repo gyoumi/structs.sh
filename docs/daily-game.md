@@ -366,17 +366,17 @@ unchanged.
 
 - **Split 2a into four vertical PRs:** `2a-0` writes Checkpoint 2's Playwright tests first (on `e2e/known-failures/game.json`), then `2a-1` ships the two sorting templates (`bubble-exact-passes`, `insertion-beats-merge`), `2a-2` ships the three tree templates (`avl-most-rotations`, `bst-forced-order`, `upset-bst-beats-avl`), and `2a-3` ships the linked list template (`linked-list-index-drift`).
 - **Complete 2a with static fixtures before setting up `daily-generator`:** all of `2a` runs inside `structs.sh` using static test puzzle JSON files (and Playwright network interception in e2e). The private `daily-generator` repo is connected before `2b`.
-- **Template IDs, scoring rules, and puzzle JSON shapes** (`GET /puzzles/today.json`, never carrying `best`):
-  - `quicksort-most-comparisons`: `{ number, template, values, fixed, par, date? }` — Extreme (higher).
-  - `bubble-exact-passes`: `{ number, template, values, fixed, targetPasses, par, date? }` — Exact target (`passes === targetPasses`, where a pass is an outer loop iteration that makes at least one comparison — including the final 0-swap stopping pass, excluding any comparison-free `i = n - 1` iteration, so at most `n - 1` passes), then swaps (higher).
-  - `insertion-beats-merge`: `{ number, template, values, fixed, par, date? }` — Disagree (`insertionComparisons < mergeComparisons`, insertion stops when `val >= a[j - 1]`, merge splits at `floor((lo + hi) / 2)` and takes left on ties), then out-of-order pairs / inversions (higher).
-  - `avl-most-rotations`: `{ number, template, values, fixed, par, date? }` — Extreme, total single rotations from inserting keys in order (higher; each LL/RR counts as 1 rotation and each LR/RL double rotation counts as 2 rotations).
-  - `bst-forced-order`: `{ number, template, values, targetTree, par, date? }` — Exact target (inserting the player's order into an empty BST matches `targetTree`, given as its preorder traversal), then longest contiguous strictly increasing run in the insert order (higher). No fixed slots.
-  - `upset-bst-beats-avl`: `{ number, template, values, fixed, par, date? }` — Disagree (`bstNodesPassed < avlNodesPassed`, counting only existing nodes passed on the way down during each insert, not rotations), then margin `avlNodesPassed - bstNodesPassed` (higher).
-  - `linked-list-index-drift`: `{ number, template, start, target, par, date? }` — Exact target (final list equals `target`), then total cost = `operations + nodesWalked` (**lower wins**, so `cost <= goal` reaches the goal). `insert(value, index)` costs `1 + min(index, lengthBefore)`; `delete(index)` costs `1 + (index + 1)`.
+- **Template IDs, scoring rules, and challenge JSON shapes** (`GET /api/daily`, never carrying `best`):
+  - `quicksort-most-comparisons`: `{ number, template, values, fixed, goal, date? }` — Extreme (higher).
+  - `bubble-exact-passes`: `{ number, template, values, fixed, targetPasses, goal, date? }` — Exact target (`passes === targetPasses`, where a pass is an outer loop iteration that makes at least one comparison — including the final 0-swap stopping pass, excluding any comparison-free `i = n - 1` iteration, so at most `n - 1` passes), then swaps (higher).
+  - `insertion-beats-merge`: `{ number, template, values, fixed, goal, date? }` — Disagree (`insertionComparisons < mergeComparisons`, insertion stops when `val >= a[j - 1]`, merge splits at `floor((lo + hi) / 2)` and takes left on ties), then out-of-order pairs / inversions (higher).
+  - `avl-most-rotations`: `{ number, template, values, fixed, goal, date? }` — Extreme, total single rotations from inserting keys in order (higher; each LL/RR counts as 1 rotation and each LR/RL double rotation counts as 2 rotations).
+  - `bst-forced-order`: `{ number, template, values, targetTree, goal, date? }` — Exact target (inserting the player's order into an empty BST matches `targetTree`, given as its preorder traversal), then longest contiguous strictly increasing run in the insert order (higher). No fixed slots.
+  - `upset-bst-beats-avl`: `{ number, template, values, fixed, goal, date? }` — Disagree (`bstNodesPassed < avlNodesPassed`, counting only existing nodes passed on the way down during each insert, not rotations), then margin `avlNodesPassed - bstNodesPassed` (higher).
+  - `linked-list-index-drift`: `{ number, template, start, target, goal, date? }` — Exact target (final list equals `target`), then total cost = `operations + nodesWalked` (**lower wins**, so `cost <= goal` reaches the goal). `insert(value, index)` costs `1 + min(index, lengthBefore)`; `delete(index)` costs `1 + (index + 1)`.
 - **Unsolved tries on Exact-target and Disagree puzzles:**
   - An unsolved try still uses a try, explains clearly why the condition wasn't met (for example *"Took 3 passes — needed 4"* or *"Insertion made 16 comparisons — merge made 15"*), still shows the secondary count so the player can learn, and marks the try unsolved (`✗` in try chips and share text).
-  - Any solved try always outranks any unsolved try (especially important for lower-wins like Index drift, where an incomplete cheap run must not beat a solved one). While tries remain, `Score` and `Goal reached` reflect the latest try (so an unsolved try leaves `Score` without a number and hides `Goal reached`). Once the third try finishes, `Try result` still describes that final try, while `Score` and `Goal reached` report the best solved try across all three tries (`score >= goal` for higher-wins, `score <= par` for lower-wins; if all three tries are unsolved, `Score` has no number and `Goal reached` stays hidden).
+  - Any solved try always outranks any unsolved try (especially important for lower-wins like Index drift, where an incomplete cheap run must not beat a solved one). While tries remain, `Score` and `Goal reached` reflect the latest try (so an unsolved try leaves `Score` without a number and hides `Goal reached`). Once the third try finishes, `Try result` still describes that final try, while `Score` and `Goal reached` report the best solved try across all three tries (`score >= goal` for higher-wins, `score <= goal` for lower-wins; if all three tries are unsolved, `Score` has no number and `Goal reached` stays hidden).
   - In share text, solved tries follow Checkpoint 1 (`<score>` or `<score> ⭐`), and unsolved tries appear as `✗`.
 - **Two-algorithm puzzles (`insertion-beats-merge` and `upset-bst-beats-avl`):** render both stages side by side on desktop (stacked on phone) synced to one shared `Playback` toolbar (`Transport`). `Skip` finishes both stages; stepping, rewind, replay, and speed control both together.
 - **`daily-generator` starts in the private repo** in the `devsoc-unsw` org.
@@ -604,6 +604,8 @@ run starts only after the server records the try, through one idempotent
 request per account, day and try (`roadmap.md`, stage 3), which closes it.
 
 ### 3g. Tidy
+
+**Done in #91.**
 
 Tidy what 3f added or changed against the four rules (size, stages,
 comments, tests) without changing what a player sees.

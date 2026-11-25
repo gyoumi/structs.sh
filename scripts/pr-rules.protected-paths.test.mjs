@@ -342,7 +342,7 @@ describe('protected-paths', () => {
     }
   });
 
-  it('protects test and lint settings in crates Cargo.toml files and clippy.toml', () => {
+  it('protects test and lint settings in game-server Cargo.toml files and clippy.toml', () => {
     for (const path of ['game-server/Cargo.toml', 'game-server/challenges/Cargo.toml']) {
       const added = checkPr(pr({ files: [{ status: 'M', path }], addedLines: [{ path, line: 5, text: 'autotests = false' }] }));
       assert.deepEqual(rulesHit(added), ['protected-paths'], `adding autotests = false to ${path} should hit protected-paths`);
