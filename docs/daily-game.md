@@ -566,6 +566,8 @@ tests pass, and the recorded run after the tidy matches the one before it.
 
 ### 3f. Fixes from the recorded run
 
+**Done in #90.**
+
 The rest of the recorded run's findings, and the ones the reviews of #88
 left open:
 
@@ -576,10 +578,10 @@ left open:
   tab that ran it, including the speed multiplier, pause, stepping and
   seeking. A tab opened while a run plays asks the open tabs for the run
   and joins it at the current step; if no tab answers, it shows the last
-  saved try as a reload does. Today a synced tab updates its score and
-  tries but keeps its own last run on the stage while tries remain; when
-  the other tab's try ends the day, it draws that try's input but not its
-  run. Devices sync the same way once there are accounts,
+  saved try as a reload does. Before #90, a synced tab updated its score
+  and tries but kept its own last run on the stage while tries remained;
+  when the other tab's try ended the day, it drew that try's input but not
+  its run. Devices sync the same way once there are accounts,
   over a WebSocket (`roadmap.md`, stage 3).
 - **A full `localStorage` doesn't blank the app.** The debugger's
   `fileSystem` store throws on startup when storage is full, which blanks

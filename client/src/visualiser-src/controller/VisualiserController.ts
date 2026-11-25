@@ -11,7 +11,7 @@ interface TimeEvent extends Event {
   detail?: number;
 }
 
-export interface TimelineSegment {
+interface TimelineSegment {
   start: number;
   line: number | null;
 }

@@ -1,5 +1,19 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
+const STEP = /^\s*Step (\d+) of (\d+)\s*$/;
+
+/** The playback's step readout as numbers: `Step 3 of 7` is { step: 3, of: 7 }; `No steps yet` (or anything else) is null. */
+export const parseStep = (text: string): { step: number; of: number } | null => {
+  const match = text.match(STEP);
+  return match ? { step: Number(match[1]), of: Number(match[2]) } : null;
+};
+
+/** The step readout is at the run's last step: `Step N of N`. */
+export const isLastStep = (text: string): boolean => {
+  const at = parseStep(text);
+  return at !== null && at.step === at.of;
+};
+
 /**
  * The playback controls every visualiser and /daily share: the `Playback` toolbar (Play, Pause,
  * Replay, Previous step, Next step, Back to the start, Skip to the end), the `Animation progress`
@@ -40,6 +54,24 @@ export class TransportControls {
 
   async roundedProgress(context?: string): Promise<number> {
     return Math.round(await this.progress(context));
+  }
+
+  /** The first of Play, Pause or Replay the toolbar shows, and whether it is enabled; null when it shows none. */
+  async playButton(): Promise<{ name: 'Play' | 'Pause' | 'Replay'; enabled: boolean } | null> {
+    return this.toolbar.getByRole('button', { name: /^(Play|Pause|Replay)$/ }).evaluateAll((elements) => {
+      for (const el of elements) {
+        const rect = el.getBoundingClientRect();
+        if (rect.width === 0 && rect.height === 0) continue;
+        const name = (el.getAttribute('aria-label') ?? el.textContent ?? '').trim();
+        if (name !== 'Play' && name !== 'Pause' && name !== 'Replay') continue;
+        const disabled =
+          el.hasAttribute('disabled') ||
+          el.getAttribute('aria-disabled') === 'true' ||
+          el.closest('[aria-disabled="true"]') !== null;
+        return { name, enabled: !disabled };
+      }
+      return null;
+    });
   }
 
   // ---------------------------------------------------------------- buttons
@@ -97,6 +129,17 @@ export class TransportControls {
         message: `${prefix}Skip to the end should move rounded Animation progress to 100`,
       })
       .toBe(100);
+  }
+
+  /** Clicks the `Animation progress` slider's track at `fraction` (0 to 1) of its length, as a player seeking does. */
+  async seek(fraction: number, context: string): Promise<void> {
+    const at = `${Math.round(fraction * 100)}%`;
+    await expect(this.timeline, `${context}: the Animation progress slider should be enabled before clicking it at ${at}`).toBeEnabled();
+    const track = this.page.locator('[data-slot="slider-control"]').filter({ has: this.timeline });
+    await track.scrollIntoViewIfNeeded();
+    const box = await track.boundingBox();
+    if (!box) throw new Error(`${context}: the Animation progress slider has no bounding box, so it can't be clicked at ${at}`);
+    await this.page.mouse.click(box.x + box.width * fraction, box.y + box.height / 2);
   }
 
   // ------------------------------------------------------------------ speed

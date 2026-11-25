@@ -5,6 +5,7 @@ import { DailyLocators } from './daily-locators';
 import { DailyPage } from './daily-page';
 import { contentDifferences, DailyStageView, type StageContent, type StageLook } from './daily-stage-view';
 import { DailyTemplatePage } from './daily-template-page';
+import { isLastStep } from './transport-controls';
 
 /**
  * Everything a player sees about the day's tries on /daily, read in one go so two pages can be compared:
@@ -174,11 +175,8 @@ export class DailyMidRun {
     const state = async (locator: Locator) =>
       !(await locator.isVisible()) ? 'hidden' : (await locator.isEnabled()) ? 'enabled' : 'disabled';
     const playButton = async () => {
-      for (const name of ['Play', 'Pause', 'Replay']) {
-        const button = this.ui.playback.getByRole('button', { name, exact: true });
-        if (await button.isVisible()) return `${name} ${(await button.isEnabled()) ? 'enabled' : 'disabled'}`;
-      }
-      return '(none)';
+      const play = await this.ui.transport.playButton();
+      return play ? `${play.name} ${play.enabled ? 'enabled' : 'disabled'}` : '(none)';
     };
     const editor = async () => {
       if (await this.ui.arrayGroup.isVisible()) {
@@ -286,7 +284,7 @@ export async function skipThenReloadView(
         async () => {
           view = await midRun.view(counters, `${context} (reference page)`);
           const now = JSON.stringify(view);
-          const settled = now === previous && /^Step (\d+) of \1$/.test(view.step);
+          const settled = now === previous && isLastStep(view.step);
           previous = now;
           return settled;
         },

@@ -127,7 +127,7 @@ export class DailyHistoryPage {
   async expectSyncedNotice(context: string): Promise<void> {
     await expect(
       this.page.getByText('Updated from another tab.'),
-      `${context}: should show the cross-tab reconciliation notice`,
+      `${context}: should show the "Updated from another tab." notice, since it took up tries another tab saved`,
     ).toBeVisible();
   }
 

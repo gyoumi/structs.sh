@@ -45,6 +45,9 @@ interface StageProps {
   minScale?: number;
 }
 
+/** Where a playing run is heading: the drawing's upcoming bounds and the part the step works on. */
+type Ahead = { bounds: DrawingBounds | null; focus: DrawingBounds | null };
+
 const idOf = (selector: string) => selector.replace(/^#/, '');
 
 const Stage = ({
@@ -66,11 +69,9 @@ const Stage = ({
   const complete = useSnapshot((s) => s.playback === 'complete');
   const step = useSnapshot((s) => s.step);
   const targetBounds = useSnapshot((s) => s.bounds);
-  const targetBoundsRef = useRef(targetBounds);
-  targetBoundsRef.current = targetBounds;
-  const focus = useSnapshot((s) => s.focus ?? null);
-  const focusRef = useRef(focus);
-  focusRef.current = focus;
+  const focus = useSnapshot((s) => s.focus);
+  const aheadRef = useRef<Ahead>({ bounds: targetBounds, focus });
+  aheadRef.current = { bounds: targetBounds, focus };
   const prevStep = useRef(step);
 
   const zoomAround = useCallback((factor: number, cx: number, cy: number, animate: boolean) => {
@@ -103,13 +104,12 @@ const Stage = ({
     (
       mode: FitMode = 'always',
       transition: ViewTransition = 'smooth',
-      upcoming: DrawingBounds | null = null,
-      focusOn: DrawingBounds | null = null
+      ahead: Ahead | null = null
     ) => {
       const svg = svgRef.current;
       const container = containerRef.current;
       if (!svg || !container) return;
-      const box = unionBounds(visibleBounds(svg), upcoming);
+      const box = unionBounds(visibleBounds(svg), ahead?.bounds ?? null);
       const { width, height } = container.getBoundingClientRect();
       if (!box || box.width === 0 || box.height === 0 || width === 0) {
         if (mode === 'always') {
@@ -120,7 +120,7 @@ const Stage = ({
       }
       const insetTop = insetOf(container, 'top');
       const insetRight = insetOf(container, 'right');
-      const options = { mode, transition, insetTop, insetRight, minScale, focus: focusOn };
+      const options = { mode, transition, insetTop, insetRight, minScale, focus: ahead?.focus };
       setView((prev) => fitView(prev, box, { width, height }, options));
       userMoved.current = false;
     },
@@ -129,15 +129,13 @@ const Stage = ({
 
   useLayoutEffect(() => {
     prevStep.current = 0;
-    fit('always', 'instant', targetBoundsRef.current, focusRef.current);
+    fit('always', 'instant', aheadRef.current);
   }, [layoutVersion, fit]);
 
   useEffect(() => {
     let second = 0;
     const first = requestAnimationFrame(() => {
-      second = requestAnimationFrame(() =>
-        fit('always', 'instant', targetBoundsRef.current, focusRef.current)
-      );
+      second = requestAnimationFrame(() => fit('always', 'instant', aheadRef.current));
     });
     return () => {
       cancelAnimationFrame(first);
@@ -152,8 +150,7 @@ const Stage = ({
       fit(
         complete ? 'always' : 'if-overflowing',
         jumped ? 'instant' : 'smooth',
-        complete ? null : targetBounds,
-        complete ? null : focus
+        complete ? null : { bounds: targetBounds, focus }
       );
     }
   }, [step, complete, targetBounds, focus, fit, view.status]);

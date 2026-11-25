@@ -33,6 +33,7 @@ const initial: VisualiserSnapshot = {
   layoutVersion: 0,
   trace: null,
   bounds: null,
+  focus: null,
 };
 
 /** Stands in for the engine-backed session, which needs a real SVG layout. */

@@ -155,14 +155,6 @@ export class VisualiserPage {
 
   // ---------------------------------------------------------------- playback
 
-  /** Clicks the timeline at a fraction (0 to 1) of its length. */
-  async seekTo(fraction: number): Promise<void> {
-    const track = this.page.locator('[data-slot="slider-control"]').filter({ has: this.transport.timeline });
-    const box = await track.boundingBox();
-    if (!box) throw new Error('The timeline is not visible');
-    await this.page.mouse.click(box.x + box.width * fraction, box.y + box.height / 2);
-  }
-
   /** How far through the current animation playback is, rounded, from 0 to 100. */
   async progress(): Promise<number> {
     return this.transport.roundedProgress();

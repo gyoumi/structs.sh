@@ -21,8 +21,6 @@ type StageRunOptions = {
   theme: Theme;
   /** The run to show, ended, once the stages are first drawn: the last try saved before a reload. */
   restored?: StageRun;
-  /** Called with the shown run's id once it is redrawn in another theme. The id stays the same. */
-  onRerun: (runId: number) => void;
 };
 
 /**
@@ -30,7 +28,7 @@ type StageRunOptions = {
  * A theme switch redraws them at once; a run they show keeps playing from the same point, with the
  * stage's pan and zoom kept.
  */
-export const useStageRun = ({ rig, theme, restored, onRerun }: StageRunOptions) => {
+export const useStageRun = ({ rig, theme, restored }: StageRunOptions) => {
   const [stageTheme, setStageTheme] = useState(theme);
   const pendingRestore = useRef(restored);
   const attached = useStageSnapshot(rig.stages[0], (snapshot) => snapshot.topicTitle !== null);
@@ -62,8 +60,6 @@ export const useStageRun = ({ rig, theme, restored, onRerun }: StageRunOptions) 
   const retheme = useEffectEvent(() => {
     setStageTheme(theme);
     rig.stages.forEach(({ session }) => session.retheme(canvasThemes[theme]));
-    const runId = rig.stages[0].session.getSnapshot().lastRun?.id;
-    if (runId !== undefined) onRerun(runId);
   });
 
   useEffect(() => {

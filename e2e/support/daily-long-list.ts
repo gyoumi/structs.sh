@@ -1,5 +1,5 @@
 import { expect, type Page } from '@playwright/test';
-import { describeNodes, StageGeometry, type StageFrame } from './stage-geometry';
+import { describeNodes, StageGeometry, type PlacedNode, type StageFrame } from './stage-geometry';
 import { TransportControls } from './transport-controls';
 
 /** One read of the stage while the run played, with how far through it was and when. */
@@ -7,6 +7,12 @@ export interface TimedFrame extends StageFrame {
   progress: number;
   at: number;
 }
+
+/** The nodes in `frame` drawn narrower than `minWidth` (less 0.5px). */
+export const narrowNodes = (frame: StageFrame, minWidth: number): PlacedNode[] => frame.nodes.filter((node) => node.width < minWidth - 0.5);
+
+/** The distinct widths `nodes` are drawn at, for failure messages: `24.3, 24.4`. */
+export const widthsOf = (nodes: readonly PlacedNode[]): string => [...new Set(nodes.map((node) => node.width))].join(', ');
 
 /**
  * The Index drift stage on /daily as a list grows long: where its nodes are drawn, how big, whether the node
@@ -23,11 +29,7 @@ export class DailyLongList {
 
   /** Clicks the `Animation progress` slider at `fraction` (0 to 1) of its length, which pauses there. */
   async seekTo(fraction: number, context: string): Promise<void> {
-    const track = this.page.locator('[data-slot="slider-control"]').filter({ has: this.transport.timeline });
-    await track.scrollIntoViewIfNeeded();
-    const box = await track.boundingBox();
-    if (!box) throw new Error(`${context}: the Animation progress slider is not visible`);
-    await this.page.mouse.click(box.x + box.width * fraction, box.y + box.height / 2);
+    await this.transport.seek(fraction, context);
     await expect
       .poll(() => this.transport.progress(context), { message: `${context}: clicking the Animation progress slider at ${Math.round(fraction * 100)}% should move playback there` })
       .toBeGreaterThan(fraction * 100 - 15);
@@ -57,12 +59,11 @@ export class DailyLongList {
    */
   followProblems(frames: readonly TimedFrame[], minWidth: number, graceMs = 800): string[] {
     const problems: string[] = [];
-    const small = frames.filter((frame) => frame.nodes.some((node) => node.width < minWidth - 0.5));
+    const small = frames.filter((frame) => narrowNodes(frame, minWidth).length > 0);
     if (small.length > 0) {
       const first = small[0];
-      const widths = [...new Set(first.nodes.map((node) => node.width))].join(', ');
       problems.push(
-        `${small.length} of ${frames.length} reads drew nodes narrower than the ${minWidth}px of the start list; the first, at progress ${first.progress.toFixed(1)}, drew ${first.nodes.length} nodes ${widths}px wide`,
+        `${small.length} of ${frames.length} reads drew nodes narrower than the ${minWidth}px of the start list; the first, at progress ${first.progress.toFixed(1)}, drew ${first.nodes.length} nodes ${widthsOf(first.nodes)}px wide`,
       );
     }
     let offSince: TimedFrame | null = null;

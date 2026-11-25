@@ -28,6 +28,16 @@ const RESULT_WAIT_MS = 3000;
 /** The run this tab shows that other tabs may show too. */
 type SharedRun = { key: string; input: PlayInput; scores: TryScore[]; result?: HeldTry };
 
+/** Whether this tab shares a run with other tabs, and how. */
+type Sync =
+  | { stage: 'alone' }
+  /** Another tab's run playing here; set before React re-renders with the run busy. */
+  | { stage: 'following'; run: SharedRun }
+  /** This tab's run, or a followed run that has ended. */
+  | { stage: 'shared'; run: SharedRun };
+
+const runOf = (sync: Sync): SharedRun | null => (sync.stage === 'alone' ? null : sync.run);
+
 type RunSyncOptions = {
   challenge: Challenge;
   rig: Rig;
@@ -86,27 +96,34 @@ export const useRunSync = ({
 }: RunSyncOptions) => {
   const day = challenge.date ?? '';
   const channel = useRef<BroadcastChannel | null>(null);
-  const shared = useRef<SharedRun | null>(null);
+  const sync = useRef<Sync>({ stage: 'alone' });
+  /** Kept apart from `sync`: a late `result` for an earlier run must still resolve its promise. */
   const awaitingResult = useRef<{ key: string; resolve: (result: HeldTry) => void } | null>(null);
-  const joinUntil = useRef(0);
   /**
    * Counts playback changes this tab's player made, to spot a stale answer. Changes from another
    * tab don't count: a tab's answer comes after every change it sent, so it already has them.
    */
   const changes = useRef(0);
-  const changesWhenAsked = useRef(0);
-  const following = useRef(false);
+  /** When this tab last asked where the run is: answers count `until` then, `changes` as asked. */
+  const asked = useRef<{ until: number; changes: number } | null>(null);
+  const joining = () => asked.current !== null && Date.now() <= asked.current.until;
+  /**
+   * Whether an answer saying where the shared run is still counts: it came while joining, and this
+   * tab's player has changed nothing since asking. The last answer that counts wins.
+   */
+  const answerIsCurrent = () => joining() && changes.current === asked.current?.changes;
   const attached = useStageSnapshot(rig.stages[0], (snapshot) => snapshot.topicTitle !== null);
   const busy = play.stage === 'running' || play.stage === 'scoring';
   useEffect(() => {
-    if (!busy) following.current = false;
+    const now = sync.current;
+    if (!busy && now.stage === 'following') sync.current = { stage: 'shared', run: now.run };
   }, [busy]);
 
   const post = (message: TabMessage) => channel.current?.postMessage(message);
 
   const [playback] = useState(() =>
     sharedPlayback(rig.playback, (change: PlaybackChange) => {
-      const run = shared.current;
+      const run = runOf(sync.current);
       changes.current += 1;
       if (run) post({ type: 'playback', key: run.key, change, date: day });
     })
@@ -130,31 +147,27 @@ export const useRunSync = ({
   };
 
   const followRun = (run: RunMessage) => {
-    if (busy || following.current || shared.current?.key === run.key) return;
-    if (run.at && Date.now() > joinUntil.current) return;
+    if (busy || sync.current.stage === 'following' || runOf(sync.current)?.key === run.key) return;
+    if (run.at && !joining()) return;
     if (!showsTriesBefore(play.scores, run)) return;
     onRestoreInput(run.input);
     rig.playback.setSpeed(run.speed);
     const runId = start(stageRunOf(challenge, run.input));
     if (runId === null) return;
     if (run.at) moveTo(rig.playback, run.at);
-    following.current = true;
-    shared.current = { key: run.key, input: run.input, scores: run.scores, result: run.result };
+    const { key, input, scores, result } = run;
+    sync.current = { stage: 'following', run: { key, input, scores, result } };
     follow(resultOf(run));
     dispatch({ type: 'follow', input: run.input, runId, scores: run.scores });
   };
 
   const receive = useEffectEvent((data: unknown) => {
     if (!isTabMessage(data) || data.date !== day) return;
-    const run = shared.current;
+    const run = runOf(sync.current);
     switch (data.type) {
       case 'run':
         if (data.at && run?.key === data.key) {
-          // Another tab sharing this run says where it is now; the last to answer wins.
-          // A change this tab's player made since asking is newer than the answer, so it stands.
-          if (Date.now() > joinUntil.current || changes.current !== changesWhenAsked.current) {
-            return;
-          }
+          if (!answerIsCurrent()) return;
           rig.playback.setSpeed(data.speed);
           moveTo(rig.playback, data.at);
           return;
@@ -200,9 +213,8 @@ export const useRunSync = ({
   /** Asks the other tabs for the run they play, or where the run this tab shares now is. */
   const askWhere = useEffectEvent(() => {
     if (!channel.current) return;
-    joinUntil.current = Date.now() + JOIN_WINDOW_MS;
-    changesWhenAsked.current = changes.current;
-    post({ type: 'join', key: shared.current?.key, date: day });
+    asked.current = { until: Date.now() + JOIN_WINDOW_MS, changes: changes.current };
+    post({ type: 'join', key: runOf(sync.current)?.key, date: day });
   });
 
   useEffect(() => {
@@ -227,7 +239,7 @@ export const useRunSync = ({
   const announce = (input: PlayInput, scores: TryScore[], held: Promise<HeldTry>) => {
     const key = newRunKey();
     const run: SharedRun = { key, input, scores };
-    shared.current = run;
+    sync.current = { stage: 'shared', run };
     const { speed } = rig.playback.getSnapshot();
     post({ type: 'run', key, input, scores, speed, date: day });
     held
@@ -239,7 +251,7 @@ export const useRunSync = ({
   };
 
   const drawAlone = (values: number[]) => {
-    shared.current = null;
+    sync.current = { stage: 'alone' };
     draw(values);
   };
 

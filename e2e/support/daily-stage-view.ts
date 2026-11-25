@@ -229,10 +229,31 @@ export class DailyStageView {
 }
 
 /**
- * Opens /daily in a new browser context whose system colour scheme is `theme`, with nothing saved,
- * serves `challenge`, plays `play` there, and returns the settled stage view: what the stages look like
- * when the page is freshly loaded in that theme.
+ * Opens a page in a new browser context whose system colour scheme is `theme`, with nothing saved (and
+ * `viewport`, when given), lets `open` load it, checks the page is in `theme`, plays `play` there, and
+ * returns the settled stage view: what the stages look like when the page is freshly loaded in that theme.
  */
+export async function viewInFreshContext<Opened>(
+  browser: Browser,
+  { theme, viewport }: { theme: Theme; viewport?: { width: number; height: number } },
+  open: (page: Page) => Promise<Opened>,
+  play: (opened: Opened) => Promise<void>,
+  context: string,
+): Promise<StageView> {
+  const fresh = await browser.newContext({ colorScheme: theme, ...(viewport ? { viewport } : {}) });
+  try {
+    const page = await fresh.newPage();
+    const view = new DailyStageView(page);
+    const opened = await open(page);
+    await view.expectTheme(theme, `${context} (fresh page with system colour scheme ${theme})`);
+    await play(opened);
+    return await view.settledView(`${context} (fresh page in ${theme})`);
+  } finally {
+    await fresh.close();
+  }
+}
+
+/** `viewInFreshContext` on /daily: serves `challenge`, opens /daily and plays `play` there. */
 export async function viewInFreshPage(
   browser: Browser,
   theme: Theme,
@@ -240,17 +261,11 @@ export async function viewInFreshPage(
   play: (daily: DailyPage) => Promise<void>,
   context: string,
 ): Promise<StageView> {
-  const fresh = await browser.newContext({ colorScheme: theme });
-  try {
-    const page = await fresh.newPage();
+  const open = async (page: Page) => {
     const daily = new DailyPage(page);
-    const view = new DailyStageView(page);
     await daily.serve(challenge);
     await daily.open();
-    await view.expectTheme(theme, `${context} (fresh page with system colour scheme ${theme})`);
-    await play(daily);
-    return await view.settledView(`${context} (fresh page in ${theme})`);
-  } finally {
-    await fresh.close();
-  }
+    return daily;
+  };
+  return viewInFreshContext(browser, { theme }, open, play, context);
 }

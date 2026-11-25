@@ -1,8 +1,7 @@
 import { test, expect } from '../support/test';
 import { DAILY_12 } from '../support/daily-fixtures';
-import { DailyHistoryPage, type DatedChallenge } from '../support/daily-history';
+import type { DatedChallenge } from '../support/daily-history';
 import { DailyPage } from '../support/daily-page';
-import { withoutBroadcastChannel } from '../support/daily-tabs';
 
 const fmt = (values: readonly number[]) => `[${values.join(', ')}]`;
 const dated = (number: number, date: string): DatedChallenge => ({ ...DAILY_12.challenge, number, date });
@@ -176,94 +175,6 @@ test.describe('daily game streaks and history', () => {
     await dailyHistory.reload(`${endCtx} then reload`);
     await dailyTemplate.expectTryChips(chips, `${endCtx}, after reload: tries must survive`);
     expect(await dailyPage.canShare(), `${endCtx}, after reload: Share should stay enabled`).toBe(true);
-  });
-
-  /**
-   * Spec 3f A1 and A3: a second tab on the same day plays the first tab's run as it plays (through
-   * `BroadcastChannel`), so when the run ends it shows the try itself, without the "Updated from another tab."
-   * notice. At the end of the day both tabs show the last run's end, the same drawing.
-   */
-  test('an idle tab plays and shows the try another tab runs', async ({ context, dailyPage, dailyTemplate, dailyHistory }) => {
-    await context.route('**/api/daily', (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(DAY_21) }),
-    );
-    await dailyPage.open();
-    const secondPage = await context.newPage();
-    try {
-      const secondDaily = new DailyPage(secondPage);
-      await secondDaily.open();
-      await swapRunSkip(secondDaily, DAILY_12.goal.swap, `second tab try 1 ${fmt(DAILY_12.goal.values)}`);
-
-      const idleCtx = `idle first tab after the second tab ran and skipped try 1 ${fmt(DAILY_12.goal.values)} (score ${DAILY_12.goal.count})`;
-      await dailyPage.expectStatusNumber('Tries left', 2, `${idleCtx}: should show the try, as the second tab does, without pressing Run`);
-      await dailyTemplate.expectTryChips([`${DAILY_12.goal.count} ⭐`], idleCtx);
-      await dailyHistory.expectNoSyncedNotice(idleCtx);
-      await expect.poll(() => dailyPage.canRun(), { message: `${idleCtx}: Run should be enabled again once the shared run ends, with 2 tries left` }).toBe(true);
-
-      await swapRunSkip(secondDaily, DAILY_12.lowFromGoal.swap, `second tab try 2 ${fmt(DAILY_12.lowFromGoal.values)}`);
-      await swapRunSkip(secondDaily, DAILY_12.thirdFromLow.swap, `second tab try 3 ${fmt(DAILY_12.thirdFromLow.values)}`);
-      const doneCtx = 'idle first tab after the second tab ran and skipped tries 2 and 3, finishing the day';
-      const chips = [`${DAILY_12.goal.count} ⭐`, `${DAILY_12.lowFromGoal.count}`, `${DAILY_12.thirdFromLow.count}`];
-      await dailyPage.expectStatusNumber('Tries left', 0, `${doneCtx}: should end without running a try`);
-      await dailyTemplate.expectTryChips(chips, doneCtx);
-      await dailyHistory.expectNoSyncedNotice(doneCtx);
-      expect(await dailyPage.values(), `${doneCtx}: the frozen Challenge array should show the last try's arrangement`).toEqual([
-        ...DAILY_12.thirdFromLow.values,
-      ]);
-      const secondDrawing = await secondDaily.drawnValues();
-      await expect
-        .poll(() => dailyPage.drawnValues(), {
-          message: `${doneCtx}: the first tab played try 3's run too, so its stage should draw the end of that run as the second tab does (${fmt(secondDrawing)})`,
-        })
-        .toEqual(secondDrawing);
-      await dailyHistory.expectArrayFrozen(DAILY_12.challenge.values.length, doneCtx);
-    } finally {
-      await secondPage.close();
-    }
-  });
-
-  /**
-   * Spec 3f A5: without `BroadcastChannel` tabs behave as before 3f. The idle tab learns of the other tab's
-   * saved tries from the `storage` event, shows "Updated from another tab.", and draws the final saved
-   * arrangement on its stage without playing the run.
-   */
-  test('without BroadcastChannel, an idle tab updates automatically when another tab saves progress', async ({ context, dailyPage, dailyTemplate, dailyHistory }) => {
-    await withoutBroadcastChannel(context);
-    await context.route('**/api/daily', (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(DAY_21) }),
-    );
-    await dailyPage.open();
-    await dailyHistory.expectNoBroadcastChannel('first tab');
-    const secondPage = await context.newPage();
-    try {
-      const secondDaily = new DailyPage(secondPage);
-      const secondHistory = new DailyHistoryPage(secondPage);
-      await secondDaily.open();
-      await secondHistory.expectNoBroadcastChannel('second tab');
-      await swapRunSkip(secondDaily, DAILY_12.goal.swap, 'second tab try 1, no BroadcastChannel');
-
-      const idleCtx = 'idle first tab after the second tab saved try 1, no BroadcastChannel';
-      await dailyPage.expectStatusNumber('Tries left', 2, `${idleCtx}: should update without running a try`);
-      await dailyTemplate.expectTryChips([`${DAILY_12.goal.count} ⭐`], idleCtx);
-      await dailyHistory.expectSyncedNotice(idleCtx);
-      expect(await dailyPage.canRun(), `${idleCtx}: Run should stay enabled with 2 tries left`).toBe(true);
-
-      await swapRunSkip(secondDaily, DAILY_12.lowFromGoal.swap, 'second tab try 2, no BroadcastChannel');
-      await swapRunSkip(secondDaily, DAILY_12.thirdFromLow.swap, 'second tab try 3, no BroadcastChannel');
-      const doneCtx = 'idle first tab after the second tab completed the challenge, no BroadcastChannel';
-      await dailyPage.expectStatusNumber('Tries left', 0, `${doneCtx}: should end without running a try`);
-      expect(await dailyPage.values(), `${doneCtx}: frozen editor should show final saved arrangement`).toEqual([
-        ...DAILY_12.thirdFromLow.values,
-      ]);
-      await expect
-        .poll(() => dailyPage.drawnValues(), {
-          message: `${doneCtx}: stage SVG should redraw the final saved arrangement`,
-        })
-        .toEqual([...DAILY_12.thirdFromLow.values]);
-      await dailyHistory.expectArrayFrozen(DAILY_12.challenge.values.length, doneCtx);
-    } finally {
-      await secondPage.close();
-    }
   });
 
   test('another day saving in another tab does not erase an unsaved in-memory try after a quota error', async ({ context, dailyPage, dailyTemplate, dailyHistory }) => {

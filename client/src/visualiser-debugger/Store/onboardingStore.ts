@@ -220,11 +220,6 @@ export const onboardingStore = create<State>((set) => ({
   setOnboardingCurrFile: (file: string) => set({ onboardingCurrFile: file }),
 }));
 
-export const handleClickStart = (event: React.MouseEvent<HTMLElement>) => {
-  event.preventDefault();
-  onboardingStore.getState().setRun(true);
-};
-
 export const handleJoyrideCallback = (data: EventData) => {
   const { action, index, status, type } = data;
   if (([STATUS.FINISHED, STATUS.SKIPPED] as string[]).includes(status)) {
