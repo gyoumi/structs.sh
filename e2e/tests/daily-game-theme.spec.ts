@@ -31,8 +31,9 @@ const runAndSkip: Play = async (daily, context) => {
   await daily.skip(context);
 };
 
-/** Back to the start of the first try, then 12 Next steps: partway through the first partition, with bars highlighted. */
+/** Back to the start of the first try, then 12 Next steps at 5×: partway through the first partition, with bars highlighted. */
 const pausedMidRun: Play = async (daily, context) => {
+  await daily.transport.setSpeed(5);
   await runAndSkip(daily, context);
   await daily.transport.rewind();
   const { steps, atEnd } = await daily.stepToEnd(12, () => {}, `${context} stepping from the start`);
