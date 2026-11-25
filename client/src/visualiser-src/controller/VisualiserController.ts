@@ -1,4 +1,4 @@
-import { Timeline, Runner } from '@svgdotjs/svg.js';
+import { Animator, Timeline, Runner } from '@svgdotjs/svg.js';
 import GraphicalDataStructure from '@/visualiser-src/common/GraphicalDataStructure';
 import GraphicalDataStructureFactory from '@/visualiser-src/common/GraphicalDataStructureFactory';
 import { Documentation } from '@/visualiser-src/common/typedefs';
@@ -86,12 +86,16 @@ class VisualiserController {
       this.timelineDuration += maxRunner.duration() + 25;
       this.track.recordStep(stepStart, segmentStart, this.timelineDuration, runnerInfo);
       if (runnerInfo.isTimestamped) {
+        const stepEnd = this.timelineDuration + 1;
+        const timeline = this.currentTimeline;
         maxRunner.after(() => {
           if (this.mode === 'stepping') {
             this.pause();
+            // Seeking from inside the timeline's frame would re-enter its runner loop.
+            Animator.immediate(() => timeline.time(stepEnd));
           }
         });
-        this.timestamps.push(this.timelineDuration + 1);
+        this.timestamps.push(stepEnd);
       }
     });
     if (this.timelineDuration > 0) {
@@ -130,10 +134,10 @@ class VisualiserController {
 
   public seekTime(time: number): void {
     const clamped = Math.max(0, Math.min(time, this.timelineDuration));
-    this.currentTimeline.time(clamped);
     if (this.mode === 'stepping') {
       this.pause();
     }
+    this.currentTimeline.time(clamped);
   }
 
   public seekPercent(position: number): void {
@@ -146,8 +150,8 @@ class VisualiserController {
   }
 
   public finish(): void {
-    this.currentTimeline.finish();
     this.mode = 'paused';
+    this.currentTimeline.finish();
   }
 
   public stepBackwards(): void {
@@ -200,10 +204,10 @@ class VisualiserController {
   }
 
   private clearTimeline(): void {
+    this.mode = 'idle';
     this.currentTimeline.finish();
     this.currentTimeline.time(0);
     this.currentTimeline = new Timeline().persist(true);
-    this.mode = 'idle';
     this.clearRecording();
   }
 

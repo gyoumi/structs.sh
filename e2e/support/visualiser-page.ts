@@ -188,14 +188,24 @@ export class VisualiserPage {
     return [...new Set(found.map((node) => node.value))];
   }
 
-  /** Steps the running traversal to its end, and returns the values in the order it visited them. */
-  async visitOrder(): Promise<number[]> {
+  /**
+   * Steps the running traversal to its end, and returns the values in the order it visited them.
+   * `context` (the page, data, operation and speed) prefixes the error thrown when one step visits several nodes.
+   */
+  async visitOrder(context?: string): Promise<number[]> {
     const steps = await this.stepThrough();
     const resting = new Map(steps[steps.length - 1].map((node) => [node.value, node.fill]));
     const order: number[] = [];
-    for (const step of steps) {
+    for (const [index, step] of steps.entries()) {
       const visited = step.filter((node) => node.fill !== resting.get(node.value) && !order.includes(node.value));
-      if (visited.length > 1) throw new Error(`Several nodes were visited in one step: ${visited.map((node) => node.value)}`);
+      if (visited.length > 1) {
+        const fills = visited.map((node) => `${node.value} fill ${node.fill} (${resting.get(node.value)} once the traversal ends)`);
+        throw new Error(
+          `${context ? `${context}: ` : ''}Several nodes were visited in one step: ${visited.map((node) => node.value)}. ` +
+            `Next step press ${index + 1} of ${steps.length} left ${visited.length} nodes coloured as visited at once (${fills.join('; ')}); ` +
+            `each Next step should visit at most one node. Visited in earlier steps: [${order.join(', ')}]`,
+        );
+      }
       order.push(...visited.map((node) => node.value));
     }
     return order;
