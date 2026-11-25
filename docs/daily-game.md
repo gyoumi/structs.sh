@@ -574,8 +574,10 @@ left open:
   tab that ran it, including the speed multiplier, pause, stepping and
   seeking. A tab opened while a run plays asks the open tabs for the run
   and joins it at the current step; if no tab answers, it shows the last
-  saved try as a reload does. Today a synced tab updates its score and tries but keeps its own
-  last run on the stage. Devices sync the same way once there are accounts,
+  saved try as a reload does. Today a synced tab updates its score and
+  tries but keeps its own last run on the stage while tries remain; when
+  the other tab's try ends the day, it draws that try's input but not its
+  run. Devices sync the same way once there are accounts,
   over a WebSocket (`roadmap.md`, stage 3).
 - **A full `localStorage` doesn't blank the app.** The debugger's
   `fileSystem` store throws on startup when storage is full, which blanks
@@ -593,8 +595,9 @@ left open:
 and all unit, Rust, script and e2e tests pass.
 
 Not planned: a reload in the few milliseconds between pressing Run and the
-save finishing still gets the try back. Once players have accounts, Run
-becomes one idempotent request per account and try, which closes it.
+save finishing still gets the try back. Once players have accounts, the
+run starts only after the server records the try, through one idempotent
+request per account, day and try (`roadmap.md`, stage 3), which closes it.
 
 ### 3g. Tidy
 

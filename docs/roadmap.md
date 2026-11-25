@@ -95,9 +95,12 @@ from the step log `daily-challenges` produces.
   clock.
 - **Pressing Run is the submission, and it is idempotent.** The request
   carries a key for the account, the day and the try number, so a retry, a
-  reload or a second device sending the same try records it once. The try
-  is used when the server records it, which closes the reload gap that
-  `docs/daily-game.md` 3f leaves open.
+  reload or a second device sending the same try records it once. The
+  animation starts only once the server has recorded the try, so a reload
+  before then hasn't seen any of the run and one after it can't get the try
+  back. That closes the reload gap `docs/daily-game.md` 3f leaves open. If
+  the reply is lost, the client sends the same key again, and the server
+  answers with the try it already recorded.
 - **Every device on the account plays the same run.** Each open client
   holds a WebSocket to `daily-server`. When one presses Run, the server
   records the try and sends it to every client of that account, so the

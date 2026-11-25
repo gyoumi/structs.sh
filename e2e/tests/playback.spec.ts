@@ -51,7 +51,8 @@ test.describe('playback', () => {
 
   test('rewind shows the data as it was before the operation', async ({ visualiser }) => {
     await visualiser.runToEnd('append', 40);
-    await visualiser.transport.rewind();
+    // Only the drawing is checked here; the timeline has its own test below.
+    await visualiser.transport.clickBackToStart();
     await expect
       .poll(() => visualiser.values(), { message: '/visualiser/linked-lists [10, 20, 30], append(40) then Back to the start: the drawing should show [10, 20, 30] again' })
       .toEqual([10, 20, 30]);
@@ -59,7 +60,7 @@ test.describe('playback', () => {
 
   test('rewind moves the timeline to the start', async ({ visualiser }) => {
     await visualiser.runToEnd('append', 40);
-    await visualiser.transport.rewind();
+    await visualiser.transport.clickBackToStart();
     await expect
       .poll(() => visualiser.progress(), { message: '/visualiser/linked-lists [10, 20, 30], append(40) then Back to the start: Animation progress should be 0' })
       .toBe(0);

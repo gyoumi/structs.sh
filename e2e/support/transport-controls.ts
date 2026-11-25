@@ -64,13 +64,18 @@ export class TransportControls {
     await this.clickWhenReady(this.button('Previous step'), 'Previous step button in Playback toolbar', 'stepping back');
   }
 
-  /** Clicks `Back to the start`, waits for Animation progress to reach 0, then lets two frames draw. */
-  async rewind(): Promise<void> {
+  /** Clicks `Back to the start` without waiting for the timeline, for checks that read the drawing only. */
+  async clickBackToStart(): Promise<void> {
     await this.clickWhenReady(
       this.button('Back to the start'),
       'Back to the start button in Playback toolbar',
       'rewinding playback to the start',
     );
+  }
+
+  /** Clicks `Back to the start`, waits for Animation progress to reach 0, then lets two frames draw. */
+  async rewind(): Promise<void> {
+    await this.clickBackToStart();
     await expect
       .poll(() => this.progress(), { message: 'Back to the start should move Animation progress to 0' })
       .toBe(0);

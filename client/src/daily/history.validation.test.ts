@@ -264,50 +264,80 @@ describe('corrupt history, restored-input validation, and cross-tab merging', ()
     ).toBe(0);
   });
 
-  it('keeps both days when two locked persists for different days run at once under navigator.locks', async () => {
-    const { storage } = memoryStorage();
-    let chain = Promise.resolve();
+  it('waits for navigator.locks before writing, and both days share one lock so neither is lost', async () => {
+    const { items, storage } = memoryStorage();
     const originalLocks = navigator.locks;
-    // A stand-in for Web Locks that runs each request's callback after the previous one finishes.
+    // A stand-in for Web Locks that holds every callback until the test grants it.
+    const requests: { name: string; grant: () => Promise<unknown> }[] = [];
     Object.defineProperty(navigator, 'locks', {
       configurable: true,
       value: {
-        request: <T>(_name: string, callback: () => T | Promise<T>): Promise<T> => {
-          const next = chain.then(() => callback());
-          chain = next.then(
-            () => undefined,
-            () => undefined
-          );
-          return next;
-        },
+        request: <T>(name: string, callback: () => T | Promise<T>): Promise<T> =>
+          new Promise<T>((resolve, reject) => {
+            requests.push({
+              name,
+              grant: async () => {
+                try {
+                  resolve(await callback());
+                } catch (error) {
+                  reject(error);
+                }
+              },
+            });
+          }),
       },
     });
     try {
       const day22 = { ...QUICK_12, number: 13, date: '2026-12-22' };
-      const [first, second] = await Promise.all([
-        persistChallengeTriesLocked(QUICK_12, [tryOf(30), tryOf(34), tryOf(31)], storage),
-        persistChallengeTriesLocked(day22, [tryOf(30), tryOf(34), tryOf(36)], storage),
-      ]);
       const call =
-        'Promise.all([persistChallengeTriesLocked(2026-12-21, 3 tries), persistChallengeTriesLocked(2026-12-22, 3 tries)])';
+        'persistChallengeTriesLocked(2026-12-21, 3 tries) and persistChallengeTriesLocked(2026-12-22, 3 tries) started together';
+      const firstWrite = persistChallengeTriesLocked(
+        QUICK_12,
+        [tryOf(30), tryOf(34), tryOf(31)],
+        storage
+      );
+      const secondWrite = persistChallengeTriesLocked(
+        day22,
+        [tryOf(30), tryOf(34), tryOf(36)],
+        storage
+      );
+      await Promise.resolve();
+
+      expect(
+        [...items.keys()],
+        `${call}: before any lock is granted, neither write may reach storage (it must wait for navigator.locks.request), but storage already has keys ${JSON.stringify([...items.keys()])}`
+      ).toEqual([]);
+      const names = requests.map(({ name }) => name);
+      expect(
+        names.length,
+        `${call}: each write should request a lock from navigator.locks, got requests for ${JSON.stringify(names)}`
+      ).toBe(2);
+      expect(
+        names[1],
+        `${call}: both writes must request the same lock so they run one after the other, got ${JSON.stringify(names)}`
+      ).toBe(names[0]);
+
+      await requests[0]?.grant();
+      await requests[1]?.grant();
+      const [first, second] = await Promise.all([firstWrite, secondWrite]);
       expect(
         first.status,
-        `${call}: the 2026-12-21 write should report 'saved', got ${JSON.stringify(first.status)}`
+        `${call}, locks granted in order: the 2026-12-21 write should report 'saved', got ${JSON.stringify(first.status)}`
       ).toBe('saved');
       expect(
         second.status,
-        `${call}: the 2026-12-22 write should report 'saved', got ${JSON.stringify(second.status)}`
+        `${call}, locks granted in order: the 2026-12-22 write should report 'saved', got ${JSON.stringify(second.status)}`
       ).toBe('saved');
       const final = loadHistory(storage);
       const days = Object.keys(final.results).sort();
       expect(
         days,
-        `${call}: loadHistory afterwards should hold both days, got ${JSON.stringify(days)}`
+        `${call}, locks granted in order: loadHistory afterwards should hold both days, got ${JSON.stringify(days)}`
       ).toEqual(['2026-12-21', '2026-12-22']);
       const streak = currentStreak(final, '2026-12-22');
       expect(
         streak,
-        `${call}: both days are finished, so currentStreak on 2026-12-22 should be 2, got ${streak}`
+        `${call}, locks granted in order: both days are finished, so currentStreak on 2026-12-22 should be 2, got ${streak}`
       ).toBe(2);
     } finally {
       Object.defineProperty(navigator, 'locks', { configurable: true, value: originalLocks });
