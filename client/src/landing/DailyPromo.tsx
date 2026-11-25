@@ -11,7 +11,7 @@ const DailyPromo = () => (
           Daily challenge
         </h2>
         <p className={styles.text}>
-          One algorithm challenge each day. Build an input and try to reach the goal in three tries.
+          For anyone revising algorithms and testing their understanding each day.
         </p>
       </div>
       <Link to="/daily" className={`${landing.primary} ${styles.action}`}>
