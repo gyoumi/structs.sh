@@ -104,7 +104,7 @@ test.describe('playback', () => {
   test('clicking the timeline jumps to that point', async ({ visualiser }) => {
     await visualiser.open('sorting-algorithms', [50, 40, 30, 20, 10]);
     await visualiser.runToEnd('bubble');
-    await visualiser.seekTo(0.5);
+    await visualiser.transport.seek(0.5, '/visualiser/sorting-algorithms bubble on [50, 40, 30, 20, 10], clicking the timeline at 50%');
     await expect
       .poll(async () => Math.abs((await visualiser.progress()) - 50), {
         message: '/visualiser/sorting-algorithms bubble on [50, 40, 30, 20, 10], timeline clicked at 50%: Animation progress should be within 25 of 50',

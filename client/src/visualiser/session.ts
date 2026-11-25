@@ -15,9 +15,8 @@ import {
 } from './sessionSnapshot';
 import { finishDrawing, positionOf, returnTo } from './runPosition';
 
-export type { PlaybackStage } from '@/visualiser-src/controller/VisualiserController';
 export type { StepComparison, StepTrace } from '@/visualiser-src/common/AnimationProducer';
-export type { InitialDataSource, LastRun, VisualiserSnapshot } from './sessionSnapshot';
+export type { InitialDataSource, VisualiserSnapshot } from './sessionSnapshot';
 
 const IDLE_FRAMES_BEFORE_SLEEP = 20;
 

@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test';
+import type { DailyStageView } from './daily-stage-view';
 
 /**
  * One drawn number on a stage, where the player sees it: the centre of its shape (the circle or bar drawn
@@ -172,4 +173,37 @@ export class StageGeometry {
     if (!box) throw new Error('the stage has no bounding box');
     return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
   }
+}
+
+/** A player's pan and zoom of a stage: `how` says what was done, for failure messages. */
+export interface PanAndZoom {
+  how: string;
+  apply: (stage: StageGeometry, context: string) => Promise<void>;
+}
+
+/**
+ * Pans and zooms the stage with `zoom`, then switches light to dark: every drawn number should stay where the
+ * pan and zoom put it, and the step readout as it was. Works on /daily and the visualiser pages.
+ */
+export async function expectPanAndZoomSurviveSwitch(stage: StageGeometry, view: DailyStageView, zoom: PanAndZoom, context: string): Promise<void> {
+  const fitted = await stage.settled(`${context}, before panning`);
+  const moved = `${context}, ${zoom.how}`;
+  await zoom.apply(stage, moved);
+  const panned = await stage.settled(moved);
+  expect(
+    placementDifferences(fitted.nodes, panned.nodes),
+    `${moved}: panning and zooming should move the drawing, or this test checks nothing (drawn before: ${describeNodes(fitted.nodes)})`,
+  ).not.toEqual([]);
+  const step = await view.stepText(moved);
+  const [{ background }] = await view.looks();
+
+  const switched = `${moved}, then switching light to dark`;
+  await view.switchTheme('dark', switched);
+  await view.expectStageBackgroundChanged(background, `${switched}: the drawing should redraw in dark`);
+  const after = await stage.settled(switched);
+  expect(
+    placementDifferences(panned.nodes, after.nodes),
+    `${switched}: every drawn number should stay where the player's pan and zoom put it (within 3px, same size). Numbers back where the stage first fitted them (${describeNodes(fitted.nodes)}) mean the switch dropped the pan and zoom`,
+  ).toEqual([]);
+  await view.expectStepText(step, `${switched}: the playback should stay at "${step}"`);
 }

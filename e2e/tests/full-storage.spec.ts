@@ -1,4 +1,4 @@
-import { test, expect } from '../support/test';
+import { test as base, expect } from '../support/test';
 import { DAILY_12 } from '../support/daily-fixtures';
 import type { DatedChallenge } from '../support/daily-history';
 import { DailyStageView } from '../support/daily-stage-view';
@@ -16,6 +16,15 @@ import type { TopicSlug } from '../support/topics';
 
 const FULL = 'every localStorage.setItem throws QuotaExceededError';
 
+/** Gives each test `storage`: a `FullStorage` for its page, filled before the test opens any page. */
+const test = base.extend<{ storage: FullStorage }>({
+  storage: async ({ page }, use) => {
+    const storage = new FullStorage(page);
+    await storage.fill();
+    await use(storage);
+  },
+});
+
 /** A dated day, so the page tries to save its result (an undated challenge is never saved). */
 const DAY: DatedChallenge = { ...DAILY_12.challenge, date: '2026-12-21' };
 
@@ -28,9 +37,7 @@ const VISUALISERS: { topic: TopicSlug; data: number[]; drawn: number[] }[] = [
 ];
 
 test.describe('full browser storage', () => {
-  test('the landing page renders and its theme toggle works', async ({ page, landingPage }) => {
-    const storage = new FullStorage(page);
-    await storage.fill();
+  test('the landing page renders and its theme toggle works', async ({ page, storage, landingPage }) => {
     const ctx = `/ with ${FULL}`;
     await storage.visit('/', ctx);
     await landingPage.open();
@@ -40,9 +47,7 @@ test.describe('full browser storage', () => {
     expect(storage.pageErrors(), `${ctx}: the page must not throw an uncaught error`).toEqual([]);
   });
 
-  test('/daily renders, a try runs and scores, and the page says progress could not be saved', async ({ page, dailyPage, dailyHistory, dailyTemplate }) => {
-    const storage = new FullStorage(page);
-    await storage.fill();
+  test('/daily renders, a try runs and scores, and the page says progress could not be saved', async ({ storage, dailyPage, dailyHistory, dailyTemplate }) => {
     const { start } = DAILY_12;
     const ctx = `/daily with ${FULL}, ${DAILY_12.name} dated ${DAY.date}, try 1 on [${start.values.join(', ')}] (${start.count} comparisons)`;
     await dailyHistory.serveOnly(DAY);
@@ -60,9 +65,7 @@ test.describe('full browser storage', () => {
   });
 
   for (const { topic, data, drawn } of VISUALISERS) {
-    test(`the ${topic} visualiser renders its drawing`, async ({ page, visualiser }) => {
-      const storage = new FullStorage(page);
-      await storage.fill();
+    test(`the ${topic} visualiser renders its drawing`, async ({ storage, visualiser }) => {
       const ctx = `/visualiser/${topic} with [${data.join(', ')}] and ${FULL}`;
       await storage.visit(`/visualiser/${topic}`, ctx);
       await visualiser.open(topic, data);
@@ -71,9 +74,7 @@ test.describe('full browser storage', () => {
     });
   }
 
-  test('the linked list visualiser runs an operation', async ({ page, visualiser }) => {
-    const storage = new FullStorage(page);
-    await storage.fill();
+  test('the linked list visualiser runs an operation', async ({ storage, visualiser }) => {
     const ctx = `/visualiser/linked-lists [10, 20, 30] with ${FULL}, append(40) then Skip to the end`;
     await storage.visit('/visualiser/linked-lists', ctx);
     await visualiser.open('linked-lists', [10, 20, 30]);
@@ -82,9 +83,7 @@ test.describe('full browser storage', () => {
     expect(storage.pageErrors(), `${ctx}: the page must not throw an uncaught error`).toEqual([]);
   });
 
-  test('the debugger opens, and its file tree opens an example and creates a file for the session', async ({ page }) => {
-    const storage = new FullStorage(page);
-    await storage.fill();
+  test('the debugger opens, and its file tree opens an example and creates a file for the session', async ({ storage }) => {
     const ctx = `/debugger with ${FULL}`;
     await storage.visit('/debugger', ctx);
     await storage.openDebugger(ctx);

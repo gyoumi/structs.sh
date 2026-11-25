@@ -14,9 +14,11 @@ import {
   expectViewUnchanged,
   openTab,
   stepCount,
-  withTabLifecycle,
   withoutBroadcastChannel,
 } from '../support/daily-tabs';
+import { WIDE } from '../support/stage-playback';
+import { withTabLifecycle } from '../support/tab-lifecycle';
+import { isLastStep, parseStep } from '../support/transport-controls';
 
 /**
  * Step 3f, part A: two tabs of one browser open on /daily for the same day play the same run. They talk
@@ -26,8 +28,9 @@ import {
  * the same result and the try is recorded once. A tab opened mid-run joins it at the current step; one
  * opened with no run playing shows the last saved try. A tab on another day ignores the run.
  *
- * Found by the recorded run: today a synced tab updates its score and tries but keeps its own last run on
- * the stage and shows "Updated from another tab." instead of playing the run.
+ * Found by the recorded run: before 3f a synced tab updated its score and tries but kept its own last run on
+ * the stage and showed "Updated from another tab." instead of playing the run. Without BroadcastChannel tabs
+ * still work that way.
  *
  * Both tabs are pages of one Playwright browser context, so they share localStorage and BroadcastChannel as
  * real tabs do. The viewport is 1440 wide because the "Step N of M" readout only shows on screens wider than
@@ -41,17 +44,23 @@ const BUBBLE_DAY: DatedChallenge = { ...BUBBLE_21.challenge, date: DATE };
 const DRIFT_DAY: DatedChallenge = { ...DRIFT_26.challenge, date: DATE };
 const COMPARISONS = ['Comparisons'];
 
+/** Tab A is the test's own page. */
+const openTabA = async (page: DailyTab['page'], challenge: DatedChallenge, label: string) => {
+  const a = new DailyTab(page, 'tab A');
+  await a.daily.serve(challenge);
+  await a.open(label);
+  return a;
+};
+
 /** Tab A is the test's own page; tab B is a second page in the same browser context. */
 const openBoth = async (page: DailyTab['page'], challenge: DatedChallenge, label: string) => {
-  const a = new DailyTab(page, 'tab A');
-  await a.serve(challenge);
-  await a.open(label);
+  const a = await openTabA(page, challenge, label);
   const b = await openTab(page.context(), challenge, 'tab B', label);
   return { a, b };
 };
 
 test.describe('daily game in two tabs', () => {
-  test.use({ viewport: { width: 1440, height: 900 } });
+  test.use({ viewport: WIDE });
 
   test('Run in one tab plays the same run in the other: its input, counters, step readout and Speed, with Run disabled (quicksort)', async ({ page }) => {
     const { goal } = DAILY_12;
@@ -75,7 +84,7 @@ test.describe('daily game in two tabs', () => {
     await a.skip(`${ctx}, tab A presses Skip`);
     const ended = `${ctx}, after Skip in tab A`;
     await expectSameView(b, a, COMPARISONS, ended);
-    await b.expectNoSyncedNotice(ended);
+    await b.history.expectNoSyncedNotice(`${ended} (tab B)`);
     await b.daily.expectStatusNumber('Tries left', 2, `${ended}: tab B should show the try used, as tab A does`);
     await b.template.expectTryChips([`${goal.count} ⭐`], `${ended}: tab B`);
     await expectRecorded(b, DATE, 1, ended);
@@ -106,7 +115,7 @@ test.describe('daily game in two tabs', () => {
     expect(start.progress, `${ctx}: Back to the start in tab B should rewind both tabs to Animation progress 0`).toBe(0);
     await a.daily.expectStatusNumber('Comparisons', 0, `${ctx}, after Back to the start in tab B: tab A's Comparisons should be back to 0`);
 
-    await a.seek(0.5, `${ctx}, at the start`);
+    await a.daily.transport.seek(0.5, `${ctx}, at the start, seeking to the middle in tab A`);
     const sought = await expectPausedTogether([a, b], `${ctx}, then seeking to the middle of the Animation progress slider in tab A`);
     expect(sought.progress, `${ctx}: seeking to the middle in tab A should move both tabs to the middle (Animation progress between 30 and 70)`).toBeGreaterThan(30);
     expect(sought.progress, `${ctx}: seeking to the middle in tab A should move both tabs to the middle (Animation progress between 30 and 70)`).toBeLessThan(70);
@@ -129,7 +138,7 @@ test.describe('daily game in two tabs', () => {
 
     await b.daily.transport.skipToEnd(`${ctx}, Skip to the end in tab B`);
     const end = await expectPausedTogether([a, b], `${ctx}, then Skip to the end in tab B`);
-    expect(end.step, `${ctx}: Skip to the end in tab B should bring both tabs to the run's last step`).toMatch(/^Step (\d+) of \1$/);
+    expect(isLastStep(end.step), `${ctx}: Skip to the end in tab B should bring both tabs to the run's last step, "Step N of N" (both read "${end.step}")`).toBe(true);
     const ended = `${ctx}, after Skip to the end in tab B ended the run`;
     await expectSameView(b, a, COMPARISONS, ended);
     await a.daily.expectStatusNumber('Tries left', 2, `${ended}: tab A should show the try used`);
@@ -154,7 +163,7 @@ test.describe('daily game in two tabs', () => {
     await a.daily.run();
     await a.daily.waitForRunToFinish();
     await expectSameView(b, a, COMPARISONS, try1);
-    await b.expectNoSyncedNotice(try1);
+    await b.history.expectNoSyncedNotice(`${try1} (tab B)`);
     await b.template.expectTryChips([`${start.count}`], `${try1}: tab B`);
     await expectRecorded(b, DATE, 1, try1);
 
@@ -166,7 +175,7 @@ test.describe('daily game in two tabs', () => {
     await b.skip(try2);
     await expectPausedTogether([a, b], `${try2}: both tabs at the end`);
     await expectSameView(b, a, COMPARISONS, try2);
-    await b.expectNoSyncedNotice(try2);
+    await b.history.expectNoSyncedNotice(`${try2} (tab B)`);
     await a.template.expectTryChips([`${start.count}`, `${goal.count} ⭐`], `${try2}: tab A`);
     await expectRecorded(a, DATE, 2, try2);
 
@@ -179,13 +188,20 @@ test.describe('daily game in two tabs', () => {
     await a.skip(try3);
     const chips = [`${start.count}`, `${goal.count} ⭐`, `${highFromGoal.count} ⭐`];
     await expectSameView(a, b, COMPARISONS, try3);
-    await a.expectNoSyncedNotice(try3);
+    await a.history.expectNoSyncedNotice(`${try3} (tab A)`);
+    const bDrawing = await b.daily.drawnValues();
+    await expect
+      .poll(() => a.daily.drawnValues(), {
+        message: `${try3}: tab A played try 3's run too, so its stage should draw the end of that run as tab B does (${fmt(bDrawing)})`,
+      })
+      .toEqual(bDrawing);
     for (const tab of [a, b]) {
       await tab.template.expectTryChips(chips, `${try3}: ${tab.name}`);
       await tab.daily.expectStatusNumber('Tries left', 0, `${try3}: ${tab.name} should end the day`);
       await tab.daily.expectStatusNumber('Score', highFromGoal.count, `${try3}: ${tab.name}'s Score should be the highest try, ${highFromGoal.count}`);
       expect(await tab.daily.canShare(), `${try3}: the day is over, so Share should be enabled in ${tab.name}`).toBe(true);
       expect(await tab.daily.canRun(), `${try3}: the day is over, so Run should be disabled in ${tab.name}`).toBe(false);
+      await tab.history.expectArrayFrozen(DAILY_12.challenge.values.length, `${try3} (${tab.name})`);
       const view = await tab.view(COMPARISONS, try3);
       expect(view.message, `${try3}: ${tab.name} should give the ended message`).toBe(`You reached the goal! Your highest score was ${highFromGoal.count}.`);
     }
@@ -224,7 +240,7 @@ test.describe('daily game in two tabs', () => {
     const ended = `${ctx}, after Skip in tab B`;
     await expectPausedTogether([a, b], `${ended}: both tabs at the end`);
     await expectSameView(b, a, counters, ended);
-    await b.expectNoSyncedNotice(ended);
+    await b.history.expectNoSyncedNotice(`${ended} (tab B)`);
     for (const tab of [a, b]) {
       await tab.daily.expectStatusNumber('Cost', costly.cost, `${ended}: ${tab.name}'s Cost should be ${costly.cost}`);
       await tab.template.expectTryChips([`${costly.cost}`], `${ended}: ${tab.name}`);
@@ -238,9 +254,7 @@ test.describe('daily game in two tabs', () => {
     const { solved } = BUBBLE_21;
     const counters = ['Passes', 'Swaps'];
     const ctx = `${BUBBLE_21.name} dated ${DATE}, tab A swaps slots 0 and 7 to ${fmt(solved.values)} (${solved.passes} passes, ${solved.swaps} swaps), runs at 0.5×, pauses and presses Next step`;
-    const a = new DailyTab(page, 'tab A');
-    await a.serve(BUBBLE_DAY);
-    await a.open(ctx);
+    const a = await openTabA(page, BUBBLE_DAY, ctx);
     await a.daily.swap(0, 7);
     await a.daily.transport.setSpeed(0.5);
     await a.daily.run();
@@ -252,7 +266,7 @@ test.describe('daily game in two tabs', () => {
     const b = await openTab(page.context(), BUBBLE_DAY, 'tab B', joined);
     const reading = await expectPausedTogether([a, b], joined);
     expect(reading.speed, `${joined}: tab B should join at tab A's Speed 0.5×`).toBe(0.5);
-    expect(reading.step, `${joined}: tab B should join part-way through the run, not at its end`).not.toMatch(/^Step (\d+) of \1$/);
+    expect(isLastStep(reading.step), `${joined}: tab B should join part-way through the run, not at its end (both read "${reading.step}")`).toBe(false);
     await expectSameView(b, a, counters, joined);
 
     await b.daily.transport.play();
@@ -268,9 +282,7 @@ test.describe('daily game in two tabs', () => {
   test('a tab opened or reloaded while the run plays joins it playing, then follows it (quicksort)', async ({ page }) => {
     const { goal } = DAILY_12;
     const ctx = `${DAILY_12.name} dated ${DATE}, tab A runs ${fmt(goal.values)} at 0.25×`;
-    const a = new DailyTab(page, 'tab A');
-    await a.serve(QUICKSORT_DAY);
-    await a.open(ctx);
+    const a = await openTabA(page, QUICKSORT_DAY, ctx);
     await a.daily.swap(goal.swap[0], goal.swap[1]);
     await a.daily.transport.setSpeed(0.25);
     await a.daily.run();
@@ -302,9 +314,7 @@ test.describe('daily game in two tabs', () => {
   test('a tab opened with no run playing shows the last saved try at its end, as a reload does (quicksort)', async ({ page }) => {
     const { goal } = DAILY_12;
     const ctx = `${DAILY_12.name} dated ${DATE}, tab A runs ${fmt(goal.values)} and presses Skip`;
-    const a = new DailyTab(page, 'tab A');
-    await a.serve(QUICKSORT_DAY);
-    await a.open(ctx);
+    const a = await openTabA(page, QUICKSORT_DAY, ctx);
     await a.daily.swap(goal.swap[0], goal.swap[1]);
     await a.daily.run();
     await a.skip(ctx);
@@ -313,7 +323,7 @@ test.describe('daily game in two tabs', () => {
     const opened = `${ctx}, then tab B opens /daily with no run playing`;
     const b = await openTab(page.context(), QUICKSORT_DAY, 'tab B', opened);
     const reading = await expectPausedTogether([a, b], opened);
-    expect(reading.step, `${opened}: tab B should show the saved try's run at its last step`).toMatch(/^Step (\d+) of \1$/);
+    expect(isLastStep(reading.step), `${opened}: tab B should show the saved try's run at its last step, "Step N of N" (both read "${reading.step}")`).toBe(true);
     expect(reading.button, `${opened}: tab B's play button should offer Replay for the saved try's finished run`).toBe('Replay');
     await expectSameView(b, a, COMPARISONS, opened);
     await b.daily.expectStatusNumber('Comparisons', goal.count, `${opened}: tab B's Comparisons should show the saved try's ${goal.count}`);
@@ -324,9 +334,7 @@ test.describe('daily game in two tabs', () => {
     const { goal } = DAILY_12;
     const otherDay: DatedChallenge = { ...DAILY_12.challenge, number: 13, date: '2026-12-22' };
     const ctx = `tab A on ${DATE} (#12) runs ${fmt(goal.values)} at 0.25×, tab B on ${otherDay.date} (#13, same values)`;
-    const a = new DailyTab(page, 'tab A');
-    await a.serve(QUICKSORT_DAY);
-    await a.open(ctx);
+    const a = await openTabA(page, QUICKSORT_DAY, ctx);
     const b = await openTab(page.context(), otherDay, 'tab B', ctx);
     const before = await b.view(COMPARISONS, `${ctx}, before Run`);
 
@@ -344,25 +352,43 @@ test.describe('daily game in two tabs', () => {
     await expectRecorded(a, DATE, 1, ctx);
     await a.daily.expectStatusNumber('Tries left', 2, `${ctx}, after Skip in tab A: test setup`);
     expectViewUnchanged(await b.view(COMPARISONS, ctx), before, b, `${ctx}, after tab A's run ended`);
-    expect(await b.runEnabled(), `${ctx}: tab B's Run should stay enabled for its own day`).toBe(true);
+    expect(await b.daily.canRun(), `${ctx}: tab B's Run should stay enabled for its own day`).toBe(true);
   });
 
-  test('without BroadcastChannel, the other tab updates its tries as today but does not play the run', async ({ page }) => {
-    const { goal } = DAILY_12;
+  test('without BroadcastChannel, the other tab updates its tries from storage as before 3f without playing the run', async ({ page }) => {
+    const { goal, lowFromGoal, thirdFromLow } = DAILY_12;
     const ctx = `${DAILY_12.name} dated ${DATE}, BroadcastChannel unavailable, tab A runs ${fmt(goal.values)} and presses Skip`;
     await withoutBroadcastChannel(page.context());
     const { a, b } = await openBoth(page, QUICKSORT_DAY, ctx);
-    await a.expectNoBroadcastChannel(ctx);
-    await b.expectNoBroadcastChannel(ctx);
+    await a.history.expectNoBroadcastChannel(`${ctx} (tab A)`);
+    await b.history.expectNoBroadcastChannel(`${ctx} (tab B)`);
     await a.daily.swap(goal.swap[0], goal.swap[1]);
     await a.daily.run();
     await a.skip(ctx);
 
-    await b.daily.expectStatusNumber('Tries left', 2, `${ctx}: tab B should pick up the saved try from localStorage, as today`);
+    await b.daily.expectStatusNumber('Tries left', 2, `${ctx}: tab B should pick up the saved try from localStorage, as before 3f`);
     await b.template.expectTryChips([`${goal.count} ⭐`], `${ctx}: tab B`);
-    await b.expectSyncedNotice(ctx);
-    expect(await b.daily.values(), `${ctx}: tab B keeps its own input while tries remain, as today`).toEqual([...DAILY_12.start.values]);
+    await b.history.expectSyncedNotice(`${ctx} (tab B)`);
+    expect(await b.daily.canRun(), `${ctx}: tab B's Run should stay enabled with 2 tries left`).toBe(true);
+    expect(await b.daily.values(), `${ctx}: tab B keeps its own input while tries remain, as before 3f`).toEqual([...DAILY_12.start.values]);
     await expectRecorded(b, DATE, 1, ctx);
+
+    await a.daily.swap(lowFromGoal.swap[0], lowFromGoal.swap[1]);
+    await a.daily.run();
+    await a.skip(`${ctx}, try 2`);
+    await a.daily.swap(thirdFromLow.swap[0], thirdFromLow.swap[1]);
+    await a.daily.run();
+    await a.skip(`${ctx}, try 3`);
+    const doneCtx = `${ctx}, after tab A finished tries 2 and 3`;
+    await b.daily.expectStatusNumber('Tries left', 0, `${doneCtx}: tab B should end without running a try`);
+    expect(await b.daily.values(), `${doneCtx}: tab B's frozen editor should show the final saved arrangement`).toEqual([...thirdFromLow.values]);
+    await expect
+      .poll(() => b.daily.drawnValues(), {
+        message: `${doneCtx}: tab B's stage SVG should redraw the final saved arrangement without playing the run`,
+      })
+      .toEqual([...thirdFromLow.values]);
+    await b.history.expectArrayFrozen(DAILY_12.challenge.values.length, `${doneCtx} (tab B)`);
+    await expectRecorded(b, DATE, 3, doneCtx);
   });
 
   /**
@@ -370,7 +396,7 @@ test.describe('daily game in two tabs', () => {
    * tab, and a frozen tab runs nothing), so a tab the player switches back to can be far behind the tab that
    * pressed Run. When it comes back it should move to the step the other tab is on now, in the same playing or
    * paused state and Speed, within about half a second. Headless Chromium doesn't hide or freeze pages, so
-   * `withTabLifecycle` (daily-tabs.ts) plays the browser's part; each test names the signal it sends:
+   * `withTabLifecycle` (tab-lifecycle.ts) plays the browser's part; each test names the signal it sends:
    * `visibilitychange` (hidden, then visible) or `resume` (after `freeze`, with the tab left visible).
    */
   test('a tab the player switches back to (visibilitychange) moves to the other tab\'s step, still playing, at its new Speed (quicksort)', async ({ page }) => {
@@ -442,7 +468,7 @@ test.describe('daily game in two tabs', () => {
     await a.daily.run();
     await expectPlayingTogether([a, b], `${ctx}: test setup: both tabs should play the run before tab B is frozen`);
     await b.freeze();
-    const frozenAt = Number((await a.playback(ctx)).step.match(/^Step (\d+)/)?.[1] ?? 0);
+    const frozenAt = parseStep((await a.playback(ctx)).step)?.step ?? 0;
     await a.waitForStep(frozenAt + 8, `${ctx}, tab A playing on at 2×`);
     await a.daily.transport.setSpeed(0.5);
     await a.waitForStep(frozenAt + 9, `${ctx}, tab A playing on at 0.5×`);

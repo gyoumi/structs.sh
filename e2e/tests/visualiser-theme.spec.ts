@@ -1,14 +1,14 @@
 import { test, expect } from '../support/test';
 import { contentDifferences } from '../support/daily-stage-view';
-import { describeNodes, placementDifferences, StageGeometry } from '../support/stage-geometry';
+import { expectPanAndZoomSurviveSwitch, StageGeometry, type PanAndZoom } from '../support/stage-geometry';
 import { StagePlayback, viewVisualiserInFreshPage, VisualiserStageView, WIDE } from '../support/stage-playback';
 import type { TopicSlug } from '../support/topics';
 import type { VisualiserPage } from '../support/visualiser-page';
 
 /**
- * Step 3f: a visualiser page keeps its run on a theme switch, as /daily does since #88. Today switching
- * light/dark after or during an operation's run redraws the drawing in the new theme but drops the run
- * (the readout goes back to "No steps yet"). Expected: the drawing redraws in the new theme at once and
+ * Step 3f: a visualiser page keeps its run on a theme switch, as /daily does since #88. Before 3f switching
+ * light/dark after or during an operation's run redrew the drawing in the new theme but dropped the run
+ * (the readout went back to "No steps yet"). Expected: the drawing redraws in the new theme at once and
  * the run stays at the same step, playing if it was playing and paused if it was paused, and Replay,
  * stepping and seeking still work. The /daily fixes of step 3f apply too: a single Next step stays a single
  * step through a switch, and the player's pan and zoom survive it.
@@ -132,59 +132,41 @@ test.describe('visualiser theme switch keeps the run', () => {
     });
 
     test(`${op.name}: switching theme while one Next step animates stops at the end of that step`, async ({ page, visualiser }) => {
-      const ctx = `${op.name}, played to its end, Back to the start, speed 0.25×, Next step to step 1`;
-      const view = new VisualiserStageView(page);
-      const playback = new StagePlayback(page);
+      const ctx = `${op.name}, played to its end`;
       await visualiser.open(op.topic, op.data);
       await runToEnd(visualiser);
-      await visualiser.transport.rewind();
-      await visualiser.transport.setSpeed(0.25);
-      await playback.stepTo(1, ctx);
-      const at = await playback.position(ctx);
-
-      const switched = `${ctx}, then Next step and switching light to dark while that step animates`;
-      await playback.startOneStep(switched);
-      await view.switchTheme('dark', switched);
-      await playback.expectState(
-        { button: 'Play', step: `Step 2 of ${at?.of}` },
-        `${switched}: playback should stop at the end of that one step, paused at "Step 2 of ${at?.of}" with Play offered. "No steps yet" means the switch dropped the run; Pause or a later step means it turned the step into continuous playback`,
-        12_000,
-      );
-      await playback.expectProgressStays(`${switched}, after the step ended`);
+      await new StagePlayback(page).expectOneStepSurvivesSwitch(ctx);
     });
   }
 
-  const zooms: { op: Operation; how: string; zoom: (stage: StageGeometry, context: string) => Promise<void> }[] = [
-    { op: OPERATIONS[0], how: 'the "Zoom in" button clicked', zoom: (stage, context) => stage.clickZoomIn(context) },
-    { op: OPERATIONS[1], how: 'the mouse wheel turned 240 up over the stage', zoom: (stage) => stage.wheel(-240) },
+  const zooms: { op: Operation; zoom: PanAndZoom }[] = [
+    {
+      op: OPERATIONS[0],
+      zoom: {
+        how: 'the "Zoom in" button clicked, then the drawing dragged 60px left and 30px down',
+        apply: async (stage, context) => {
+          await stage.clickZoomIn(context);
+          await stage.drag(-60, 30);
+        },
+      },
+    },
+    {
+      op: OPERATIONS[1],
+      zoom: {
+        how: 'the mouse wheel turned 240 up over the stage, then the drawing dragged 60px left and 30px down',
+        apply: async (stage) => {
+          await stage.wheel(-240);
+          await stage.drag(-60, 30);
+        },
+      },
+    },
   ];
-  for (const { op, how, zoom } of zooms) {
+  for (const { op, zoom } of zooms) {
     test(`${op.name}: a drawing the player dragged and zoomed keeps its pan and zoom through a theme switch`, async ({ page, visualiser }) => {
       const ctx = `${op.name}, played to its end`;
-      const view = new VisualiserStageView(page);
-      const stage = new StageGeometry(page);
       await visualiser.open(op.topic, op.data);
       await visualiser.runToEnd(op.command, ...op.args);
-      const fitted = await stage.settled(`${ctx}, before panning`);
-
-      const moved = `${ctx}, ${how}, then the drawing dragged 60px left and 30px down`;
-      await zoom(stage, moved);
-      await stage.drag(-60, 30);
-      const panned = await stage.settled(moved);
-      expect(
-        placementDifferences(fitted.nodes, panned.nodes),
-        `${moved}: zooming and dragging should move the drawing, or this test checks nothing (drawn before: ${describeNodes(fitted.nodes)})`,
-      ).not.toEqual([]);
-      const [{ background }] = await view.looks();
-
-      const switched = `${moved}, then switching light to dark`;
-      await view.switchTheme('dark', switched);
-      await view.expectStageBackgroundChanged(background, `${switched}: the drawing should redraw in dark`);
-      const after = await stage.settled(switched);
-      expect(
-        placementDifferences(panned.nodes, after.nodes),
-        `${switched}: every drawn number should stay where the player's pan and zoom put it (within 3px, same size). Numbers back where the stage first fitted them (${describeNodes(fitted.nodes)}) mean the switch dropped the pan and zoom`,
-      ).toEqual([]);
+      await expectPanAndZoomSurviveSwitch(new StageGeometry(page), new VisualiserStageView(page), zoom, ctx);
     });
   }
 });

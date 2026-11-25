@@ -10,8 +10,7 @@ export type HeldTry = { score: TryScore; tries: SavedTry[]; outcome: PersistOutc
 /**
  * Pressing Run uses the try: `hold` scores and saves it at once, so a reload mid-run can't
  * hand it back. `held` gives what the save did, for the page to show once the run ends; it
- * rejects when the try couldn't be scored, and then nothing was saved. `follow` shows a try
- * another tab held instead, without saving it again.
+ * rejects when the try couldn't be scored, and then nothing was saved.
  */
 export const useHeldTry = (
   challenge: Challenge,

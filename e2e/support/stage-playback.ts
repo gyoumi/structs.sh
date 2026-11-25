@@ -1,7 +1,7 @@
 import { expect, type Browser, type Page } from '@playwright/test';
-import { DailyStageView, type StageView, type Theme } from './daily-stage-view';
+import { DailyStageView, viewInFreshContext, type StageView, type Theme } from './daily-stage-view';
 import type { TopicSlug } from './topics';
-import { TransportControls } from './transport-controls';
+import { parseStep, TransportControls } from './transport-controls';
 import { VisualiserPage } from './visualiser-page';
 
 /** The play button's current label in the `Playback` toolbar, and the `Step N of M` readout. */
@@ -14,10 +14,10 @@ export interface PlaybackState {
 export const WIDE = { width: 1440, height: 900 };
 
 /**
- * The same reads as `DailyStageView` (theme toggle, stage looks, `Step N of M`) on a visualiser page: its
- * stage, header `Dark mode` toggle and `Playback` toolbar are the same components as on /daily.
+ * `DailyStageView` (theme toggle, stage looks, `Step N of M`) on a visualiser page: its stage, header
+ * `Dark mode` toggle and `Playback` toolbar are the same components as on /daily.
  */
-export class VisualiserStageView extends DailyStageView {}
+export { DailyStageView as VisualiserStageView };
 
 /**
  * Where playback is, as the player sees it: which of Play, Pause or Replay the toolbar offers, and the step
@@ -33,10 +33,7 @@ export class StagePlayback {
   }
 
   async state(context: string): Promise<PlaybackState> {
-    let button: PlaybackState['button'] = '(no play button)';
-    for (const name of ['Play', 'Pause', 'Replay'] as const) {
-      if (await this.transport.toolbar.getByRole('button', { name, exact: true }).isVisible()) button = name;
-    }
+    const button = (await this.transport.playButton())?.name ?? '(no play button)';
     return { button, step: await this.view.stepText(context) };
   }
 
@@ -58,8 +55,7 @@ export class StagePlayback {
 
   /** The readout's step and step count: `Step 3 of 7` is { step: 3, of: 7 }, `No steps yet` is null. */
   async position(context: string): Promise<{ step: number; of: number } | null> {
-    const match = (await this.view.stepText(context)).match(/Step (\d+) of (\d+)/);
-    return match ? { step: Number(match[1]), of: Number(match[2]) } : null;
+    return parseStep(await this.view.stepText(context));
   }
 
   /** From a paused point, presses `Next step` one step at a time, waiting for each to finish, until the readout shows `step`. */
@@ -85,6 +81,32 @@ export class StagePlayback {
     await this.transport.stepForward();
     await this.view.expectPlaybackButton('Pause', true, `${context}: right after Next step, that one step should be animating (Pause offered)`);
   }
+
+  /**
+   * From a run at its end, goes back to the start, sets Speed 0.25× (one step lasts a few seconds) and steps to
+   * step 1, then presses Next step and switches light to dark while that step animates. Playback must stop at
+   * the end of that one step, paused at `Step 2 of M`, and stay there, in dark.
+   */
+  async expectOneStepSurvivesSwitch(context: string): Promise<PlaybackState> {
+    const ctx = `${context}, Back to the start, speed 0.25×, Next step to step 1`;
+    await this.transport.rewind();
+    await this.transport.setSpeed(0.25);
+    await this.stepTo(1, ctx);
+    const at = await this.position(ctx);
+    expect(at?.step, `${ctx}: the playback should show "Step 1 of M"`).toBe(1);
+
+    const switched = `${ctx}, then Next step and switching light to dark while that step animates`;
+    await this.startOneStep(switched);
+    await this.view.switchTheme('dark', switched);
+    await this.expectState(
+      { button: 'Play', step: `Step 2 of ${at?.of}` },
+      `${switched}: playback should stop at the end of that one step, paused at "Step 2 of ${at?.of}" with Play offered, as it does without a theme switch. "No steps yet" means the switch dropped the run; Pause or a later step means it turned the single step into continuous playback`,
+      12_000,
+    );
+    await this.expectProgressStays(`${switched}, after the step ended`);
+    await this.view.expectTheme('dark', switched);
+    return this.state(switched);
+  }
 }
 
 /**
@@ -100,16 +122,10 @@ export async function viewVisualiserInFreshPage(
   play: (visualiser: VisualiserPage) => Promise<void>,
   context: string,
 ): Promise<StageView> {
-  const fresh = await browser.newContext({ colorScheme: theme, viewport: WIDE });
-  try {
-    const page = await fresh.newPage();
+  const open = async (page: Page) => {
     const visualiser = new VisualiserPage(page);
-    const view = new VisualiserStageView(page);
     await visualiser.open(topic, data);
-    await view.expectTheme(theme, `${context} (fresh page with system colour scheme ${theme})`);
-    await play(visualiser);
-    return await view.settledView(`${context} (fresh page in ${theme})`);
-  } finally {
-    await fresh.close();
-  }
+    return visualiser;
+  };
+  return viewInFreshContext(browser, { theme, viewport: WIDE }, open, play, context);
 }

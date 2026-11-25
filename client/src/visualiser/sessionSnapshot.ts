@@ -3,7 +3,7 @@ import type { Documentation } from '@/visualiser-src/common/typedefs';
 import type VisualiserController from '@/visualiser-src/controller/VisualiserController';
 import type { PlaybackStage } from '@/visualiser-src/controller/VisualiserController';
 
-export interface LastRun {
+interface LastRun {
   id: number;
   command: string;
   args: string[];
@@ -32,7 +32,7 @@ export interface VisualiserSnapshot {
   /** Upcoming drawing bounds for the active step, so the stage can zoom out before a node appears. */
   bounds: DrawingBounds | null;
   /** The part of the drawing the active step works on, so a stage too small for all of it can follow it. */
-  focus?: DrawingBounds | null;
+  focus: DrawingBounds | null;
   /** How many values the structure holds, including a run that is still playing. */
   size: number;
 }
@@ -100,4 +100,4 @@ export const sampleChanged = (
   sample.counters !== snapshot.counters ||
   sample.trace !== snapshot.trace ||
   sample.bounds !== snapshot.bounds ||
-  sample.focus !== (snapshot.focus ?? null);
+  sample.focus !== snapshot.focus;

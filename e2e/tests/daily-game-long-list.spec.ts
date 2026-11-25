@@ -2,10 +2,11 @@ import type { Page } from '@playwright/test';
 import { test, expect } from '../support/test';
 import type { DailyPage } from '../support/daily-page';
 import type { DailyTemplatePage } from '../support/daily-template-page';
-import { DailyLongList } from '../support/daily-long-list';
+import { DailyLongList, narrowNodes, widthsOf } from '../support/daily-long-list';
 import { DRIFT_26 } from '../support/daily-list-fixtures';
 import { LONG_DRIFT } from '../support/daily-long-list-fixtures';
-import { describeNodes, StageGeometry, type PlacedNode, type StageFrame } from '../support/stage-geometry';
+import { describeNodes, StageGeometry, type StageFrame } from '../support/stage-geometry';
+import { WIDE } from '../support/stage-playback';
 
 /**
  * Step 3f: long linked lists stay readable on a phone. Found in the 3e recorded run: Index drift with about
@@ -13,7 +14,7 @@ import { describeNodes, StageGeometry, type PlacedNode, type StageFrame } from '
  *
  * The design the user chose:
  * 1. List nodes are never drawn smaller than the size they have when the list is short enough to fit: here,
- *    the 6-node start list of LONG_DRIFT on the same phone. A list that fits is drawn as today.
+ *    the 6-node start list of LONG_DRIFT on the same phone. A list that fits is drawn as before 3f.
  * 2. While a run plays, the stage keeps the node being walked in view (it pans along the list); when the run
  *    ends or is skipped it keeps the last node it showed in view.
  * 3. The player can drag the stage to see the rest of the list.
@@ -24,12 +25,10 @@ import { describeNodes, StageGeometry, type PlacedNode, type StageFrame } from '
  */
 
 const PHONE = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true };
-const DESKTOP = { viewport: { width: 1440, height: 900 } };
+const DESKTOP = { viewport: WIDE };
 
 /** The last operation, insert(99, 45), starts at about 77% of the run; seeking to 76% lands just before it. */
 const BEFORE_LAST_OPERATION = 0.76;
-
-const widths = (nodes: readonly PlacedNode[]) => [...new Set(nodes.map((node) => node.width))].join(', ');
 
 /** Opens LONG_DRIFT, reads the start list's node width (before any run), and builds the 40 operations. */
 async function openLongList(page: Page, dailyPage: DailyPage, dailyTemplate: DailyTemplatePage, context: string): Promise<{ list: DailyLongList; minWidth: number }> {
@@ -45,12 +44,21 @@ async function openLongList(page: Page, dailyPage: DailyPage, dailyTemplate: Dai
 
 /** Every node is at least `minWidth` wide (less 0.5px). */
 function expectReadable(frame: StageFrame, minWidth: number, message: string): void {
-  const small = frame.nodes.filter((node) => node.width < minWidth - 0.5);
+  const small = narrowNodes(frame, minWidth);
   const sample = small.slice(0, 5).map((node) => `${node.value} w${node.width}`).join(', ');
   expect(
     small.map((node) => node.value),
-    `${message}: no list node should be drawn narrower than the ${minWidth}px the 6-node start list has on this phone, but ${small.length} of ${frame.nodes.length} are (${sample}${small.length > 5 ? ', ...' : ''}; widths drawn: ${widths(frame.nodes)}px)`,
+    `${message}: no list node should be drawn narrower than the ${minWidth}px the 6-node start list has on this phone, but ${small.length} of ${frame.nodes.length} are (${sample}${small.length > 5 ? ', ...' : ''}; widths drawn: ${widthsOf(frame.nodes)}px)`,
   ).toHaveLength(0);
+}
+
+/** Lists any node whose width is off `width` by more than 1px or that sits outside the stage. */
+function drawnAsBeforeProblems(frame: StageFrame, width: number): string[] {
+  const wrongWidth = frame.nodes
+    .filter((node) => Math.abs(node.width - width) > 1)
+    .map((node) => `${node.value} w${node.width} (expected ${width}±1)`);
+  const outside = frame.nodes.filter((node) => !node.inside).map((node) => `${node.value} outside stage (${describeNodes(frame.nodes)})`);
+  return [...wrongWidth, ...outside];
 }
 
 /** Runs the try at 5×, seeks to just before insert(99, 45), and plays on at 2× from there. */
@@ -138,7 +146,7 @@ test.describe('daily long linked lists', () => {
       const shown = new Set(end.nodes.filter((node) => node.inside).map((node) => node.value));
       expect(
         shown.size,
-        `${ctx}: at a readable size the 46-node list is wider than the stage, so some nodes should be off-stage before panning (all ${end.nodes.length} are on stage, ${widths(end.nodes)}px wide)`,
+        `${ctx}: at a readable size the 46-node list is wider than the stage, so some nodes should be off-stage before panning (all ${end.nodes.length} are on stage, ${widthsOf(end.nodes)}px wide)`,
       ).toBeLessThan(end.nodes.length);
 
       const revealed = new Set<number>();
@@ -170,28 +178,27 @@ test.describe('daily long linked lists', () => {
 
       test('a short list is drawn as before, every node in view', async ({ page, dailyPage, dailyTemplate }) => {
         const stage = new StageGeometry(page);
-        const expectAsBefore = (frame: StageFrame, width: number, message: string) => {
-          expect(
-            frame.nodes.filter((node) => Math.abs(node.width - width) > 1).map((node) => `${node.value} w${node.width}`),
-            `${message}: every node should be drawn ${width}px wide (±1), as before 3f`,
-          ).toEqual([]);
-          expect(frame.nodes.filter((node) => !node.inside).map((node) => node.value), `${message}: every node should be inside the stage (${describeNodes(frame.nodes)})`).toEqual([]);
-        };
 
         const six = `${LONG_DRIFT.name} on a ${device}, before Run (6-node start list)`;
         await dailyPage.serve(LONG_DRIFT.challenge);
         await dailyTemplate.operations.open(six);
-        expectAsBefore(await stage.settled(six), sixNodes, six);
+        expect(drawnAsBeforeProblems(await stage.settled(six), sixNodes), `${six}: every node should be ${sixNodes}px wide (±1) and inside the stage, as before 3f`).toEqual([]);
 
         const { challenge, cheap } = DRIFT_26;
         const ctx = `${DRIFT_26.name} on a ${device} (start [${challenge.start.join(', ')}]), operations ${cheap.listed.join(', ')}`;
         await dailyPage.serve(challenge);
         await dailyTemplate.operations.open(ctx);
-        expectAsBefore(await stage.settled(`${ctx}, before Run`), drift26, `${ctx}, before Run`);
+        expect(
+          drawnAsBeforeProblems(await stage.settled(`${ctx}, before Run`), drift26),
+          `${ctx}, before Run: every node should be ${drift26}px wide (±1) and inside the stage, as before 3f`,
+        ).toEqual([]);
         await dailyTemplate.operations.build(cheap.operations, cheap.listed, ctx);
         await dailyPage.run();
         await dailyPage.skip(ctx);
-        expectAsBefore(await stage.settled(`${ctx}, Run then Skip`), drift26, `${ctx}, Run then Skip`);
+        expect(
+          drawnAsBeforeProblems(await stage.settled(`${ctx}, Run then Skip`), drift26),
+          `${ctx}, Run then Skip: every node should be ${drift26}px wide (±1) and inside the stage, as before 3f`,
+        ).toEqual([]);
       });
     });
   }
@@ -216,11 +223,7 @@ test.describe('visualiser linked list layout', () => {
         await visualiser.open('linked-lists', TWENTY);
         const open = await stage.settled(ctx);
         expect(open.nodes.map((node) => node.value), `${ctx}: the drawing should show the 20 nodes`).toEqual(TWENTY);
-        expect(open.nodes.filter((node) => !node.inside).map((node) => node.value), `${ctx}: every node should be inside the stage, as before 3f`).toEqual([]);
-        expect(
-          open.nodes.filter((node) => Math.abs(node.width - width) > 1).map((node) => `${node.value} w${node.width}`),
-          `${ctx}: every node should be drawn ${width}px wide (±1), as before 3f`,
-        ).toEqual([]);
+        expect(drawnAsBeforeProblems(open, width), `${ctx}: every node should be ${width}px wide (±1) and inside the stage, as before 3f`).toEqual([]);
 
         const appended = `${ctx}, append(90) then Skip to the end`;
         await visualiser.runToEnd('append', 90);

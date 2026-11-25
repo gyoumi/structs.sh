@@ -61,7 +61,6 @@ export const Play = (props: PlayProps) => {
     rig,
     theme,
     restored: lastTry && stageRunOf(challenge, lastTry.input),
-    onRerun: (runId) => dispatch({ type: 'rerun', runId }),
   });
 
   const { saveFailed, hold, follow } = useSavedTries({ ...props, play, dispatch, draw });
