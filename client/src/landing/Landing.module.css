@@ -25,6 +25,7 @@
   --ink: #1f1d5c;
   --muted: #5b5a8c;
   --edge: #1f1d5c;
+  --focus: var(--indigo);
   --shadow: #1f1d5c;
   --dash: #a4abd0;
   --chosen: var(--sky);
@@ -45,6 +46,7 @@
   --ink: #eef0ff;
   --muted: #b6b9e4;
   --edge: #5a56c7;
+  --focus: var(--steel);
   --shadow: #06051c;
   --dash: rgba(196, 222, 244, 0.28);
   --chosen: #2e2b80;
@@ -65,7 +67,7 @@
 }
 
 .page :focus-visible {
-  outline: 3px solid var(--steel);
+  outline: 3px solid var(--focus);
   outline-offset: 3px;
 }
 
@@ -147,6 +149,8 @@
 }
 
 .footer {
+  --focus: var(--steel);
+
   padding-block: 1.25rem;
   background: var(--footer);
   color: #c9cdf0;

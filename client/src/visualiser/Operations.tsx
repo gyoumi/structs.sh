@@ -10,7 +10,9 @@ import styles from './Operations.module.css';
 const Operations = ({ topic }: { topic: Topic }) => {
   const documentation = useSnapshot((s) => s.documentation);
   const size = useSnapshot((s) => s.size);
-  const commands = Object.keys(documentation);
+  const commands = Object.keys(documentation).filter(
+    (name) => documentation[name].menu !== 'hidden'
+  );
   const [params] = useSearchParams();
   const requested = params.get('op');
   const [chosen, setChosen] = useState<string | null>(null);

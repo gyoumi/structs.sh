@@ -1,13 +1,14 @@
 import { SVG } from '@svgdotjs/svg.js';
 import { Documentation } from './typedefs';
-import { CODE_CANVAS, VISUALISER_CANVAS, CODE_CONTAINER } from './constants';
+import { getCanvasTarget } from './canvasTarget';
 
 abstract class GraphicalDataStructure {
   public constructor() {
-    SVG(VISUALISER_CANVAS).clear();
-    SVG(CODE_CANVAS).clear();
+    const target = getCanvasTarget();
+    SVG(target.canvas).clear();
+    SVG(target.code).clear();
     // Set the code container height to 0 to prevent scrolling due to overflow
-    const codeContainer = document.getElementById(CODE_CONTAINER);
+    const codeContainer = document.getElementById(target.codeContainer);
     if (codeContainer) {
       codeContainer.style.height = '0';
     }

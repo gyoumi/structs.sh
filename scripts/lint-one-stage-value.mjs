@@ -43,7 +43,7 @@ function returnsBoolean(node) {
 
 function isBooleanHookCall(init) {
   if (init?.type !== 'CallExpression' || !BOOLEAN_HOOKS.has(hookName(init.callee))) return false;
-  const typeArgument = init.typeArguments?.params[0];
+  const typeArgument = (init.typeArguments ?? init.typeParameters)?.params[0];
   if (typeArgument) return isBooleanTypeNode(typeArgument);
   const [initial] = init.arguments;
   return isBooleanLiteral(initial) || (hookName(init.callee) === 'useState' && returnsBoolean(initial));

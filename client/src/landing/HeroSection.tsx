@@ -14,8 +14,9 @@ const HeroSection = () => (
         <img src={logo} alt="" width={36} height={36} />
         <span>structs.sh</span>
       </Link>
-      <nav aria-label="Main" className={styles.nav}>
+      <nav aria-label="Main" className={`${styles.nav} ${styles.landingNav}`}>
         <a href="#structures">Visualiser</a>
+        <Link to="/daily">Daily</Link>
         <Link to="/debugger">Debugger</Link>
         <a href={GITHUB_URL} target="_blank" rel="noreferrer">
           GitHub
@@ -36,6 +37,10 @@ const HeroSection = () => (
           </a>
           <Link to="/debugger" className={landing.secondary}>
             Open the debugger
+            <ArrowRightIcon size={18} />
+          </Link>
+          <Link to="/daily" className={landing.secondary}>
+            Play today’s challenge
             <ArrowRightIcon size={18} />
           </Link>
         </div>

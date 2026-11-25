@@ -1,0 +1,43 @@
+name: Wasm cache
+
+# A cache saved by a pull_request run can only be restored by that PR, so
+# every new PR's E2E run rebuilt the wasm. This saves it on the branches PRs
+# target, where every PR into them can restore it. Keep the path and key the
+# same as the Restore wasm step in e2e.yml.
+on:
+  push:
+    branches:
+      - dev
+      - daily-game
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  wasm-cache:
+    name: wasm-cache
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
+        with:
+          runtime: node@22
+          cache: true
+
+      - name: Restore wasm
+        id: wasm-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            client/src/Services/debugger/wasm/generated/instrumenter.wasm
+            client/src/Services/challenges/generated/challenges.wasm
+          key: wasm-${{ hashFiles('instrumenter/**', 'game-server/**', 'rust-toolchain.toml', 'package.json') }}
+
+      - name: Build wasm
+        if: steps.wasm-cache.outputs.cache-hit != 'true'
+        run: |
+          rustup toolchain install
+          pnpm run wasm

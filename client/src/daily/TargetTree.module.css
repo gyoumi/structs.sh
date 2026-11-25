@@ -1,0 +1,36 @@
+.figure {
+  margin: 0;
+}
+
+.drawing {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 0.55rem auto 0.4rem;
+}
+
+.edge {
+  stroke: var(--edge);
+  stroke-width: 2;
+}
+
+.node {
+  fill: var(--sky);
+  stroke: var(--edge);
+  stroke-width: 2;
+}
+
+.label {
+  fill: var(--button-ink);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.caption {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}

@@ -1,14 +1,14 @@
-import AnimationProducer from '@/visualiser-src/common/AnimationProducer';
 import { canvasTheme } from '@/visualiser-src/common/canvasTheme';
 import GraphicalSortsElement from '../data-structure/GraphicalSortsElement';
 import SortsInsertionAnimationProducer from '../animation-producer/SortsInsertionAnimationProducer';
 
-export function insertionSort(elements: GraphicalSortsElement[]): AnimationProducer {
+export function insertionSort(elements: GraphicalSortsElement[]): SortsInsertionAnimationProducer {
   const producer = new SortsInsertionAnimationProducer();
 
   producer.renderInsertionCode();
 
   const len = elements.length;
+  if (len === 0) return producer;
 
   let j = 0;
   // Make first node Sorted
@@ -41,6 +41,7 @@ export function insertionSort(elements: GraphicalSortsElement[]): AnimationProdu
         canvasTheme.compare
       );
       // Do Comparison
+      producer.countComparison();
       producer.doAnimationAndHighlightTimestamp(
         6,
         true,

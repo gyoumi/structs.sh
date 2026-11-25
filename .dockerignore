@@ -1,13 +1,17 @@
-# Only the client image builds from the repo root. Send it the workspace
-# manifests, the client source and the debugger's Rust instrumenter.
+# The client image and the game server image build from the repo root. Send
+# them the workspace manifests, the client source, the debugger's Rust
+# instrumenter and the daily game's Rust crates.
 *
 !package.json
 !pnpm-lock.yaml
 !pnpm-workspace.yaml
 !client
 !instrumenter
+!game-server
 !rust-toolchain.toml
 client/node_modules
 client/build
 client/src/Services/debugger/wasm/generated
 instrumenter/target
+client/src/Services/challenges/generated
+game-server/target

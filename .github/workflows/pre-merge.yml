@@ -17,12 +17,13 @@ jobs:
         with:
           runtime: node@22
           cache: true
-      # The client's tests and build load the instrumenter's .wasm. rustup is
-      # on the runner and installs the version in rust-toolchain.toml.
-      - name: Build instrumenter
+      # The client's tests and build load the instrumenter's and daily challenge's
+      # .wasm. rustup is on the runner and installs the version in
+      # rust-toolchain.toml.
+      - name: Build wasm
         run: |
           rustup toolchain install
-          pnpm run instrumenter
+          pnpm run wasm
       - name: TypeScript
         working-directory: ./client
         run: pnpm run tsc
@@ -52,6 +53,40 @@ jobs:
           cargo clippy --all-targets -- -D warnings
           cargo clippy --release --target wasm32-unknown-unknown -- -D warnings
       - name: Tests
+        run: cargo test
+
+  sanity-daily:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: daily
+          POSTGRES_PASSWORD: daily
+          POSTGRES_DB: daily_challenges
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U daily -d daily_challenges"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: game-server
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install Rust
+        run: rustup toolchain install
+      - name: Format
+        run: cargo fmt --check
+      - name: Clippy
+        run: |
+          cargo clippy --all-targets -- -D warnings
+          cargo clippy -p daily-challenges --release --target wasm32-unknown-unknown -- -D warnings
+      - name: Tests
+        env:
+          DATABASE_URL: postgres://daily:daily@localhost:5432/daily_challenges
         run: cargo test
 
   sanity-e2e:

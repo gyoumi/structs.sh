@@ -1,6 +1,8 @@
-import AnimationProducer from '@/visualiser-src/common/AnimationProducer';
 import GraphicalSortsElement from '../data-structure/GraphicalSortsElement';
 import SortsMergeAnimationProducer from '../animation-producer/SortsMergeAnimationProducer';
+import { getBarHeight } from '../util/helpers';
+
+const MERGE_ROW_GAP = 42;
 
 function mergeRange(
   elements: GraphicalSortsElement[],
@@ -26,6 +28,7 @@ function mergeRange(
   producer.doAnimationAndHighlight(1, producer.highlightSorting, low, high, elements);
 
   while (pointerLeft <= mid && pointerRight <= high) {
+    producer.countComparison();
     if (elements[pointerLeft].data.value <= elements[pointerRight].data.value) {
       producer.doAnimationAndHighlight(
         13,
@@ -78,8 +81,12 @@ function mergeRange(
   }
 }
 
-export function mergeSort(elements: GraphicalSortsElement[]): AnimationProducer {
-  const producer = new SortsMergeAnimationProducer();
+export function mergeSort(elements: GraphicalSortsElement[]): SortsMergeAnimationProducer {
+  const maxBarHeight = elements.reduce(
+    (tallest, element) => Math.max(tallest, getBarHeight(element.data.value)),
+    0
+  );
+  const producer = new SortsMergeAnimationProducer(Math.ceil(maxBarHeight + MERGE_ROW_GAP));
 
   producer.renderMergeCode();
 

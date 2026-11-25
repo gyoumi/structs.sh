@@ -1,5 +1,5 @@
 import { SVG, Text, Rect, Svg, Polygon } from '@svgdotjs/svg.js';
-import { VISUALISER_CANVAS } from '@/visualiser-src/common/constants';
+import { getCanvasTarget } from '@/visualiser-src/common/canvasTarget';
 import { shapeAttributes, textAttributes, boxWidth, textCy } from '../util/constants';
 import { getBarHeight, getX } from '../util/helpers';
 
@@ -24,7 +24,7 @@ export default class GraphicalSortsElement {
     const pointer = SVG()
       .polygon('5, 15, 15, 15, 10, 0')
       .fill({ color: colour })
-      .addTo(VISUALISER_CANVAS);
+      .addTo(getCanvasTarget().canvas);
 
     pointer.x(getX(index) + boxWidth / 2 - 5).y(textCy + 15);
 
@@ -33,7 +33,7 @@ export default class GraphicalSortsElement {
   }
 
   public static from(input: number) {
-    const canvas = SVG(VISUALISER_CANVAS) as Svg;
+    const canvas = SVG(getCanvasTarget().canvas) as Svg;
     const blockShape = canvas
       .rect()
       .attr(shapeAttributes)

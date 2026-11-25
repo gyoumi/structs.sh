@@ -65,8 +65,13 @@ export class LocalStorageFS implements IFileSystem {
     return this.root;
   }
 
+  /** Saves the tree to `localStorage`. When storage is full the tree stays in memory for the session. */
   saveChanges(): void {
-    localStorage.setItem('fileSystem', JSON.stringify(this.root));
+    try {
+      localStorage.setItem('fileSystem', JSON.stringify(this.root));
+    } catch (error) {
+      console.warn('Could not save the file tree to localStorage:', error);
+    }
   }
 
   // TODO: Not cached, refactor later to increase performance

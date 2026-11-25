@@ -12,8 +12,7 @@ const AT_INDEX = ' at index';
 
 export const useNarration = (topic: Topic): Narration => {
   const lastRun = useSnapshot((s) => s.lastRun);
-  const playing = useSnapshot((s) => s.playing);
-  const complete = useSnapshot((s) => s.complete);
+  const playback = useSnapshot((s) => s.playback);
   const documentation = useSnapshot((s) => s.documentation);
 
   if (!lastRun) {
@@ -30,9 +29,7 @@ export const useNarration = (topic: Topic): Narration => {
     title = `${label.slice(0, -AT_INDEX.length)} ${value}${AT_INDEX} ${index}`;
   }
 
-  let state: PlaybackState = 'paused';
-  if (complete) state = 'done';
-  else if (playing) state = 'playing';
+  const state: PlaybackState = playback === 'complete' ? 'done' : playback;
 
   return { state, title };
 };

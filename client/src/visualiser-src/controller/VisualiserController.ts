@@ -1,18 +1,24 @@
-import { Timeline, Runner } from '@svgdotjs/svg.js';
+import { Animator, Timeline, Runner } from '@svgdotjs/svg.js';
 import GraphicalDataStructure from '@/visualiser-src/common/GraphicalDataStructure';
 import GraphicalDataStructureFactory from '@/visualiser-src/common/GraphicalDataStructureFactory';
 import { Documentation } from '@/visualiser-src/common/typedefs';
 import { defaultSpeed } from '../common/constants';
-import AnimationProducer from '../common/AnimationProducer';
+import AnimationProducer, { DrawingBounds, StepTrace } from '../common/AnimationProducer';
+import TimelineTrack from './TimelineTrack';
+import { parseOperationArgs, validateOperationArgs } from './operationArgs';
 
 interface TimeEvent extends Event {
   detail?: number;
 }
 
-export interface TimelineSegment {
+interface TimelineSegment {
   start: number;
   line: number | null;
 }
+
+export type PlaybackStage = 'paused' | 'playing' | 'complete';
+
+type PlaybackMode = 'idle' | 'playing' | 'stepping' | 'paused';
 
 class VisualiserController {
   private dataStructure?: GraphicalDataStructure;
@@ -25,9 +31,12 @@ class VisualiserController {
 
   private timestamps: number[] = [];
 
+  /** What each step of the timeline records beside its animation, such as counts and focus. */
+  public readonly track = new TimelineTrack();
+
   private speed: number = 1;
 
-  private isStepMode: boolean = false;
+  private mode: PlaybackMode = 'idle';
 
   private segments: TimelineSegment[] = [];
 
@@ -40,24 +49,17 @@ class VisualiserController {
     }
   }
 
-  // Return data in form of integer array
   public get data(): number[] {
     return this.dataStructure?.data || [];
   }
 
-  // Return the current topic/data structure
   public get topic(): string | null {
     return this.topicTitle || null;
   }
 
-  // Set data structure to loaded data
   public loadData(data: number[]): void {
     this.resetDataStructure();
     this.dataStructure?.load(data);
-  }
-
-  public getCurrentTimeline(): Timeline {
-    return this.currentTimeline;
   }
 
   public constructTimeline(
@@ -71,71 +73,84 @@ class VisualiserController {
 
     animationProducer.allRunners.forEach((runnerInfo) => {
       if (runnerInfo.runners.length === 0) return;
-      this.segments.push({ start: this.timelineDuration + 25, line: runnerInfo.line });
+      const stepStart = this.timelineDuration;
+      const segmentStart = stepStart + 25;
+      this.segments.push({ start: segmentStart, line: runnerInfo.line });
       runnerInfo.runners.forEach((runner) => {
-        this.currentTimeline.schedule(runner, this.timelineDuration + 25, 'absolute');
+        this.currentTimeline.schedule(runner, segmentStart, 'absolute');
       });
       const maxRunner = runnerInfo.runners.reduce(
         (prev: Runner, curr: Runner) => (prev.duration() < curr.duration() ? curr : prev),
         runnerInfo.runners[0]
       );
       this.timelineDuration += maxRunner.duration() + 25;
+      this.track.recordStep(stepStart, segmentStart, this.timelineDuration, runnerInfo);
       if (runnerInfo.isTimestamped) {
+        const stepEnd = this.timelineDuration + 1;
+        const timeline = this.currentTimeline;
         maxRunner.after(() => {
-          if (this.isStepMode) {
-            this.currentTimeline.pause();
+          if (this.mode === 'stepping') {
+            this.pause();
+            // Seeking from inside the timeline's frame would re-enter its runner loop.
+            Animator.immediate(() => timeline.time(stepEnd));
           }
         });
-        this.timestamps.push(this.timelineDuration + 1);
+        this.timestamps.push(stepEnd);
       }
     });
-    this.timestamps.push(this.timelineDuration);
-    this.currentTimeline.play();
+    if (this.timelineDuration > 0) {
+      this.timestamps.push(this.timelineDuration);
+      this.play();
+    }
   }
 
   public resetTimeline(updateSlider: (val: number) => void) {
-    this.currentTimeline = new Timeline().persist(true);
-    this.currentTimeline.on('time', (evt: TimeEvent) => {
-      // avoid division by 0
+    const timeline = new Timeline().persist(true);
+    this.currentTimeline = timeline;
+    timeline.on('time', (evt: TimeEvent) => {
       if (this.timelineDuration !== 0 && evt.detail) {
         updateSlider((Math.min(evt.detail, this.timelineDuration) / this.timelineDuration) * 100);
       }
     });
-    this.isStepMode = false;
-    this.currentTimeline.speed(this.speed);
+    timeline.on('finished', () => {
+      if (this.currentTimeline === timeline) {
+        this.mode = 'paused';
+      }
+    });
+    this.mode = 'idle';
+    timeline.speed(this.speed);
     this.clearRecording();
   }
 
   public play(): void {
-    this.isStepMode = false;
+    this.mode = 'playing';
     this.currentTimeline.play();
   }
 
   public pause(): void {
+    this.mode = 'paused';
     this.currentTimeline.pause();
   }
 
-  public seekPercent(position: number): void {
-    const timeSeek: number = (position * this.timelineDuration) / 100;
-    this.currentTimeline.time(timeSeek);
-    if (this.isStepMode) {
+  public seekTime(time: number): void {
+    const clamped = Math.max(0, Math.min(time, this.timelineDuration));
+    if (this.mode === 'stepping') {
       this.pause();
-      this.isStepMode = false;
     }
+    this.currentTimeline.time(clamped);
+  }
+
+  public seekPercent(position: number): void {
+    this.seekTime((position * this.timelineDuration) / 100);
   }
 
   public setSpeed(speed: number): void {
-    // we need to keep a member variable since
-    // a new timeline is created for each animation sequence,
-    // so the speed would be reset to 1
     this.speed = speed;
-
-    // incase we are setting the speed without doing another operation
     this.currentTimeline.speed(this.speed);
   }
 
-  // Finish playing the timeline
   public finish(): void {
+    this.mode = 'paused';
     this.currentTimeline.finish();
   }
 
@@ -144,54 +159,14 @@ class VisualiserController {
   }
 
   public stepForwards(): void {
-    this.isStepMode = true;
+    this.mode = 'stepping';
     this.currentTimeline.play();
   }
 
   public applyTopicTitle(topicTitle: string) {
     this.topicTitle = topicTitle;
     this.dataStructure = GraphicalDataStructureFactory.create(topicTitle);
-    this.currentTimeline.finish();
-    this.currentTimeline.time(0);
-    this.currentTimeline = new Timeline().persist(true);
-    this.clearRecording();
-  }
-
-  private getErrorMessageIfInvalidInput(command: string, args: string[]): string {
-    if (!this.dataStructure) {
-      return 'Invalid data structure';
-    }
-    const expectedArgs = this.dataStructure.documentation[command].args;
-    if (args.length !== expectedArgs.length) {
-      return `Invalid arguments. Please provide ${args.join(', ')}`;
-    }
-    if (args.includes('') || (expectedArgs.length > 0 && args.some((arg) => !arg.match(/\d/)))) {
-      return 'Argument(s) missing';
-    }
-    if (
-      !args.every((value, idx) =>
-        expectedArgs[idx].endsWith('s')
-          ? value
-              .split(/,| /g)
-              .filter((str) => str !== '')
-              .every((el) => /^\d+$/.test(el))
-          : /^\d+$/.test(value)
-      )
-    ) {
-      return 'Argument(s) must be a positive integer';
-    }
-    let valueIndex = expectedArgs.indexOf('value');
-    valueIndex = valueIndex === -1 ? expectedArgs.indexOf('values') : valueIndex;
-    if (
-      valueIndex !== -1 &&
-      !args[valueIndex]
-        .split(/,|\s+/g)
-        .filter((str) => str !== '')
-        .every((arg) => Number(arg) >= 0 && Number(arg) <= 99)
-    ) {
-      return 'Values must be between 0 and 99';
-    }
-    return '';
+    this.clearTimeline();
   }
 
   public doOperation(
@@ -199,23 +174,15 @@ class VisualiserController {
     updateSlider: (val: number) => void,
     ...args: string[]
   ): string {
-    const errMessage = this.getErrorMessageIfInvalidInput(command, args);
-    if (errMessage !== '') {
-      return errMessage;
-    }
+    if (!this.dataStructure) return 'Invalid data structure';
+    const expectedArgs = this.dataStructure.documentation[command].args;
+    const errMessage = validateOperationArgs(expectedArgs, args);
+    if (errMessage !== '') return errMessage;
 
     this.finish();
     // @ts-ignore
     const animationProducer: AnimationProducer = this.dataStructure[command](
-      ...args.map((arg, idx) => {
-        if (this.dataStructure?.documentation[command].args[idx].endsWith('s')) {
-          return arg
-            .split(/,| /g)
-            .filter((str) => str !== '')
-            .map((el) => Number(el));
-        }
-        return Number(arg);
-      })
+      ...parseOperationArgs(expectedArgs, args)
     );
     this.constructTimeline(animationProducer, updateSlider);
     return '';
@@ -229,6 +196,11 @@ class VisualiserController {
     if (this.topicTitle) {
       this.dataStructure = GraphicalDataStructureFactory.create(this.topicTitle);
     }
+    this.clearTimeline();
+  }
+
+  private clearTimeline(): void {
+    this.mode = 'idle';
     this.currentTimeline.finish();
     this.currentTimeline.time(0);
     this.currentTimeline = new Timeline().persist(true);
@@ -258,6 +230,7 @@ class VisualiserController {
 
   private clearRecording(): void {
     this.timestamps = [];
+    this.track.clear();
     this.timelineDuration = 0;
     this.segments = [];
     this.operationCode = '';
@@ -271,15 +244,42 @@ class VisualiserController {
     return this.currentTime;
   }
 
-  public get isPaused(): boolean {
-    return (this.currentTimeline as unknown as { _paused: boolean })._paused;
+  /** The producer's running count once the steps up to `time` are done. */
+  public counterAt(time: number): number {
+    return this.track.counterAt(time);
+  }
+
+  /** The producer's named running counts once the steps up to `time` are done. */
+  public countersAt(time: number): Record<string, number> {
+    return this.track.countersAt(time);
+  }
+
+  /** The sort's pivot and comparison for the step playing at `time`, or null outside a partition. */
+  public traceAt(time: number): StepTrace | null {
+    return this.track.traceAt(time);
+  }
+
+  /** Upcoming drawing bounds for the step at `time`, so the stage can zoom out before a node appears. */
+  public boundsAt(time: number): DrawingBounds | null {
+    return this.track.boundsAt(time);
+  }
+
+  public get playback(): PlaybackStage {
+    if (this.timelineDuration === 0) return 'paused';
+    if (this.currentTime >= this.timelineDuration - 1) return 'complete';
+    return this.mode === 'playing' || this.mode === 'stepping' ? 'playing' : 'paused';
+  }
+
+  /** True while playing a single step from "Next step", which pauses when that step ends. */
+  public get stepping(): boolean {
+    return this.mode === 'stepping';
   }
 
   public get code(): string {
     return this.operationCode;
   }
 
-  // Times the timeline pauses at when stepping, ending with the full duration.
+  /** Times the timeline pauses at when stepping, ending with the full duration. */
   public get stepTimes(): number[] {
     return [...this.timestamps]
       .sort((a, b) => a - b)

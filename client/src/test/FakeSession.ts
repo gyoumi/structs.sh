@@ -19,8 +19,7 @@ export const calls: Call[] = [];
 const initial: VisualiserSnapshot = {
   topicTitle: null,
   documentation: {},
-  playing: false,
-  complete: false,
+  playback: 'paused',
   progress: 0,
   step: 0,
   stepCount: 0,
@@ -32,6 +31,9 @@ const initial: VisualiserSnapshot = {
   lastRun: null,
   speed: 1,
   layoutVersion: 0,
+  trace: null,
+  bounds: null,
+  focus: null,
 };
 
 /** Stands in for the engine-backed session, which needs a real SVG layout. */

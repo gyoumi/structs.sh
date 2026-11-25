@@ -46,6 +46,26 @@ test.describe('binary search tree operations', () => {
   }
 });
 
+test.describe('stepping through a traversal at 5× speed', () => {
+  // Postorder on a chain visits every node back to back, so each step boundary
+  // between two visits is a chance for one Next step to run into the next visit.
+  const chain = [10, 20, 30, 40, 50, 60, 70, 80];
+  const visits = [...chain].reverse();
+
+  test('each Next step visits exactly one node in postorderTraversal of a right-leaning chain', async ({ visualiser }) => {
+    const context = `/visualiser/binary-search-trees [${chain.join(', ')}] (each value the right child of the one before), postorderTraversal at 5× speed, rewound to the start and stepped with Next step only`;
+    await visualiser.open('binary-search-trees', chain);
+    await visualiser.transport.setSpeed(5);
+    expect(await visualiser.transport.speed(), `${context}: the Speed picker should show 5× after choosing it`).toBe(5);
+    await visualiser.run('postorderTraversal');
+    await visualiser.transport.rewind();
+    expect(
+      await visualiser.visitOrder(context),
+      `${context}: each Next step should colour at most one node as visited, giving the postorder ${visits.join(', ')}`,
+    ).toEqual(visits);
+  });
+});
+
 test.describe('AVL tree operations', () => {
   test.beforeEach(async ({ visualiser }) => {
     await visualiser.open('avl-trees', [10, 20]);
