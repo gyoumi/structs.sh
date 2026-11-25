@@ -13,6 +13,12 @@ const newNodePosition = (index: number, length: number): [number, number] =>
     ? [index * nodePathWidth + (3 * actualNodeDiameter) / 2, insertedNodeTopOffset]
     : [length * nodePathWidth + actualNodeDiameter / 2, topOffset];
 
+/** Where the node at `index` of the list sits once the list is laid out. */
+const nodePosition = (index: number): [number, number] => [
+  (index + 1) * nodePathWidth + actualNodeDiameter / 2,
+  topOffset,
+];
+
 const pointerPosition = (index: number): [number, number] => [
   10 + (index + 1) * nodePathWidth + strokeWidth / 2,
   topOffset + actualNodeDiameter / 2,
@@ -24,6 +30,8 @@ export default class LinkedListAnimationProducer extends AnimationProducer {
 
   private targetBounds: DrawingBounds | null = null;
 
+  private focusBounds: DrawingBounds | null = null;
+
   /** Records the drawing bounds upcoming steps need visible so the stage can zoom out before a node appears. */
   public setTargetBounds(bounds: DrawingBounds | null): void {
     this.targetBounds = bounds;
@@ -33,12 +41,23 @@ export default class LinkedListAnimationProducer extends AnimationProducer {
     return this.targetBounds;
   }
 
+  protected get stepFocus(): DrawingBounds | null {
+    return this.focusBounds;
+  }
+
+  /** Names the node centred at (`cx`, `cy`) as the one the next steps work on. */
+  protected focusOn([cx, cy]: [number, number]): void {
+    const r = actualNodeDiameter / 2;
+    this.focusBounds = { x: cx - r, y: cy - r, width: 2 * r, height: 2 * r };
+  }
+
   protected pointer(pointerId: string): Element {
     return SVG(getCanvasTarget().canvas).findOne(pointerId) as Element;
   }
 
   public createNodeAt(index: number, newNode: GraphicalLinkedListNode, length: number) {
     const [cx, cy] = newNodePosition(index, length);
+    this.focusOn([cx, cy]);
     newNode.boxTarget.cx(cx).cy(cy);
     newNode.numberTarget.cx(cx).cy(cy);
     newNode.placeAt(cx, cy);
@@ -69,6 +88,7 @@ export default class LinkedListAnimationProducer extends AnimationProducer {
   public initialisePointer(pointerId: string) {
     const pointerSvg = this.pointer(pointerId);
     this.pointerIndexes.set(pointerId, 0);
+    if (pointerId === CURRENT) this.focusOn(nodePosition(0));
     const [x, y] = pointerPosition(0);
     this.addSequenceAnimation(pointerSvg.animate(1).move(x, y));
     this.addSequenceAnimation(pointerSvg.animate().attr({ opacity: 1 }));
@@ -77,6 +97,7 @@ export default class LinkedListAnimationProducer extends AnimationProducer {
   public movePointerToNext(pointerId: string) {
     const index = (this.pointerIndexes.get(pointerId) ?? 0) + 1;
     this.pointerIndexes.set(pointerId, index);
+    if (pointerId === CURRENT) this.focusOn(nodePosition(index));
     const [x, y] = pointerPosition(index);
     this.addSequenceAnimation(this.pointer(pointerId).animate().move(x, y));
   }
@@ -158,10 +179,12 @@ export default class LinkedListAnimationProducer extends AnimationProducer {
 
   // Precondition: last's next pointer will never be null
   public linkLastToNew(last: GraphicalLinkedListNode) {
+    this.focusOn([last.next!.x, last.next!.y]);
     this.showPointer(last);
   }
 
   public insertedNodePointToNext(newNode: GraphicalLinkedListNode) {
+    this.focusOn([newNode.x, newNode.y]);
     if (newNode.next !== null) this.showPointer(newNode);
   }
 

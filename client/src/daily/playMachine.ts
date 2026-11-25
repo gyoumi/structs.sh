@@ -52,6 +52,8 @@ export type PlayEvent =
       runId: number;
       focusSkip: boolean;
     }
+  /** Another tab's run, played here too; `scores` are the tries before it. */
+  | { type: 'follow'; input: PlayInput; runId: number; scores: TryScore[] }
   | { type: 'animation-completed'; runId: number }
   /** The running try was started again under a new id, as when a theme switch redraws it. */
   | { type: 'rerun'; runId: number }
@@ -88,6 +90,15 @@ export const playReducer = (state: PlayState, event: PlayEvent): PlayState => {
         focusSkip: event.focusSkip,
       };
     }
+    case 'follow':
+      if (state.stage === 'running' || state.stage === 'scoring') return state;
+      return {
+        stage: 'running',
+        scores: event.scores.slice(0, MAX_TRIES),
+        input: event.input,
+        runId: event.runId,
+        focusSkip: false,
+      };
     case 'animation-completed':
       if (state.stage !== 'running' || state.runId !== event.runId) return state;
       return {

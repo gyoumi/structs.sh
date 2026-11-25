@@ -31,7 +31,8 @@ class VisualiserController {
 
   private timestamps: number[] = [];
 
-  private track = new TimelineTrack();
+  /** What each step of the timeline records beside its animation, such as counts and focus. */
+  public readonly track = new TimelineTrack();
 
   private speed: number = 1;
 
@@ -59,10 +60,6 @@ class VisualiserController {
   public loadData(data: number[]): void {
     this.resetDataStructure();
     this.dataStructure?.load(data);
-  }
-
-  public getCurrentTimeline(): Timeline {
-    return this.currentTimeline;
   }
 
   public constructTimeline(
@@ -271,6 +268,11 @@ class VisualiserController {
     if (this.timelineDuration === 0) return 'paused';
     if (this.currentTime >= this.timelineDuration - 1) return 'complete';
     return this.mode === 'playing' || this.mode === 'stepping' ? 'playing' : 'paused';
+  }
+
+  /** True while playing a single step from "Next step", which pauses when that step ends. */
+  public get stepping(): boolean {
+    return this.mode === 'stepping';
   }
 
   public get code(): string {

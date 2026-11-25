@@ -197,7 +197,11 @@ const initialiseOnboarding = () => {
   if (data) {
     return false;
   }
-  localStorage.setItem('Onboarding', 'already done lmao');
+  try {
+    localStorage.setItem('Onboarding', 'already done lmao');
+  } catch (error) {
+    console.warn('Could not save the onboarding state to localStorage:', error);
+  }
   return true;
 };
 

@@ -38,6 +38,8 @@ export interface RunnerInfo {
   trace?: StepTrace | null;
   /** Drawing bounds this step needs visible before it animates, so the stage can zoom out first. */
   bounds?: DrawingBounds | null;
+  /** The part of the drawing this step works on, so a stage too small for all of it can keep it in view. */
+  focus?: DrawingBounds | null;
 }
 export default abstract class AnimationProducer {
   private _allRunners: RunnerInfo[] = [];
@@ -77,6 +79,11 @@ export default abstract class AnimationProducer {
 
   /** Upcoming drawing bounds so the stage can zoom out before a new node appears. */
   protected get stepBounds(): DrawingBounds | null | undefined {
+    return undefined;
+  }
+
+  /** The part of the drawing the step works on, such as the node a pointer moves to. */
+  protected get stepFocus(): DrawingBounds | null | undefined {
     return undefined;
   }
 
@@ -218,6 +225,7 @@ export default abstract class AnimationProducer {
         counters: this.stepCounters,
         trace: this.stepTrace,
         bounds: this.stepBounds,
+        focus: this.stepFocus,
       });
     }
 

@@ -29,6 +29,7 @@ export default class LinkedListDeleteAnimationProducer extends LinkedListAnimati
   }
 
   public deleteNode(node: GraphicalLinkedListNode) {
+    this.focusOn([node.x, node.y]);
     this.addSequenceAnimation(node.pointerTarget.animate().attr({ opacity: 0 }));
     this.addSequenceAnimation(node.numberTarget.animate().attr({ opacity: 0 }));
     this.addSequenceAnimation(node.boxTarget.animate().attr({ opacity: 0 }));
