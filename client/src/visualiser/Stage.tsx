@@ -48,6 +48,9 @@ interface StageProps {
 /** Where a playing run is heading: the drawing's upcoming bounds and the part the step works on. */
 type Ahead = { bounds: DrawingBounds | null; focus: DrawingBounds | null };
 
+/** Whether the stage fits the drawing automatically or stays where the user panned or zoomed it. */
+type CameraControl = 'auto' | 'manual';
+
 const idOf = (selector: string) => selector.replace(/^#/, '');
 
 const Stage = ({
@@ -62,7 +65,7 @@ const Stage = ({
   const svgRef = useRef<SVGSVGElement>(null);
   const [view, setView] = useState<View>({ status: 'unfitted' });
   const [dragging, setDragging] = useState(false);
-  const userMoved = useRef(false);
+  const cameraControl = useRef<CameraControl>('auto');
   const lastPointer = useRef<{ x: number; y: number } | null>(null);
 
   const layoutVersion = useSnapshot((s) => s.layoutVersion);
@@ -75,7 +78,7 @@ const Stage = ({
   const prevStep = useRef(step);
 
   const zoomAround = useCallback((factor: number, cx: number, cy: number, animate: boolean) => {
-    userMoved.current = true;
+    cameraControl.current = 'manual';
     const transition = animate ? 'smooth' : 'instant';
     setView((prev) => {
       if (prev.status !== 'fitted') return prev;
@@ -113,7 +116,7 @@ const Stage = ({
       const { width, height } = container.getBoundingClientRect();
       if (!box || box.width === 0 || box.height === 0 || width === 0) {
         if (mode === 'always') {
-          userMoved.current = false;
+          cameraControl.current = 'auto';
           setView({ status: 'unfitted' });
         }
         return;
@@ -122,7 +125,7 @@ const Stage = ({
       const insetRight = insetOf(container, 'right');
       const options = { mode, transition, insetTop, insetRight, minScale, focus: ahead?.focus };
       setView((prev) => fitView(prev, box, { width, height }, options));
-      userMoved.current = false;
+      cameraControl.current = 'auto';
     },
     [minScale]
   );
@@ -146,7 +149,7 @@ const Stage = ({
   useLayoutEffect(() => {
     const jumped = Math.abs(step - prevStep.current) > 1;
     prevStep.current = step;
-    if (!userMoved.current || view.status === 'unfitted') {
+    if (cameraControl.current === 'auto' || view.status === 'unfitted') {
       fit(
         complete ? 'always' : 'if-overflowing',
         jumped ? 'instant' : 'smooth',
@@ -159,7 +162,7 @@ const Stage = ({
     const container = containerRef.current;
     if (!container) return undefined;
     const observer = new ResizeObserver(() => {
-      if (!userMoved.current) fit('always', 'instant');
+      if (cameraControl.current === 'auto') fit('always', 'instant');
     });
     observer.observe(container);
     return () => observer.disconnect();
@@ -195,7 +198,7 @@ const Stage = ({
     const dx = event.clientX - last.x;
     const dy = event.clientY - last.y;
     lastPointer.current = { x: event.clientX, y: event.clientY };
-    userMoved.current = true;
+    cameraControl.current = 'manual';
     setView((prev) =>
       prev.status === 'fitted'
         ? { ...prev, x: prev.x + dx, y: prev.y + dy, transition: 'instant' }
@@ -209,7 +212,7 @@ const Stage = ({
   };
 
   const panBy = (dx: number, dy: number) => {
-    userMoved.current = true;
+    cameraControl.current = 'manual';
     setView((p) =>
       p.status === 'fitted' ? { ...p, x: p.x + dx, y: p.y + dy, transition: 'smooth' } : p
     );

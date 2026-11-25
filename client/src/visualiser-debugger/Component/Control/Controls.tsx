@@ -3,7 +3,7 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import UndoIcon from '@mui/icons-material/Undo';
 import RedoIcon from '@mui/icons-material/Redo';
 import CircularProgress from '@mui/material/CircularProgress';
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Fade } from '@mui/material';
 import { handleCompileClicked } from '@/visualiser-debugger/Store/onboardingStore';
 import { useDebugger } from '@/Services/useDebugger';
@@ -20,7 +20,30 @@ import {
 
 const BUFFER_THRESHOLD = 30;
 
-type BufferStage = 'off' | 'requested' | 'buffering';
+type ControlsStage =
+  | 'idle'
+  | 'fetchingStep'
+  | 'fetchingStepThenPlay'
+  | 'playRequested'
+  | 'buffering';
+
+const PLAY_TOGGLED: Partial<Record<ControlsStage, ControlsStage>> = {
+  idle: 'playRequested',
+  playRequested: 'idle',
+  fetchingStep: 'fetchingStepThenPlay',
+  fetchingStepThenPlay: 'fetchingStep',
+};
+
+const togglePlayRequest = (stage: ControlsStage): ControlsStage => PLAY_TOGGLED[stage] ?? stage;
+
+const cancelPlayRequest = (stage: ControlsStage): ControlsStage => {
+  if (stage === 'playRequested') return 'idle';
+  if (stage === 'fetchingStepThenPlay') return 'fetchingStep';
+  return stage;
+};
+
+const afterStepFetched = (stage: ControlsStage): ControlsStage =>
+  stage === 'fetchingStepThenPlay' ? 'playRequested' : 'idle';
 
 const Controls = () => {
   const { latestProgramState } = useGlobalStore();
@@ -29,27 +52,17 @@ const Controls = () => {
   const { states, currentIndex, stepForward, stepBackward, jumpToState, isActive } =
     useFrontendStateStore();
 
-  const [bufferStage, setBufferStage] = useState<BufferStage>('off');
-  const isBuffering = bufferStage === 'buffering';
-  const [awaitingNextState, setAwaitingNextState] = useState<boolean>(false);
+  const [stage, setStage] = useState<ControlsStage>('idle');
+  const isBuffering = stage === 'buffering';
+  const isFetchingStep = stage === 'fetchingStep' || stage === 'fetchingStepThenPlay';
   const atLatestState = currentIndex >= states.length - 1;
 
-  const bufferingRef = useRef<boolean>(false);
   const { setToastMessage: setMessage } = useToastStateStore();
   const compilerStatus = useCompilerStatusStore((state) => state.status);
 
-  const toggleBuffering = () => {
-    setBufferStage((stage) => {
-      if (stage === 'buffering') return stage;
-      return stage === 'off' ? 'requested' : 'off';
-    });
-  };
-
-  const startBuffering = useCallback(
+  const buffer = useCallback(
     async (bufferSize: number) => {
-      if (bufferingRef.current) return;
-      bufferingRef.current = true;
-      setBufferStage('buffering');
+      setStage('buffering');
 
       setMessage({
         content: 'Buffer started.',
@@ -65,22 +78,28 @@ const Controls = () => {
         durationMs: DEFAULT_MESSAGE_DURATION,
       });
 
-      setBufferStage('off');
-      bufferingRef.current = false;
+      setStage('idle');
     },
     [requestSteps, setMessage]
   );
 
+  const fetchNextStep = async () => {
+    setStage('fetchingStep');
+    const gotState = await requestNextStep();
+    setStage(afterStepFetched);
+    if (gotState) stepForward();
+  };
+
   useEffect(() => {
     if (!isActive) {
-      setBufferStage('off');
+      setStage(cancelPlayRequest);
     }
   }, [isActive]);
 
   useEffect(() => {
-    if (bufferStage !== 'requested' || bufferingRef.current) return;
+    if (stage !== 'playRequested') return;
     if (states.length - currentIndex < BUFFER_THRESHOLD) {
-      startBuffering(BUFFER_THRESHOLD);
+      buffer(BUFFER_THRESHOLD);
     } else {
       setMessage({
         content: 'Buffer completed.',
@@ -88,9 +107,9 @@ const Controls = () => {
         durationMs: DEFAULT_MESSAGE_DURATION,
       });
 
-      setBufferStage('off');
+      setStage('idle');
     }
-  }, [bufferStage, currentIndex, setMessage, startBuffering, states.length]);
+  }, [stage, currentIndex, setMessage, buffer, states.length]);
 
   useEffect(() => {
     if (isInitialProgramState(latestProgramState)) {
@@ -116,7 +135,7 @@ const Controls = () => {
       <Button
         variant="primary"
         onClick={() => {
-          setBufferStage('off');
+          setStage(cancelPlayRequest);
           startDebugging();
           handleCompileClicked();
         }}
@@ -129,7 +148,11 @@ const Controls = () => {
           Loading compiler {Math.floor((100 * compilerStatus.done) / compilerStatus.total)}%
         </span>
       )}
-      <Button disabled={!isActive} onClick={toggleBuffering} className="Onboarding-playButton">
+      <Button
+        disabled={!isActive}
+        onClick={() => setStage(togglePlayRequest)}
+        className="Onboarding-playButton"
+      >
         {isBuffering ? (
           <Fade in={isBuffering} timeout={500}>
             <CircularProgress size={24} />
@@ -142,7 +165,7 @@ const Controls = () => {
       </Button>
 
       <Button
-        disabled={awaitingNextState || currentIndex <= 0}
+        disabled={isFetchingStep || currentIndex <= 0}
         onClick={() => {
           stepBackward();
         }}
@@ -151,17 +174,8 @@ const Controls = () => {
       </Button>
 
       <Button
-        disabled={awaitingNextState || (!isActive && atLatestState)}
-        onClick={async () => {
-          if (!atLatestState) {
-            stepForward();
-            return;
-          }
-          setAwaitingNextState(true);
-          const gotState = await requestNextStep();
-          setAwaitingNextState(false);
-          if (gotState) stepForward();
-        }}
+        disabled={isFetchingStep || (atLatestState && (isBuffering || !isActive))}
+        onClick={atLatestState ? fetchNextStep : stepForward}
       >
         <RedoIcon />
       </Button>

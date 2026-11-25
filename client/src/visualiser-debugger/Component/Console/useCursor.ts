@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { useDebuggerStore } from '@/Services/debugger/debuggerStore';
 import { useFrontendStateStore } from '@/visualiser-debugger/Store/frontendStateStore';
 import { useGlobalStore } from '@/visualiser-debugger/Store/globalStateStore';
@@ -10,7 +10,6 @@ function useCursor(content: string, clearInput: () => void, scrollToBottom: () =
 
   const [cursorOffsetFromEnd, setCursorOffsetFromEnd] = useState(0);
   const [isBlinkPaused, setIsBlinkPaused] = useState(true);
-  const isCtrlPressed = useRef(false);
 
   let timeoutRef: NodeJS.Timeout;
 
@@ -24,7 +23,7 @@ function useCursor(content: string, clearInput: () => void, scrollToBottom: () =
     }, 500);
   }
 
-  function handleKeyAction(key: string) {
+  function handleKeyAction(key: string, ctrlKey: boolean) {
     switch (key) {
       case 'ArrowLeft':
         if (content.length > cursorOffsetFromEnd) {
@@ -61,11 +60,11 @@ function useCursor(content: string, clearInput: () => void, scrollToBottom: () =
     }
     if (!activeDebugger) return;
 
-    if (isCtrlPressed.current && key === 'd') {
+    if (ctrlKey && key === 'd') {
       activeDebugger.sendEOF();
     }
 
-    if (isCtrlPressed.current && key === 'c') {
+    if (ctrlKey && key === 'c') {
       activeDebugger.interrupt();
       setActive(false);
     }
@@ -81,23 +80,15 @@ function useCursor(content: string, clearInput: () => void, scrollToBottom: () =
 
   function handleKeyDown(event: React.KeyboardEvent) {
     const { key, ctrlKey } = event;
-    isCtrlPressed.current = ctrlKey;
     pauseWithTimeout();
 
-    handleKeyAction(key);
-  }
-
-  function handleKeyUp(event: React.KeyboardEvent) {
-    if (event.key === 'Control') {
-      isCtrlPressed.current = false;
-    }
+    handleKeyAction(key, ctrlKey);
   }
 
   return {
     handleOnFocus,
     handleOnBlur,
     handleKeyDown,
-    handleKeyUp,
     shifts: cursorOffsetFromEnd,
     paused: isBlinkPaused,
   };
