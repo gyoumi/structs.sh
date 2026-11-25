@@ -571,8 +571,12 @@ left open:
   every other tab open on the same day, through `BroadcastChannel` (tabs of
   one browser talk directly; the server stays read-only). Each tab shows the
   result when the run ends, and its stage, counters and playback match the
-  tab that ran it. Today a synced tab updates its score and tries but keeps
-  its own last run on the stage.
+  tab that ran it, including the speed multiplier, pause, stepping and
+  seeking. A tab opened while a run plays asks the open tabs for the run
+  and joins it at the current step; if no tab answers, it shows the last
+  saved try as a reload does. Today a synced tab updates its score and tries but keeps its own
+  last run on the stage. Devices sync the same way once there are accounts,
+  over a WebSocket (`roadmap.md`, stage 3).
 - **A full `localStorage` doesn't blank the app.** The debugger's
   `fileSystem` store throws on startup when storage is full, which blanks
   every page. The app starts, and the daily page says it couldn't save, as

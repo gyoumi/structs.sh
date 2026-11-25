@@ -93,6 +93,28 @@ from the step log `daily-challenges` produces.
 - `POST /api/submit` takes the input and the run history. The server
   re-scores the input with `daily-challenges` and records the time on its own
   clock.
+- **Pressing Run is the submission, and it is idempotent.** The request
+  carries a key for the account, the day and the try number, so a retry, a
+  reload or a second device sending the same try records it once. The try
+  is used when the server records it, which closes the reload gap that
+  `docs/daily-game.md` 3f leaves open.
+- **Every device on the account plays the same run.** Each open client
+  holds a WebSocket to `daily-server`. When one presses Run, the server
+  records the try and sends it to every client of that account, so the
+  animation also plays on the player's phone. Playback stays in step on
+  every device, including the speed multiplier, pause, stepping and
+  seeking: any device can change it, the last change wins, and every device
+  shows the result when the run ends.
+- **A device that joins mid-run joins the run.** The server keeps the run in
+  progress for each account: the try, and the latest playback state (step,
+  playing or paused, speed) with the server time it was set. A device that
+  signs in or reconnects while a run plays is sent that state when its
+  WebSocket opens, works out the current step from it (the step it was set
+  at, plus the time since then at that speed while playing), and starts
+  playing from there, in step with the others. If the run has ended by
+  then, it shows the finished try as a reload does. Without an account,
+  tabs of one browser do the same through `BroadcastChannel`
+  (`docs/daily-game.md` 3f).
 - Friends boards need only a sign-in.
 - The global board needs one of these on the account:
   - a verified university email address, such as `@unsw.edu.au` or another
@@ -237,7 +259,7 @@ private repo (Rust, in the devsoc-unsw org)
 | `daily-challenges` | The `Template` trait, the instance, input and step log types, and each template's `run`, `score`, `rules` and `generate`. No networking, database or file access. Built as a Rust library and as `.wasm`. | Every other crate, and the browser |
 | `daily-api` | Every HTTP request and response type. Generates `client/src/daily/api.ts` with `ts-rs`. | The server, and the client through `api.ts` |
 | `daily-db` | The schema, migrations and queries | The server, `daily-generator`, `structs-review` |
-| `daily-server` | The HTTP server: today's puzzle, submissions, sign-in, leaderboards | Runs in DevSoc's cluster |
+| `daily-server` | The HTTP server: today's puzzle, submissions, sign-in, leaderboards, and the WebSocket that plays a run on every device of an account | Runs in DevSoc's cluster |
 | `daily-generator` (private) | The schedule of which template runs on which date, the solver, the bot player, and the loop that turns a `generate` candidate into a stored puzzle | Runs on a schedule |
 | `structs-review` (private) | The cheat-flag rules | Runs on a schedule |
 
