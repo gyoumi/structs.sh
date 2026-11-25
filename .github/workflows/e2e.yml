@@ -71,7 +71,7 @@ jobs:
   e2e:
     name: e2e
     needs: e2e-shard
-    if: ${{ !cancelled() }}
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Check every shard passed
