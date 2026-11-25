@@ -162,6 +162,40 @@ export class DailyTab {
     expect(kind, `${context}: test setup: BroadcastChannel should be unavailable in ${this.name}`).toBe('undefined');
   }
 
+  /**
+   * The player switches away from this tab: `document.visibilityState` becomes "hidden", `visibilitychange`
+   * fires, and `requestAnimationFrame` callbacks wait, as in a real background tab (see `withTabLifecycle`).
+   */
+  async hide(): Promise<void> {
+    await this.page.evaluate(() => (window as unknown as { e2eTab: TabControls }).e2eTab.hide());
+  }
+
+  /** The player comes back to this tab: "visible" again, `visibilitychange` fires, and waiting animation frames run. */
+  async show(): Promise<void> {
+    await this.page.evaluate(() => (window as unknown as { e2eTab: TabControls }).e2eTab.show());
+  }
+
+  /**
+   * The browser freezes this tab (as Chrome does to a background tab, or DevTools' `Page.setWebLifecycleState`
+   * frozen): `freeze` fires, then nothing runs, so `BroadcastChannel` messages, timers and animation frames wait.
+   * `document.visibilityState` stays as it is.
+   */
+  async freeze(): Promise<void> {
+    await this.page.evaluate(() => (window as unknown as { e2eTab: TabControls }).e2eTab.freeze());
+  }
+
+  /** The browser unfreezes this tab: `resume` fires on `document`, then the messages, timers and frames that waited run in order. */
+  async resume(): Promise<void> {
+    await this.page.evaluate(() => (window as unknown as { e2eTab: TabControls }).e2eTab.resume());
+  }
+
+  /** Polls until this tab's `Step N of M` reaches at least `n`. Test setup. */
+  async waitForStep(n: number, context: string): Promise<void> {
+    await expect
+      .poll(async () => stepOf((await this.playback(context)).step)?.n ?? -1, { timeout: 30_000, message: `${context}: test setup: ${this.name} should reach Step ${n}` })
+      .toBeGreaterThanOrEqual(n);
+  }
+
   private async waitLoaded(context: string): Promise<void> {
     await expect(this.ui.status('Goal'), `${context}: the Goal readout should show`).toBeVisible();
     await expect(
@@ -184,6 +218,139 @@ export async function withoutBroadcastChannel(context: BrowserContext): Promise<
   await context.addInitScript(() => {
     delete (window as { BroadcastChannel?: unknown }).BroadcastChannel;
   });
+}
+
+/** The controls `withTabLifecycle` puts on `window.e2eTab`. */
+interface TabControls {
+  hide(): void;
+  show(): void;
+  freeze(): void;
+  resume(): void;
+}
+
+/**
+ * Lets tests hide and freeze tabs as a real browser does. Headless Chromium keeps every page visible and
+ * animating, and `Page.setWebLifecycleState` (CDP) frozen neither fired `freeze`/`resume` nor held back
+ * `BroadcastChannel` messages there (checked on 6b632f38), so this init script plays the browser's part
+ * on every page the context opens from now on:
+ * - hidden: `document.visibilityState` is "hidden" and `document.hidden` true, `visibilitychange` fires on
+ *   the way in and out, and `requestAnimationFrame` callbacks wait until the tab is shown (messages and
+ *   timers still run, as in a real background tab);
+ * - frozen (from visible): `freeze` fires on the way in and `resume` on the way out; while frozen,
+ *   `BroadcastChannel` message listeners, `setTimeout` callbacks and animation frames wait, then run in order
+ *   after `resume`, and the tab is visible again.
+ */
+export async function withTabLifecycle(context: BrowserContext): Promise<void> {
+  await context.addInitScript(() => {
+    /** A frozen tab here is one that was visible (the tests freeze a visible tab, as DevTools can). */
+    let state: 'visible' | 'hidden' | 'frozen' = 'visible';
+    const realFrame = window.requestAnimationFrame.bind(window);
+    const realCancel = window.cancelAnimationFrame.bind(window);
+    const realTimeout = window.setTimeout.bind(window);
+    const frames = new Map<number, FrameRequestCallback>();
+    const tasks: (() => void)[] = [];
+    let nextId = -1;
+    Object.defineProperty(Document.prototype, 'visibilityState', { configurable: true, get: () => (state === 'hidden' ? 'hidden' : 'visible') });
+    Object.defineProperty(Document.prototype, 'hidden', { configurable: true, get: () => state === 'hidden' });
+    window.requestAnimationFrame = (callback) => {
+      if (state === 'visible') return realFrame(callback);
+      const id = nextId;
+      nextId -= 1;
+      frames.set(id, callback);
+      return id;
+    };
+    window.cancelAnimationFrame = (id) => {
+      if (id < 0) frames.delete(id);
+      else realCancel(id);
+    };
+    window.setTimeout = ((handler: TimerHandler, ms?: number, ...args: unknown[]) =>
+      realTimeout(() => {
+        const run = () => (typeof handler === 'function' ? (handler as (...a: unknown[]) => void)(...args) : undefined);
+        if (state === 'frozen') tasks.push(run);
+        else run();
+      }, ms)) as typeof window.setTimeout;
+    const Real = window.BroadcastChannel;
+    if (Real) {
+      const wrapped = new WeakMap<object, EventListener>();
+      const hold = (channel: BroadcastChannel, listener: (event: MessageEvent) => void) => (event: Event) => {
+        if (state === 'frozen') tasks.push(() => listener.call(channel, event as MessageEvent));
+        else listener.call(channel, event as MessageEvent);
+      };
+      class HeldChannel extends Real {
+        private handler: ((event: MessageEvent) => void) | null = null;
+        addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void {
+          if (type !== 'message') return super.addEventListener(type, listener, options);
+          const fn = typeof listener === 'function' ? listener : (event: Event) => listener.handleEvent(event);
+          const held = hold(this, fn as (event: MessageEvent) => void);
+          wrapped.set(listener, held);
+          super.addEventListener(type, held, options);
+        }
+        removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void {
+          super.removeEventListener(type, wrapped.get(listener) ?? listener, options);
+        }
+        get onmessage(): ((event: MessageEvent) => void) | null {
+          return this.handler;
+        }
+        set onmessage(fn: ((event: MessageEvent) => void) | null) {
+          this.handler = fn;
+          super.onmessage = fn ? hold(this, fn) : null;
+        }
+      }
+      window.BroadcastChannel = HeldChannel;
+    }
+    const runFrames = () => {
+      const waiting = [...frames.values()];
+      frames.clear();
+      waiting.forEach((callback) => realFrame(callback));
+    };
+    const controls = {
+      hide: () => {
+        state = 'hidden';
+        document.dispatchEvent(new Event('visibilitychange'));
+      },
+      show: () => {
+        state = 'visible';
+        document.dispatchEvent(new Event('visibilitychange'));
+        runFrames();
+      },
+      freeze: () => {
+        document.dispatchEvent(new Event('freeze'));
+        state = 'frozen';
+      },
+      resume: () => {
+        state = 'visible';
+        document.dispatchEvent(new Event('resume'));
+        tasks.splice(0).forEach((task) => task());
+        runFrames();
+      },
+    };
+    (window as unknown as { e2eTab: typeof controls }).e2eTab = controls;
+  });
+}
+
+/**
+ * Polls, for up to `timeout` ms, until `tab` has caught up with `other`: the same Speed and step count, and
+ * either both playing (Pause offered) with `Step N` at most one apart, or both paused at exactly the same step.
+ */
+export async function expectCaughtUp(tab: DailyTab, other: DailyTab, playing: boolean, context: string, timeout = 1_000): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        const want = await other.playback(context);
+        const got = await tab.playback(context);
+        const [w, g] = [stepOf(want.step), stepOf(got.step)];
+        const problems: string[] = [];
+        const state = playing ? 'Pause' : 'Play';
+        if (want.button !== state) problems.push(`test setup: ${other.name} should be ${playing ? 'playing' : 'paused'}, but shows ${describePlayback(want)}`);
+        if (got.button !== state) problems.push(`${tab.name} should be ${playing ? 'playing (Pause offered)' : 'paused (Play offered)'} as ${other.name} is`);
+        if (got.speed !== want.speed) problems.push(`${tab.name} should play at ${other.name}'s Speed ${want.speed}×`);
+        const apart = !w || !g || w.of !== g.of ? Infinity : Math.abs(w.n - g.n);
+        if (apart > (playing ? 1 : 0)) problems.push(`${tab.name} should be on ${other.name}'s step${playing ? ' (or one either side)' : ''}`);
+        return problems.length ? [...problems, `${tab.name}: ${describePlayback(got)}`, `${other.name}: ${describePlayback(want)}`] : [];
+      },
+      { intervals: [100], timeout, message: `${context}: within about half a second, ${tab.name} should move to the step ${other.name} is on now, in the same playing or paused state and Speed (each line is a difference, then both readings)` },
+    )
+    .toEqual([]);
 }
 
 /** Polls until `tab` reads exactly as `other` does (both read on each poll, Animation progress within 1), listing each field that differs. */

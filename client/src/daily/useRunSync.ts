@@ -69,7 +69,8 @@ const showsTriesBefore = (shown: TryScore[], run: RunMessage) =>
 /**
  * Plays one run in every tab open on the same day, over `BroadcastChannel`. `announce` sends
  * this tab's run at Run; other tabs play it, follow its playback changes, and show its try when
- * it ends without saving it again. A tab that opens while a run plays asks for it and joins it.
+ * it ends without saving it again. A tab that opens while a run plays asks for it and joins it;
+ * a tab that comes back after being hidden or frozen asks where the shared run is now.
  * `playback` is the toolbar's playback, sending each change; `draw` stops sharing the run.
  * Without `BroadcastChannel`, each tab plays alone.
  */
@@ -88,6 +89,9 @@ export const useRunSync = ({
   const shared = useRef<SharedRun | null>(null);
   const awaitingResult = useRef<{ key: string; resolve: (result: HeldTry) => void } | null>(null);
   const joinUntil = useRef(0);
+  /** Counts playback changes made here or applied from another tab, to spot a stale answer. */
+  const changes = useRef(0);
+  const changesWhenAsked = useRef(0);
   const following = useRef(false);
   const attached = useStageSnapshot(rig.stages[0], (snapshot) => snapshot.topicTitle !== null);
   const busy = play.stage === 'running' || play.stage === 'scoring';
@@ -100,6 +104,7 @@ export const useRunSync = ({
   const [playback] = useState(() =>
     sharedPlayback(rig.playback, (change: PlaybackChange) => {
       const run = shared.current;
+      changes.current += 1;
       if (run) post({ type: 'playback', key: run.key, change, date: day });
     })
   );
@@ -131,7 +136,6 @@ export const useRunSync = ({
     if (runId === null) return;
     if (run.at) moveTo(rig.playback, run.at);
     following.current = true;
-    joinUntil.current = 0;
     shared.current = { key: run.key, input: run.input, scores: run.scores, result: run.result };
     follow(resultOf(run));
     dispatch({ type: 'follow', input: run.input, runId, scores: run.scores });
@@ -142,10 +146,20 @@ export const useRunSync = ({
     const run = shared.current;
     switch (data.type) {
       case 'run':
+        if (data.at && run?.key === data.key) {
+          // Another tab sharing this run says where it is now; the last to answer wins.
+          // A change made since asking is newer than the answer, so it stands.
+          if (Date.now() > joinUntil.current || changes.current !== changesWhenAsked.current) {
+            return;
+          }
+          rig.playback.setSpeed(data.speed);
+          moveTo(rig.playback, data.at);
+          return;
+        }
         followRun(data);
         return;
       case 'join':
-        if (!run || play.stage !== 'running') return;
+        if (!run || (play.stage !== 'running' && data.key !== run.key)) return;
         post({
           type: 'run',
           key: run.key,
@@ -162,7 +176,9 @@ export const useRunSync = ({
         if (awaitingResult.current?.key === data.key) awaitingResult.current.resolve(data.result);
         return;
       case 'playback':
-        if (run?.key === data.key) applyChange(rig.playback, data.change);
+        if (run?.key !== data.key) return;
+        changes.current += 1;
+        applyChange(rig.playback, data.change);
         return;
       default:
         data satisfies never;
@@ -180,11 +196,31 @@ export const useRunSync = ({
     };
   }, []);
 
-  useEffect(() => {
-    if (!attached || !channel.current) return;
+  /** Asks the other tabs for the run they play, or where the run this tab shares now is. */
+  const askWhere = useEffectEvent(() => {
+    if (!channel.current) return;
     joinUntil.current = Date.now() + JOIN_WINDOW_MS;
-    post({ type: 'join', date: day });
-  }, [attached, day]);
+    changesWhenAsked.current = changes.current;
+    post({ type: 'join', key: shared.current?.key, date: day });
+  });
+
+  useEffect(() => {
+    if (attached) askWhere();
+  }, [attached]);
+
+  // A hidden or frozen tab's animation stops, so a tab coming back catches up with the others.
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') askWhere();
+    };
+    const onResume = () => askWhere();
+    document.addEventListener('visibilitychange', onVisibility);
+    document.addEventListener('resume', onResume);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      document.removeEventListener('resume', onResume);
+    };
+  }, []);
 
   /** Sends this tab's run to the other tabs, and later what its try came to. */
   const announce = (input: PlayInput, scores: TryScore[], held: Promise<HeldTry>) => {

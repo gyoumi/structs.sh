@@ -5,6 +5,7 @@ import { DRIFT_26 } from '../support/daily-list-fixtures';
 import { BUBBLE_21 } from '../support/daily-sorting-fixtures';
 import {
   DailyTab,
+  expectCaughtUp,
   expectPausedTogether,
   expectPlayingTogether,
   expectPlaysRun,
@@ -13,6 +14,7 @@ import {
   expectViewUnchanged,
   openTab,
   stepCount,
+  withTabLifecycle,
   withoutBroadcastChannel,
 } from '../support/daily-tabs';
 
@@ -361,5 +363,65 @@ test.describe('daily game in two tabs', () => {
     await b.expectSyncedNotice(ctx);
     expect(await b.daily.values(), `${ctx}: tab B keeps its own input while tries remain, as today`).toEqual([...DAILY_12.start.values]);
     await expectRecorded(b, DATE, 1, ctx);
+  });
+
+  /**
+   * A hidden or frozen tab's animation stops (in a real browser `requestAnimationFrame` stops in a background
+   * tab, and a frozen tab runs nothing), so a tab the player switches back to can be far behind the tab that
+   * pressed Run. When it comes back it should move to the step the other tab is on now, in the same playing or
+   * paused state and Speed, within about half a second. Headless Chromium doesn't hide or freeze pages, so
+   * `withTabLifecycle` (daily-tabs.ts) plays the browser's part; each test names the signal it sends:
+   * `visibilitychange` (hidden, then visible) or `resume` (after `freeze`, with the tab left visible).
+   */
+  test('a tab the player switches back to (visibilitychange) moves to the other tab\'s step, still playing, at its new Speed (quicksort)', async ({ page }) => {
+    const { goal } = DAILY_12;
+    const ctx = `${DAILY_12.name} dated ${DATE}, tab B hidden (visibilitychange to "hidden", no animation frames), tab A runs ${fmt(goal.values)} at 2× to Step 12, then sets Speed 0.25×`;
+    await withTabLifecycle(page.context());
+    const { a, b } = await openBoth(page, QUICKSORT_DAY, ctx);
+    await b.hide();
+    await a.daily.swap(goal.swap[0], goal.swap[1]);
+    await a.daily.transport.setSpeed(2);
+    await a.daily.run();
+    await a.waitForStep(12, `${ctx}, tab A playing`);
+    await a.daily.transport.setSpeed(0.25);
+    await a.waitForStep(13, `${ctx}, tab A playing at 0.25×`);
+    expect((await a.playback(ctx)).button, `${ctx}: test setup: tab A should still be playing when tab B comes back`).toBe('Pause');
+
+    const back = `${ctx}, then the player switches back to tab B (visibilitychange to "visible")`;
+    await b.show();
+    await expectCaughtUp(b, a, true, back);
+  });
+
+  test('a tab the player switches back to (visibilitychange) while the other tab is paused ends paused at that step (quicksort)', async ({ page }) => {
+    const { goal } = DAILY_12;
+    const ctx = `${DAILY_12.name} dated ${DATE}, tab B hidden (visibilitychange to "hidden", no animation frames), tab A runs ${fmt(goal.values)} at 1× to Step 6 and pauses`;
+    await withTabLifecycle(page.context());
+    const { a, b } = await openBoth(page, QUICKSORT_DAY, ctx);
+    await b.hide();
+    await a.daily.swap(goal.swap[0], goal.swap[1]);
+    await a.daily.run();
+    await a.waitForStep(6, `${ctx}, tab A playing`);
+    await a.daily.transport.pause();
+    await expect.poll(async () => (await a.playback(ctx)).button, { message: `${ctx}: test setup: tab A should be paused (Play offered)` }).toBe('Play');
+
+    const back = `${ctx}, then the player switches back to tab B (visibilitychange to "visible")`;
+    await b.show();
+    await expectCaughtUp(b, a, false, back);
+  });
+
+  test('a frozen tab that resumes (resume event) moves to the other tab\'s step, still playing (quicksort)', async ({ page }) => {
+    const { goal } = DAILY_12;
+    const ctx = `${DAILY_12.name} dated ${DATE}, tab B frozen (freeze event; its BroadcastChannel messages, timers and frames wait; it stays visible), tab A runs ${fmt(goal.values)} at 1× to Step 6`;
+    await withTabLifecycle(page.context());
+    const { a, b } = await openBoth(page, QUICKSORT_DAY, ctx);
+    await b.freeze();
+    await a.daily.swap(goal.swap[0], goal.swap[1]);
+    await a.daily.run();
+    await a.waitForStep(6, `${ctx}, tab A playing`);
+    expect((await a.playback(ctx)).button, `${ctx}: test setup: tab A should still be playing when tab B resumes`).toBe('Pause');
+
+    const back = `${ctx}, then tab B resumes (resume event, then the waiting messages, timers and frames run)`;
+    await b.resume();
+    await expectCaughtUp(b, a, true, back);
   });
 });

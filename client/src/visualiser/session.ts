@@ -88,17 +88,22 @@ export class VisualiserSession {
   /**
    * Redraws in another theme at once. Colours are fixed when drawn, so the last run is built again in
    * the new theme from the values it started on, and returned to the same point: playing, playing one
-   * step, paused or ended. The run keeps its id, and the stage keeps its pan and zoom.
+   * step, paused or ended. The run keeps its id. Only the colours change, so this is not a new
+   * layout and the stage keeps its pan and zoom.
    */
   retheme(canvasTheme: Partial<CanvasTheme>): void {
     const run = this.snapshot.lastRun;
+    const { controller } = this;
+    setCanvasTheme(canvasTheme);
     if (!run) {
-      this.loadData(this.data, canvasTheme, true);
+      const { data } = controller;
+      this.draw(() => {
+        controller.loadData(data);
+        finishDrawing(this.target);
+      });
       return;
     }
-    const { controller } = this;
     const position = positionOf(controller);
-    setCanvasTheme(canvasTheme);
     this.draw(() => {
       controller.loadData(this.runStart);
       finishDrawing(this.target);

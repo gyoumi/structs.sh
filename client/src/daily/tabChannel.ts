@@ -27,8 +27,11 @@ export type RunMessage = {
 
 type TabMessageBody =
   | RunMessage
-  /** A tab just opened, asking for the run another tab plays. */
-  | { type: 'join' }
+  /**
+   * A tab just opened, or came back after being hidden or frozen, asking for the run another
+   * tab plays, or (with `key`) where the tabs sharing that run are now.
+   */
+  | { type: 'join'; key?: string }
   /** What the tab that ran `key` scored and saved. */
   | { type: 'result'; key: string; result: HeldTry }
   | { type: 'playback'; key: string; change: PlaybackChange };
