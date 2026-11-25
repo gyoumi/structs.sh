@@ -101,7 +101,8 @@ See "Checkpoint 2, step by step".
 streaks and history in the browser, and the whole stack runs locally and in
 CI, with `daily-generator` filling the database.
 
-**Done when:** every game test passes against the running stack in CI.
+**Done when:** every game test passes in CI, and the live-stack tests pass
+against the running stack.
 
 See "Checkpoint 3, step by step".
 
@@ -527,8 +528,10 @@ stack.
 **Done in #86.**
 
 A Docker Compose file runs Postgres, a `daily-generator` run to fill it, the
-game server and the client. The e2e job runs the game tests against it, with
-the clock set by the test.
+game server and the client. The e2e-daily-stack job runs the live-stack tests
+(`daily-game-stack.spec.ts`) against it, with the clock set by the test. The
+other game tests answer `/api/daily` themselves, so they run in the e2e
+shards instead.
 
 **You'll know it's done when** every game test passes in CI.
 
