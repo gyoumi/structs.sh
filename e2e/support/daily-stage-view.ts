@@ -180,7 +180,7 @@ export class DailyStageView {
         const svg = app.querySelector('svg');
         const toSvg = svg?.getScreenCTM()?.inverse();
         const drawn = Array.from(svg?.querySelectorAll('text') ?? [])
-          .filter((text) => /^\d+$/.test(text.textContent?.trim() ?? ''))
+          .filter((text) => /^-?\d+$/.test(text.textContent?.trim() ?? ''))
           .filter((text) => {
             for (let el: Element | null = text; el && el !== svg; el = el.parentElement) {
               const style = getComputedStyle(el);

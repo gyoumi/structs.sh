@@ -45,7 +45,7 @@ function readStage(app: Element): StageFrame {
   };
   const inside = (b: DOMRect) => b.left >= box.left - 1 && b.right <= box.right + 1 && b.top >= box.top - 1 && b.bottom <= box.bottom + 1;
   const nodes: PlacedNode[] = Array.from(svg?.querySelectorAll('text') ?? [])
-    .filter((text) => /^\d+$/.test(text.textContent?.trim() ?? '') && shown(text))
+    .filter((text) => /^-?\d+$/.test(text.textContent?.trim() ?? '') && shown(text))
     .map((text) => {
       const before = text.previousElementSibling;
       const shape = before && /^(circle|ellipse|rect)$/i.test(before.tagName) && shown(before) ? before : text;

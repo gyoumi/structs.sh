@@ -21,7 +21,7 @@ export const isRed = (colour: string): boolean => {
 export const readDrawnTexts = (texts: Locator): Promise<DrawnNode[]> =>
   texts.evaluateAll((texts) =>
     texts
-      .filter((text) => /^\d+$/.test(text.textContent?.trim() ?? ''))
+      .filter((text) => /^-?\d+$/.test(text.textContent?.trim() ?? ''))
       .filter((text) => {
         // The engine hides removed nodes with opacity="0" rather than deleting them.
         for (let el: Element | null = text; el; el = el.parentElement) {
@@ -45,7 +45,7 @@ export const readSvgDrawnTexts = (svg: Locator): Promise<DrawnNode[]> =>
     const origin = svgEl.getBoundingClientRect();
     const toSvg = svgEl.getScreenCTM()?.inverse();
     return Array.from(svgEl.querySelectorAll('text'))
-      .filter((text) => /^\d+$/.test(text.textContent?.trim() ?? ''))
+      .filter((text) => /^-?\d+$/.test(text.textContent?.trim() ?? ''))
       .filter((text) => {
         for (let el: Element | null = text; el; el = el.parentElement) {
           const style = getComputedStyle(el);
