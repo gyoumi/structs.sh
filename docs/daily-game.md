@@ -101,7 +101,8 @@ See "Checkpoint 2, step by step".
 streaks and history in the browser, and the whole stack runs locally and in
 CI, with `daily-generator` filling the database.
 
-**Done when:** every game test passes against the running stack in CI.
+**Done when:** every game test passes in CI, and the live-stack tests pass
+against the running stack.
 
 See "Checkpoint 3, step by step".
 
