@@ -27,26 +27,40 @@ function isBooleanClassProperty(member) {
 const isBooleanDeclarator = (declarator) =>
   declarator.id.type === 'Identifier' && (isBooleanType(declarator.id.typeAnnotation) || isBooleanLiteral(declarator.init));
 
-const isUseStateCallee = (callee) =>
-  (callee?.type === 'Identifier' && callee.name === 'useState') ||
-  (callee?.type === 'MemberExpression' && !callee.computed && callee.property.type === 'Identifier' && callee.property.name === 'useState');
+const BOOLEAN_HOOKS = new Set(['useState', 'useRef']);
 
-const isBooleanUseStateCall = (init) => {
-  if (init?.type !== 'CallExpression' || !isUseStateCallee(init.callee)) return false;
-  const typeArg = (init.typeArguments ?? init.typeParameters)?.params?.[0];
-  if (typeArg) return isBooleanTypeNode(typeArg);
-  const firstArg = init.arguments?.[0];
-  if (isBooleanLiteral(firstArg)) return true;
-  return firstArg?.type === 'ArrowFunctionExpression' && isBooleanLiteral(firstArg.body);
-};
+function hookName(callee) {
+  if (callee.type === 'Identifier') return callee.name;
+  if (callee.type === 'MemberExpression' && !callee.computed && callee.object.type === 'Identifier' && callee.object.name === 'React') return callee.property.name;
+  return undefined;
+}
 
-const useStateFlagName = (declarator) => {
-  if (!isBooleanUseStateCall(declarator.init)) return undefined;
-  if (declarator.id.type === 'ArrayPattern' && declarator.id.elements[0]?.type === 'Identifier') {
-    return declarator.id.elements[0].name;
-  }
-  return declarator.id.type === 'Identifier' ? declarator.id.name : undefined;
-};
+function returnsBoolean(node) {
+  if (node?.type !== 'ArrowFunctionExpression' || node.async) return false;
+  if (node.returnType) return isBooleanType(node.returnType);
+  return node.expression && isBooleanLiteral(node.body);
+}
+
+function isBooleanHookCall(init) {
+  if (init?.type !== 'CallExpression' || !BOOLEAN_HOOKS.has(hookName(init.callee))) return false;
+  const typeArgument = (init.typeArguments ?? init.typeParameters)?.params[0];
+  if (typeArgument) return isBooleanTypeNode(typeArgument);
+  const [initial] = init.arguments;
+  return isBooleanLiteral(initial) || (hookName(init.callee) === 'useState' && returnsBoolean(initial));
+}
+
+function booleanHookFlagName(declarator) {
+  if (!isBooleanHookCall(declarator.init)) return undefined;
+  const { id } = declarator;
+  if (id.type === 'Identifier') return id.name;
+  if (id.type === 'ArrayPattern' && hookName(declarator.init.callee) === 'useState' && id.elements[0]?.type === 'Identifier') return id.elements[0].name;
+  return undefined;
+}
+
+function flagName(declarator, kind) {
+  if (kind === 'let' && isBooleanDeclarator(declarator)) return declarator.id.name;
+  return booleanHookFlagName(declarator);
+}
 
 const SCOPES = new Set(['Program', 'BlockStatement', 'StaticBlock', 'SwitchStatement', 'ForStatement', 'ForInStatement', 'ForOfStatement', 'TSModuleBlock']);
 
@@ -79,26 +93,25 @@ export default {
       );
     const checkClass = (node) => checkMembers(node, node.body.body, isBooleanClassProperty);
 
-    const letsByScope = new Map();
+    const flagsByScope = new Map();
     return {
       TSInterfaceDeclaration: (node) => checkMembers(node, node.body.body, isBooleanSignature),
       TSTypeLiteral: (node) => checkMembers(node, node.members, isBooleanSignature),
       ClassDeclaration: checkClass,
       ClassExpression: checkClass,
       VariableDeclaration(node) {
-        const names =
-          node.kind === 'let'
-            ? node.declarations.filter(isBooleanDeclarator).map((d) => d.id.name)
-            : node.declarations.map(useStateFlagName).filter(Boolean);
-        if (names.length === 0) return;
+        if (node.kind !== 'let' && node.kind !== 'const') return;
         const scope = scopeOf(node);
-        const flags = letsByScope.get(scope) ?? [];
-        for (const name of names) flags.push({ name, declaration: node });
-        letsByScope.set(scope, flags);
+        const flags = flagsByScope.get(scope) ?? [];
+        for (const declarator of node.declarations) {
+          const name = flagName(declarator, node.kind);
+          if (name !== undefined) flags.push({ name, declaration: node });
+        }
+        flagsByScope.set(scope, flags);
       },
       'Program:exit'() {
-        for (const lets of letsByScope.values()) {
-          if (lets.length >= 2) reportFlags(lets[1].declaration, lets.map(({ name }) => name));
+        for (const flags of flagsByScope.values()) {
+          if (flags.length >= 2) reportFlags(flags[1].declaration, flags.map(({ name }) => name));
         }
       },
     };

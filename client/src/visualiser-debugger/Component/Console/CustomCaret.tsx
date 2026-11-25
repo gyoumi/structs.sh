@@ -16,7 +16,7 @@ const CustomCaret = ({
   scrollToBottom,
   inputRef,
 }: CustomCaretProps) => {
-  const { handleOnBlur, handleKeyDown, handleKeyUp, shifts, paused } = useCursor(
+  const { handleOnBlur, handleKeyDown, shifts, paused } = useCursor(
     input,
     clearInput,
     scrollToBottom
@@ -42,7 +42,6 @@ const CustomCaret = ({
         ref={inputRef}
         className={styles.inputHidden}
         onKeyDown={handleKeyDown}
-        onKeyUp={handleKeyUp}
         onChange={(e) => handleInput(e.target.value)}
         onBlur={handleOnBlur}
         value={input}
