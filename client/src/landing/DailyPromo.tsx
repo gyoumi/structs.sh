@@ -10,9 +10,7 @@ const DailyPromo = () => (
         <h2 id="daily-promo-title" className={landing.sectionTitle}>
           Daily challenge
         </h2>
-        <p className={styles.text}>
-          For anyone revising algorithms and testing their understanding each day.
-        </p>
+        <p className={styles.text}>Test your understanding of algorithms each day.</p>
       </div>
       <Link to="/daily" className={`${landing.primary} ${styles.action}`}>
         Play today’s challenge

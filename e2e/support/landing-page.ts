@@ -63,8 +63,8 @@ export class LandingPage {
     ).toBeVisible();
     await expect(
       region,
-      'The Daily challenge section should describe who it is for (revising and testing understanding each day)',
-    ).toContainText(/revis(e|ing).*understanding/i);
+      'The Daily challenge section should invite players to test their understanding each day',
+    ).toContainText(/understanding.*each day/i);
   }
 
   /** Clicks the "Play today's challenge" link inside the daily challenge section. */
