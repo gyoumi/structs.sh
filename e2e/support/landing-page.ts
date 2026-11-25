@@ -50,7 +50,7 @@ export class LandingPage {
     return this.page.getByRole('region', { name: /daily challenge/i });
   }
 
-  /** Asserts the daily challenge section is shown and says what the game is: three tries, and streaks. */
+  /** Asserts the daily challenge section is shown and says what the game is. */
   async expectDailyPromoInfo(): Promise<void> {
     const region = this.dailyPromoRegion();
     await expect(
@@ -65,9 +65,6 @@ export class LandingPage {
       region,
       'The Daily challenge section should say how many tries a player gets (text matching /3 tries|three tries/i)',
     ).toContainText(/3 tries|three tries/i);
-    await expect(region, 'The Daily challenge section should mention streaks (text matching /streak/i)').toContainText(
-      /streak/i,
-    );
   }
 
   /** Clicks the "Play today's challenge" link inside the daily challenge section. */

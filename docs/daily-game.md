@@ -540,11 +540,11 @@ shards instead.
 **Done in #87.**
 
 The landing page's navbar gains a "Daily" link, the hero gains a "Play
-today's challenge" button, and a new section between the structure picker
-and "About" ("Push an algorithm to its limit") explains the game. The
-visualiser's header gains a "Daily" button beside "Debugger". On `/daily`,
-"Go back" on the left returns to the page the player came from (or `/`),
-the brand in the centre links home, and the theme toggle sits on the right.
+today's challenge" button, and a short "Daily challenge" section between the
+structure picker and "About" introduces the game. The visualiser's header gains
+a "Daily" button beside "Debugger". On `/daily`, "Go back" on the left returns
+to the page the player came from (or `/`), the brand in the centre links home,
+and the theme toggle sits on the right.
 
 **You'll know it's done when** the landing, visualiser navigation and game
 tests pass, with no sideways scrolling on a 390px phone.
