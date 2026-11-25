@@ -60,7 +60,7 @@ export const useSavedTries = ({
     dispatch({ type: 'synced', scores: tries.map((saved) => saved.score) });
   });
 
-  const { hold, held } = useHeldTry(challenge, savedTries, onRecordTries);
+  const { hold, follow, held } = useHeldTry(challenge, savedTries, onRecordTries);
   const showHeld = useEffectEvent(({ score, tries, outcome }: HeldTry) => {
     if (outcome.status === 'synced') {
       applySynced(outcome.tries);
@@ -100,5 +100,5 @@ export const useSavedTries = ({
     };
   }, [play, held, dispatch]);
 
-  return { saveFailed, hold };
+  return { saveFailed, hold, follow };
 };

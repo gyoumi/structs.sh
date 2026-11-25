@@ -84,14 +84,43 @@ export interface FitOptions {
   transition: ViewTransition;
   insetTop: number;
   insetRight: number;
+  /** The smallest scale to draw at. A drawing too big for the stage at it is panned instead of shrunk. */
+  minScale?: number;
+  /** The part of the drawing to keep in view when the drawing is panned. */
+  focus?: DrawingBounds | null;
 }
+
+type Pan = { prev: View; box: DrawingBounds; scale: number; width: number; padding: number };
+
+/**
+ * Where to put a drawing wider than the stage at `scale`: with `focus` in view (centred when it is
+ * near an edge), else with the same point at the centre as before, else from its left end. The
+ * drawing's ends never move past the stage's padding.
+ */
+const panX = ({ prev, box, scale, width, padding }: Pan, focus?: DrawingBounds | null) => {
+  const leftmost = padding - scale * box.x;
+  const rightmost = width - padding - scale * (box.x + box.width);
+  const centred = focus ? width / 2 - scale * (focus.x + focus.width / 2) : leftmost;
+  if (prev.status !== 'fitted') return clamp(centred, rightmost, leftmost);
+  if (!focus) {
+    const sameCentre = width / 2 - (scale * (width / 2 - prev.x)) / prev.scale;
+    return clamp(sameCentre, rightmost, leftmost);
+  }
+  const margin = Math.max(padding, focus.width * scale);
+  const left = prev.x + scale * focus.x;
+  const inView =
+    Math.abs(prev.scale - scale) < 1e-6 &&
+    left >= margin &&
+    left + scale * focus.width <= width - margin;
+  return clamp(inView ? prev.x : centred, rightmost, leftmost);
+};
 
 /** Computes the transform that fits `box` inside a `width`×`height` viewport. */
 export const fitView = (
   prev: View,
   box: DrawingBounds,
   viewport: { width: number; height: number },
-  { mode, transition, insetTop, insetRight }: FitOptions
+  { mode, transition, insetTop, insetRight, minScale = 0, focus }: FitOptions
 ): View => {
   const { width, height } = viewport;
   const availableWidth = width - insetRight;
@@ -120,11 +149,17 @@ export const fitView = (
     MIN_FIT_SCALE,
     1.25
   );
+  const smooth = transition === 'smooth' && prev.status === 'fitted' ? 'smooth' : 'instant';
+  if (scale < minScale) {
+    const pan = { prev, box, scale: minScale, width: availableWidth, padding: paddingX };
+    const y = insetTop + availableHeight / 2 - minScale * (box.y + box.height / 2);
+    return { status: 'fitted', scale: minScale, x: panX(pan, focus), y, transition: smooth };
+  }
   return {
     status: 'fitted',
     scale,
     x: availableWidth / 2 - scale * (box.x + box.width / 2),
     y: insetTop + availableHeight / 2 - scale * (box.y + box.height / 2),
-    transition: transition === 'smooth' && prev.status === 'fitted' ? 'smooth' : 'instant',
+    transition: smooth,
   };
 };

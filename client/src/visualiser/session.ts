@@ -1,4 +1,3 @@
-import { SVG } from '@svgdotjs/svg.js';
 import VisualiserController from '@/visualiser-src/controller/VisualiserController';
 import { defaultSpeed } from '@/visualiser-src/common/constants';
 import {
@@ -9,21 +8,18 @@ import {
 import { CanvasTheme, setCanvasTheme } from '@/visualiser-src/common/canvasTheme';
 import {
   initialSnapshot,
+  sampleChanged,
+  sampleOf,
   type InitialDataSource,
   type VisualiserSnapshot,
 } from './sessionSnapshot';
+import { finishDrawing, positionOf, returnTo } from './runPosition';
 
 export type { PlaybackStage } from '@/visualiser-src/controller/VisualiserController';
 export type { StepComparison, StepTrace } from '@/visualiser-src/common/AnimationProducer';
 export type { InitialDataSource, LastRun, VisualiserSnapshot } from './sessionSnapshot';
 
 const IDLE_FRAMES_BEFORE_SLEEP = 20;
-
-const finishDrawing = (target: CanvasTarget): void => {
-  SVG(target.canvas)
-    .find('*')
-    .forEach((element) => element.timeline().finish());
-};
 
 type TickerState =
   | { status: 'sleeping' }
@@ -41,6 +37,9 @@ export class VisualiserSession {
   private runCounter = 0;
 
   private getInitialData?: InitialDataSource;
+
+  /** The values the last run started on, so a theme switch can build it again. */
+  private runStart: number[] = [];
 
   private readonly target: CanvasTarget;
 
@@ -86,14 +85,42 @@ export class VisualiserSession {
     this.resetPlayback({ topicTitle, documentation: this.controller.documentation });
   }
 
-  /** Redraws the current values in another theme, at once. Colours are fixed when drawn, so the last run's playback is dropped. */
+  /**
+   * Redraws in another theme at once. Colours are fixed when drawn, so the last run is built again in
+   * the new theme from the values it started on, and returned to the same point: playing, playing one
+   * step, paused or ended. The run keeps its id. Only the colours change, so this is not a new
+   * layout and the stage keeps its pan and zoom.
+   */
   retheme(canvasTheme: Partial<CanvasTheme>): void {
-    this.loadData(this.data, canvasTheme, true);
+    const run = this.snapshot.lastRun;
+    const { controller } = this;
+    setCanvasTheme(canvasTheme);
+    if (!run) {
+      const { data } = controller;
+      this.draw(() => {
+        controller.loadData(data);
+        finishDrawing(this.target);
+      });
+      return;
+    }
+    const position = positionOf(controller);
+    this.draw(() => {
+      controller.loadData(this.runStart);
+      finishDrawing(this.target);
+      controller.doOperation(run.command, () => {}, ...run.args);
+    });
+    returnTo(controller, position);
+    const { stepTimes, duration } = controller;
+    const sample = sampleOf(controller, duration, stepTimes);
+    this.update({ stepTimes, stepCount: stepTimes.length, duration, ...sample });
+    this.wake();
   }
 
   run(command: string, args: string[], autoPlay = true): string {
+    const start = this.data;
     const error = this.draw(() => this.controller.doOperation(command, () => {}, ...args));
     if (error) return error;
+    this.runStart = start;
     if (!autoPlay) {
       this.controller.pause();
       this.controller.seekTime(0);
@@ -108,7 +135,7 @@ export class VisualiserSession {
       duration: this.controller.duration,
       code: this.controller.code ? this.controller.code.split('\n') : [],
       layoutVersion: noTimeline ? this.snapshot.layoutVersion + 1 : this.snapshot.layoutVersion,
-      ...this.sampleController(this.controller.duration, stepTimes),
+      ...sampleOf(this.controller, this.controller.duration, stepTimes),
     });
     if (autoPlay) this.wake();
     return '';
@@ -246,39 +273,10 @@ export class VisualiserSession {
     }
   }
 
-  private sampleController(duration: number, stepTimes: number[]) {
-    const { controller } = this;
-    const { time } = controller;
-    return {
-      playback: controller.playback,
-      progress: duration > 0 ? Math.min(100, (time / duration) * 100) : 0,
-      step: stepTimes.filter((t) => t <= time + 1).length,
-      line: duration > 0 ? controller.currentLine : null,
-      size: controller.data.length,
-      comparisons: controller.counterAt(time),
-      counters: controller.countersAt(time),
-      trace: duration > 0 ? controller.traceAt(time) : null,
-      bounds: duration > 0 ? controller.boundsAt(time) : null,
-    };
-  }
-
   private syncFromController(exact = false): boolean {
     const { snapshot } = this;
-    const sample = this.sampleController(snapshot.duration, snapshot.stepTimes);
-    const progressChanged = exact
-      ? sample.progress !== snapshot.progress
-      : Math.abs(sample.progress - snapshot.progress) > 0.05;
-    const changed =
-      sample.playback !== snapshot.playback ||
-      progressChanged ||
-      sample.step !== snapshot.step ||
-      sample.line !== snapshot.line ||
-      sample.size !== snapshot.size ||
-      sample.comparisons !== (snapshot.comparisons ?? 0) ||
-      sample.counters !== snapshot.counters ||
-      sample.trace !== snapshot.trace ||
-      sample.bounds !== snapshot.bounds;
-
+    const sample = sampleOf(this.controller, snapshot.duration, snapshot.stepTimes);
+    const changed = sampleChanged(snapshot, sample, exact);
     if (changed) this.update(sample);
     return changed;
   }

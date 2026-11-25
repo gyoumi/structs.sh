@@ -131,6 +131,20 @@ export class DailyHistoryPage {
     ).toBeVisible();
   }
 
+  /** No "Updated from another tab." notice shows: this tab played the other tab's run, so it shows the result as that tab does. */
+  async expectNoSyncedNotice(context: string): Promise<void> {
+    await expect(
+      this.page.getByText('Updated from another tab.'),
+      `${context}: this tab played the other tab's run itself, so it should show the result as the tab that pressed Run does, without "Updated from another tab."`,
+    ).toHaveCount(0);
+  }
+
+  /** `BroadcastChannel` doesn't exist in this tab (test setup for tabs that can't share a run). */
+  async expectNoBroadcastChannel(context: string): Promise<void> {
+    const kind = await this.page.evaluate(() => typeof (window as { BroadcastChannel?: unknown }).BroadcastChannel);
+    expect(kind, `${context}: test setup: window.BroadcastChannel should be deleted in this tab, but typeof is "${kind}"`).toBe('undefined');
+  }
+
   /** Makes subsequent localStorage.setItem calls in this tab throw QuotaExceededError. */
   async failStorageWrites(): Promise<void> {
     await this.page.evaluate(() => {

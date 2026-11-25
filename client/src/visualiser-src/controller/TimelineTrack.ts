@@ -34,12 +34,17 @@ export default class TimelineTrack {
 
   private bounds: Timed<DrawingBounds | null>[] = [];
 
+  private focus: Timed<DrawingBounds | null>[] = [];
+
   public recordStep(
     stepStart: number,
     segmentStart: number,
     stepEnd: number,
-    info: Pick<RunnerInfo, 'counter' | 'counters' | 'trace' | 'bounds'>
+    info: Pick<RunnerInfo, 'counter' | 'counters' | 'trace' | 'bounds' | 'focus'>
   ): void {
+    if (info.focus !== undefined && !sameBounds(this.focus.at(-1)?.value ?? null, info.focus)) {
+      this.focus.push({ time: stepStart, value: info.focus });
+    }
     if (info.trace !== undefined) {
       this.traces.push({ time: segmentStart, value: info.trace });
     }
@@ -74,10 +79,16 @@ export default class TimelineTrack {
     return latestAt(this.bounds, time, null);
   }
 
+  /** The part of the drawing the step at `time` works on, or null when no step names one. */
+  public focusAt(time: number): DrawingBounds | null {
+    return latestAt(this.focus, time, null);
+  }
+
   public clear(): void {
     this.counters = [];
     this.traces = [];
     this.namedCounters = [];
     this.bounds = [];
+    this.focus = [];
   }
 }

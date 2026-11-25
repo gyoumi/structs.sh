@@ -10,7 +10,8 @@ export type HeldTry = { score: TryScore; tries: SavedTry[]; outcome: PersistOutc
 /**
  * Pressing Run uses the try: `hold` scores and saves it at once, so a reload mid-run can't
  * hand it back. `held` gives what the save did, for the page to show once the run ends; it
- * rejects when the try couldn't be scored, and then nothing was saved.
+ * rejects when the try couldn't be scored, and then nothing was saved. `follow` shows a try
+ * another tab held instead, without saving it again.
  */
 export const useHeldTry = (
   challenge: Challenge,
@@ -20,7 +21,7 @@ export const useHeldTry = (
 ) => {
   const pending = useRef<Promise<HeldTry> | null>(null);
 
-  const hold = (input: PlayInput) => {
+  const hold = (input: PlayInput): Promise<HeldTry> => {
     const before = savedTries.current;
     const next = scoreRun(challenge, input).then(async (evaluation) => {
       const score = tryScoreOf(challenge, evaluation);
@@ -30,6 +31,13 @@ export const useHeldTry = (
     // Reported when the run ends; until then a failed score must not count as unhandled.
     next.catch(() => {});
     pending.current = next;
+    return next;
+  };
+
+  /** Shows `result` at this run's end: a try another tab ran, scored and saved. */
+  const follow = (result: Promise<HeldTry>) => {
+    result.catch(() => {});
+    pending.current = result;
   };
 
   const held = useCallback(
@@ -38,5 +46,5 @@ export const useHeldTry = (
     []
   );
 
-  return { hold, held };
+  return { hold, follow, held };
 };

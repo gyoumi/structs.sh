@@ -548,6 +548,8 @@ tests pass, with no sideways scrolling on a 390px phone.
 
 ### 3e. Tidy
 
+**Done in #89.**
+
 Tidy the code checkpoint 3 added or changed against the four rules (size,
 stages, comments, tests) without changing what a player sees.
 

@@ -16,6 +16,7 @@ import { ScoreCard } from './ScoreCard';
 import { TargetTree } from './TargetTree';
 import { readoutsFor, valuesForInput } from './templates';
 import { SavedTriesProps, useSavedTries } from './useSavedTries';
+import { useRunSync } from './useRunSync';
 import { stageRunOf, useStageRun } from './useStageRun';
 import styles from './Daily.module.css';
 
@@ -39,7 +40,7 @@ type PlayProps = PlayBaseProps &
 
 /** The game itself: the player's input, the stages, the actions, and the score cards. */
 export const Play = (props: PlayProps) => {
-  const { challenge, rig, theme, input, editor, initialTries, streak } = props;
+  const { challenge, rig, theme, input, editor, initialTries, streak, onRestoreInput } = props;
   const completedRunId = useCompletedRunId(rig);
   const [firstStage] = rig.stages;
   const trace = useStageSnapshot(firstStage, (s) => s.trace);
@@ -63,7 +64,17 @@ export const Play = (props: PlayProps) => {
     onRerun: (runId) => dispatch({ type: 'rerun', runId }),
   });
 
-  const { saveFailed, hold } = useSavedTries({ ...props, play, dispatch, draw });
+  const { saveFailed, hold, follow } = useSavedTries({ ...props, play, dispatch, draw });
+  const sync = useRunSync({
+    challenge,
+    rig,
+    play,
+    dispatch,
+    start,
+    draw,
+    onRestoreInput,
+    follow,
+  });
 
   useEffect(() => {
     loadChallenges().catch(() => {});
@@ -93,7 +104,7 @@ export const Play = (props: PlayProps) => {
     const focusSkip = document.activeElement === runButton.current;
     const runId = start(stageRunOf(challenge, input));
     if (runId === null) return;
-    hold(input);
+    sync.announce(input, play.scores, hold(input));
     dispatch({ type: 'run', input, runId, focusSkip });
     runner.current?.scrollIntoView?.({
       behavior: reducedMotion ? 'auto' : 'smooth',
@@ -125,10 +136,10 @@ export const Play = (props: PlayProps) => {
             stageTheme={stageTheme}
             outcome={mobileOutcome}
           />
-          <div className={styles.tilesZone}>{editor(busy || ended, draw)}</div>
+          <div className={styles.tilesZone}>{editor(busy || ended, sync.draw)}</div>
           <div ref={runner} className={styles.runner}>
             <ChallengeStages rig={rig} stageTheme={stageTheme} readouts={readouts.others} />
-            <PlaybackContext value={rig.playback}>
+            <PlaybackContext value={sync.playback}>
               <Transport />
             </PlaybackContext>
           </div>
@@ -147,7 +158,7 @@ export const Play = (props: PlayProps) => {
             ref={skipButton}
             type="button"
             className={`${landing.secondary} ${styles.action}`}
-            onClick={rig.playback.finish}
+            onClick={sync.playback.finish}
             disabled={play.stage !== 'running'}
           >
             Skip
