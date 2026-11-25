@@ -626,22 +626,44 @@ Tidy ──► 4a. Into dev ──► 4b. Deployment ──► 4c. Launch
 
 ### Tidy (before merging into dev)
 
+**Done in #95.**
+
 Before `daily-game` goes into `dev`, run a full tidy checkpoint (`Ta. Structure`,
 `Tb. Comments`, `Tc. Tests`, `Td. Checks`) across everything the daily game
 added or changed.
 
 ### 4a. Into dev
 
+**Done in #97 and #99.**
+
 Once the debugger rewrite is in `devsoc-unsw/structs.sh`, merge `dev` into
 `daily-game`, then merge `daily-game` into the fork's `dev`.
 
 ### 4b. Deployment
 
-This repo gains the `game-server` image in the Deploy workflow and the
-`daily-challenges` stage in the client's Dockerfile. DevSoc's deployment repo
-gains the game server, the `/api` route, Postgres, the runtime secrets and a
-CronJob for `daily-generator`. `roadmap.md` lists them under "Changes for the
-game".
+This repo builds both the `client` image (with the `daily-challenges` stage in
+`client/Dockerfile.prod`) and the `game-server` image (`game-server/Dockerfile`)
+in `.github/workflows/docker.yml`, and dispatches both image tags to DevSoc's
+deployment repo on pushes to `dev` and `staging`. The private `devsoc-unsw/snitch`
+repo builds and publishes `ghcr.io/devsoc-unsw/structs-daily-generator`.
+
+Changes needed in DevSoc's private `devsoc-unsw/deployment` repo (for `prod` and
+`staging`, see `roadmap.md` under "Changes for the game"):
+
+- A Postgres database and a `DATABASE_URL` secret shared by the game server and
+  the generator CronJob.
+- A Deployment and Service for `ghcr.io/devsoc-unsw/structs-game-server`
+  (staging: `structs-staging-game-server`) listening on port `8080`, with
+  `DATABASE_URL`, `PORT=8080`, `RUST_LOG=info`, and `GET /healthz` for liveness
+  and readiness probes.
+- An Envoy/Ingress route sending `/api` (without stripping `/api`, since the
+  server handles `/api/daily`) to the game server Service, while all other paths
+  stay routed to the client Service.
+- A daily Kubernetes CronJob running
+  `ghcr.io/devsoc-unsw/structs-daily-generator` with args `["fill", "--days", "21"]`,
+  `DATABASE_URL`, `concurrencyPolicy: Forbid`, and a pull secret for the private
+  GHCR image. `daily-generator fill` runs pending `daily-db` migrations before
+  inserting challenges; `daily-server` stays read-only.
 
 ### 4c. Launch
 
