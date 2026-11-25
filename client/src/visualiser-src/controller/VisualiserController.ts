@@ -174,14 +174,10 @@ class VisualiserController {
     updateSlider: (val: number) => void,
     ...args: string[]
   ): string {
-    if (!this.dataStructure) {
-      return 'Invalid data structure';
-    }
+    if (!this.dataStructure) return 'Invalid data structure';
     const expectedArgs = this.dataStructure.documentation[command].args;
     const errMessage = validateOperationArgs(expectedArgs, args);
-    if (errMessage !== '') {
-      return errMessage;
-    }
+    if (errMessage !== '') return errMessage;
 
     this.finish();
     // @ts-ignore
