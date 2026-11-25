@@ -1,4 +1,4 @@
-//! "Insertion beats merge" puzzle template.
+//! "Insertion beats merge" challenge template.
 //!
 //! # Algorithms
 //!
@@ -33,10 +33,10 @@ use crate::fixed_slots::{
 use crate::validate::{count, validate};
 use crate::{InputError, SearchSpace, Shortcut, Template};
 
-/// Insertion beats merge puzzle template (`ID = "insertion-beats-merge"`).
+/// Insertion beats merge challenge template (`ID = "insertion-beats-merge"`).
 pub struct InsertionBeatsMerge;
 
-/// An insertion beats merge puzzle instance.
+/// An insertion beats merge challenge instance.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Instance {
     /// Distinct values that the player's input must rearrange.

@@ -284,7 +284,6 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "chrono",
- "chrono-tz",
  "daily-api",
  "daily-challenges",
  "daily-db",

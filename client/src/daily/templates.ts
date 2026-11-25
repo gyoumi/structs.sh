@@ -8,7 +8,7 @@ import {
 import { CanvasTarget, namedCanvasTarget } from '@/visualiser-src/common/canvasTarget';
 import type { TopicSlug } from '@/visualiser/topics';
 import type { PlayInput, TryScore } from './playMachine';
-import type { IndexDriftChallenge, Challenge } from './challenge';
+import type { ArrayChallenge, IndexDriftChallenge, Challenge } from './challenge';
 
 /** A running count one stage's animation keeps. */
 export type CounterSource = {
@@ -46,14 +46,14 @@ export type StagePlan =
   | { kind: 'dual'; mode: StageMode; stages: [DualStageSpec, DualStageSpec] };
 
 /** Pairs `i < j` with `values[i] > values[j]`. */
-export const outOfOrderPairs = (values: number[]) =>
+const outOfOrderPairs = (values: number[]) =>
   values.reduce(
     (pairs, value, i) => pairs + values.slice(i + 1).filter((later) => value > later).length,
     0
   );
 
 /** The longest run of neighbouring values that strictly increases. */
-export const longestIncreasingRun = (values: number[]) => {
+const longestIncreasingRun = (values: number[]) => {
   let longest = 0;
   let run = 0;
   values.forEach((value, i) => {
@@ -187,9 +187,7 @@ export const stagePlanFor = (challenge: Challenge): StagePlan => {
 };
 
 export function instanceOf(challenge: IndexDriftChallenge): ListEvalChallengeInstance;
-export function instanceOf(
-  challenge: Exclude<Challenge, IndexDriftChallenge>
-): ArrayEvalChallengeInstance;
+export function instanceOf(challenge: ArrayChallenge): ArrayEvalChallengeInstance;
 export function instanceOf(challenge: Challenge): EvalChallengeInstance;
 export function instanceOf(challenge: Challenge): EvalChallengeInstance {
   switch (challenge.template) {

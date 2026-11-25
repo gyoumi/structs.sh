@@ -1,38 +1,36 @@
-import { useEffect, useState } from 'react';
 import type { DailyChallenge } from './api';
+import { isI32 } from './i32';
 import { reachesGoal } from './playMachine';
-
-export const CHALLENGE_URL = '/api/daily';
 
 type ChallengeBase = {
   number: number;
   values: number[];
   fixed: number[];
   goal: number;
-  /** The day the challenge is for, as written in the file. */
+  /** The day the challenge is for, as the server sent it. */
   date?: string;
 };
 
-export type QuicksortChallenge = ChallengeBase & { template: 'quicksort-most-comparisons' };
+type QuicksortChallenge = ChallengeBase & { template: 'quicksort-most-comparisons' };
 
-export type BubbleChallenge = ChallengeBase & {
+type BubbleChallenge = ChallengeBase & {
   template: 'bubble-exact-passes';
   targetPasses: number;
 };
 
-export type InsertionMergeChallenge = ChallengeBase & { template: 'insertion-beats-merge' };
+type InsertionMergeChallenge = ChallengeBase & { template: 'insertion-beats-merge' };
 
-export type AvlRotationsChallenge = ChallengeBase & { template: 'avl-most-rotations' };
+type AvlRotationsChallenge = ChallengeBase & { template: 'avl-most-rotations' };
 
-/** No slot is locked, so `fixed` is always empty; the file leaves it out. */
-export type ForcedOrderChallenge = ChallengeBase & {
+/** No slot is locked, so `fixed` is always empty; the server leaves it out. */
+type ForcedOrderChallenge = ChallengeBase & {
   template: 'bst-forced-order';
   fixed: [];
   /** The preorder of the tree the insert order has to build. */
   targetTree: number[];
 };
 
-export type UpsetChallenge = ChallengeBase & { template: 'upset-bst-beats-avl' };
+type UpsetChallenge = ChallengeBase & { template: 'upset-bst-beats-avl' };
 
 /** Turn `start` into `target` with inserts and deletes by index, at the lowest cost. It has no values to arrange. */
 export type IndexDriftChallenge = {
@@ -55,6 +53,9 @@ export type Challenge =
   | UpsetChallenge
   | IndexDriftChallenge;
 
+/** Every challenge the player solves by arranging values, which is all but index drift. */
+export type ArrayChallenge = Exclude<Challenge, IndexDriftChallenge>;
+
 export type Template = Challenge['template'];
 
 const TITLES: Record<DailyChallenge['template'], string> = {
@@ -67,15 +68,10 @@ const TITLES: Record<DailyChallenge['template'], string> = {
   'linked-list-index-drift': 'Index drift',
 };
 
-const isTemplate = (template: unknown): template is Template =>
+export const isTemplate = (template: unknown): template is Template =>
   typeof template === 'string' && Object.hasOwn(TITLES, template);
 
-const MIN_I32 = -0x80000000;
-const MAX_I32 = 0x7fffffff;
-
-const isNumbers = (value: unknown): value is number[] =>
-  Array.isArray(value) &&
-  value.every((item) => Number.isInteger(item) && item >= MIN_I32 && item <= MAX_I32);
+const isNumbers = (value: unknown): value is number[] => Array.isArray(value) && value.every(isI32);
 
 const isEmptyList = (value: unknown) => Array.isArray(value) && value.length === 0;
 
@@ -109,9 +105,9 @@ const isValidTargetTree = (values: number[], targetTree: number[]) => {
   );
 };
 
-const formatError = () => new Error('The challenge file is not in the expected format.');
+const formatError = () => new Error('The challenge from the server is not in the expected format.');
 
-/** Whether the file must list fixed slots, or has none and may only leave `fixed` out or empty. */
+/** Whether the server must list fixed slots, or has none and may only leave `fixed` out or empty. */
 type FixedRule = 'listed' | 'none';
 
 const parseDate = (date: unknown): string | undefined => {
@@ -197,11 +193,7 @@ export const parseChallenge = (data: unknown): Challenge => {
 };
 
 /** "quicksort-most-comparisons" is shown as "Quicksort". */
-export const challengeTitle = (template: string) => {
-  if (isTemplate(template)) return TITLES[template];
-  const [first = ''] = template.split('-');
-  return first.charAt(0).toUpperCase() + first.slice(1);
-};
+export const challengeTitle = (template: Template) => TITLES[template];
 
 /** A try's score, or null when the try did not solve the challenge. */
 export type SharedScore = number | null;
@@ -223,72 +215,3 @@ export const shareText = (
       : []),
     'structs.sh/daily',
   ].join('\n');
-
-/** The slot to swap with: the nearest free one from `from` in `direction`, skipping fixed slots. */
-export const nextFreeSlot = (
-  fixed: Set<number>,
-  length: number,
-  from: number,
-  direction: 1 | -1
-) => {
-  for (let slot = from + direction; slot >= 0 && slot < length; slot += direction) {
-    if (!fixed.has(slot)) return slot;
-  }
-  return null;
-};
-
-export type ChallengeState =
-  | { status: 'loading' }
-  | { status: 'unreachable' }
-  | { status: 'unavailable' }
-  | { status: 'error' }
-  | { status: 'ready'; challenge: Challenge };
-
-/** What a failed response means: no challenge for today yet, a gateway or server outage, or another error. */
-const failedStatus = (status: number): ChallengeState => {
-  if (status === 404) return { status: 'unavailable' };
-  if (status === 502 || status === 503 || status === 504) return { status: 'unreachable' };
-  return { status: 'error' };
-};
-
-/** Today's challenge from the server, and `retry` to ask again after a failure. */
-export const useChallenge = (): { state: ChallengeState; retry: () => void } => {
-  const [state, setState] = useState<ChallengeState>({ status: 'loading' });
-  const [attempt, setAttempt] = useState(0);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    const settle = (next: ChallengeState) => {
-      if (!controller.signal.aborted) setState(next);
-    };
-    fetch(CHALLENGE_URL, { signal: controller.signal })
-      .then(
-        async (response) => {
-          if (!response.ok) {
-            settle(failedStatus(response.status));
-            return;
-          }
-          try {
-            settle({ status: 'ready', challenge: parseChallenge(await response.json()) });
-          } catch (error) {
-            console.error(error);
-            settle({ status: 'error' });
-          }
-        },
-        (error) => {
-          if (controller.signal.aborted) return;
-          console.error(error);
-          settle({ status: 'unreachable' });
-        }
-      )
-      .catch(() => {});
-    return () => controller.abort();
-  }, [attempt]);
-
-  const retry = () => {
-    setState({ status: 'loading' });
-    setAttempt((n) => n + 1);
-  };
-
-  return { state, retry };
-};

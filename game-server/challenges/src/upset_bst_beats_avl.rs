@@ -1,4 +1,4 @@
-//! "Upset: BST builds cheaper" puzzle template.
+//! "Upset: BST builds cheaper" challenge template.
 //!
 //! # Algorithms
 //!
@@ -33,10 +33,10 @@ use crate::tree::{self, Event};
 use crate::validate::{count, validate};
 use crate::{InputError, SearchSpace, Shortcut, Template};
 
-/// Upset puzzle template (`ID = "upset-bst-beats-avl"`).
+/// Upset challenge template (`ID = "upset-bst-beats-avl"`).
 pub struct UpsetBstBeatsAvl;
 
-/// An upset puzzle instance.
+/// An upset challenge instance.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Instance {
     /// Distinct keys that the player's input must rearrange.

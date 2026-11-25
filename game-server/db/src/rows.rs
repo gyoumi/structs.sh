@@ -48,7 +48,7 @@ pub(crate) fn record_from_row(row: &PgRow) -> Result<DailyChallengeRecord, DbErr
     })
 }
 
-/// Reads the public fields of a puzzle.
+/// Reads the public fields of a challenge.
 pub(crate) fn public_from_row(row: &PgRow) -> Result<PublicChallenge, DbError> {
     let Json(instance): Json<ChallengeInstance> = row.try_get("instance")?;
     Ok(PublicChallenge {

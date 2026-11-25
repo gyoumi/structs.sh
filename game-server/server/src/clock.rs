@@ -1,9 +1,10 @@
-//! Where the server gets the time, and the Sydney date that picks the puzzle.
+//! Where the server gets the time, and the Sydney date that picks the challenge.
 
 use std::sync::RwLock;
 
-use chrono::{DateTime, NaiveDate, Utc};
-use chrono_tz::Australia::Sydney;
+use chrono::{DateTime, Utc};
+
+pub use daily_db::sydney_date;
 
 /// A source of the current time.
 pub trait Clock: Send + Sync {
@@ -45,9 +46,4 @@ impl Clock for FixedClock {
     fn now(&self) -> DateTime<Utc> {
         *self.now.read().unwrap_or_else(|e| e.into_inner())
     }
-}
-
-/// The calendar date in Sydney at the instant `utc`.
-pub fn sydney_date(utc: DateTime<Utc>) -> NaiveDate {
-    utc.with_timezone(&Sydney).date_naive()
 }

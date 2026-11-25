@@ -1,4 +1,4 @@
-//! "Bubble: exactly k passes, with the most swaps" puzzle template.
+//! "Bubble: exactly k passes, with the most swaps" challenge template.
 //!
 //! # Algorithm
 //!
@@ -36,17 +36,17 @@ use crate::rng::Rng;
 use crate::validate::{count, validate};
 use crate::{InputError, SearchSpace, Shortcut, Template};
 
-/// Bubble sort puzzle template (`ID = "bubble-exact-passes"`).
+/// Bubble sort challenge template (`ID = "bubble-exact-passes"`).
 pub struct Bubble;
 
-/// A bubble sort puzzle instance.
+/// A bubble sort challenge instance.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Instance {
     /// Distinct values that the player's input must rearrange.
     pub values: Vec<i32>,
     /// Indices into `values` whose values must remain unchanged.
     pub fixed: Vec<usize>,
-    /// The number of passes that solves the puzzle.
+    /// The number of passes that solves the challenge.
     pub target_passes: u32,
 }
 

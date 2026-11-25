@@ -1,5 +1,5 @@
-import { MAX_TRIES, reachesGoal } from './playMachine';
-import type { Challenge, Template } from './challenge';
+import { bestScore, MAX_TRIES, reachesGoal } from './playMachine';
+import { isTemplate, type Challenge, type Template } from './challenge';
 import {
   dayNumber,
   extendsExisting,
@@ -10,7 +10,6 @@ import {
   isValidTryForChallenge,
   previousIsoDate,
   sameTries,
-  TEMPLATES,
   type SavedTry,
 } from './historyValidation';
 
@@ -21,12 +20,9 @@ export const HISTORY_VERSION = 1 as const;
 
 export const HISTORY_STORAGE_KEY = 'daily.history';
 
-/** Storage key used before the rename; read as a fallback so existing players keep their streaks. */
-export const LEGACY_HISTORY_STORAGE_KEY = 'structs.daily.history';
-
 /** Everything saved about one day's challenge. */
 // eslint-disable-next-line structs/one-stage-value -- completed (all tries used) and goalReached (best score hits goal) are independent facts, not stages
-export type SavedChallengeResult = {
+type SavedChallengeResult = {
   date: string;
   number: number;
   template: Template;
@@ -66,9 +62,7 @@ const summarizeResult = (
 ): SavedChallengeResult => {
   const capped = tries.slice(0, MAX_TRIES);
   const solved = capped.map(({ score }) => score).filter(isFiniteNumber);
-  const lowerWins = challenge.template === 'linked-list-index-drift';
-  const bestScore =
-    solved.length === 0 ? null : lowerWins ? Math.min(...solved) : Math.max(...solved);
+  const best = bestScore(solved, challenge.template);
   return {
     date: challenge.date,
     number: challenge.number,
@@ -76,40 +70,35 @@ const summarizeResult = (
     goal: challenge.goal,
     tries: capped,
     completed: capped.length >= MAX_TRIES,
-    bestScore,
-    goalReached: bestScore !== null && reachesGoal(challenge, bestScore),
+    bestScore: best ?? null,
+    goalReached: best !== undefined && reachesGoal(challenge, best),
   };
 };
 
 const parseSavedResult = (value: unknown): SavedChallengeResult | null => {
   if (!isPlainObject(value)) return null;
-  const goal = isFiniteNumber(value.goal)
-    ? value.goal
-    : isFiniteNumber(value.par)
-      ? value.par
-      : null;
   if (
     typeof value.date !== 'string' ||
     !isIsoDate(value.date) ||
     !isFiniteNumber(value.number) ||
-    !TEMPLATES.includes(value.template as Template) ||
-    goal === null ||
+    !isTemplate(value.template) ||
+    !isFiniteNumber(value.goal) ||
     !Array.isArray(value.tries) ||
     value.tries.length > MAX_TRIES ||
     !value.tries.every(isSavedTry)
   ) {
     return null;
   }
-  const template = value.template as Template;
-  const expectedKind = template === 'linked-list-index-drift' ? 'operations' : 'arrangement';
+  const expectedKind = value.template === 'linked-list-index-drift' ? 'operations' : 'arrangement';
   if (!value.tries.every((saved) => saved.input.kind === expectedKind)) return null;
-  return summarizeResult({ date: value.date, number: value.number, template, goal }, value.tries);
+  const { date, number, template, goal } = value;
+  return summarizeResult({ date, number, template, goal }, value.tries);
 };
 
-const readStoredEntries = (store: StorageLike, key: string): SavedChallengeResult[] => {
+const readStoredEntries = (store: StorageLike): SavedChallengeResult[] => {
   let parsed: unknown;
   try {
-    const raw = store.getItem(key);
+    const raw = store.getItem(HISTORY_STORAGE_KEY);
     if (raw === null) return [];
     parsed = JSON.parse(raw);
   } catch {
@@ -135,13 +124,11 @@ const dedupeEntries = (entries: SavedChallengeResult[]): Record<string, SavedCha
   return results;
 };
 
-/** The saved history, or an empty one when nothing valid is saved. Malformed days are skipped; legacy saves fill missing dates only. */
+/** The saved history, or an empty one when nothing valid is saved. Malformed days are skipped. */
 export function loadHistory(storage?: StorageLike | null): DailyHistory {
   const store = storage === undefined ? defaultStorage() : storage;
   if (!store) return emptyHistory();
-  const legacy = dedupeEntries(readStoredEntries(store, LEGACY_HISTORY_STORAGE_KEY));
-  const current = dedupeEntries(readStoredEntries(store, HISTORY_STORAGE_KEY));
-  return { version: HISTORY_VERSION, results: { ...legacy, ...current } };
+  return { version: HISTORY_VERSION, results: dedupeEntries(readStoredEntries(store)) };
 }
 
 /** Saves `history`, returning false when storage is unavailable, full, or blocked. */
@@ -197,6 +184,7 @@ export function recordChallengeTries(
   };
 }
 
+/** Merges `tries` for `challenge` into the latest stored history without losing other days or overwriting divergent same-day progress. */
 const persistChallengeTriesWithStatus = (
   challenge: Challenge,
   tries: SavedTry[],
@@ -219,15 +207,6 @@ const persistChallengeTriesWithStatus = (
   return { status: 'saved', history: next, tries: next.results[challenge.date]?.tries ?? tries };
 };
 
-/** Merges `tries` for `challenge` into the latest stored history without losing other days or overwriting divergent same-day progress. */
-export function persistChallengeTries(
-  challenge: Challenge,
-  tries: SavedTry[],
-  storage?: StorageLike | null
-): DailyHistory {
-  return persistChallengeTriesWithStatus(challenge, tries, storage).history;
-}
-
 /** Serializes cross-tab history writes with Web Locks when available and reports whether the write saved, reconciled, or failed. */
 export async function persistChallengeTriesLocked(
   challenge: Challenge,
@@ -247,9 +226,7 @@ export async function persistChallengeTriesLocked(
 const completedDays = (history: DailyHistory) =>
   new Set(
     Object.values(history.results)
-      .filter(
-        (entry) => entry.completed && entry.tries.length >= MAX_TRIES && isIsoDate(entry.date)
-      )
+      .filter((entry) => entry.completed && isIsoDate(entry.date))
       .map((entry) => dayNumber(entry.date))
   );
 

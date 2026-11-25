@@ -30,5 +30,5 @@ pub(crate) fn index_drift(request: ListRequest) -> Result<String, String> {
         nodes_walked: outcome.nodes_walked,
         cost: outcome.cost,
     })
-    .map_err(|error| format!("The puzzle reply could not be written: {error}."))
+    .map_err(|error| format!("The challenge reply could not be written: {error}."))
 }

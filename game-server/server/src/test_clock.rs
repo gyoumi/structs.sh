@@ -11,14 +11,15 @@ use axum::Router;
 use axum::body::Bytes;
 use axum::extract::State;
 use axum::extract::rejection::BytesRejection;
-use axum::http::{HeaderValue, StatusCode, header};
-use axum::response::{IntoResponse, Response};
+use axum::http::StatusCode;
+use axum::response::Response;
 use axum::routing::get;
 use chrono::{DateTime, SecondsFormat, Utc};
 use daily_api::ApiError;
 use serde::{Deserialize, Serialize};
 
 use crate::clock::{Clock, FixedClock, sydney_date};
+use crate::routes::no_store;
 
 /// The body `PUT /clock` takes.
 #[derive(Deserialize)]
@@ -94,13 +95,4 @@ fn clock_state(now: DateTime<Utc>) -> Response {
 /// A `400 Bad Request` with `message` as its [`ApiError`].
 fn bad_request(message: String) -> Response {
     no_store(StatusCode::BAD_REQUEST, Json(ApiError { error: message }))
-}
-
-/// `body` with `status`, marked so nothing caches it.
-fn no_store(status: StatusCode, body: impl IntoResponse) -> Response {
-    let mut response = (status, body).into_response();
-    response
-        .headers_mut()
-        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
-    response
 }

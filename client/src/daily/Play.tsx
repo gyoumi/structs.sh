@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useEffectEvent, useReducer, useRef, useState } from 'react';
+import { ReactNode, useEffect, useReducer, useRef } from 'react';
 import landing from '@/landing/Landing.module.css';
 import { ListOperation, loadChallenges } from '@/Services/challenges/challenges';
 import { Theme } from '@/ui/theme';
@@ -6,42 +6,29 @@ import Transport from '@/visualiser/Transport';
 import { PlaybackContext } from '@/visualiser/playback';
 import { usePrefersReducedMotion } from '@/visualiser/useVisualiser';
 import { MobileHud, StepCard } from './DailyCards';
-import { extendsExisting, sameTries, type PersistOutcome, type SavedTry } from './history';
-import { MAX_TRIES, PlayInput, playReducer, restoredPlayState, sharedScores } from './playMachine';
+import { MAX_TRIES, playReducer, restoredPlayState, sharedScores } from './playMachine';
 import { messageFor, mobileOutcomeOf } from './playMessages';
-import { validateOperations } from './OperationBuilder';
+import { isRunnable } from './operations';
 import { ChallengeStages } from './ChallengeStages';
-import { IndexDriftChallenge, Challenge, shareText } from './challenge';
+import { ArrayChallenge, IndexDriftChallenge, shareText } from './challenge';
 import { Rig, useCompletedRunId, useReadoutValue, useStageSnapshot } from './rig';
 import { ScoreCard } from './ScoreCard';
 import { TargetTree } from './TargetTree';
 import { readoutsFor, valuesForInput } from './templates';
-import { HeldTry, useHeldTry } from './useHeldTry';
+import { SavedTriesProps, useSavedTries } from './useSavedTries';
 import { stageRunOf, useStageRun } from './useStageRun';
 import styles from './Daily.module.css';
 
 /** Draws `values` on every stage now, as after a swap. */
 type Redraw = (values: number[]) => void;
 
-type ArrayChallenge = Exclude<Challenge, IndexDriftChallenge>;
-
-type PlayBaseProps = {
+type PlayBaseProps = SavedTriesProps & {
   rig: Rig;
   theme: Theme;
   /** The player's input: the swappable array, or the operation builder. */
   editor: (frozen: boolean, redraw: Redraw) => ReactNode;
-  /** Tries saved from an earlier visit today, resumed on load. */
-  initialTries: SavedTry[];
-  /** Bumps when another tab updates saved history via the storage event. */
-  storageRevision: number;
   /** Days in a row finished, shown in the share text. */
   streak?: number;
-  /** Saves every try so far under a cross-tab lock and reports the persistence outcome. */
-  onRecordTries: (tries: SavedTry[]) => Promise<PersistOutcome>;
-  /** Called when a try saved at Run is shown at its run's end, so the page catches up. */
-  onTriesShown: () => void;
-  /** Restores the editor input when another tab's completion freezes this challenge. */
-  onRestoreInput: (input: PlayInput) => void;
 };
 
 type PlayProps = PlayBaseProps &
@@ -52,19 +39,7 @@ type PlayProps = PlayBaseProps &
 
 /** The game itself: the player's input, the stages, the actions, and the score cards. */
 export const Play = (props: PlayProps) => {
-  const {
-    challenge,
-    rig,
-    theme,
-    input,
-    editor,
-    initialTries,
-    storageRevision,
-    streak,
-    onRecordTries,
-    onTriesShown,
-    onRestoreInput,
-  } = props;
+  const { challenge, rig, theme, input, editor, initialTries, streak } = props;
   const completedRunId = useCompletedRunId(rig);
   const [firstStage] = rig.stages;
   const trace = useStageSnapshot(firstStage, (s) => s.trace);
@@ -76,9 +51,6 @@ export const Play = (props: PlayProps) => {
     initialTries.map((saved) => saved.score),
     restoredPlayState
   );
-  const [saveFailed, setSaveFailed] = useState(false);
-  const savedTries = useRef(initialTries);
-  const appliedRevision = useRef(storageRevision);
   const runner = useRef<HTMLDivElement>(null);
   const runButton = useRef<HTMLButtonElement>(null);
   const skipButton = useRef<HTMLButtonElement>(null);
@@ -91,30 +63,7 @@ export const Play = (props: PlayProps) => {
     onRerun: (runId) => dispatch({ type: 'rerun', runId }),
   });
 
-  const applySynced = useEffectEvent((tries: SavedTry[]) => {
-    savedTries.current = tries;
-    setSaveFailed(false);
-    if (tries.length >= MAX_TRIES) {
-      const finalInput = tries.at(-1)?.input;
-      if (finalInput) {
-        onRestoreInput(finalInput);
-        draw(valuesForInput(challenge, finalInput));
-      }
-    }
-    dispatch({ type: 'synced', scores: tries.map((saved) => saved.score) });
-  });
-
-  const { hold, held } = useHeldTry(challenge, savedTries, onRecordTries);
-  const showHeld = useEffectEvent(({ score, tries, outcome }: HeldTry) => {
-    if (outcome.status === 'synced') {
-      applySynced(outcome.tries);
-    } else {
-      setSaveFailed(outcome.status === 'failed');
-      savedTries.current = outcome.status === 'saved' ? outcome.tries : tries;
-      dispatch({ type: 'scored', score });
-    }
-    onTriesShown();
-  });
+  const { saveFailed, hold } = useSavedTries({ ...props, play, dispatch, draw });
 
   useEffect(() => {
     loadChallenges().catch(() => {});
@@ -126,8 +75,7 @@ export const Play = (props: PlayProps) => {
   const unrunnable =
     challenge.template === 'linked-list-index-drift' &&
     input.kind === 'operations' &&
-    (input.operations.length === 0 ||
-      validateOperations(challenge.start.length, input.operations).status === 'invalid');
+    !isRunnable(challenge.start.length, input.operations);
 
   const runWantsSkipFocus = play.stage === 'running' && play.focusSkip;
   useEffect(() => {
@@ -139,34 +87,6 @@ export const Play = (props: PlayProps) => {
       dispatch({ type: 'animation-completed', runId: play.runId });
     }
   }, [play, completedRunId]);
-
-  useEffect(() => {
-    if (storageRevision === appliedRevision.current) return;
-    if (play.stage === 'running' || play.stage === 'scoring') return;
-    appliedRevision.current = storageRevision;
-    if (sameTries(initialTries, savedTries.current)) {
-      setSaveFailed(false);
-      return;
-    }
-    if (initialTries.length > 0 && extendsExisting(initialTries, savedTries.current)) return;
-    applySynced(initialTries);
-  }, [initialTries, play.stage, storageRevision]);
-
-  useEffect(() => {
-    if (play.stage !== 'scoring') return undefined;
-    let cancelled = false;
-    held()
-      .then((result) => {
-        if (!cancelled) showHeld(result);
-      })
-      .catch((error) => {
-        console.error(error);
-        if (!cancelled) dispatch({ type: 'score-failed' });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [play, held]);
 
   const run = () => {
     if (unrunnable) return;

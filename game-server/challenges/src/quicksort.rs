@@ -1,4 +1,4 @@
-//! "Quicksort: the most comparisons" puzzle template.
+//! "Quicksort: the most comparisons" challenge template.
 //!
 //! # Algorithm
 //!
@@ -60,13 +60,13 @@ use crate::fixed_slots::{
 use crate::validate::validate;
 use crate::{InputError, SearchSpace, Shortcut, Template};
 
-/// Quicksort puzzle template (`ID = "quicksort-most-comparisons"`).
+/// Quicksort challenge template (`ID = "quicksort-most-comparisons"`).
 ///
 /// Implements [`Template`] with `Instance = quicksort::Instance`,
 /// `Input = Vec<i32>`, and `Step = quicksort::Step`.
 pub struct Quicksort;
 
-/// A quicksort puzzle instance: the starting array values and the indices
+/// A quicksort challenge instance: the starting array values and the indices
 /// whose values cannot be moved.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Instance {

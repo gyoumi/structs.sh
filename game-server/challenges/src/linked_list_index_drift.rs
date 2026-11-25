@@ -1,4 +1,4 @@
-//! "Index drift" puzzle template.
+//! "Index drift" challenge template.
 //!
 //! # Algorithm
 //!
@@ -32,10 +32,10 @@ use crate::validate::count;
 use crate::{InputError, ScoreDirection, SearchSpace, Shortcut, Template};
 use serde::{Deserialize, Serialize};
 
-/// Index drift puzzle template (`ID = "linked-list-index-drift"`).
+/// Index drift challenge template (`ID = "linked-list-index-drift"`).
 pub struct LinkedListIndexDrift;
 
-/// An index drift puzzle instance.
+/// An index drift challenge instance.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Instance {
     /// The list the operations start from, front to back.

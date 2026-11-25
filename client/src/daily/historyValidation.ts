@@ -1,5 +1,7 @@
 import { MAX_TRIES, type PlayInput, type TryScore } from './playMachine';
-import type { Challenge, Template } from './challenge';
+import type { ArrayChallenge, Challenge } from './challenge';
+import { isI32 } from './i32';
+import { isRunnable } from './operations';
 
 /** One finished try: what the player ran and what it scored. */
 export type SavedTry = { input: PlayInput; score: TryScore };
@@ -46,45 +48,22 @@ export const extendsExisting = (existing: SavedTry[], next: SavedTry[]) =>
   next.length > existing.length &&
   existing.every((saved, i) => sameTry(saved, next[i]));
 
-export const TEMPLATES: readonly Template[] = [
-  'quicksort-most-comparisons',
-  'bubble-exact-passes',
-  'insertion-beats-merge',
-  'avl-most-rotations',
-  'bst-forced-order',
-  'upset-bst-beats-avl',
-  'linked-list-index-drift',
-];
-
-const MIN_I32 = -0x80000000;
-const MAX_I32 = 0x7fffffff;
-
 export const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
 export const isFiniteNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value);
 
-const isI32 = (value: unknown): value is number =>
-  typeof value === 'number' && Number.isInteger(value) && value >= MIN_I32 && value <= MAX_I32;
-
 const isTryScore = (value: unknown): value is TryScore =>
   isFiniteNumber(value) ||
   (isPlainObject(value) && value.kind === 'unsolved' && typeof value.reason === 'string');
 
+const isIndex = (value: unknown) => isI32(value) && value >= 0;
+
 const isOperation = (value: unknown) =>
   isPlainObject(value) &&
-  ((value.kind === 'insert' &&
-    typeof value.index === 'number' &&
-    Number.isInteger(value.index) &&
-    value.index >= 0 &&
-    value.index <= MAX_I32 &&
-    isI32(value.value)) ||
-    (value.kind === 'delete' &&
-      typeof value.index === 'number' &&
-      Number.isInteger(value.index) &&
-      value.index >= 0 &&
-      value.index <= MAX_I32));
+  ((value.kind === 'insert' && isIndex(value.index) && isI32(value.value)) ||
+    (value.kind === 'delete' && isIndex(value.index)));
 
 const isPlayInput = (value: unknown): value is PlayInput =>
   isPlainObject(value) &&
@@ -98,26 +77,8 @@ const isPlayInput = (value: unknown): value is PlayInput =>
 export const isSavedTry = (value: unknown): value is SavedTry =>
   isPlainObject(value) && isPlayInput(value.input) && isTryScore(value.score);
 
-const isValidOperationsForLength = (
-  startLength: number,
-  operations: Extract<PlayInput, { kind: 'operations' }>['operations']
-): boolean => {
-  if (operations.length === 0) return false;
-  let length = startLength;
-  for (let i = 0; i < operations.length; i += 1) {
-    const op = operations[i];
-    if (op.kind === 'insert') {
-      length += 1;
-    } else {
-      if (op.index < 0 || op.index >= length) return false;
-      length -= 1;
-    }
-  }
-  return true;
-};
-
-const isValidArrangementForPuzzle = (
-  challenge: Exclude<Challenge, { template: 'linked-list-index-drift' }>,
+const isValidArrangementForChallenge = (
+  challenge: ArrayChallenge,
   arrangement: number[]
 ): boolean => {
   if (arrangement.length !== challenge.values.length) return false;
@@ -132,11 +93,11 @@ export const isValidTryForChallenge = (challenge: Challenge, saved: SavedTry): b
   if (challenge.template === 'linked-list-index-drift') {
     return (
       saved.input.kind === 'operations' &&
-      isValidOperationsForLength(challenge.start.length, saved.input.operations)
+      isRunnable(challenge.start.length, saved.input.operations)
     );
   }
   return (
     saved.input.kind === 'arrangement' &&
-    isValidArrangementForPuzzle(challenge, saved.input.arrangement)
+    isValidArrangementForChallenge(challenge, saved.input.arrangement)
   );
 };

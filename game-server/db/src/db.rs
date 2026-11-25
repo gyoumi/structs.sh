@@ -10,7 +10,7 @@ use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::types::Json;
 
-/// Advisory lock key held while assigning a puzzle number, so concurrent
+/// Advisory lock key held while assigning a challenge number, so concurrent
 /// inserts get gap-free sequential numbers.
 const NUMBER_LOCK: i64 = 7_382_915_401;
 
@@ -45,40 +45,43 @@ fn check_rate(field: &str, rate: f64) -> Result<(), DbError> {
     }
 }
 
-/// Checks every field of `puzzle` before anything touches the database.
-fn validate(puzzle: &NewDailyChallenge) -> Result<(), DbError> {
-    if puzzle.template_version < 1 {
+/// Checks every field of `challenge` before anything touches the database.
+fn validate(challenge: &NewDailyChallenge) -> Result<(), DbError> {
+    if challenge.template_version < 1 {
         return Err(DbError::InvalidData(
             "template_version must be at least 1".to_owned(),
         ));
     }
-    if puzzle.rules.trim().is_empty() {
+    if challenge.rules.trim().is_empty() {
         return Err(DbError::InvalidData("rules must not be blank".to_owned()));
     }
-    puzzle.instance.validate_shape()?;
-    signed("template_version", puzzle.template_version)?;
-    signed("goal", puzzle.goal)?;
-    signed("best_score", puzzle.best_score)?;
-    check_rate("bot_goal_rate", puzzle.bot_goal_rate)?;
-    check_rate("bot_best_rate", puzzle.bot_best_rate)?;
-    if puzzle
+    challenge.instance.validate_shape()?;
+    signed("template_version", challenge.template_version)?;
+    signed("goal", challenge.goal)?;
+    signed("best_score", challenge.best_score)?;
+    check_rate("bot_goal_rate", challenge.bot_goal_rate)?;
+    check_rate("bot_best_rate", challenge.bot_best_rate)?;
+    if challenge
         .instance
         .score_direction()
-        .cmp_outcomes(Some(puzzle.best_score), Some(puzzle.goal))
+        .cmp_outcomes(Some(challenge.best_score), Some(challenge.goal))
         == Ordering::Less
     {
         return Err(DbError::InvalidData(format!(
             "best_score {} does not reach goal {} for {}",
-            puzzle.best_score,
-            puzzle.goal,
-            puzzle.instance.template_id()
+            challenge.best_score,
+            challenge.goal,
+            challenge.instance.template_id()
         )));
     }
-    match puzzle.instance.score_solution(&puzzle.best_solution)? {
-        Some(score) if score == puzzle.best_score => Ok(()),
+    match challenge
+        .instance
+        .score_solution(&challenge.best_solution)?
+    {
+        Some(score) if score == challenge.best_score => Ok(()),
         Some(score) => Err(DbError::InvalidData(format!(
             "best_solution scores {score}, not best_score {}",
-            puzzle.best_score
+            challenge.best_score
         ))),
         None => Err(DbError::InvalidData(
             "best_solution does not solve the challenge".to_owned(),
@@ -86,16 +89,16 @@ fn validate(puzzle: &NewDailyChallenge) -> Result<(), DbError> {
     }
 }
 
-/// Schedules `puzzle` for its day with the next puzzle number.
+/// Schedules `challenge` for its day with the next challenge number.
 ///
-/// Validates the puzzle first, including that `best_solution` solves it
-/// with exactly `best_score`. When a puzzle already runs that day, returns
+/// Validates the challenge first, including that `best_solution` solves it
+/// with exactly `best_score`. When a challenge already runs that day, returns
 /// it unchanged as [`InsertOutcome::AlreadyScheduled`].
 pub async fn insert_challenge(
     pool: &PgPool,
-    puzzle: &NewDailyChallenge,
+    challenge: &NewDailyChallenge,
 ) -> Result<InsertOutcome, DbError> {
-    validate(puzzle)?;
+    validate(challenge)?;
     let mut tx = pool.begin().await?;
     sqlx::query("SELECT pg_advisory_xact_lock($1)")
         .bind(NUMBER_LOCK)
@@ -104,7 +107,7 @@ pub async fn insert_challenge(
     let existing = sqlx::query(&format!(
         "SELECT {RECORD_COLUMNS} FROM daily_challenges WHERE challenge_date = $1"
     ))
-    .bind(puzzle.challenge_date)
+    .bind(challenge.challenge_date)
     .fetch_optional(&mut *tx)
     .await?;
     if let Some(row) = existing {
@@ -121,18 +124,18 @@ pub async fn insert_challenge(
          instance, rules, seed, goal, best_score, best_solution, bot_goal_rate, bot_best_rate) \
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING {RECORD_COLUMNS}"
     ))
-    .bind(puzzle.challenge_date)
+    .bind(challenge.challenge_date)
     .bind(number)
-    .bind(puzzle.instance.template_id())
-    .bind(signed("template_version", puzzle.template_version)?)
-    .bind(Json(&puzzle.instance))
-    .bind(&puzzle.rules)
-    .bind(puzzle.seed as i64)
-    .bind(signed("goal", puzzle.goal)?)
-    .bind(signed("best_score", puzzle.best_score)?)
-    .bind(Json(&puzzle.best_solution))
-    .bind(puzzle.bot_goal_rate)
-    .bind(puzzle.bot_best_rate)
+    .bind(challenge.instance.template_id())
+    .bind(signed("template_version", challenge.template_version)?)
+    .bind(Json(&challenge.instance))
+    .bind(&challenge.rules)
+    .bind(challenge.seed as i64)
+    .bind(signed("goal", challenge.goal)?)
+    .bind(signed("best_score", challenge.best_score)?)
+    .bind(Json(&challenge.best_solution))
+    .bind(challenge.bot_goal_rate)
+    .bind(challenge.bot_best_rate)
     .fetch_one(&mut *tx)
     .await?;
     let record = record_from_row(&row)?;
@@ -156,7 +159,7 @@ pub async fn get_challenge_by_date(
     .transpose()
 }
 
-/// The public view of the puzzle for `date`, if any; never reads private
+/// The public view of the challenge for `date`, if any; never reads private
 /// columns.
 pub async fn get_public_challenge_by_date(
     pool: &PgPool,

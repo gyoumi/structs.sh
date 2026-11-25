@@ -1,16 +1,16 @@
-//! Turning a stored public puzzle into the API's [`DailyChallenge`].
+//! Turning a stored public challenge into the API's [`DailyChallenge`].
 
 use daily_api::DailyChallenge;
 use daily_db::{ChallengeInstance, PublicChallenge};
 
-/// The API form of `puzzle`, with the same JSON fields.
-pub fn to_daily_challenge(puzzle: PublicChallenge) -> DailyChallenge {
+/// The API form of `challenge`, with the same JSON fields.
+pub fn to_daily_challenge(challenge: PublicChallenge) -> DailyChallenge {
     let PublicChallenge {
         number,
         instance,
         goal,
         date,
-    } = puzzle;
+    } = challenge;
     match instance {
         ChallengeInstance::Quicksort { values, fixed } => DailyChallenge::Quicksort {
             number,

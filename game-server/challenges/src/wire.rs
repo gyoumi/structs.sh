@@ -101,9 +101,12 @@ struct UpsetReply {
 /// to show the player.
 pub fn score_request(request: &[u8]) -> Result<String, String> {
     let request: Request = serde_json::from_slice(request)
-        .map_err(|error| format!("The puzzle request could not be read: {error}."))?;
+        .map_err(|error| format!("The challenge request could not be read: {error}."))?;
     if !TEMPLATES.contains(&request.template.as_str()) {
-        return Err(format!("Unknown puzzle template \"{}\".", request.template));
+        return Err(format!(
+            "Unknown challenge template \"{}\".",
+            request.template
+        ));
     }
     if request.template == LinkedListIndexDrift::ID {
         return index_drift(request.into_list()?);
@@ -119,7 +122,7 @@ pub fn score_request(request: &[u8]) -> Result<String, String> {
         BstForcedOrder::ID => forced_order(&request)?,
         _ => with_fixed(&request, request.required_fixed()?)?,
     };
-    reply.map_err(|error| format!("The puzzle reply could not be written: {error}."))
+    reply.map_err(|error| format!("The challenge reply could not be written: {error}."))
 }
 
 type Reply = Result<String, serde_json::Error>;
@@ -136,7 +139,8 @@ fn with_fixed(request: &ArrayRequest, fixed: Vec<usize>) -> Result<Reply, String
         }
         Bubble::ID => {
             let target_passes = request.target_passes.flatten().ok_or_else(|| {
-                "The puzzle is broken: a bubble-exact-passes puzzle needs targetPasses.".to_owned()
+                "The challenge is broken: a bubble-exact-passes challenge needs targetPasses."
+                    .to_owned()
             })?;
             let instance = bubble::Instance {
                 values,
@@ -197,11 +201,11 @@ fn with_fixed(request: &ArrayRequest, fixed: Vec<usize>) -> Result<Reply, String
 fn forced_order(request: &ArrayRequest) -> Result<Reply, String> {
     request.no_fixed(BstForcedOrder::ID)?;
     let target_tree = request.target_tree.clone().flatten().ok_or_else(|| {
-        "The puzzle is broken: a bst-forced-order puzzle needs targetTree.".to_owned()
+        "The challenge is broken: a bst-forced-order challenge needs targetTree.".to_owned()
     })?;
     if !bst_forced_order::is_valid_target_tree(&request.values, &target_tree) {
         return Err(
-            "The puzzle is broken: targetTree is not a valid BST preorder of the puzzle's values."
+            "The challenge is broken: targetTree is not a valid BST preorder of the challenge's values."
                 .to_owned(),
         );
     }
@@ -224,7 +228,7 @@ fn forced_order(request: &ArrayRequest) -> Result<Reply, String> {
 pub(crate) fn describe(error: &InputError) -> String {
     match error {
         InputError::FixedSlotOutOfRange { index } => format!(
-            "The puzzle is broken: fixed slot {} is past its last value.",
+            "The challenge is broken: fixed slot {} is past its last value.",
             *index as u128 + 1
         ),
         InputError::WrongLength { expected, got } => {
@@ -234,9 +238,11 @@ pub(crate) fn describe(error: &InputError) -> String {
             "A fixed value moved: slot {} is fixed and has to keep its value.",
             *index as u128 + 1
         ),
-        InputError::NotAPermutation => "The arrangement has to be a permutation of the puzzle's \
+        InputError::NotAPermutation => {
+            "The arrangement has to be a permutation of the challenge's \
              values: use each value exactly once."
-            .to_owned(),
+                .to_owned()
+        }
         InputError::DeleteIndexOutOfRange {
             operation,
             index,

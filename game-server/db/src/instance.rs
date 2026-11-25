@@ -12,7 +12,7 @@ use daily_challenges::upset_bst_beats_avl::{self, UpsetBstBeatsAvl};
 use daily_challenges::{InputError, ScoreDirection, Template};
 
 impl ChallengeInstance {
-    /// The template id ([`Template::ID`]) this puzzle belongs to.
+    /// The template id ([`Template::ID`]) this challenge belongs to.
     pub fn template_id(&self) -> &'static str {
         match self {
             Self::Quicksort { .. } => Quicksort::ID,
@@ -84,7 +84,7 @@ impl ChallengeInstance {
         }
     }
 
-    /// The template's rules text for this puzzle ([`Template::rules`]).
+    /// The template's rules text for this challenge ([`Template::rules`]).
     pub fn rules(&self) -> String {
         match self.clone() {
             Self::Quicksort { values, fixed } => {
@@ -122,7 +122,7 @@ impl ChallengeInstance {
     }
 
     /// Scores `solution` with the template's [`Template::solved_score`]:
-    /// `Some(score)` when it solves the puzzle, `None` when it does not.
+    /// `Some(score)` when it solves the challenge, `None` when it does not.
     ///
     /// Returns [`DbError::InvalidData`] when the solution is the wrong kind
     /// for this template, or when the template rejects it as invalid input.

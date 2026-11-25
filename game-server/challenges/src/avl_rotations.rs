@@ -1,4 +1,4 @@
-//! "AVL: most rotations" puzzle template.
+//! "AVL: most rotations" challenge template.
 //!
 //! # Algorithm
 //!
@@ -29,10 +29,10 @@ use crate::tree::{self, Event};
 use crate::validate::{count, validate};
 use crate::{InputError, SearchSpace, Shortcut, Template};
 
-/// AVL rotations puzzle template (`ID = "avl-most-rotations"`).
+/// AVL rotations challenge template (`ID = "avl-most-rotations"`).
 pub struct AvlRotations;
 
-/// An AVL rotations puzzle instance.
+/// An AVL rotations challenge instance.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Instance {
     /// Distinct keys that the player's input must rearrange.

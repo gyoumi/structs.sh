@@ -1,7 +1,7 @@
 //! Runs the daily game server.
 //!
 //! Configuration comes from the environment:
-//! - `DATABASE_URL` (required): the Postgres database to read puzzles from.
+//! - `DATABASE_URL` (required): the Postgres database to read challenges from.
 //!   The server never runs migrations.
 //! - `BIND_ADDR`: the address to listen on; defaults to `0.0.0.0:$PORT`.
 //! - `PORT`: the port used when `BIND_ADDR` is unset; defaults to `8080`.

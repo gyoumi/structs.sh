@@ -55,7 +55,7 @@ where
 }
 
 fn unexpected(field: &str) -> String {
-    format!("The puzzle request could not be read: unexpected field `{field}`.")
+    format!("The challenge request could not be read: unexpected field `{field}`.")
 }
 
 fn reject<T>(field: &str, value: &Option<T>) -> Result<(), String> {
@@ -68,10 +68,10 @@ fn reject<T>(field: &str, value: &Option<T>) -> Result<(), String> {
 fn required<T>(field: &str, value: Option<Option<T>>) -> Result<T, String> {
     match value {
         None => Err(format!(
-            "The puzzle request could not be read: missing field `{field}`."
+            "The challenge request could not be read: missing field `{field}`."
         )),
         Some(None) => Err(format!(
-            "The puzzle request could not be read: `{field}` has to be a list, not null."
+            "The challenge request could not be read: `{field}` has to be a list, not null."
         )),
         Some(Some(value)) => Ok(value),
     }
@@ -137,7 +137,7 @@ impl ArrayRequest {
             None => Ok(()),
             Some(Some(fixed)) if fixed.is_empty() => Ok(()),
             Some(_) => Err(format!(
-                "The puzzle is broken: a {template} puzzle has no fixed slots, so `fixed` has to \
+                "The challenge is broken: a {template} challenge has no fixed slots, so `fixed` has to \
                  be left out or empty."
             )),
         }
@@ -146,7 +146,7 @@ impl ArrayRequest {
     fn check_fixed(&self, fixed: &[usize]) -> Result<(), String> {
         match fixed.iter().find(|&&index| index >= self.values.len()) {
             Some(&index) => Err(format!(
-                "The puzzle is broken: fixed slot {} is past its last value.",
+                "The challenge is broken: fixed slot {} is past its last value.",
                 index as u128 + 1
             )),
             None => Ok(()),
