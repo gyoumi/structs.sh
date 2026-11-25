@@ -7,6 +7,7 @@ import {
 } from './daily-layout';
 import { DailyLocators } from './daily-locators';
 import { stepAndSettle, stepBackUntilCounterDrops, stepToEnd, type StepReading } from './daily-stepping';
+import type { TransportControls } from './transport-controls';
 import { readDrawing } from './visualiser-drawing';
 
 export type { StepReading } from './daily-stepping';
@@ -14,13 +15,17 @@ export type { StepReading } from './daily-stepping';
 /**
  * Drives the /daily challenge page using only ARIA roles and accessible names. Locators live in
  * `daily-locators.ts`, layout/a11y checks in `daily-layout.ts`, stepping in `daily-stepping.ts`.
+ * The Playback toolbar and Speed picker are driven through `transport` (shared with the visualisers).
  * See "The daily game" in e2e/README.md for the page contract these locators rely on.
  */
 export class DailyPage {
   private readonly ui: DailyLocators;
+  /** Play, Pause, Replay, Back to the start, Skip to the end and Speed (see `transport-controls.ts`). */
+  readonly transport: TransportControls;
 
   constructor(readonly page: Page) {
     this.ui = new DailyLocators(page);
+    this.transport = this.ui.transport;
   }
 
   // -------------------------------------------------------- setup / opening
@@ -355,10 +360,6 @@ export class DailyPage {
       .toBe(100);
   }
 
-  async playPlayback(): Promise<void> {
-    await this.ui.clickWhenReady(this.ui.playbackButton('Play'), 'Play button in Playback toolbar', 'resuming playback');
-  }
-
   /** Asserts the Play button is disabled and visually dimmed before the first Run. */
   async expectPlayDisabledBeforeRun(context: string): Promise<void> {
     const play = this.ui.playbackButton('Play');
@@ -370,61 +371,6 @@ export class DailyPage {
     });
     expect(opacity, `${context}: disabled Play button should be visually dimmed (opacity < 0.8)`).toBeLessThan(0.8);
     expect(cursor, `${context}: disabled Play button should not show pointer cursor`).not.toBe('pointer');
-  }
-
-  async pausePlayback(): Promise<void> {
-    await this.ui.clickWhenReady(this.ui.playbackButton('Pause'), 'Pause button in Playback toolbar', 'pausing playback');
-  }
-
-  async replayPlayback(): Promise<void> {
-    await this.ui.clickWhenReady(this.ui.playbackButton('Replay'), 'Replay button in Playback toolbar', 'replaying the sort');
-  }
-
-  async skipToEnd(context?: string): Promise<void> {
-    const prefix = context ? `${context}: ` : '';
-    await this.ui.clickWhenReady(
-      this.ui.playbackButton('Skip to the end'),
-      `${prefix}Skip to the end button in Playback toolbar`,
-      'skipping to the end of playback',
-    );
-    await expect
-      .poll(() => this.roundedProgress(context), {
-        message: `${prefix}Skip to the end should move rounded Animation progress to 100`,
-      })
-      .toBe(100);
-  }
-
-  async speeds(): Promise<number[]> {
-    await this.ui.clickWhenReady(this.ui.speedPicker, 'Speed combobox', 'listing playback speeds');
-    const options = await this.page.getByRole('option').allTextContents();
-    await this.page.keyboard.press('Escape');
-    return options.map((option) => parseFloat(option));
-  }
-
-  async setSpeed(speed: number): Promise<void> {
-    await this.ui.clickWhenReady(this.ui.speedPicker, 'Speed combobox', `selecting ${speed}× playback speed`);
-    await this.ui.clickWhenReady(
-      this.page.getByRole('option', { name: `${speed}×`, exact: true }),
-      `Speed option "${speed}×"`,
-      `selecting ${speed}× playback speed`,
-    );
-  }
-
-  async speed(): Promise<number> {
-    await this.ui.expectVisible(this.ui.speedPicker, 'Speed combobox', 'reading the selected playback speed');
-    return parseFloat((await this.ui.speedPicker.textContent()) ?? '');
-  }
-
-  async rewind(): Promise<void> {
-    await this.ui.clickWhenReady(
-      this.ui.playbackButton('Back to the start'),
-      'Back to the start button in Playback toolbar',
-      'rewinding playback to the start',
-    );
-    await expect
-      .poll(() => this.progress(), { message: 'Back to the start should move Animation progress to 0' })
-      .toBe(0);
-    await this.ui.waitTwoFrames();
   }
 
   /** See `stepToEnd` in daily-stepping.ts. */

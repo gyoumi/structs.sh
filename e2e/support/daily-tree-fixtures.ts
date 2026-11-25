@@ -8,7 +8,7 @@ import type { AvlRotationsChallenge, ForcedOrderChallenge, UpsetChallenge } from
  */
 
 /**
- * Puzzle #23, `avl-most-rotations`: insert 8 keys in order, fixed slots [0, 5] (keys 5, 7).
+ * Challenge #23, `avl-most-rotations`: insert 8 keys in order, fixed slots [0, 5] (keys 5, 7).
  * LL and RR count 1 rotation each; LR and RL are double rotations and count 2.
  * Over all 6! = 720 fills: rotations median 3, best 7, so goal 6.
  *
@@ -31,7 +31,7 @@ export const AVL_23 = {
 } as const;
 
 /**
- * Puzzle #24, `bst-forced-order`: 10 keys, no fixed slots, target BST with preorder
+ * Challenge #24, `bst-forced-order`: 10 keys, no fixed slots, target BST with preorder
  * [6, 3, 1, 2, 5, 4, 9, 7, 8, 10]: 6 has children 3 and 9; 3 has 1 and 5; 1 has right child 2;
  * 5 has left child 4; 9 has 7 and 10; 7 has right child 8.
  * An order rebuilds the target exactly when every key comes after all its ancestors: 2268 orders do.
@@ -60,7 +60,7 @@ export const FORCED_24 = {
 } as const;
 
 /**
- * Puzzle #25, `upset-bst-beats-avl`: insert 14 keys in order, fixed slots [0, 1, 5, 9, 11, 12]
+ * Challenge #25, `upset-bst-beats-avl`: insert 14 keys in order, fixed slots [0, 1, 5, 9, 11, 12]
  * (keys 3, 2, 1, 12, 7, 4). Nodes passed: each existing node an insert compares against on its way
  * down to the empty spot, so the first key passes 0. Rotations are not counted.
  * Over all 8! = 40320 fills, 3593 are solved (BST passes fewer): margin median 1, best 5, so goal 4.

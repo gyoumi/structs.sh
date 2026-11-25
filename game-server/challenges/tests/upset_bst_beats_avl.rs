@@ -216,10 +216,10 @@ fn duplicates_pass_the_equal_node_and_stop() {
 
 #[test]
 fn upset_25_arrangements() {
-    let puzzle = upset_25();
+    let challenge = upset_25();
     // start: BST 42 >= AVL 38, unsolved.
     check(
-        &puzzle,
+        &challenge,
         &[3, 2, 13, 6, 14, 1, 8, 10, 5, 12, 11, 7, 4, 9],
         42,
         38,
@@ -227,7 +227,7 @@ fn upset_25_arrangements() {
     );
     // solved: BST 37 < AVL 41, margin 4. Counting the 11 rotations would wrongly give AVL 52.
     check(
-        &puzzle,
+        &challenge,
         &[3, 2, 8, 13, 14, 1, 10, 9, 6, 12, 11, 7, 4, 5],
         37,
         41,
@@ -252,7 +252,7 @@ fn input_errors_come_in_order_and_agree() {
             fm(1),
         ),
         (
-            "value not in the puzzle",
+            "value not in the challenge",
             &[9, 1, 3, 2, 5],
             InputError::NotAPermutation,
         ),

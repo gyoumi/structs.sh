@@ -484,6 +484,7 @@ stages, comments, tests) without changing what a player sees.
 
 ```
 3a. Game server ──► 3b. Streaks ──► 3c. The whole stack ──► 3d. Entry points and landing page ──► 3e. Tidy
+──► 3f. Fixes from the recorded run ──► 3g. Tidy
 ```
 
 ### Decisions
@@ -533,11 +534,14 @@ the clock set by the test.
 
 ### 3d. Entry points and landing page
 
-The landing page's navbar gains a "Daily puzzle" link, the hero gains a
-"Play today's puzzle" button, and a new section between the structure picker
-and "About" explains the game. The visualiser's header gains a "Daily
-puzzle" button beside "Debugger", and `/daily` gains links back to the
-visualiser and the debugger.
+**Done in #87.**
+
+The landing page's navbar gains a "Daily" link, the hero gains a "Play
+today's challenge" button, and a new section between the structure picker
+and "About" ("Push an algorithm to its limit") explains the game. The
+visualiser's header gains a "Daily" button beside "Debugger". On `/daily`,
+"Go back" on the left returns to the page the player came from (or `/`),
+the brand in the centre links home, and the theme toggle sits on the right.
 
 **You'll know it's done when** the landing, visualiser navigation and game
 tests pass, with no sideways scrolling on a 390px phone.
@@ -546,6 +550,64 @@ tests pass, with no sideways scrolling on a 390px phone.
 
 Tidy the code checkpoint 3 added or changed against the four rules (size,
 stages, comments, tests) without changing what a player sees.
+
+Before the tidy, a recorded run pressed every reasonable button combination
+on `/daily` (191 scenarios over all seven templates). Three of its findings
+were fixed in #88: a theme switch now redraws the stage, a reload shows the
+last try's run, and pressing Run uses the try. The rest are step 3f. The same run is repeated after the tidy
+and compared step by step with a run on #88, to show the tidy changed
+nothing a player sees.
+
+**You'll know it's done when** every checkpoint 3 file is within its line
+limit, comments and tests are cleaned up, all unit, Rust, script and e2e
+tests pass, and the recorded run after the tidy matches the one before it.
+
+### 3f. Fixes from the recorded run
+
+The rest of the recorded run's findings, and the ones the reviews of #88
+left open:
+
+- **Two tabs play the same run.** Pressing Run in one tab plays that run in
+  every other tab open on the same day, through `BroadcastChannel` (tabs of
+  one browser talk directly; the server stays read-only). Each tab shows the
+  result when the run ends, and its stage, counters and playback match the
+  tab that ran it, including the speed multiplier, pause, stepping and
+  seeking. A tab opened while a run plays asks the open tabs for the run
+  and joins it at the current step; if no tab answers, it shows the last
+  saved try as a reload does. Today a synced tab updates its score and
+  tries but keeps its own last run on the stage while tries remain; when
+  the other tab's try ends the day, it draws that try's input but not its
+  run. Devices sync the same way once there are accounts,
+  over a WebSocket (`roadmap.md`, stage 3).
+- **A full `localStorage` doesn't blank the app.** The debugger's
+  `fileSystem` store throws on startup when storage is full, which blanks
+  every page. The app starts, and the daily page says it couldn't save, as
+  it already does when only its own save fails.
+- **A theme switch keeps the playback as it was.** During a single "Next
+  step" animation it stops after that step instead of playing on, and manual
+  pan and zoom survive the switch.
+- **Long linked lists stay readable on a phone.** Index drift with about 40
+  inserts draws a readable list on a 390px screen.
+- **The visualiser keeps its run on a theme switch,** as `/daily` does since
+  #88.
+
+**You'll know it's done when** each fix has a test that failed before it,
+and all unit, Rust, script and e2e tests pass.
+
+Not planned: a reload in the few milliseconds between pressing Run and the
+save finishing still gets the try back. Once players have accounts, the
+run starts only after the server records the try, through one idempotent
+request per account, day and try (`roadmap.md`, stage 3), which closes it.
+
+### 3g. Tidy
+
+Tidy what 3f added or changed against the four rules (size, stages,
+comments, tests) without changing what a player sees.
+
+**You'll know it's done when** every file 3f touched is within its line
+limit, all tests pass, and the recorded run, repeated on 3g and compared
+step by step with a run on 3f, differs only where 3f meant to change
+behaviour. That run is the final check for checkpoint 3.
 
 ## The goal, step by step
 

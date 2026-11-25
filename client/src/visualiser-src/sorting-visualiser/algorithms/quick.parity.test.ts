@@ -25,11 +25,11 @@ const DAILY_7: ChallengeInstance = {
 
 type FixedParityCase = {
   label: string;
-  puzzle: ChallengeInstance;
+  challenge: ChallengeInstance;
   arrangement: number[];
 };
 
-const freePuzzle = (values: number[]): ChallengeInstance => ({
+const freeChallenge = (values: number[]): ChallengeInstance => ({
   template: QUICKSORT_TEMPLATE,
   values,
   fixed: [],
@@ -37,18 +37,18 @@ const freePuzzle = (values: number[]): ChallengeInstance => ({
 
 const fixedCase = (label: string, values: number[]): FixedParityCase => ({
   label,
-  puzzle: freePuzzle(values),
+  challenge: freeChallenge(values),
   arrangement: values,
 });
 
 const FIXED_CASES: FixedParityCase[] = [
   // Hand-counted challenge arrangements from game-server/challenges/tests/quicksort.rs
-  { label: 'DAILY_12 start', puzzle: DAILY_12, arrangement: [8, 1, 6, 3, 2, 7, 4, 5] },
-  { label: 'DAILY_12 par', puzzle: DAILY_12, arrangement: [8, 1, 5, 3, 2, 7, 4, 6] },
-  { label: 'DAILY_12 bestFromStart', puzzle: DAILY_12, arrangement: [8, 1, 6, 3, 2, 5, 4, 7] },
-  { label: 'DAILY_12 bestFromPar', puzzle: DAILY_12, arrangement: [8, 1, 5, 3, 2, 6, 4, 7] },
-  { label: 'DAILY_12 lowFromPar', puzzle: DAILY_12, arrangement: [5, 1, 8, 3, 2, 7, 4, 6] },
-  { label: 'DAILY_7 start', puzzle: DAILY_7, arrangement: [4, 2, 6, 8, 1, 5, 3, 7] },
+  { label: 'DAILY_12 start', challenge: DAILY_12, arrangement: [8, 1, 6, 3, 2, 7, 4, 5] },
+  { label: 'DAILY_12 goal', challenge: DAILY_12, arrangement: [8, 1, 5, 3, 2, 7, 4, 6] },
+  { label: 'DAILY_12 highFromStart', challenge: DAILY_12, arrangement: [8, 1, 6, 3, 2, 5, 4, 7] },
+  { label: 'DAILY_12 highFromGoal', challenge: DAILY_12, arrangement: [8, 1, 5, 3, 2, 6, 4, 7] },
+  { label: 'DAILY_12 lowFromGoal', challenge: DAILY_12, arrangement: [5, 1, 8, 3, 2, 7, 4, 6] },
+  { label: 'DAILY_7 start', challenge: DAILY_7, arrangement: [4, 2, 6, 8, 1, 5, 3, 7] },
   fixedCase('4-value right recursion [2, 4, 1, 3]', [2, 4, 1, 3]),
   fixedCase('4-value left recursion [3, 4, 1, 2]', [3, 4, 1, 2]),
 
@@ -180,8 +180,8 @@ describe('quicksort comparison parity (TypeScript visualiser vs wasm scorer)', (
   describe('fixed inputs and edge cases', () => {
     it.each(FIXED_CASES)(
       'matches wasm count for $label',
-      async ({ label, puzzle, arrangement }) => {
-        const wasmCount = await scoreChallenge(puzzle, arrangement);
+      async ({ label, challenge, arrangement }) => {
+        const wasmCount = await scoreChallenge(challenge, arrangement);
         const tsCount = runTypeScriptQuicksort(arrangement);
 
         expect(
@@ -196,7 +196,7 @@ describe('quicksort comparison parity (TypeScript visualiser vs wasm scorer)', (
     it.each(RANDOM_CASES)(
       'matches wasm count for seed $seed ($kind, length $values.length)',
       async ({ seed, kind, values }) => {
-        const wasmCount = await scoreChallenge(freePuzzle(values), values);
+        const wasmCount = await scoreChallenge(freeChallenge(values), values);
         const tsCount = runTypeScriptQuicksort(values);
 
         expect(

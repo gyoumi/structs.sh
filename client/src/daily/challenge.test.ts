@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CHALLENGE_URL, parseChallenge, shareText, type Challenge } from './challenge';
+import { parseChallenge, shareText, type Challenge } from './challenge';
 
 const DAILY_12: Challenge = {
   number: 12,
@@ -25,8 +25,13 @@ const parseOutcome = (input: unknown) => {
 describe('parseChallenge — valid challenges', () => {
   it.each([
     {
-      label: 'README example (fixed [1, 4, 6])',
+      label: 'README example (fixed [1, 4, 6], no best field)',
       input: DAILY_12,
+    },
+    {
+      label: 'README example with an extra best field, which is dropped',
+      input: { ...DAILY_12, best: 36 },
+      expected: DAILY_12,
     },
     {
       label: 'README example with empty fixed []',
@@ -51,12 +56,17 @@ describe('parseChallenge — valid challenges', () => {
         goal: 2,
       },
     },
-  ])('returns $label unchanged', ({ label, input }) => {
-    const result = parseChallenge(input);
+  ])('accepts $label', ({ label, input, expected = input }) => {
+    const call = `parseChallenge(${JSON.stringify(input)}) [${label}]`;
+    const outcome = parseOutcome(input);
     expect(
-      result,
-      `parseChallenge(${JSON.stringify(input)}) [${label}]: expected challenge to be returned unchanged`
-    ).toEqual(input);
+      outcome.threw,
+      `${call}: expected a challenge back, but it threw ${outcome.threw ? String(outcome.error) : ''}`
+    ).toBe(false);
+    expect(
+      outcome.threw ? undefined : outcome.result,
+      `${call}: expected exactly ${JSON.stringify(expected)} (the input, minus any best field)`
+    ).toEqual(expected);
   });
 });
 
@@ -174,48 +184,6 @@ describe('parseChallenge — broken shapes', () => {
   });
 });
 
-describe('parseChallenge — no best score', () => {
-  it('parses a challenge that has no best field', () => {
-    const input = { ...DAILY_12 };
-    const call = `parseChallenge(${JSON.stringify(input)}) [no best field]`;
-    let result: Challenge | undefined;
-    let error: unknown;
-    try {
-      result = parseChallenge(input);
-    } catch (caught: unknown) {
-      error = caught;
-    }
-    expect(
-      error,
-      `${call}: expected no error because best is not part of the challenge file, but it threw ${String(error)}`
-    ).toBeUndefined();
-    expect(result, `${call}: expected the challenge back unchanged`).toEqual(input);
-  });
-
-  it('accepts a file with an extra best field but does not pass best on', () => {
-    const input = { ...DAILY_12, best: 36 };
-    const call = `parseChallenge(${JSON.stringify(input)}) [extra best field]`;
-    let result: Challenge | undefined;
-    let error: unknown;
-    try {
-      result = parseChallenge(input);
-    } catch (caught: unknown) {
-      error = caught;
-    }
-    expect(
-      error,
-      `${call}: expected an extra best field to be ignored, but it threw ${String(error)}`
-    ).toBeUndefined();
-    expect(
-      result && 'best' in result,
-      `${call}: expected the returned challenge to have no best key, got ${JSON.stringify(result)}`
-    ).toBe(false);
-    expect(result, `${call}: expected { number, template, values, fixed, goal } only`).toEqual(
-      DAILY_12
-    );
-  });
-});
-
 describe('shareText', () => {
   const header = 'structs.sh daily #12 · Quicksort · Goal 34';
 
@@ -301,13 +269,4 @@ describe('shareText — streak line', () => {
       ).toBe(want);
     }
   );
-});
-
-describe('CHALLENGE_URL', () => {
-  it("fetches today's challenge from the game server", () => {
-    expect(
-      CHALLENGE_URL,
-      `CHALLENGE_URL: expected the server endpoint '/api/daily' (the server decides the day), got ${JSON.stringify(CHALLENGE_URL)}`
-    ).toBe('/api/daily');
-  });
 });

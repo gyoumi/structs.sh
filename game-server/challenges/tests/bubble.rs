@@ -224,13 +224,13 @@ fn duplicates_are_only_swapped_when_strictly_smaller() {
 
 #[test]
 fn bubble_21_arrangements() {
-    let puzzle = bubble_21();
-    check(&puzzle, &[6, 2, 8, 1, 5, 3, 7, 4], 5, 14, false);
-    check(&puzzle, &[4, 2, 8, 1, 5, 3, 7, 6], 4, 11, true);
-    check(&puzzle, &[8, 2, 6, 4, 5, 3, 7, 1], 7, 18, false);
-    check(&puzzle, &[8, 2, 4, 1, 5, 3, 7, 6], 4, 12, true);
-    check(&puzzle, &[1, 2, 4, 3, 5, 6, 7, 8], 2, 1, false);
-    check(&puzzle, &[8, 2, 1, 3, 5, 4, 7, 6], 3, 10, false);
+    let challenge = bubble_21();
+    check(&challenge, &[6, 2, 8, 1, 5, 3, 7, 4], 5, 14, false);
+    check(&challenge, &[4, 2, 8, 1, 5, 3, 7, 6], 4, 11, true);
+    check(&challenge, &[8, 2, 6, 4, 5, 3, 7, 1], 7, 18, false);
+    check(&challenge, &[8, 2, 4, 1, 5, 3, 7, 6], 4, 12, true);
+    check(&challenge, &[1, 2, 4, 3, 5, 6, 7, 8], 2, 1, false);
+    check(&challenge, &[8, 2, 1, 3, 5, 4, 7, 6], 3, 10, false);
 }
 
 #[test]
@@ -282,8 +282,8 @@ fn input_errors_come_in_order_and_agree() {
 
 #[test]
 fn rules_name_the_target_and_swaps() {
-    let puzzle = bubble_21();
-    let rules = Bubble.rules(&puzzle).to_lowercase();
+    let challenge = bubble_21();
+    let rules = Bubble.rules(&challenge).to_lowercase();
     for needle in ["4 passes", "swaps"] {
         assert!(
             rules.contains(needle),

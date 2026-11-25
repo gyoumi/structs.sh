@@ -151,7 +151,7 @@ names:
 - **Action buttons (exact names):**
   - `button` `Run`: starts a try on the current arrangement and starts playback
     by itself. Disabled while a run animates, and disabled or hidden once the
-    puzzle ends.
+    challenge ends.
     Clicking `Run` also scrolls the page so both the visualiser stage
     (`#visualiser-container`) and the `Playback` toolbar are fully in view,
     on desktop and on a 390x844 phone, so the player can watch the sort.
@@ -159,7 +159,7 @@ names:
     next key press can skip the animation.
   - `button` `Skip`: jumps the animation straight to the final comparison count
     and completes the try, whether playback is playing or paused.
-  - `button` `Share`: visible and enabled once the puzzle ends; copies the share
+  - `button` `Share`: visible and enabled once the challenge ends; copies the share
     text to the clipboard via `navigator.clipboard.writeText`.
 - **Playback controls:** the visualiser's controls (`toolbar` `Playback` with
   buttons `Play`, `Pause`, `Replay`, `Previous step`, `Next step`,
@@ -170,13 +170,13 @@ names:
   accessible name with `aria-label`, `aria-labelledby`, or a `<label for>` on
   `<output>`, because `role="status"` does not take its accessible name from its
   inner text:
-  - `status` `Goal`: shows the puzzle's goal (the `goal` field in the JSON).
+  - `status` `Goal`: shows the challenge's goal (the `goal` field in the JSON).
   - `status` `Comparisons`: starts at `0`, rises with each comparison during the
     animation (changing by at most `1` per timeline step), and follows the
     timeline so stepping back lowers it (add `aria-live="off"` if you want to
     avoid screen-reader chatter while animating).
   - `status` `Score`: shows the last run's score while tries remain, and the
-    highest score across all tries once the puzzle ends.
+    highest score across all tries once the challenge ends.
   - `status` `Tries left`: starts at `3` and decrements after each try (`2`,
     `1`, `0`).
   - `status` `Goal reached`: visible whenever the score shown in `Score`
@@ -184,9 +184,9 @@ names:
     the end when the highest try did. The text inside is up to the page.
   - There is no `Best` or `Best reached` status, at any point.
 
-Players always get three tries, and the puzzle never ends early. Reaching or
+Players always get three tries, and the challenge never ends early. Reaching or
 beating the goal announces `Goal reached` and still offers the next try while
-tries remain. After the third try, the puzzle ends: `Tries left` is `0`, `Run`
+tries remain. After the third try, the challenge ends: `Tries left` is `0`, `Run`
 is disabled or hidden, `Score` shows the highest of the three scores, and
 `Share` appears.
 
@@ -206,7 +206,7 @@ structs.sh/daily
 
 The checkpoint 2 tests (`tests/daily-game-sorting.spec.ts`, `daily-game-trees.spec.ts`,
 `daily-game-forced-order.spec.ts` and `daily-game-linked-list.spec.ts`) serve one
-puzzle per template. Everything above still applies to every template unless this
+challenge per template. Everything above still applies to every template unless this
 section says otherwise: `Challenge rules`, `Challenge array` and its slots (swapping by
 tap, keyboard and phone), `Run`, `Skip`, `Share`, the `Playback` toolbar, `Goal`,
 `Score`, `Tries left` and `Goal reached`, three tries, and no best score anywhere.
@@ -285,13 +285,13 @@ its counters at their final counts, and:
   such as `–` or `✗`) and `Goal reached` is hidden, whatever the secondary count.
 
 A solved try always outranks an unsolved one. What `Try result`, `Score` and
-`Goal reached` describe depends on whether the puzzle has ended:
+`Goal reached` describe depends on whether the challenge has ended:
 
 - **While tries remain** (after try 1 or 2), all three describe the try that just
   finished. A solved try hides `Try result`, shows its score in `Score`, and shows
   `Goal reached` when it meets the goal. An unsolved try shows `Try result`,
   leaves `Score` with no number and hides `Goal reached`.
-- **Once the third try finishes** (the puzzle has ended), `Try result` still
+- **Once the third try finishes** (the challenge has ended), `Try result` still
   describes that third try: visible when it was unsolved, hidden when it was
   solved. `Score` and `Goal reached` instead describe the best solved try across
   all three tries (the highest score, or for index drift the lowest cost), even
@@ -385,8 +385,9 @@ The visualiser tests pass on the current frontend, apart from 2 bugs on the
 known-failures list: rewinding leaves the timeline at the end, and Create Link
 is never shown.
 
-A redesign replaces `support/landing-page.ts` and `support/visualiser-page.ts`
-and leaves the tests alone. If every test still passes, the redesign does
+A redesign replaces `support/landing-page.ts`, `support/visualiser-page.ts` and
+`support/transport-controls.ts` (the playback controls, shared with /daily), and
+leaves the tests alone. If every test still passes, the redesign does
 everything the current frontend does. A feature it drops on purpose goes on the
 known-failures list with the reason, so the gap is written down and reviewed.
 

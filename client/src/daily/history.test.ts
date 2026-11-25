@@ -2,12 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   HISTORY_STORAGE_KEY,
   HISTORY_VERSION,
-  LEGACY_HISTORY_STORAGE_KEY,
   currentStreak,
   isIsoDate,
   loadHistory,
   longestStreak,
-  persistChallengeTries,
   recordChallengeTries,
   saveHistory,
   type DailyHistory,
@@ -93,16 +91,6 @@ const finished = (dates: string[], start: DailyHistory = emptyHistory()) =>
 
 const started = (date: string, start: DailyHistory) =>
   recordChallengeTries(start, { ...QUICK_12, date }, [tryOf(30)]);
-
-describe('history storage constants', () => {
-  it('uses version 1 under the daily.history key', () => {
-    expect(HISTORY_VERSION, `HISTORY_VERSION: expected 1, got ${HISTORY_VERSION}`).toBe(1);
-    expect(
-      HISTORY_STORAGE_KEY,
-      `HISTORY_STORAGE_KEY: expected 'daily.history', got ${JSON.stringify(HISTORY_STORAGE_KEY)}`
-    ).toBe('daily.history');
-  });
-});
 
 describe('isIsoDate', () => {
   it.each(['2026-12-21', '2026-01-01', '2026-12-31', '2028-02-29', '2000-02-29'])(
@@ -411,64 +399,5 @@ describe('currentStreak and longestStreak', () => {
       got,
       `streaks for days ${days(restarted)} on '2026-12-24': finishing after a missed day should restart at 1 while the longest stays 3; got ${JSON.stringify(got)}`
     ).toEqual({ current: 1, longest: 3 });
-  });
-
-  it('migrates legacy structs.daily.history records with par and prefers daily.history on conflict', () => {
-    const legacyDay = (date: string, number: number, tries: SavedTry[], completed: boolean) => ({
-      date,
-      number,
-      template: 'quicksort-most-comparisons',
-      par: 34,
-      tries,
-      completed,
-      bestScore: 36,
-      goalReached: true,
-    });
-    const { storage, items } = memoryStorage();
-    storage.setItem(
-      LEGACY_HISTORY_STORAGE_KEY,
-      JSON.stringify({
-        version: 1,
-        results: {
-          '2026-12-20': legacyDay('2026-12-20', 11, [tryOf(30), tryOf(34), tryOf(36)], true),
-          '2026-12-21': legacyDay('2026-12-21', 12, [tryOf(25), tryOf(31)], false),
-        },
-      })
-    );
-    const fromLegacyOnly = loadHistory(storage);
-    expect(fromLegacyOnly.results['2026-12-20']?.goal, 'legacy par should map to goal').toBe(34);
-    expect(currentStreak(fromLegacyOnly, '2026-12-21'), 'legacy day keeps streak alive').toBe(1);
-
-    storage.setItem(
-      HISTORY_STORAGE_KEY,
-      JSON.stringify({
-        version: 1,
-        results: {
-          '2026-12-21': {
-            date: '2026-12-21',
-            number: 12,
-            template: 'quicksort-most-comparisons',
-            goal: 34,
-            tries: [tryOf(34)],
-            completed: false,
-            bestScore: 34,
-            goalReached: true,
-          },
-        },
-      })
-    );
-    const merged = loadHistory(storage);
-    expect(merged.results['2026-12-21']?.tries, 'new key must win on same-day conflict').toEqual([
-      tryOf(34),
-    ]);
-    expect(merged.results['2026-12-20']?.goal, 'legacy-only older day should still load').toBe(34);
-
-    persistChallengeTries(QUICK_12, [tryOf(34), tryOf(36)], storage);
-    const upgraded = JSON.parse(items.get(HISTORY_STORAGE_KEY) ?? '{}');
-    expect(upgraded.results?.['2026-12-20']?.goal, 'upgraded save keeps legacy day').toBe(34);
-    expect(upgraded.results?.['2026-12-21']?.tries, 'upgraded save keeps new tries').toEqual([
-      tryOf(34),
-      tryOf(36),
-    ]);
   });
 });

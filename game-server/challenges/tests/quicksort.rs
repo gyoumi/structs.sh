@@ -196,7 +196,7 @@ fn assert_partition_and_pivot_invariants(input: &[i32], steps: &[Step]) {
 // - partition(0,3) v=2: i=1,2 (2), j=3,2 (2), post a[2]<2 (1) => 5; swap(0,1) -> [1,2,4,3,5,7,6,8], p=1.
 // - partition(2,3) [4,3] => 3; partition(5,6) [7,6] => 3. Total = 9 + 10 + 5 + 3 + 3 = 30.
 //
-// Hand recount of DAILY_12 lowFromPar [5, 1, 8, 3, 2, 7, 4, 6]:
+// Hand recount of DAILY_12 lowFromGoal [5, 1, 8, 3, 2, 7, 4, 6]:
 // - partition(0,7) v=5: iter1 i=1,2 (2), j=7,6 (2), swap(2,6) -> [5,1,4,3,2,7,8,6];
 //   iter2 i=2..=5 (4), j=6,5 (2), post a[5]<5 (1) => 11; swap(0,4) -> [2,1,4,3,5,7,8,6], p=4.
 // - left [2,1,4,3]: partition(0,3) = 5, partition(2,3) = 3 => 8.
@@ -216,15 +216,15 @@ fn daily_12_and_daily_7_hand_counted_scores() {
     let d7 = inst(&[4, 2, 6, 8, 1, 5, 3, 7], &[2, 5]);
     let cases: [(&Instance, &str, &[i32], u32); 6] = [
         (&d12, "DAILY_12 start", &[8, 1, 6, 3, 2, 7, 4, 5], 30),
-        (&d12, "DAILY_12 par", &[8, 1, 5, 3, 2, 7, 4, 6], 34),
+        (&d12, "DAILY_12 goal", &[8, 1, 5, 3, 2, 7, 4, 6], 34),
         (
             &d12,
             "DAILY_12 bestFromStart",
             &[8, 1, 6, 3, 2, 5, 4, 7],
             36,
         ),
-        (&d12, "DAILY_12 bestFromPar", &[8, 1, 5, 3, 2, 6, 4, 7], 36),
-        (&d12, "DAILY_12 lowFromPar", &[5, 1, 8, 3, 2, 7, 4, 6], 25),
+        (&d12, "DAILY_12 bestFromGoal", &[8, 1, 5, 3, 2, 6, 4, 7], 36),
+        (&d12, "DAILY_12 lowFromGoal", &[5, 1, 8, 3, 2, 7, 4, 6], 25),
         (&d7, "DAILY_7 start", &[4, 2, 6, 8, 1, 5, 3, 7], 32),
     ];
 

@@ -1,22 +1,19 @@
 //! Router behaviour that needs no running database: the read-only methods,
 //! the health check, and the error when Postgres can't be reached. The pool
-//! points at a closed local port, so it never connects.
+//! points at a closed local port, so it never connects. The binary's own
+//! startup checks are in `binary.rs`.
 
 mod common;
 
-use std::process::Command;
 use std::sync::Arc;
 use std::time::Duration;
 
 use axum::Router;
 use axum::http::{Method, StatusCode};
-use common::{get, send};
+use common::{UNREACHABLE_DSN, get, send};
 use daily_api::ApiError;
 use daily_server::{FixedClock, build_router};
 use sqlx::postgres::PgPoolOptions;
-
-/// A DSN with a recognisable password and host that must never be served.
-const UNREACHABLE_DSN: &str = "postgres://leaky_user:s3cret-pa55word@127.0.0.1:1/structs_secret_db";
 
 /// A router whose pool can never connect.
 fn offline_router() -> Router {
@@ -110,61 +107,4 @@ async fn database_failure_is_a_500_that_leaks_no_secrets() {
             "{call}: the 500 body must not leak {secret:?} from the DSN, got {text:?}"
         );
     }
-}
-
-#[test]
-fn binary_rejects_bad_startup_config_and_redacts_dsn_secrets() {
-    let bin = env!("CARGO_BIN_EXE_daily-server");
-
-    let missing_db = Command::new(bin)
-        .env_remove("DATABASE_URL")
-        .env_remove("DAILY_NOW")
-        .output()
-        .expect("run daily-server without DATABASE_URL");
-    assert!(
-        !missing_db.status.success(),
-        "missing DATABASE_URL should exit non-zero"
-    );
-
-    let bad_now = Command::new(bin)
-        .env("DATABASE_URL", UNREACHABLE_DSN)
-        .env("DAILY_NOW", "not-a-timestamp")
-        .output()
-        .expect("run daily-server with bad DAILY_NOW");
-    assert!(
-        !bad_now.status.success(),
-        "invalid DAILY_NOW should exit non-zero"
-    );
-    let bad_now_out = format!(
-        "{}{}",
-        String::from_utf8_lossy(&bad_now.stdout),
-        String::from_utf8_lossy(&bad_now.stderr)
-    );
-    assert!(
-        bad_now_out.contains("DAILY_NOW") && !bad_now_out.contains("s3cret-pa55word"),
-        "invalid DAILY_NOW output should name DAILY_NOW and not leak DSN: {bad_now_out:?}"
-    );
-
-    let secret = "supers3cr3t-query-pw";
-    let bad_ssl = format!(
-        "postgres://structs:pw@127.0.0.1:5432/daily_challenges?sslmode=postgres%3A%2F%2Fu%3A{secret}%40db%2Fapp"
-    );
-    let bad_conn = Command::new(bin)
-        .env("DATABASE_URL", &bad_ssl)
-        .env("DAILY_NOW", "2026-07-01T14:00:00Z")
-        .output()
-        .expect("run daily-server with invalid sslmode");
-    assert!(
-        !bad_conn.status.success(),
-        "invalid sslmode should exit non-zero"
-    );
-    let out = format!(
-        "{}{}",
-        String::from_utf8_lossy(&bad_conn.stdout),
-        String::from_utf8_lossy(&bad_conn.stderr)
-    );
-    assert!(
-        !out.contains(secret),
-        "startup error leaked DSN query secret {secret:?}: {out:?}"
-    );
 }

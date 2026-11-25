@@ -1,64 +1,37 @@
 //! The test-only clock control router (`build_test_clock_router`), which lets
 //! the live-stack e2e suite move a [`FixedClock`] across Sydney midnight and
 //! daylight saving changes, and the guarantees that keep it out of production:
-//! `build_router` never mounts `/clock`, and the binary refuses
-//! `DAILY_TEST_CLOCK_BIND` unless `DAILY_NOW` stops the clock.
+//! `build_router` never mounts `/clock` (and `binary.rs` checks the binary
+//! refuses `DAILY_TEST_CLOCK_BIND` unless `DAILY_NOW` stops the clock).
 //!
 //! The Postgres test runs only when `DATABASE_URL` is set (see
 //! `daily_api.rs`); the rest need no database.
 
 mod common;
 
-use std::process::Command;
 use std::sync::Arc;
 use std::time::Duration;
 
 use axum::Router;
-use axum::body::Body;
-use axum::http::{Method, Request, StatusCode};
+use axum::http::{Method, StatusCode};
 use chrono::{DateTime, Utc};
 use common::fixtures::{TEMPLATE_IDS, date};
-use common::{Reply, get, schedule, send, with_test_db};
+use common::{Reply, UNREACHABLE_DSN, get, schedule, send, send_body, utc, with_test_db};
 use daily_api::ApiError;
 use daily_server::{Clock, FixedClock, build_router, build_test_clock_router};
-use http_body_util::BodyExt;
 use sqlx::postgres::PgPoolOptions;
-use tower::ServiceExt;
 
-/// A DSN with a recognisable password that must never be printed.
-const UNREACHABLE_DSN: &str = "postgres://leaky_user:s3cret-pa55word@127.0.0.1:1/structs_secret_db";
-
-fn utc(text: &str) -> DateTime<Utc> {
-    text.parse()
-        .unwrap_or_else(|e| panic!("test instant {text:?} is not RFC 3339: {e}"))
-}
-
-/// Sends `method uri` with raw `body` bytes through `router` without a network.
+/// Sends `method uri` with raw `body` bytes, labelled as JSON, through
+/// `router` without a network.
 async fn send_bytes(router: &Router, method: Method, uri: &str, body: Vec<u8>) -> Reply {
-    let request = Request::builder()
-        .method(method.clone())
-        .uri(uri)
-        .header("content-type", "application/json")
-        .body(Body::from(body))
-        .expect("build test request");
-    let response = router
-        .clone()
-        .oneshot(request)
-        .await
-        .unwrap_or_else(|e| panic!("{method} {uri}: router returned an error: {e}"));
-    let status = response.status();
-    let headers = response.headers().clone();
-    let body = response
-        .into_body()
-        .collect()
-        .await
-        .unwrap_or_else(|e| panic!("{method} {uri}: reading the body failed: {e}"))
-        .to_bytes();
-    Reply {
-        status,
-        headers,
+    send_body(
+        router,
+        method,
+        uri,
+        &[("content-type", "application/json")],
         body,
-    }
+    )
+    .await
 }
 
 /// Sends `method uri` with a JSON `body` through `router` without a network.
@@ -279,9 +252,9 @@ async fn the_public_router_has_no_clock_control() {
 }
 
 #[tokio::test]
-async fn put_clock_changes_todays_puzzle_across_daylight_saving() {
+async fn put_clock_changes_todays_challenge_across_daylight_saving() {
     with_test_db(
-        "put_clock_changes_todays_puzzle_across_daylight_saving",
+        "put_clock_changes_todays_challenge_across_daylight_saving",
         |pool| async move {
             // Template indexes follow TEMPLATE_IDS.
             let plan = [
@@ -358,7 +331,7 @@ async fn put_clock_changes_todays_puzzle_across_daylight_saving() {
                 assert_eq!(
                     reply.status,
                     StatusCode::OK,
-                    "{call}: expected 200 with the {day} {want_template} puzzle, got {} body {:?}",
+                    "{call}: expected 200 with the {day} {want_template} challenge, got {} body {:?}",
                     reply.status,
                     reply.text()
                 );
@@ -372,99 +345,4 @@ async fn put_clock_changes_todays_puzzle_across_daylight_saving() {
         },
     )
     .await;
-}
-
-#[test]
-fn binary_refuses_clock_control_without_structs_now() {
-    let bin = env!("CARGO_BIN_EXE_daily-server");
-    for (now, why) in [(None, "DAILY_NOW unset"), (Some("   "), "DAILY_NOW blank")] {
-        let mut command = Command::new(bin);
-        command
-            .env("DATABASE_URL", UNREACHABLE_DSN)
-            .env("DAILY_TEST_CLOCK_BIND", "127.0.0.1:0")
-            .env("BIND_ADDR", "127.0.0.1:0")
-            .env_remove("DAILY_NOW");
-        if let Some(now) = now {
-            command.env("DAILY_NOW", now);
-        }
-        let output = command
-            .output()
-            .expect("run daily-server with DAILY_TEST_CLOCK_BIND");
-        let call = format!(
-            "daily-server with DAILY_TEST_CLOCK_BIND=127.0.0.1:0 and {why} \
-             (clock control must never drive the real SystemClock)"
-        );
-        let out = format!(
-            "{}{}",
-            String::from_utf8_lossy(&output.stdout),
-            String::from_utf8_lossy(&output.stderr)
-        );
-        assert!(
-            !output.status.success(),
-            "{call}: expected a non-zero exit, got {:?} with output {out:?}",
-            output.status
-        );
-        assert!(
-            out.contains("DAILY_TEST_CLOCK_BIND") && out.contains("DAILY_NOW"),
-            "{call}: the error should name both DAILY_TEST_CLOCK_BIND and DAILY_NOW \
-             (DAILY_TEST_CLOCK_BIND requires DAILY_NOW), got {out:?}"
-        );
-        for secret in ["s3cret-pa55word", "leaky_user"] {
-            assert!(
-                !out.contains(secret),
-                "{call}: the startup error must not leak {secret:?} from DATABASE_URL, got {out:?}"
-            );
-        }
-    }
-}
-
-#[test]
-fn binary_healthcheck_follows_bind_addr() {
-    use std::io::{Read, Write};
-    use std::net::{TcpListener, TcpStream};
-    use std::thread;
-
-    // A mock `/healthz` on loopback that answers one connection: 200 for
-    // `GET /healthz`, 404 for anything else.
-    let listener = TcpListener::bind("127.0.0.1:0").expect("bind mock healthz listener");
-    let addr = listener.local_addr().expect("listener local addr");
-    let port = addr.port();
-    let handle = thread::spawn(move || {
-        if let Ok((mut stream, _)) = listener.accept() {
-            let mut req = Vec::new();
-            let mut buf = [0u8; 256];
-            while !req.windows(4).any(|w| w == b"\r\n\r\n") {
-                match stream.read(&mut buf) {
-                    Ok(0) | Err(_) => break,
-                    Ok(n) => req.extend_from_slice(&buf[..n]),
-                }
-            }
-            let reply: &[u8] = if req.starts_with(b"GET /healthz ") {
-                b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok"
-            } else {
-                b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
-            };
-            let _ = stream.write_all(reply);
-        }
-    });
-
-    let bin = env!("CARGO_BIN_EXE_daily-server");
-    let status = Command::new(bin)
-        .arg("--healthcheck")
-        .env("BIND_ADDR", format!("0.0.0.0:{port}"))
-        .env("PORT", "1")
-        .status()
-        .expect("run daily-server --healthcheck");
-
-    // If the probe went elsewhere, the mock is still waiting in `accept`:
-    // wake it with a connection we close at once, so the join below can't
-    // block. If the probe already came, the listener is closed (or about to
-    // be) and this connect fails or goes unanswered, which is fine.
-    drop(TcpStream::connect(addr));
-    handle.join().expect("join mock healthz thread");
-
-    assert!(
-        status.success(),
-        "--healthcheck with BIND_ADDR=0.0.0.0:{port} and PORT=1 should probe GET /healthz on 127.0.0.1:{port} (the wildcard BIND_ADDR on loopback, not PORT) and exit 0, got {status:?}"
-    );
 }

@@ -1,142 +1,45 @@
-//! Scheduling today's puzzle with `daily_db::seed::seed_today_if_missing`:
-//! the puzzle day is the calendar date of `now` in Australia/Sydney, and
+//! Scheduling today's challenge with `daily_db::seed::seed_today_if_missing`:
+//! the challenge day is the calendar date of `now` in Australia/Sydney, and
 //! 2026-10-06 is left unscheduled on purpose.
 //!
 //! The tests run only when `DATABASE_URL` is set, each in its own disposable
-//! schema (as in `seed_fixtures.rs` and `postgres_roundtrip.rs`).
+//! schema (`common::with_test_db`).
 
-use std::sync::atomic::{AtomicU64, Ordering};
+mod common;
 
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::NaiveDate;
+use common::{GAP, day, expected_record, utc, with_test_db};
 use daily_db::seed::{fixture_challenges, seed_today_if_missing};
 use daily_db::{
-    DailyChallengeRecord, InsertOutcome, NewDailyChallenge, get_challenge_by_date,
-    get_public_challenge_by_date, insert_challenge, list_challenges_in_range, migrate,
+    InsertOutcome, NewDailyChallenge, get_challenge_by_date, get_public_challenge_by_date,
+    insert_challenge, list_challenges_in_range,
 };
-use sqlx::postgres::PgPoolOptions;
-use sqlx::{Executor, PgPool};
-
-/// The day left unscheduled so the e2e suite sees a real 404.
-const GAP: &str = "2026-10-06";
-
-fn day(text: &str) -> NaiveDate {
-    text.parse()
-        .unwrap_or_else(|e| panic!("test date {text:?} is not YYYY-MM-DD: {e}"))
-}
-
-static NEXT_SCHEMA: AtomicU64 = AtomicU64::new(1);
-
-/// Runs `body` against a migrated disposable schema, dropping it even when
-/// `body` panics; does nothing when `DATABASE_URL` is unset.
-async fn with_test_db<F, Fut>(test: &str, body: F)
-where
-    F: FnOnce(PgPool) -> Fut + Send + 'static,
-    Fut: std::future::Future<Output = ()> + Send + 'static,
-{
-    let Ok(url) = std::env::var("DATABASE_URL") else {
-        eprintln!("{test}: DATABASE_URL is not set, skipping the Postgres test");
-        return;
-    };
-    let seq = NEXT_SCHEMA.fetch_add(1, Ordering::Relaxed);
-    let schema = format!(
-        "daily_challenges_seed_today_test_{}_{seq}",
-        std::process::id()
-    );
-    let admin = daily_db::connect(&url)
-        .await
-        .expect("connect to DATABASE_URL");
-    let drop_sql = format!("DROP SCHEMA IF EXISTS \"{schema}\" CASCADE");
-    sqlx::query(&format!("CREATE SCHEMA \"{schema}\""))
-        .execute(&admin)
-        .await
-        .expect("create disposable test schema");
-    let search_path = format!("SET search_path TO \"{schema}\"");
-    let pool = PgPoolOptions::new()
-        .max_connections(5)
-        .after_connect(move |conn, _meta| {
-            let sql = search_path.clone();
-            Box::pin(async move {
-                conn.execute(sql.as_str()).await?;
-                Ok(())
-            })
-        })
-        .connect(&url)
-        .await;
-    let result = match pool {
-        Ok(pool) => {
-            let inner = pool.clone();
-            let result = tokio::spawn(async move {
-                migrate(&inner)
-                    .await
-                    .expect("migrate the disposable test schema");
-                body(inner).await;
-            })
-            .await;
-            pool.close().await;
-            result
-        }
-        Err(err) => {
-            sqlx::query(&drop_sql).execute(&admin).await.ok();
-            panic!("connect pool to disposable test schema: {err}");
-        }
-    };
-    sqlx::query(&drop_sql)
-        .execute(&admin)
-        .await
-        .expect("drop disposable test schema");
-    admin.close().await;
-    if let Err(err) = result {
-        std::panic::resume_unwind(err.into_panic());
-    }
-}
+use sqlx::PgPool;
 
 // ---------------------------------------------------------------------------
-// seed_today_if_missing(pool, now): the puzzle day is `now`'s calendar date in
+// seed_today_if_missing(pool, now): the challenge day is `now`'s calendar date in
 // Australia/Sydney (AEDT = UTC+11 from 2026-10-04, AEST = UTC+10 before).
 // ---------------------------------------------------------------------------
 
-/// The instant `text`, an RFC 3339 UTC timestamp such as `2026-12-01T13:30:00Z`.
-fn instant(text: &str) -> DateTime<Utc> {
-    text.parse()
-        .unwrap_or_else(|e| panic!("test instant {text:?} is not RFC 3339: {e}"))
-}
-
-/// The fixtures' quicksort puzzle (the one on 2026-10-03), moved to `date`.
+/// The fixtures' quicksort challenge (the one on 2026-10-03), moved to `date`.
 fn quicksort_on(date: NaiveDate) -> NewDailyChallenge {
-    let mut puzzle = fixture_challenges()
+    let mut challenge = fixture_challenges()
         .into_iter()
         .find(|p| p.challenge_date == day("2026-10-03"))
         .unwrap_or_else(|| panic!("fixture_challenges(): nothing scheduled on 2026-10-03"));
-    puzzle.challenge_date = date;
-    puzzle
+    challenge.challenge_date = date;
+    challenge
 }
 
-/// A puzzle for `date` that is not the quicksort fixture: the bubble fixture
+/// A challenge for `date` that is not the quicksort fixture: the bubble fixture
 /// from 2026-10-04, moved.
 fn bubble_on(date: NaiveDate) -> NewDailyChallenge {
-    let mut puzzle = fixture_challenges()
+    let mut challenge = fixture_challenges()
         .into_iter()
         .find(|p| p.challenge_date == day("2026-10-04"))
         .unwrap_or_else(|| panic!("fixture_challenges(): nothing scheduled on 2026-10-04"));
-    puzzle.challenge_date = date;
-    puzzle
-}
-
-/// The record the store should hold for `puzzle` once numbered `number`.
-fn record_of(puzzle: &NewDailyChallenge, number: u32) -> DailyChallengeRecord {
-    DailyChallengeRecord {
-        challenge_date: puzzle.challenge_date,
-        number,
-        template_version: puzzle.template_version,
-        instance: puzzle.instance.clone(),
-        rules: puzzle.rules.clone(),
-        seed: puzzle.seed,
-        goal: puzzle.goal,
-        best_score: puzzle.best_score,
-        best_solution: puzzle.best_solution.clone(),
-        bot_goal_rate: puzzle.bot_goal_rate,
-        bot_best_rate: puzzle.bot_best_rate,
-    }
+    challenge.challenge_date = date;
+    challenge
 }
 
 /// A one-line description of an outcome, for assertion messages.
@@ -160,12 +63,12 @@ fn outcome_text(outcome: &Option<InsertOutcome>) -> String {
 
 /// Calls `seed_today_if_missing(pool, now)`, panicking with the instant on error.
 async fn seed_today_at(pool: &PgPool, now: &str) -> Option<InsertOutcome> {
-    seed_today_if_missing(pool, instant(now))
+    seed_today_if_missing(pool, utc(now))
         .await
         .unwrap_or_else(|e| panic!("seed_today_if_missing(now = {now}) failed: {e:?}"))
 }
 
-/// Every stored puzzle in 2026, as `(date, template)`.
+/// Every stored challenge in 2026, as `(date, template)`.
 async fn stored_2026(pool: &PgPool, call: &str) -> Vec<(String, &'static str)> {
     list_challenges_in_range(pool, day("2026-01-01"), day("2026-12-31"))
         .await
@@ -176,7 +79,7 @@ async fn stored_2026(pool: &PgPool, call: &str) -> Vec<(String, &'static str)> {
 }
 
 /// Checks that `now` (UTC) is scheduled on Sydney date `want`, on an empty
-/// schema: the outcome is `Inserted` for `want`, and only `want` holds a puzzle.
+/// schema: the outcome is `Inserted` for `want`, and only `want` holds a challenge.
 async fn assert_seeds_sydney_date(pool: &PgPool, now: &str, sydney: &str, want: &str) {
     let call = format!("seed_today_if_missing(now = {now}, Sydney {sydney}) on an empty schema");
     let outcome = seed_today_at(pool, now).await;
@@ -187,7 +90,7 @@ async fn assert_seeds_sydney_date(pool: &PgPool, now: &str, sydney: &str, want: 
     assert_eq!(
         inserted_date.as_deref(),
         Some(want),
-        "{call}: expected Some(Inserted(..)) for puzzle date {want} (the Sydney calendar date, \
+        "{call}: expected Some(Inserted(..)) for challenge date {want} (the Sydney calendar date, \
          not the UTC one), got {}",
         outcome_text(&outcome)
     );
@@ -195,7 +98,7 @@ async fn assert_seeds_sydney_date(pool: &PgPool, now: &str, sydney: &str, want: 
     assert_eq!(
         stored,
         vec![(want.to_owned(), "quicksort-most-comparisons")],
-        "{call}: expected exactly one stored puzzle, the quicksort fixture on {want}, got {stored:?}"
+        "{call}: expected exactly one stored challenge, the quicksort fixture on {want}, got {stored:?}"
     );
 }
 
@@ -286,13 +189,13 @@ async fn seed_today_inserts_the_quicksort_fixture_on_a_missing_day() {
             };
             assert_eq!(
                 *returned,
-                record_of(&want, returned.number),
-                "{call}: the returned record should be the fixtures' quicksort puzzle \
+                expected_record(&want, returned.number),
+                "{call}: the returned record should be the fixtures' quicksort challenge \
                  (the 2026-10-03 one) dated 2026-11-15; expected left, got right"
             );
             assert_eq!(
                 returned.number, 1,
-                "{call}: the first puzzle in an empty schema should be number 1, got {}",
+                "{call}: the first challenge in an empty schema should be number 1, got {}",
                 returned.number
             );
             let stored = get_challenge_by_date(&pool, date)
@@ -322,9 +225,9 @@ async fn seed_today_inserts_the_quicksort_fixture_on_a_missing_day() {
 }
 
 #[tokio::test]
-async fn seed_today_leaves_an_existing_puzzle_unchanged() {
+async fn seed_today_leaves_an_existing_challenge_unchanged() {
     with_test_db(
-        "seed_today_leaves_an_existing_puzzle_unchanged",
+        "seed_today_leaves_an_existing_challenge_unchanged",
         |pool| async move {
             let now = "2026-11-20T05:00:00Z";
             let date = day("2026-11-20");
@@ -342,7 +245,7 @@ async fn seed_today_leaves_an_existing_puzzle_unchanged() {
             match &outcome {
                 Some(InsertOutcome::AlreadyScheduled(record)) => assert_eq!(
                     *record, existing,
-                    "{call}: AlreadyScheduled should carry the stored bubble puzzle unchanged; \
+                    "{call}: AlreadyScheduled should carry the stored bubble challenge unchanged; \
                      expected left, got right"
                 ),
                 _ => panic!(
@@ -360,14 +263,14 @@ async fn seed_today_leaves_an_existing_puzzle_unchanged() {
             assert_eq!(
                 stored.as_ref(),
                 Some(&existing),
-                "{call}: the stored puzzle for 2026-11-20 must stay the bubble puzzle; \
+                "{call}: the stored challenge for 2026-11-20 must stay the bubble challenge; \
                  expected left, got right"
             );
             let all = stored_2026(&pool, &call).await;
             assert_eq!(
                 all,
                 vec![("2026-11-20".to_owned(), "bubble-exact-passes")],
-                "{call}: no other puzzle should be stored, got {all:?}"
+                "{call}: no other challenge should be stored, got {all:?}"
             );
         },
     )
@@ -398,7 +301,7 @@ async fn seed_today_leaves_the_reserved_day_empty() {
                     });
                 assert!(
                     gap.is_none(),
-                    "{call}: {GAP} must stay without a puzzle, got {gap:?}"
+                    "{call}: {GAP} must stay without a challenge, got {gap:?}"
                 );
                 let all = stored_2026(&pool, &call).await;
                 assert!(

@@ -34,7 +34,7 @@ const runAndSkip: Play = async (daily, context) => {
 /** Back to the start of the first try, then 12 Next steps: partway through the first partition, with bars highlighted. */
 const pausedMidRun: Play = async (daily, context) => {
   await runAndSkip(daily, context);
-  await daily.rewind();
+  await daily.transport.rewind();
   const { steps, atEnd } = await daily.stepToEnd(12, () => {}, `${context} stepping from the start`);
   expect(atEnd, `${context}: 12 Next steps from the start should still be mid-run (took ${steps} steps)`).toBe(false);
 };
@@ -133,13 +133,13 @@ test.describe('daily game theme switching', () => {
         name: 'while it is paused, then resuming',
         finalTheme: 'dark',
         act: async (daily, stage, context) => {
-          await daily.pausePlayback();
+          await daily.transport.pause();
           await stage.expectPlaybackButton('Play', true, `${context}: after Pause, the play button should offer Play`);
           const step = await stage.stepText(`${context}, paused`);
           await stage.switchTheme('dark', `${context}, paused at "${step}"`);
           await stage.expectStepText(step, `${context}: switching theme while paused must keep the playback at "${step}"`);
           await stage.expectPlaybackButton('Play', true, `${context}: switching theme while paused must leave the try paused (Play offered)`);
-          await daily.playPlayback();
+          await daily.transport.play();
         },
       },
       {
@@ -162,7 +162,7 @@ test.describe('daily game theme switching', () => {
         await dailyPage.open();
         await dailyStage.expectTheme('light', ctx);
         await dailyPage.expectStatusNumber('Tries left', 3, `${ctx}: before Run`);
-        await dailyPage.setSpeed(5);
+        await dailyPage.transport.setSpeed(5);
         await dailyPage.run();
         await dailyStage.expectPlaybackButton('Pause', true, `${ctx}: right after Run the try should be playing (Pause offered)`);
         await act(dailyPage, dailyStage, ctx);

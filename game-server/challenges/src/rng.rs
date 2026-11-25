@@ -1,4 +1,4 @@
-//! A small deterministic PRNG (SplitMix64), so puzzle generation and search
+//! A small deterministic PRNG (SplitMix64), so challenge generation and search
 //! need no extra crates.
 
 /// SplitMix64 generator: the same seed always yields the same sequence.

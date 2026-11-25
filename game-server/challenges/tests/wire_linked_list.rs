@@ -1,7 +1,7 @@
 use daily_challenges::wire::score_request;
 use serde_json::{Value, json};
 
-// Wire JSON for `linked-list-index-drift`. Counts match puzzle #26 (DRIFT_26) in
+// Wire JSON for `linked-list-index-drift`. Counts match challenge #26 (DRIFT_26) in
 // `e2e/support/daily-list-fixtures.ts`: insert(v, i) walks min(i, length before),
 // delete(i) walks i + 1, cost = operations + nodes walked.
 

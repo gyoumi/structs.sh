@@ -1,7 +1,7 @@
-//! Fills a daily game database with the fixed test puzzles.
+//! Fills a daily game database with the fixed test challenges.
 //!
-//! Reads `DATABASE_URL`, runs the migrations, and schedules every puzzle in
-//! [`daily_db::seed::fixture_challenges`]. It then schedules a puzzle
+//! Reads `DATABASE_URL`, runs the migrations, and schedules every challenge in
+//! [`daily_db::seed::fixture_challenges`]. It then schedules a challenge
 //! for today in Sydney, unless `SEED_ONLY_FIXTURES=1` is set or
 //! `--only-fixtures` is passed. Running it again changes nothing.
 
@@ -65,7 +65,7 @@ async fn run() -> Result<String, String> {
     Ok(summary)
 }
 
-/// Whether to skip today's puzzle, from the flag or `SEED_ONLY_FIXTURES`.
+/// Whether to skip today's challenge, from the flag or `SEED_ONLY_FIXTURES`.
 fn only_fixtures() -> bool {
     std::env::args().skip(1).any(|arg| arg == "--only-fixtures")
         || std::env::var("SEED_ONLY_FIXTURES").is_ok_and(|value| value.trim() == "1")

@@ -10,17 +10,11 @@ use chrono::NaiveDate;
 use daily_api::{ApiError, DailyChallenge, render_ts_bindings, write_ts_bindings};
 use serde_json::{Value, json};
 
-/// Keys that would leak the answer or the puzzle's generation details.
-const PRIVATE_KEYS: [&str; 8] = [
-    "seed",
-    "best",
-    "bestScore",
-    "best_score",
-    "bestSolution",
-    "botGoalRate",
-    "botBestRate",
-    "rules",
-];
+/// The private-key list shared with the `daily-db` and `daily-server` tests.
+#[path = "../../db/tests/common/private_keys.rs"]
+mod private_keys;
+
+use private_keys::PRIVATE_KEYS;
 
 /// The seven launch template ids.
 const TEMPLATE_IDS: [&str; 7] = [
@@ -37,7 +31,7 @@ fn date(y: i32, m: u32, d: u32) -> NaiveDate {
     NaiveDate::from_ymd_opt(y, m, d).expect("valid test date")
 }
 
-/// One puzzle per template, paired with the exact JSON object it must serialize to.
+/// One challenge per template, paired with the exact JSON object it must serialize to.
 fn cases() -> Vec<(DailyChallenge, Value)> {
     vec![
         (
@@ -175,11 +169,11 @@ fn every_template_serializes_to_its_exact_public_json() {
         templates, TEMPLATE_IDS,
         "test fixture: expected one case per launch template, in order"
     );
-    for (puzzle, want) in cases {
-        let got = serde_json::to_value(&puzzle).expect("serialize DailyChallenge");
+    for (challenge, want) in cases {
+        let got = serde_json::to_value(&challenge).expect("serialize DailyChallenge");
         assert_eq!(
             got, want,
-            "serde_json::to_value({puzzle:?}): exact JSON object (keys, camelCase, \
+            "serde_json::to_value({challenge:?}): exact JSON object (keys, camelCase, \
              date as YYYY-MM-DD) expected {want}, got {got}"
         );
         let object = got
@@ -188,16 +182,16 @@ fn every_template_serializes_to_its_exact_public_json() {
         for key in PRIVATE_KEYS {
             assert!(
                 !object.contains_key(key),
-                "serde_json::to_value({puzzle:?}): private key {key:?} must be absent, got {got}"
+                "serde_json::to_value({challenge:?}): private key {key:?} must be absent, got {got}"
             );
         }
     }
 }
 
 #[test]
-fn tree_order_and_linked_list_puzzles_have_no_fixed_slots() {
-    for (puzzle, _) in cases() {
-        let got = serde_json::to_value(&puzzle).expect("serialize DailyChallenge");
+fn tree_order_and_linked_list_challenges_have_no_fixed_slots() {
+    for (challenge, _) in cases() {
+        let got = serde_json::to_value(&challenge).expect("serialize DailyChallenge");
         let template = got["template"].as_str().unwrap_or("?").to_owned();
         let has_fixed = got.get("fixed").is_some();
         let want_fixed = !matches!(
@@ -213,20 +207,20 @@ fn tree_order_and_linked_list_puzzles_have_no_fixed_slots() {
 
 #[test]
 fn every_template_round_trips_through_json() {
-    for (puzzle, want) in cases() {
-        let text = serde_json::to_string(&puzzle).expect("serialize DailyChallenge");
+    for (challenge, want) in cases() {
+        let text = serde_json::to_string(&challenge).expect("serialize DailyChallenge");
         let back: DailyChallenge = serde_json::from_str(&text)
             .unwrap_or_else(|e| panic!("deserialize {text} back into DailyChallenge failed: {e}"));
         assert_eq!(
-            back, puzzle,
-            "round trip of {text}: expected {puzzle:?}, got {back:?}"
+            back, challenge,
+            "round trip of {text}: expected {challenge:?}, got {back:?}"
         );
         let from_wire: DailyChallenge = serde_json::from_value(want.clone()).unwrap_or_else(|e| {
             panic!("deserialize wire JSON {want} into DailyChallenge failed: {e}")
         });
         assert_eq!(
-            from_wire, puzzle,
-            "deserialize wire JSON {want}: expected {puzzle:?}, got {from_wire:?}"
+            from_wire, challenge,
+            "deserialize wire JSON {want}: expected {challenge:?}, got {from_wire:?}"
         );
     }
 }

@@ -1,4 +1,4 @@
-//! "Forced order" puzzle template.
+//! "Forced order" challenge template.
 //!
 //! # Algorithm
 //!
@@ -25,10 +25,10 @@ use crate::tree::{self, Event};
 use crate::validate::{count, validate};
 use crate::{InputError, SearchSpace, Shortcut, Template};
 
-/// Forced order puzzle template (`ID = "bst-forced-order"`).
+/// Forced order challenge template (`ID = "bst-forced-order"`).
 pub struct BstForcedOrder;
 
-/// A forced order puzzle instance.
+/// A forced order challenge instance.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Instance {
     /// Distinct keys that the player's input must rearrange.

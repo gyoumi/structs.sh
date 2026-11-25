@@ -40,9 +40,9 @@ test.describe('daily index drift', () => {
     await dailyTemplate.expectTryChips([`${costly.cost}`], ctx);
     await dailyTemplate.operations.expectListed(costly.listed, `${ctx}: after try 1 the Operation list should stay as the player left it`);
 
-    await dailyPage.rewind();
+    await dailyPage.transport.rewind();
     await dailyPage.expectStatusNumber('Cost', 0, `${ctx}: Back to the start should reset Cost to 0`);
-    await dailyPage.skipToEnd(ctx);
+    await dailyPage.transport.skipToEnd(ctx);
     await dailyPage.expectStatusNumber('Cost', costly.cost, `${ctx}: Skip to the end should bring Cost back to ${costly.cost}`);
     await dailyPage.expectNoBestShown(ctx);
   });

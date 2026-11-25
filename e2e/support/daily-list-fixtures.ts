@@ -11,7 +11,7 @@ export type ListOperation =
  * insert(value, i) costs 1 + min(i, lengthBefore) and delete(i) costs 1 + (i + 1).
  * Cost = operations + nodes walked; lower wins, so a solved try reaches the goal when cost <= goal.
  *
- * Puzzle #26, `linked-list-index-drift`: start [8, 3, 6, 1], target [3, 6, 5, 1].
+ * Challenge #26, `linked-list-index-drift`: start [8, 3, 6, 1], target [3, 6, 5, 1].
  * A Dijkstra search over list states finds the cheapest solution costs 5. The cheap rebuild shortcut
  * (delete 8, 3, 6 from the front for 2 + 2 + 2, then prepend 5, 6, 3 for 1 + 1 + 1) costs 9.
  * Goal is Math.round(9 - 0.65 * (9 - 5)) = 6.

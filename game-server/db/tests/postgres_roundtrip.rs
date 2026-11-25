@@ -6,20 +6,15 @@
 
 mod common;
 
-use std::sync::atomic::{AtomicU64, Ordering};
-
 use chrono::NaiveDate;
-use common::{date, expected_record, new_puzzle, samples};
+use common::{date, expected_record, new_challenge, samples, with_test_db};
 use daily_challenges::linked_list_index_drift::Operation;
 use daily_db::{
     ChallengeInstance, ChallengeSolution, DailyChallengeRecord, DbError, InsertOutcome,
     NewDailyChallenge, get_challenge_by_date, get_public_challenge_by_date, insert_challenge,
     list_challenges_in_range, list_public_challenges_in_range, migrate,
 };
-use sqlx::postgres::PgPoolOptions;
-use sqlx::{Executor, PgPool};
-
-static NEXT_SCHEMA: AtomicU64 = AtomicU64::new(1);
+use sqlx::PgPool;
 
 const SEEDS: [u64; 7] = [
     0,
@@ -31,110 +26,22 @@ const SEEDS: [u64; 7] = [
     2026,
 ];
 
-/// A migrated pool bound to a unique disposable schema.
-struct TestDb {
-    admin: PgPool,
-    pool: PgPool,
-    schema: String,
-}
-
-impl TestDb {
-    async fn drop_schema(admin: &PgPool, schema: &str) {
-        sqlx::query(&format!("DROP SCHEMA IF EXISTS \"{schema}\" CASCADE"))
-            .execute(admin)
-            .await
-            .expect("drop disposable test schema");
-    }
-
-    async fn cleanup(self) {
-        self.pool.close().await;
-        Self::drop_schema(&self.admin, &self.schema).await;
-        self.admin.close().await;
-    }
-}
-
-/// Creates a disposable migrated schema, dropping it if pool setup or migration
-/// fails, or returns `None` when `DATABASE_URL` is unset.
-async fn setup(test: &str) -> Option<TestDb> {
-    let Ok(url) = std::env::var("DATABASE_URL") else {
-        eprintln!("{test}: DATABASE_URL is not set, skipping the Postgres test");
-        return None;
-    };
-    let seq = NEXT_SCHEMA.fetch_add(1, Ordering::Relaxed);
-    let schema = format!("daily_db_test_{}_{seq}", std::process::id());
-    let admin = daily_db::connect(&url)
-        .await
-        .expect("connect to DATABASE_URL");
-    sqlx::query(&format!("CREATE SCHEMA \"{schema}\""))
-        .execute(&admin)
-        .await
-        .expect("create disposable test schema");
-    let schema_for_conn = schema.clone();
-    let pool = match PgPoolOptions::new()
-        .max_connections(5)
-        .after_connect(move |conn, _meta| {
-            let schema_name = schema_for_conn.clone();
-            Box::pin(async move {
-                conn.execute(format!("SET search_path TO \"{schema_name}\"").as_str())
-                    .await?;
-                Ok(())
-            })
-        })
-        .connect(&url)
-        .await
-    {
-        Ok(pool) => pool,
-        Err(err) => {
-            TestDb::drop_schema(&admin, &schema).await;
-            admin.close().await;
-            panic!("connect pool to disposable test schema: {err}");
-        }
-    };
-    if let Err(err) = migrate(&pool).await {
-        pool.close().await;
-        TestDb::drop_schema(&admin, &schema).await;
-        admin.close().await;
-        panic!("first migrate on the test schema: {err}");
-    }
-    Some(TestDb {
-        admin,
-        pool,
-        schema,
-    })
-}
-
-/// Runs `body` against a disposable schema and drops it even when `body` panics.
-async fn with_test_db<F, Fut>(test: &str, body: F)
-where
-    F: FnOnce(PgPool) -> Fut + Send + 'static,
-    Fut: std::future::Future<Output = ()> + Send + 'static,
-{
-    let Some(db) = setup(test).await else {
-        return;
-    };
-    let result = tokio::spawn(body(db.pool.clone())).await;
-    db.cleanup().await;
-    if let Err(err) = result {
-        std::panic::resume_unwind(err.into_panic());
-    }
-}
-
-async fn insert_new(pool: &PgPool, puzzle: &NewDailyChallenge) -> DailyChallengeRecord {
-    match insert_challenge(pool, puzzle).await {
+async fn insert_new(pool: &PgPool, challenge: &NewDailyChallenge) -> DailyChallengeRecord {
+    match insert_challenge(pool, challenge).await {
         Ok(InsertOutcome::Inserted(record)) => record,
         other => panic!(
             "insert on empty date {}: got {other:?}, want Inserted",
-            puzzle.challenge_date
+            challenge.challenge_date
         ),
     }
 }
 
-/// The seven launch puzzles on consecutive days from 2026-12-01.
+/// The seven launch challenges on consecutive days from 2026-12-01.
 fn week() -> Vec<NewDailyChallenge> {
     samples(SEEDS)
         .iter()
         .zip(1..)
-        .map(|(sample, day)| new_puzzle(sample, date(2026, 12, day)))
+        .map(|(sample, day)| new_challenge(sample, date(2026, 12, day)))
         .collect()
 }
 
@@ -154,30 +61,30 @@ async fn migrate_runs_cleanly_twice() {
 #[tokio::test]
 async fn inserts_every_template_with_sequential_numbers_and_full_round_trip() {
     with_test_db("inserts_every_template", |pool| async move {
-        let mut puzzles = week();
-        puzzles[0].bot_goal_rate = 0.0;
-        puzzles[0].bot_best_rate = 1.0;
-        puzzles[1].bot_goal_rate = 1.0;
-        puzzles[1].bot_best_rate = 0.0;
-        puzzles[2].bot_goal_rate = 0.123_456_789_012_345_67;
-        puzzles[3].template_version = i32::MAX as u32;
-        for (puzzle, number) in puzzles.iter().zip(1..) {
-            let id = puzzle.instance.template_id();
-            let inserted = insert_new(&pool, puzzle).await;
+        let mut challenges = week();
+        challenges[0].bot_goal_rate = 0.0;
+        challenges[0].bot_best_rate = 1.0;
+        challenges[1].bot_goal_rate = 1.0;
+        challenges[1].bot_best_rate = 0.0;
+        challenges[2].bot_goal_rate = 0.123_456_789_012_345_67;
+        challenges[3].template_version = i32::MAX as u32;
+        for (challenge, number) in challenges.iter().zip(1..) {
+            let id = challenge.instance.template_id();
+            let inserted = insert_new(&pool, challenge).await;
             assert_eq!(
                 inserted,
-                expected_record(puzzle, number),
+                expected_record(challenge, number),
                 "{id} seed {}: Inserted record",
-                puzzle.seed
+                challenge.seed
             );
-            let stored = get_challenge_by_date(&pool, puzzle.challenge_date)
+            let stored = get_challenge_by_date(&pool, challenge.challenge_date)
                 .await
                 .expect("get_challenge_by_date");
             assert_eq!(
                 stored,
-                Some(expected_record(puzzle, number)),
+                Some(expected_record(challenge, number)),
                 "{id} seed {}: stored record read back by date",
-                puzzle.seed
+                challenge.seed
             );
         }
         let dup_bst = NewDailyChallenge {
@@ -208,12 +115,12 @@ async fn inserts_every_template_with_sequential_numbers_and_full_round_trip() {
 #[tokio::test]
 async fn reinserting_a_scheduled_date_keeps_the_original_and_leaves_no_number_gap() {
     with_test_db("reinserting_a_scheduled_date", |pool| async move {
-        let puzzles = week();
-        let original = insert_new(&pool, &puzzles[0]).await;
-        assert_eq!(original.number, 1, "first puzzle number");
+        let challenges = week();
+        let original = insert_new(&pool, &challenges[0]).await;
+        assert_eq!(original.number, 1, "first challenge number");
 
-        let mut clash = puzzles[1].clone();
-        clash.challenge_date = puzzles[0].challenge_date;
+        let mut clash = challenges[1].clone();
+        clash.challenge_date = challenges[0].challenge_date;
         let outcome = insert_challenge(&pool, &clash)
             .await
             .expect("insert on a scheduled date");
@@ -229,10 +136,10 @@ async fn reinserting_a_scheduled_date_keeps_the_original_and_leaves_no_number_ga
         assert_eq!(
             stored,
             Some(original),
-            "the clash must not overwrite the stored puzzle"
+            "the clash must not overwrite the stored challenge"
         );
 
-        let next = insert_new(&pool, &puzzles[2]).await;
+        let next = insert_new(&pool, &challenges[2]).await;
         assert_eq!(
             next.number, 2,
             "the next new date after a clash gets number 2, not 3 (no gap)"
@@ -244,7 +151,7 @@ async fn reinserting_a_scheduled_date_keeps_the_original_and_leaves_no_number_ga
 #[tokio::test]
 async fn get_by_date_returns_none_when_missing_and_the_record_when_stored() {
     with_test_db("get_by_date", |pool| async move {
-        let puzzles = week();
+        let challenges = week();
         let missing = date(2026, 12, 25);
         let got = get_challenge_by_date(&pool, missing)
             .await
@@ -261,7 +168,7 @@ async fn get_by_date_returns_none_when_missing_and_the_record_when_stored() {
             "get_public_challenge_by_date({missing}) on an empty table"
         );
 
-        let record = insert_new(&pool, &puzzles[6]).await;
+        let record = insert_new(&pool, &challenges[6]).await;
         let got = get_challenge_by_date(&pool, record.challenge_date)
             .await
             .expect("get stored date");
@@ -299,9 +206,9 @@ fn dates(records: &[DailyChallengeRecord]) -> Vec<NaiveDate> {
 #[tokio::test]
 async fn list_in_range_is_inclusive_and_ordered_by_date() {
     with_test_db("list_in_range", |pool| async move {
-        let puzzles = week();
+        let challenges = week();
         for i in [4, 0, 6, 2] {
-            insert_new(&pool, &puzzles[i]).await;
+            insert_new(&pool, &challenges[i]).await;
         }
         let (d1, d3, d5, d7) = (
             date(2026, 12, 1),
@@ -343,15 +250,15 @@ async fn list_in_range_is_inclusive_and_ordered_by_date() {
     .await;
 }
 
-/// Invalid variants of one valid puzzle, each labelled with what is wrong.
+/// Invalid variants of one valid challenge, each labelled with what is wrong.
 fn invalid_variants(
     valid: &NewDailyChallenge,
     drift: &NewDailyChallenge,
 ) -> Vec<(&'static str, NewDailyChallenge)> {
     let with = |label, change: &dyn Fn(&mut NewDailyChallenge)| {
-        let mut puzzle = valid.clone();
-        change(&mut puzzle);
-        (label, puzzle)
+        let mut challenge = valid.clone();
+        change(&mut challenge);
+        (label, challenge)
     };
     let mut cases = vec![
         with("template_version 0", &|p| p.template_version = 0),
@@ -420,11 +327,11 @@ fn invalid_variants(
 }
 
 #[tokio::test]
-async fn validation_rejects_invalid_puzzles_before_inserting() {
+async fn validation_rejects_invalid_challenges_before_inserting() {
     with_test_db("validation_rejects", |pool| async move {
-        let puzzles = week();
-        let valid = &puzzles[0];
-        let drift = &puzzles[6];
+        let challenges = week();
+        let valid = &challenges[0];
+        let drift = &challenges[6];
         if let ChallengeInstance::LinkedListIndexDrift { start, target } = &drift.instance {
             assert_ne!(
                 start, target,
@@ -432,13 +339,13 @@ async fn validation_rejects_invalid_puzzles_before_inserting() {
                 drift.seed
             );
         }
-        for (label, puzzle) in invalid_variants(valid, drift) {
-            let got = insert_challenge(&pool, &puzzle).await;
+        for (label, challenge) in invalid_variants(valid, drift) {
+            let got = insert_challenge(&pool, &challenge).await;
             assert!(
                 matches!(got, Err(DbError::InvalidData(_))),
                 "insert with {label}: got {got:?}, want Err(InvalidData)"
             );
-            let stored = get_challenge_by_date(&pool, puzzle.challenge_date)
+            let stored = get_challenge_by_date(&pool, challenge.challenge_date)
                 .await
                 .expect("get after reject");
             assert_eq!(stored, None, "insert with {label} must not store a row");
@@ -446,7 +353,7 @@ async fn validation_rejects_invalid_puzzles_before_inserting() {
         let record = insert_new(&pool, valid).await;
         assert_eq!(
             record.number, 1,
-            "rejected inserts must not use up puzzle numbers"
+            "rejected inserts must not use up challenge numbers"
         );
     })
     .await;

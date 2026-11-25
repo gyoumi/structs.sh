@@ -1,6 +1,5 @@
 import { CSSProperties, KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { LockIcon } from '@/ui/icons';
-import { nextFreeSlot } from './challenge';
 import styles from './ChallengeArray.module.css';
 
 type Selection = { kind: 'idle' } | { kind: 'selected'; index: number; focusNonce: number };
@@ -11,6 +10,14 @@ type Props = {
   /** Locks every slot, as while a run animates. */
   frozen?: boolean;
   onSwap: (a: number, b: number) => void;
+};
+
+/** The slot to swap with: the nearest free one from `from` in `direction`, skipping fixed slots. */
+const nextFreeSlot = (fixed: Set<number>, length: number, from: number, direction: 1 | -1) => {
+  for (let slot = from + direction; slot >= 0 && slot < length; slot += direction) {
+    if (!fixed.has(slot)) return slot;
+  }
+  return null;
 };
 
 const slideValueBetweenSlots = (value: HTMLElement, to: HTMLElement, from: HTMLElement) => {

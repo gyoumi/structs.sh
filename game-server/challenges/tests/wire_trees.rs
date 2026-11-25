@@ -1,7 +1,7 @@
 use daily_challenges::wire::score_request;
 use serde_json::{Value, json};
 
-// Wire JSON for the tree templates. Counts match the hand-worked puzzles in
+// Wire JSON for the tree templates. Counts match the hand-worked challenges in
 // `e2e/support/daily-tree-fixtures.ts` (#23, #24, #25).
 
 const AVL: &str = "avl-most-rotations";
@@ -164,12 +164,12 @@ fn forced_order_rejects_bad_fields() {
         (
             with(solved.clone(), "fixed", json!([0])),
             "fixed",
-            "a forced-order puzzle has no fixed slots",
+            "a forced-order challenge has no fixed slots",
         ),
         (
             without(solved.clone(), "targetTree"),
             "targetTree",
-            "a forced-order puzzle needs targetTree",
+            "a forced-order challenge needs targetTree",
         ),
         (
             with(solved.clone(), "targetTree", Value::Null),
@@ -189,7 +189,7 @@ fn forced_order_rejects_bad_fields() {
         (
             forced(&[6, 3, 9]),
             "length",
-            "an arrangement of 3 values for a 10-value puzzle should fail",
+            "an arrangement of 3 values for a 10-value challenge should fail",
         ),
         (
             json!({

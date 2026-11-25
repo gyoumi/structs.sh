@@ -28,10 +28,10 @@ test.describe('daily bubble: exactly k passes', () => {
     await dailyPage.expectStatusNumber('Swaps', start.swaps, `${ctx}: after Skip, Swaps should be ${start.swaps} (6 + 4 + 3 + 1 + 0)`);
     await dailyPage.expectStatusNumber('Tries left', 2, `${ctx}: Tries left should be 2 after try 1`);
 
-    await dailyPage.rewind();
+    await dailyPage.transport.rewind();
     await dailyPage.expectStatusNumber('Passes', 0, `${ctx}: Back to the start should reset Passes to 0`);
     await dailyPage.expectStatusNumber('Swaps', 0, `${ctx}: Back to the start should reset Swaps to 0`);
-    await dailyPage.skipToEnd(ctx);
+    await dailyPage.transport.skipToEnd(ctx);
     await dailyPage.expectStatusNumber('Swaps', start.swaps, `${ctx}: Skip to the end should bring Swaps back to ${start.swaps}`);
     await dailyPage.expectNoBestShown(ctx);
   });
@@ -114,17 +114,17 @@ test.describe('daily insertion beats merge', () => {
     await dailyPage.expectStatusNumber('Merge comparisons', start.merge, `${ctx}: Skip should finish merge sort at ${start.merge} comparisons (1+1+3+1+1+3+7)`);
     for (const stage of stages) await dailyTemplate.stages.expectValues(stage, sorted, `${ctx}: after Skip the "${stage}" stage should draw the sorted values`);
 
-    await dailyPage.rewind();
+    await dailyPage.transport.rewind();
     await dailyPage.expectStatusNumber('Insertion comparisons', 0, `${ctx}: Back to the start on the shared toolbar should reset Insertion comparisons to 0`);
     await dailyPage.expectStatusNumber('Merge comparisons', 0, `${ctx}: Back to the start on the shared toolbar should reset Merge comparisons to 0`);
     for (const stage of stages) await dailyTemplate.stages.expectValues(stage, start.values, `${ctx}: Back to the start should redraw the arrangement in the "${stage}" stage`);
     await dailyTemplate.stages.stepUntilEveryStageChanges(stages, counters, ctx);
-    await dailyPage.skipToEnd(ctx);
+    await dailyPage.transport.skipToEnd(ctx);
     await dailyPage.expectStatusNumber('Insertion comparisons', start.insertion, `${ctx}: Skip to the end should finish insertion sort at ${start.insertion}`);
     await dailyPage.expectStatusNumber('Merge comparisons', start.merge, `${ctx}: Skip to the end should finish merge sort at ${start.merge}`);
     for (const stage of stages) await dailyTemplate.stages.expectValues(stage, sorted, `${ctx}: Skip to the end should draw the sorted values in the "${stage}" stage`);
     await dailyTemplate.stages.expectReplayRedrawsEveryStage(stages, ctx);
-    await dailyPage.skipToEnd(`${ctx} after Replay`);
+    await dailyPage.transport.skipToEnd(`${ctx} after Replay`);
     for (const stage of stages) await dailyTemplate.stages.expectValues(stage, sorted, `${ctx}: after Replay, Skip to the end should draw the sorted values in the "${stage}" stage`);
   });
 

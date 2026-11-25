@@ -11,17 +11,12 @@ use std::io::{Read, Write};
 use std::sync::Arc;
 
 use axum::http::{Method, StatusCode};
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::NaiveDate;
 use common::fixtures::{TEMPLATE_IDS, date};
-use common::{PRIVATE_KEYS, Reply, get, schedule, send, with_test_db};
+use common::{PRIVATE_KEYS, Reply, get, schedule, send, utc, with_test_db};
 use daily_api::{ApiError, DailyChallenge};
 use daily_db::PublicChallenge;
 use daily_server::{FixedClock, build_router, to_daily_challenge};
-
-fn utc(text: &str) -> DateTime<Utc> {
-    text.parse()
-        .unwrap_or_else(|e| panic!("test instant {text:?} is not RFC 3339: {e}"))
-}
 
 /// Checks `reply` is a `200 OK`, uncached JSON copy of the stored `want`.
 fn assert_serves(reply: &Reply, call: &str, want: &PublicChallenge) {
@@ -44,10 +39,12 @@ fn assert_serves(reply: &Reply, call: &str, want: &PublicChallenge) {
         "{call}: cache-control expected to contain no-store, got {cache:?}"
     );
     let got = reply.json(call);
-    let stored = serde_json::to_value(want).expect("serialize PublicChallenge");
+    let expected = to_daily_challenge(want.clone());
+    let expected_json = serde_json::to_value(&expected).expect("serialize DailyChallenge");
     assert_eq!(
-        got, stored,
-        "{call}: expected the stored public puzzle for {} as JSON {stored}, got {got}",
+        got, expected_json,
+        "{call}: expected the stored challenge for {} as served DailyChallenge JSON \
+         {expected_json}, got {got}",
         want.date
     );
     for key in PRIVATE_KEYS {
@@ -58,14 +55,13 @@ fn assert_serves(reply: &Reply, call: &str, want: &PublicChallenge) {
     }
     let parsed: DailyChallenge = serde_json::from_value(got.clone())
         .unwrap_or_else(|e| panic!("{call}: body {got} does not parse as DailyChallenge: {e}"));
-    let expected = to_daily_challenge(want.clone());
     assert_eq!(
         parsed, expected,
         "{call}: parsed DailyChallenge expected {expected:?}, got {parsed:?}"
     );
 }
 
-/// The `date` field of a served puzzle, for short failure messages.
+/// The `date` field of a served challenge, for short failure messages.
 fn served_date(reply: &Reply, call: &str) -> String {
     reply.json(call)["date"]
         .as_str()
@@ -73,7 +69,7 @@ fn served_date(reply: &Reply, call: &str) -> String {
         .to_owned()
 }
 
-/// The stored puzzle whose date is `day`.
+/// The stored challenge whose date is `day`.
 fn on(stored: &[PublicChallenge], day: NaiveDate) -> &PublicChallenge {
     stored
         .iter()
@@ -82,30 +78,33 @@ fn on(stored: &[PublicChallenge], day: NaiveDate) -> &PublicChallenge {
 }
 
 #[tokio::test]
-async fn todays_puzzle_comes_from_the_server() {
-    with_test_db("todays_puzzle_comes_from_the_server", |pool| async move {
-        let plan: Vec<(usize, NaiveDate)> =
-            (0..7).map(|i| (i, date(2026, 12, 1 + i as u32))).collect();
-        let stored = schedule(&pool, &plan).await;
-        let clock = Arc::new(FixedClock::new(utc("2026-12-01T01:00:00Z")));
-        let router = build_router(pool.clone(), clock.clone());
-        for (want, (template, day)) in stored.iter().zip(&plan) {
-            let instant = utc(&format!("{day}T01:00:00Z"));
-            clock.set(instant);
-            let call = format!(
-                "GET /api/daily at {instant} (Sydney noon {day}, {} scheduled)",
-                TEMPLATE_IDS[*template]
-            );
-            assert_serves(&get(&router, "/api/daily").await, &call, want);
-        }
-    })
+async fn todays_challenge_comes_from_the_server() {
+    with_test_db(
+        "todays_challenge_comes_from_the_server",
+        |pool| async move {
+            let plan: Vec<(usize, NaiveDate)> =
+                (0..7).map(|i| (i, date(2026, 12, 1 + i as u32))).collect();
+            let stored = schedule(&pool, &plan).await;
+            let clock = Arc::new(FixedClock::new(utc("2026-12-01T01:00:00Z")));
+            let router = build_router(pool.clone(), clock.clone());
+            for (want, (template, day)) in stored.iter().zip(&plan) {
+                let instant = utc(&format!("{day}T01:00:00Z"));
+                clock.set(instant);
+                let call = format!(
+                    "GET /api/daily at {instant} (Sydney noon {day}, {} scheduled)",
+                    TEMPLATE_IDS[*template]
+                );
+                assert_serves(&get(&router, "/api/daily").await, &call, want);
+            }
+        },
+    )
     .await;
 }
 
 #[tokio::test]
-async fn the_puzzle_changes_at_midnight_in_sydney() {
+async fn the_challenge_changes_at_midnight_in_sydney() {
     with_test_db(
-        "the_puzzle_changes_at_midnight_in_sydney",
+        "the_challenge_changes_at_midnight_in_sydney",
         |pool| async move {
             let stored = schedule(
                 &pool,
@@ -148,7 +147,7 @@ async fn the_puzzle_changes_at_midnight_in_sydney() {
                 assert_eq!(
                     reply.status,
                     StatusCode::OK,
-                    "{call}: expected 200 with the {day} puzzle, got {} body {:?}",
+                    "{call}: expected 200 with the {day} challenge, got {} body {:?}",
                     reply.status,
                     reply.text()
                 );
@@ -156,7 +155,7 @@ async fn the_puzzle_changes_at_midnight_in_sydney() {
                 assert_eq!(
                     got,
                     day.to_string(),
-                    "{call}: expected the puzzle dated {day}, got one dated {got}"
+                    "{call}: expected the challenge dated {day}, got one dated {got}"
                 );
                 assert_serves(&reply, &call, on(&stored, day));
             }
@@ -235,7 +234,7 @@ async fn an_unscheduled_day_is_not_found() {
         for key in ["template", "number", "values", "date"] {
             assert!(
                 body.get(key).is_none(),
-                "{call}: a 404 must not carry puzzle key {key:?}, got {body}"
+                "{call}: a 404 must not carry challenge key {key:?}, got {body}"
             );
         }
     })
@@ -261,9 +260,9 @@ fn http_get(addr: std::net::SocketAddr, path: &str) -> String {
 }
 
 #[tokio::test]
-async fn a_real_http_client_gets_todays_puzzle_over_tcp() {
+async fn a_real_http_client_gets_todays_challenge_over_tcp() {
     with_test_db(
-        "a_real_http_client_gets_todays_puzzle_over_tcp",
+        "a_real_http_client_gets_todays_challenge_over_tcp",
         |pool| async move {
             let stored = schedule(&pool, &[(1, date(2026, 7, 1))]).await;
             let router = build_router(
@@ -300,7 +299,7 @@ async fn a_real_http_client_gets_todays_puzzle_over_tcp() {
             let want = serde_json::to_value(&stored[0]).expect("serialize PublicChallenge");
             assert_eq!(
                 got, want,
-                "{call}: expected the stored 2026-07-01 puzzle {want}, got {got}"
+                "{call}: expected the stored 2026-07-01 challenge {want}, got {got}"
             );
         },
     )

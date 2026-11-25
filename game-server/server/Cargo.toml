@@ -8,7 +8,6 @@ description = "Read-only HTTP server serving today's daily challenge"
 [dependencies]
 axum = "0.8"
 chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
-chrono-tz = "0.10"
 daily-api = { path = "../api" }
 daily-db = { path = "../db" }
 serde = { version = "1", features = ["derive"] }

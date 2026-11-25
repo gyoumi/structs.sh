@@ -1,20 +1,20 @@
-//! A fixed set of public puzzles for local stacks and end-to-end tests.
+//! A fixed set of public challenges for local stacks and end-to-end tests.
 //!
-//! [`fixture_challenges`] schedules one puzzle for each launch template on fixed
+//! [`fixture_challenges`] schedules one challenge for each launch template on fixed
 //! dates. `2026-10-06` is left empty on purpose, so tests can see the "no
-//! puzzle today" state. Every fixture's best solution was checked with
+//! challenge today" state. Every fixture's best solution was checked with
 //! `daily_challenges`, and [`insert_challenge`] checks it again on every insert.
 
 use chrono::NaiveDate;
-use chrono_tz::Australia::Sydney;
 use daily_challenges::linked_list_index_drift::Operation;
 use sqlx::PgPool;
 
+use crate::date::sydney_date;
 use crate::db::insert_challenge;
 use crate::error::DbError;
 use crate::model::{ChallengeInstance, ChallengeSolution, InsertOutcome, NewDailyChallenge};
 
-/// The day no fixture runs, kept empty for the "no puzzle today" tests.
+/// The day no fixture runs, kept empty for the "no challenge today" tests.
 const UNSCHEDULED_DAY: (i32, u32, u32) = (2026, 10, 6);
 
 /// What [`seed_fixtures`] did.
@@ -22,7 +22,7 @@ const UNSCHEDULED_DAY: (i32, u32, u32) = (2026, 10, 6);
 pub struct SeedSummary {
     /// Fixtures stored by this run.
     pub inserted: usize,
-    /// Fixtures whose day already had a puzzle, left unchanged.
+    /// Fixtures whose day already had a challenge, left unchanged.
     pub existing: usize,
 }
 
@@ -54,7 +54,7 @@ fn fixture(
     }
 }
 
-/// The quicksort puzzle the fixtures run on `2026-10-03`, moved to `date`.
+/// The quicksort challenge the fixtures run on `2026-10-03`, moved to `date`.
 fn quicksort_fixture(date: NaiveDate) -> NewDailyChallenge {
     fixture(
         date,
@@ -69,7 +69,7 @@ fn quicksort_fixture(date: NaiveDate) -> NewDailyChallenge {
     )
 }
 
-/// One valid puzzle per launch template, in date order, with no puzzle on
+/// One valid challenge per launch template, in date order, with no challenge on
 /// `2026-10-06`.
 pub fn fixture_challenges() -> Vec<NewDailyChallenge> {
     vec![
@@ -147,17 +147,17 @@ pub fn fixture_challenges() -> Vec<NewDailyChallenge> {
     ]
 }
 
-/// Schedules every [`fixture_challenges`] puzzle whose day is still free.
+/// Schedules every [`fixture_challenges`] challenge whose day is still free.
 ///
-/// Running it again changes nothing: days that already have a puzzle are
+/// Running it again changes nothing: days that already have a challenge are
 /// counted as [`SeedSummary::existing`].
 pub async fn seed_fixtures(pool: &PgPool) -> Result<SeedSummary, DbError> {
     let mut summary = SeedSummary {
         inserted: 0,
         existing: 0,
     };
-    for puzzle in fixture_challenges() {
-        match insert_challenge(pool, &puzzle).await? {
+    for challenge in fixture_challenges() {
+        match insert_challenge(pool, &challenge).await? {
             InsertOutcome::Inserted(_) => summary.inserted += 1,
             InsertOutcome::AlreadyScheduled(_) => summary.existing += 1,
         }
@@ -165,8 +165,8 @@ pub async fn seed_fixtures(pool: &PgPool) -> Result<SeedSummary, DbError> {
     Ok(summary)
 }
 
-/// Schedules the fixtures' quicksort puzzle for the Sydney date of `now`,
-/// unless a puzzle already runs that day.
+/// Schedules the fixtures' quicksort challenge for the Sydney date of `now`,
+/// unless a challenge already runs that day.
 ///
 /// Returns `Ok(None)` when that date is `2026-10-06`, which stays empty for
 /// tests.
@@ -174,7 +174,7 @@ pub async fn seed_today_if_missing(
     pool: &PgPool,
     now: chrono::DateTime<chrono::Utc>,
 ) -> Result<Option<InsertOutcome>, DbError> {
-    let today = now.with_timezone(&Sydney).date_naive();
+    let today = sydney_date(now);
     let (year, month, dom) = UNSCHEDULED_DAY;
     if today == day(year, month, dom) {
         return Ok(None);

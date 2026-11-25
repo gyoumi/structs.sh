@@ -1,4 +1,4 @@
-//! Puzzle types stored in, and served from, the `daily_challenges` table.
+//! Challenge types stored in, and served from, the `daily_challenges` table.
 
 use chrono::NaiveDate;
 use daily_challenges::linked_list_index_drift::Operation;
@@ -8,36 +8,36 @@ use daily_challenges::{
 };
 use serde::{Deserialize, Serialize};
 
-/// One generated puzzle, tagged with its template id when serialized.
+/// One generated challenge, tagged with its template id when serialized.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "template")]
 pub enum ChallengeInstance {
-    /// A `quicksort-most-comparisons` puzzle.
+    /// A `quicksort-most-comparisons` challenge.
     #[serde(rename = "quicksort-most-comparisons")]
     Quicksort { values: Vec<i32>, fixed: Vec<usize> },
-    /// A `bubble-exact-passes` puzzle.
+    /// A `bubble-exact-passes` challenge.
     #[serde(rename = "bubble-exact-passes", rename_all = "camelCase")]
     Bubble {
         values: Vec<i32>,
         fixed: Vec<usize>,
         target_passes: u32,
     },
-    /// An `insertion-beats-merge` puzzle.
+    /// An `insertion-beats-merge` challenge.
     #[serde(rename = "insertion-beats-merge")]
     InsertionBeatsMerge { values: Vec<i32>, fixed: Vec<usize> },
-    /// An `avl-most-rotations` puzzle.
+    /// An `avl-most-rotations` challenge.
     #[serde(rename = "avl-most-rotations")]
     AvlRotations { values: Vec<i32>, fixed: Vec<usize> },
-    /// A `bst-forced-order` puzzle.
+    /// A `bst-forced-order` challenge.
     #[serde(rename = "bst-forced-order", rename_all = "camelCase")]
     BstForcedOrder {
         values: Vec<i32>,
         target_tree: Vec<i32>,
     },
-    /// An `upset-bst-beats-avl` puzzle.
+    /// An `upset-bst-beats-avl` challenge.
     #[serde(rename = "upset-bst-beats-avl")]
     UpsetBstBeatsAvl { values: Vec<i32>, fixed: Vec<usize> },
-    /// A `linked-list-index-drift` puzzle.
+    /// A `linked-list-index-drift` challenge.
     #[serde(rename = "linked-list-index-drift")]
     LinkedListIndexDrift { start: Vec<i32>, target: Vec<i32> },
 }
@@ -52,34 +52,34 @@ pub enum ChallengeSolution {
     Operations(Vec<Operation>),
 }
 
-/// The part of a daily puzzle that players may see.
+/// The part of a daily challenge that players may see.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PublicChallenge {
-    /// The puzzle's 1-based sequence number.
+    /// The challenge's 1-based sequence number.
     pub number: u32,
-    /// The puzzle itself, flattened into this object.
+    /// The challenge itself, flattened into this object.
     #[serde(flatten)]
     pub instance: ChallengeInstance,
     /// The score to reach.
     pub goal: u32,
-    /// The day the puzzle runs.
+    /// The day the challenge runs.
     pub date: NaiveDate,
 }
 
-/// A puzzle to schedule for a day; the store assigns its number.
+/// A challenge to schedule for a day; the store assigns its number.
 #[derive(Debug, Clone, PartialEq)]
 pub struct NewDailyChallenge {
-    /// The day the puzzle runs.
+    /// The day the challenge runs.
     pub challenge_date: NaiveDate,
     /// The version of the template that generated it, from 1.
     pub template_version: u32,
-    /// The puzzle itself.
+    /// The challenge itself.
     pub instance: ChallengeInstance,
     /// The rules text shown with it.
     pub rules: String,
     /// The seed that generated it.
     pub seed: u64,
-    /// The score to reach (shown as goal).
+    /// The score to reach.
     pub goal: u32,
     /// The best score found.
     pub best_score: u32,
@@ -91,22 +91,22 @@ pub struct NewDailyChallenge {
     pub bot_best_rate: f64,
 }
 
-/// A stored daily puzzle, private fields included.
+/// A stored daily challenge, private fields included.
 #[derive(Debug, Clone, PartialEq)]
 pub struct DailyChallengeRecord {
-    /// The day the puzzle runs.
+    /// The day the challenge runs.
     pub challenge_date: NaiveDate,
-    /// The puzzle's 1-based sequence number.
+    /// The challenge's 1-based sequence number.
     pub number: u32,
     /// The version of the template that generated it.
     pub template_version: u32,
-    /// The puzzle itself.
+    /// The challenge itself.
     pub instance: ChallengeInstance,
     /// The rules text shown with it.
     pub rules: String,
     /// The seed that generated it.
     pub seed: u64,
-    /// The score to reach (shown as goal).
+    /// The score to reach.
     pub goal: u32,
     /// The best score found.
     pub best_score: u32,
@@ -133,9 +133,9 @@ impl DailyChallengeRecord {
 /// What [`insert_challenge`](crate::insert_challenge) did.
 #[derive(Debug, Clone, PartialEq)]
 pub enum InsertOutcome {
-    /// The puzzle was stored as this new record.
+    /// The challenge was stored as this new record.
     Inserted(DailyChallengeRecord),
-    /// A puzzle already ran on that day; this is the stored one, unchanged.
+    /// A challenge already ran on that day; this is the stored one, unchanged.
     AlreadyScheduled(DailyChallengeRecord),
 }
 

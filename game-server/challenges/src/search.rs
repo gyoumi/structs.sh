@@ -1,4 +1,4 @@
-//! Types a template uses to describe its inputs to a puzzle search.
+//! Types a template uses to describe its inputs to a challenge search.
 
 /// A named, hand-picked input worth trying before a wider search.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -10,7 +10,7 @@ pub struct Shortcut<I> {
 }
 
 /// Maps a valid partial input to a key shared by every valid partial input
-/// that leaves the puzzle in the same state, or `None` when the partial input
+/// that leaves the challenge in the same state, or `None` when the partial input
 /// is invalid.
 pub type StateKeyFn<I> = Box<dyn Fn(&I) -> Option<Vec<u8>>>;
 

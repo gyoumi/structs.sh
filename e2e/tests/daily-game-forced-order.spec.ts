@@ -25,8 +25,8 @@ test.describe('daily forced order', () => {
     await dailyPage.skip(ctx);
     await dailyPage.expectStatusNumber('Tries left', 2, `${ctx}: Tries left should be 2 after try 1`);
     await dailyTemplate.expectTargetTree(challenge.targetTree, `${ctx} after try 1`);
-    await dailyPage.rewind();
-    await dailyPage.skipToEnd(ctx);
+    await dailyPage.transport.rewind();
+    await dailyPage.transport.skipToEnd(ctx);
     await dailyPage.expectStatusNumber('Tries left', 2, `${ctx}: rewinding and replaying to the end must not use a try`);
   });
 

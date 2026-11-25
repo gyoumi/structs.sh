@@ -29,7 +29,7 @@ const SINGLE_VALUE: ChallengeInstance = {
   fixed: [],
 };
 
-const EMPTY_PUZZLE: ChallengeInstance = {
+const EMPTY_CHALLENGE: ChallengeInstance = {
   template: QUICKSORT,
   values: [],
   fixed: [],
@@ -37,7 +37,7 @@ const EMPTY_PUZZLE: ChallengeInstance = {
 
 const LARGE_SORTED_VALUES = Array.from({ length: 300 }, (_, index) => index + 1);
 
-const LARGE_SORTED_PUZZLE: ChallengeInstance = {
+const LARGE_SORTED_CHALLENGE: ChallengeInstance = {
   template: QUICKSORT,
   values: LARGE_SORTED_VALUES,
   fixed: [],
@@ -142,7 +142,7 @@ const FIXED_CASES: ScoreCase[] = [
   },
   {
     label: 'empty challenge []',
-    challenge: EMPTY_PUZZLE,
+    challenge: EMPTY_CHALLENGE,
     arrangement: [],
     expected: 0,
   },
@@ -185,10 +185,10 @@ describe('scoreChallenge — fixed inputs', () => {
 
 describe('scoreChallenge — large input', () => {
   it('scores a large input (300 sorted values, the deepest recursion for that size) as 45448', async () => {
-    const score = await scoreChallenge(LARGE_SORTED_PUZZLE, LARGE_SORTED_VALUES);
+    const score = await scoreChallenge(LARGE_SORTED_CHALLENGE, LARGE_SORTED_VALUES);
     expect(
       score,
-      `${describeCall(LARGE_SORTED_PUZZLE, LARGE_SORTED_VALUES, '300 sorted values')}: comparison count should be 45448`
+      `${describeCall(LARGE_SORTED_CHALLENGE, LARGE_SORTED_VALUES, '300 sorted values')}: comparison count should be 45448`
     ).toBe(45448);
   });
 });
@@ -204,7 +204,7 @@ describe('scoreChallenge — repeated and concurrent calls', () => {
     FIXED_CASES[9], // [] -> 0
     {
       label: '300 sorted values',
-      challenge: LARGE_SORTED_PUZZLE,
+      challenge: LARGE_SORTED_CHALLENGE,
       arrangement: LARGE_SORTED_VALUES,
       expected: 45448,
     },
@@ -314,35 +314,35 @@ describe('scoreChallenge — invalid inputs and recovery', () => {
   it('scores valid challenges correctly immediately after each rejection kind', async () => {
     const recoverySteps: Array<{
       badLabel: string;
-      badPuzzle: ChallengeInstance;
+      badChallenge: ChallengeInstance;
       badArrangement: number[];
       pattern: RegExp;
       goodCase: ScoreCase;
     }> = [
       {
         badLabel: 'unknown template id',
-        badPuzzle: { template: 'not-a-real-template', values: [2, 1], fixed: [] },
+        badChallenge: { template: 'not-a-real-template', values: [2, 1], fixed: [] },
         badArrangement: [2, 1],
         pattern: /not-a-real-template/,
         goodCase: FIXED_CASES[0], // DAILY_12 start -> 30
       },
       {
         badLabel: 'wrong length (7 vs 8)',
-        badPuzzle: DAILY_12,
+        badChallenge: DAILY_12,
         badArrangement: [8, 1, 6, 3, 2, 7, 4],
         pattern: /length/i,
         goodCase: FIXED_CASES[1], // DAILY_12 goal -> 34
       },
       {
         badLabel: 'fixed slot 1 moved',
-        badPuzzle: DAILY_12,
+        badChallenge: DAILY_12,
         badArrangement: [1, 8, 6, 3, 2, 7, 4, 5],
         pattern: /fixed/i,
         goodCase: FIXED_CASES[2], // DAILY_12 best -> 36
       },
       {
         badLabel: 'not a permutation (duplicate 8)',
-        badPuzzle: DAILY_12,
+        badChallenge: DAILY_12,
         badArrangement: [8, 1, 6, 3, 2, 7, 4, 8],
         pattern: /permutation/i,
         goodCase: FIXED_CASES[3], // DAILY_12 low -> 25
@@ -350,12 +350,12 @@ describe('scoreChallenge — invalid inputs and recovery', () => {
     ];
 
     await recoverySteps.reduce(
-      (chain, { badLabel, badPuzzle, badArrangement, pattern, goodCase }) =>
+      (chain, { badLabel, badChallenge, badArrangement, pattern, goodCase }) =>
         chain.then(async () => {
-          const message = await rejectionMessage(badPuzzle, badArrangement, badLabel);
+          const message = await rejectionMessage(badChallenge, badArrangement, badLabel);
           expect(
             message,
-            `${describeCall(badPuzzle, badArrangement, badLabel)}: error message should match ${pattern}`
+            `${describeCall(badChallenge, badArrangement, badLabel)}: error message should match ${pattern}`
           ).toMatch(pattern);
           const score = await scoreChallenge(goodCase.challenge, goodCase.arrangement);
           expect(

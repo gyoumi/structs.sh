@@ -133,7 +133,7 @@ type IndexDriftEvaluation = { template: 'linked-list-index-drift' } & Outcome<{
 
 export type ChallengeEvaluation = ArrayChallengeEvaluation | IndexDriftEvaluation;
 
-/** The exact fields the wasm build takes for `challenge`, dropping anything else the challenge file carried. */
+/** The exact fields the wasm build takes for `challenge`, dropping anything else the server response carried. */
 const wireRequest = (
   challenge: EvalChallengeInstance,
   input: number[] | ListOperation[]

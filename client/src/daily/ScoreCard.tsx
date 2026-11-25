@@ -1,4 +1,12 @@
-import { latestMiss, MAX_TRIES, PlayState, reachesGoal, shownScore, TryScore } from './playMachine';
+import {
+  latestMiss,
+  lowerWins,
+  MAX_TRIES,
+  PlayState,
+  reachesGoal,
+  shownScore,
+  TryScore,
+} from './playMachine';
 import type { Challenge } from './challenge';
 import { Rig, useReadoutValue } from './rig';
 import type { Readout, Readouts } from './templates';
@@ -52,7 +60,7 @@ export const ScoreCard = ({ challenge, rig, readouts, play }: ScoreCardProps) =>
   const triesLeft = ended ? 0 : MAX_TRIES - scores.length;
   const score = shownScore(play, challenge.template);
   const goalReached = score !== undefined && reachesGoal(challenge, score);
-  const bestLabel = challenge.template === 'linked-list-index-drift' ? 'Lowest' : 'Highest';
+  const bestLabel = lowerWins(challenge.template) ? 'Lowest' : 'Highest';
   const miss = running ? undefined : latestMiss(play);
 
   return (

@@ -7,7 +7,7 @@ export const HISTORY_STORAGE_KEY = 'daily.history';
 export type DatedChallenge = DailyChallenge & { date: string };
 
 /** One saved day as read back from localStorage, loosely typed so a wrong shape shows up in the failure message. */
-export type StoredResult = {
+type StoredResult = {
   date?: unknown;
   completed?: unknown;
   tries?: { input?: unknown; score?: unknown }[];
@@ -19,9 +19,12 @@ const UNREACHABLE = /can['’]?t reach.*server|server.*unreachable/i;
 const NOT_READY = /not ready|isn['’]?t ready|no challenge/i;
 
 /**
- * Checkpoint 3 additions to the /daily page object: what GET /api/daily answers, the saved history in
- * localStorage, the `Streak` readout, and the alerts shown when the challenge can't load.
- * Playing a try stays in `DailyPage`; try chips and `Goal reached` stay in `DailyTemplatePage`.
+ * Drives what /daily remembers between visits and what it shows when the challenge can't load:
+ * - the GET /api/daily answer (a challenge, an HTTP error, or a network failure) and reloads;
+ * - the saved history in localStorage: seeding it, reading it back, making writes fail, and the
+ *   notices for a failed save or for tries synced from another tab;
+ * - the `Streak` readout, and the alerts for an unreachable or unready server.
+ * Playing a try is in `DailyPage`; try chips and `Goal reached` are in `DailyTemplatePage`.
  */
 export class DailyHistoryPage {
   private requests = 0;

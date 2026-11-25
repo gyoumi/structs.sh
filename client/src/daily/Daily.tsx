@@ -14,7 +14,6 @@ import { ChallengeIntro } from './ChallengeIntro';
 import { ChallengeRig } from './ChallengeStages';
 import {
   HISTORY_STORAGE_KEY,
-  LEGACY_HISTORY_STORAGE_KEY,
   isIsoDate,
   loadHistory,
   type PersistOutcome,
@@ -24,11 +23,11 @@ import {
   savedTriesForChallenge,
   streakForChallenge,
 } from './history';
-import { IndexDriftChallenge, Challenge, useChallenge } from './challenge';
+import type { ArrayChallenge, Challenge, IndexDriftChallenge } from './challenge';
+import type { PlayInput } from './playMachine';
 import { stagePlanFor } from './templates';
+import { useChallenge } from './useChallenge';
 import styles from './Daily.module.css';
-
-type ArrayChallenge = Exclude<Challenge, IndexDriftChallenge>;
 
 /** What `Play` needs to resume today's tries and save new ones. */
 type Progress = {
@@ -43,13 +42,15 @@ type ViewProps<P> = { challenge: P; theme: Theme; progress: Progress };
 
 const lastInput = (progress: Progress) => progress.initialTries.at(-1)?.input;
 
-/** The last arrangement tried today, or the challenge's own when none fits. */
-const restoredValues = (challenge: ArrayChallenge, progress: Progress) => {
-  const input = lastInput(progress);
-  return input?.kind === 'arrangement' && input.arrangement.length === challenge.values.length
+/** A copy of `input`'s arrangement when it fills `challenge`'s slots, or undefined. */
+const fittingArrangement = (challenge: ArrayChallenge, input: PlayInput | undefined) =>
+  input?.kind === 'arrangement' && input.arrangement.length === challenge.values.length
     ? [...input.arrangement]
-    : challenge.values;
-};
+    : undefined;
+
+/** The last arrangement tried today, or the challenge's own when none fits. */
+const restoredValues = (challenge: ArrayChallenge, progress: Progress) =>
+  fittingArrangement(challenge, lastInput(progress)) ?? challenge.values;
 
 const swapValues = (values: number[], a: number, b: number) =>
   values.map((value, index) => (index === a ? values[b] : index === b ? values[a] : value));
@@ -69,12 +70,8 @@ const ArrayChallengeView = ({ challenge, theme, progress }: ViewProps<ArrayChall
           {...progress}
           input={{ kind: 'arrangement', arrangement: values }}
           onRestoreInput={(restored) => {
-            if (
-              restored.kind === 'arrangement' &&
-              restored.arrangement.length === challenge.values.length
-            ) {
-              setValues([...restored.arrangement]);
-            }
+            const arrangement = fittingArrangement(challenge, restored);
+            if (arrangement) setValues(arrangement);
           }}
           editor={(frozen, redraw) => (
             <ChallengeArray
@@ -136,11 +133,7 @@ const ChallengeView = ({ challenge, theme }: { challenge: Challenge; theme: Them
   const persistedTries = useRef(savedTriesForChallenge(history, challenge));
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
-      if (
-        event.key === null ||
-        event.key === HISTORY_STORAGE_KEY ||
-        event.key === LEGACY_HISTORY_STORAGE_KEY
-      ) {
+      if (event.key === null || event.key === HISTORY_STORAGE_KEY) {
         const nextHistory = loadHistory();
         setHistory(nextHistory);
         const nextTries = savedTriesForChallenge(nextHistory, challenge);

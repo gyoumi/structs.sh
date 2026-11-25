@@ -48,22 +48,11 @@ const App = () => {
       <AnimatePresence>
         <ThemeProvider theme={structsTheme}>
           <Routes>
-            {/* Homepage */}
             <Route path="/" element={<Landing />} />
-
-            {/* Visualiser routes */}
             <Route path="/visualiser/:topic/:data?" element={<Visualiser />} />
-
-            {/* Daily challenge */}
             <Route path="/daily" element={<Daily />} />
-
-            {/* Feedback and feature request page */}
             <Route path="/feedback" element={<FeedbackRedirect />} />
-
-            {/* Development mode */}
             <Route path="/debugger" element={<DevelopmentMode />} />
-
-            {/* 404 page */}
             <Route path="*" element={<NotFound />} />
           </Routes>
           {/** For Providing warning/info/context of the app at anytime */}

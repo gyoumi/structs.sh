@@ -1,55 +1,19 @@
 import { KeyboardEvent, useState } from 'react';
 import type { ListOperation } from '@/Services/challenges/challenges';
+import { MAX_I32, MIN_I32 } from './i32';
+import { describeOperation, validateOperations } from './operations';
 import styles from './OperationBuilder.module.css';
+
+export { validateOperations } from './operations';
 
 type Kind = ListOperation['kind'];
 
 type Draft = { kind: Kind; value: string; index: string };
 
-const MIN_I32 = -0x80000000;
-const MAX_I32 = 0x7fffffff;
-
 const integerIn = (raw: string, min: number, max: number): number | null => {
   if (!/^-?\d+$/.test(raw.trim())) return null;
   const n = Number(raw);
   return Number.isSafeInteger(n) && n >= min && n <= max ? n : null;
-};
-
-/** `insert(5, 2)` or `delete(0)`, as the operation list shows it. */
-export const describeOperation = (op: ListOperation) =>
-  op.kind === 'insert' ? `insert(${op.value}, ${op.index})` : `delete(${op.index})`;
-
-/** Whether every queued operation stays within the list's length at its turn. */
-export type QueueValidation =
-  | { status: 'valid'; endLength: number }
-  | { status: 'invalid'; invalidAt: number; reason: string };
-
-/** Replays `operations` from `startLength` and flags the first out-of-range delete, if any. */
-export const validateOperations = (
-  startLength: number,
-  operations: ListOperation[]
-): QueueValidation => {
-  let length = startLength;
-  for (let i = 0; i < operations.length; i += 1) {
-    const op = operations[i];
-    if (op.kind === 'insert') {
-      length += 1;
-    } else {
-      if (op.index < 0 || op.index >= length) {
-        const range =
-          length === 0
-            ? `the list is empty at step ${i + 1}`
-            : `only indices 0 to ${length - 1} exist at step ${i + 1}`;
-        return {
-          status: 'invalid',
-          invalidAt: i,
-          reason: `Step ${i + 1} (${describeOperation(op)}) is out of range — ${range}.`,
-        };
-      }
-      length -= 1;
-    }
-  }
-  return { status: 'valid', endLength: length };
 };
 
 /** The operation `draft` describes, or why it can't be added yet. */

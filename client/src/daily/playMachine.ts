@@ -3,7 +3,14 @@ import type { Template } from './challenge';
 
 export const MAX_TRIES = 3;
 
-const lowerWins = (template?: Template) => template === 'linked-list-index-drift';
+/** Whether a lower score is better, as in index drift, where the score is a cost. */
+export const lowerWins = (template?: Template) => template === 'linked-list-index-drift';
+
+/** The best of `solved`: the lowest when lower wins, the highest otherwise. Undefined when empty. */
+export const bestScore = (solved: number[], template?: Template): number | undefined => {
+  if (solved.length === 0) return undefined;
+  return lowerWins(template) ? Math.min(...solved) : Math.max(...solved);
+};
 
 /** Whether `score` reaches the goal: at or below goal when lower wins, at or above it otherwise. */
 export const reachesGoal = (
@@ -11,10 +18,10 @@ export const reachesGoal = (
   score: number
 ): boolean => (lowerWins(challenge.template) ? score <= challenge.goal : score >= challenge.goal);
 
-export type ShareStatus = 'idle' | 'copied' | 'failed';
+type ShareStatus = 'idle' | 'copied' | 'failed';
 
 /** A try that ran but missed the challenge's condition, with why, as shown to the player. */
-export type UnsolvedTry = { kind: 'unsolved'; reason: string };
+type UnsolvedTry = { kind: 'unsolved'; reason: string };
 
 /** A solved try's score, or an unsolved try. */
 export type TryScore = number | UnsolvedTry;
@@ -56,13 +63,16 @@ export type PlayEvent =
 
 export const initialPlayState: PlayState = { stage: 'ready', scores: [] };
 
-/** The state to resume at after a reload: ended once every try is used, ready otherwise. */
-export const restoredPlayState = (scores: TryScore[]): PlayState => {
+/** `scores`, capped at the tries allowed: ended once every try is used, `open` otherwise. */
+const endedOr = (open: 'ready' | 'synced', scores: TryScore[]): PlayState => {
   const capped = scores.slice(0, MAX_TRIES);
   return capped.length >= MAX_TRIES
     ? { stage: 'ended', scores: capped, share: 'idle' }
-    : { stage: 'ready', scores: capped };
+    : { stage: open, scores: capped };
 };
+
+/** The state to resume at after a reload: ended once every try is used, ready otherwise. */
+export const restoredPlayState = (scores: TryScore[]): PlayState => endedOr('ready', scores);
 
 export const playReducer = (state: PlayState, event: PlayEvent): PlayState => {
   switch (event.type) {
@@ -88,17 +98,11 @@ export const playReducer = (state: PlayState, event: PlayEvent): PlayState => {
     case 'rerun':
       if (state.stage !== 'running') return state;
       return { ...state, runId: event.runId };
-    case 'scored': {
+    case 'scored':
       if (state.stage !== 'scoring') return state;
-      const scores = [...state.scores, event.score];
-      if (scores.length >= MAX_TRIES) return { stage: 'ended', scores, share: 'idle' };
-      return { stage: 'ready', scores };
-    }
-    case 'synced': {
-      const capped = event.scores.slice(0, MAX_TRIES);
-      if (capped.length >= MAX_TRIES) return { stage: 'ended', scores: capped, share: 'idle' };
-      return { stage: 'synced', scores: capped };
-    }
+      return endedOr('ready', [...state.scores, event.score]);
+    case 'synced':
+      return endedOr('synced', event.scores);
     case 'score-failed':
       if (state.stage !== 'scoring') return state;
       return { stage: 'score-failed', scores: state.scores };
@@ -118,11 +122,7 @@ const solvedScores = (scores: TryScore[]) =>
 
 /** What the score readout shows: the latest try while tries remain, then the best solved try (the lowest when lower wins). Undefined shows no number. */
 export const shownScore = (play: PlayState, template?: Template): number | undefined => {
-  if (play.stage === 'ended') {
-    const solved = solvedScores(play.scores);
-    if (solved.length === 0) return undefined;
-    return lowerWins(template) ? Math.min(...solved) : Math.max(...solved);
-  }
+  if (play.stage === 'ended') return bestScore(solvedScores(play.scores), template);
   const latest = play.scores.at(-1);
   return typeof latest === 'number' ? latest : undefined;
 };

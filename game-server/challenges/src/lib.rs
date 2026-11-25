@@ -1,4 +1,4 @@
-//! Puzzle templates, step logs, and scoring for the structs.sh daily game.
+//! Challenge templates, step logs, and scoring for the structs.sh daily game.
 //!
 //! Built for `wasm32-unknown-unknown`, the browser calls these exports (see
 //! `ffi.rs`; the JSON they take and return is described in [`wire`]):
@@ -62,25 +62,25 @@ impl ScoreDirection {
     }
 }
 
-/// A daily game puzzle template.
+/// A daily game challenge template.
 ///
 /// Each template fixes an algorithm, the input constraints, the step log it
 /// emits when executed, and how that execution is scored.
 pub trait Template {
-    /// One specific puzzle generated from this template.
+    /// One specific challenge generated from this template.
     type Instance;
     /// A player's submitted input for an [`Instance`](Self::Instance).
     type Input;
     /// A single recorded event emitted by [`run`](Self::run).
     type Step;
 
-    /// The id puzzle files use.
+    /// The id each challenge is tagged with.
     const ID: &'static str;
 
     /// Whether higher or lower solved scores rank better.
     const DIRECTION: ScoreDirection = ScoreDirection::HigherWins;
 
-    /// Returns plain-text rules describing the puzzle and its constraints.
+    /// Returns plain-text rules describing the challenge and its constraints.
     fn rules(&self, instance: &Self::Instance) -> String;
 
     /// Validates `input` against `instance`, then runs the algorithm and
@@ -94,14 +94,14 @@ pub trait Template {
         input: &Self::Input,
     ) -> Result<Vec<Self::Step>, InputError>;
 
-    /// Validates `input` against `instance`, then returns the puzzle score.
+    /// Validates `input` against `instance`, then returns the challenge score.
     ///
     /// Returns the same [`InputError`] as [`run`](Self::run) for invalid
     /// inputs.
     fn score(&self, instance: &Self::Instance, input: &Self::Input) -> Result<u32, InputError>;
 
     /// Validates `input` against `instance`, then returns `Some(score)` if
-    /// the attempt solved the puzzle, or `None` if it did not.
+    /// the attempt solved the challenge, or `None` if it did not.
     ///
     /// Templates where every valid input is solved keep the default, which
     /// wraps [`score`](Self::score) in `Some`. Exact-target and disagree
@@ -115,28 +115,28 @@ pub trait Template {
         self.score(instance, input).map(Some)
     }
 
-    /// Generates the puzzle instance for `seed`; the same seed always gives
+    /// Generates the challenge instance for `seed`; the same seed always gives
     /// the same instance.
     fn generate(&self, seed: u64) -> Self::Instance;
 
     /// Inputs a search may consider for `instance` (empty when `instance` is
     /// invalid or has no valid search candidates). Yielded inputs are valid,
-    /// though not every one need satisfy the puzzle's solve condition.
+    /// though not every one need satisfy the challenge's solve condition.
     fn search_space(&self, instance: &Self::Instance) -> SearchSpace<Self::Input>;
 
     /// Named, hand-picked valid inputs for `instance` (empty when `instance`
     /// is invalid or has no valid shortcut candidates). A shortcut need not
-    /// satisfy the puzzle's solve condition.
+    /// satisfy the challenge's solve condition.
     fn shortcuts(&self, instance: &Self::Instance) -> Vec<Shortcut<Self::Input>>;
 
     /// A valid input for `instance`, determined by `seed`, or `None` when
     /// `instance` is invalid or has no valid inputs to sample. The returned
-    /// input need not satisfy the puzzle's solve condition.
+    /// input need not satisfy the challenge's solve condition.
     fn random_input(&self, instance: &Self::Instance, seed: u64) -> Option<Self::Input>;
 
     /// A valid input close to `input`, determined by `seed`, for local search,
     /// or `None` when `instance` or `input` is invalid. The returned input
-    /// need not satisfy the puzzle's solve condition.
+    /// need not satisfy the challenge's solve condition.
     fn random_neighbor(
         &self,
         instance: &Self::Instance,
@@ -145,7 +145,7 @@ pub trait Template {
     ) -> Option<Self::Input>;
 }
 
-/// Reason a player's input is rejected for a puzzle instance.
+/// Reason a player's input is rejected for a challenge instance.
 ///
 /// Validation checks run in this exact order:
 /// 1. Any fixed index is `>= instance.values.len()` ->
