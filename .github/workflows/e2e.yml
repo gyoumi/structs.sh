@@ -38,6 +38,8 @@ jobs:
       # and the daily challenge loads its scoring .wasm, built from game-server/. Both
       # use the Rust in rust-toolchain.toml and are built by the `wasm` script
       # in package.json. The built files are reused until one of those changes.
+      # wasm-cache.yml saves them on dev and daily-game for new PRs; keep its
+      # path and key the same as here.
       - name: Restore wasm
         id: wasm-cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
