@@ -58,11 +58,20 @@ export class TransportControls {
 
   /** The first of Play, Pause or Replay the toolbar shows, and whether it is enabled; null when it shows none. */
   async playButton(): Promise<{ name: 'Play' | 'Pause' | 'Replay'; enabled: boolean } | null> {
-    for (const name of ['Play', 'Pause', 'Replay'] as const) {
-      const button = this.toolbar.getByRole('button', { name, exact: true });
-      if (await button.isVisible()) return { name, enabled: await button.isEnabled() };
-    }
-    return null;
+    return this.toolbar.getByRole('button', { name: /^(Play|Pause|Replay)$/ }).evaluateAll((elements) => {
+      for (const el of elements) {
+        const rect = el.getBoundingClientRect();
+        if (rect.width === 0 && rect.height === 0) continue;
+        const name = (el.getAttribute('aria-label') ?? el.textContent ?? '').trim();
+        if (name !== 'Play' && name !== 'Pause' && name !== 'Replay') continue;
+        const disabled =
+          el.hasAttribute('disabled') ||
+          el.getAttribute('aria-disabled') === 'true' ||
+          el.closest('[aria-disabled="true"]') !== null;
+        return { name, enabled: !disabled };
+      }
+      return null;
+    });
   }
 
   // ---------------------------------------------------------------- buttons
