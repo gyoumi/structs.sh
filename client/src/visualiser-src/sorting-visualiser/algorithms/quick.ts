@@ -192,7 +192,6 @@ function quickSortRange(
     hi,
     canvasTheme.danger
   );
-  // Make everything left of recursing array solved (bars accented, dimmed labels stay in ink)
   producer.doAnimationAndHighlightTimestamp(
     7,
     true,

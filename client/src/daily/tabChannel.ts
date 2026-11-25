@@ -39,7 +39,7 @@ type TabMessageBody =
 /** Every message carries the challenge's day, so another day's tabs ignore it. */
 export type TabMessage = TabMessageBody & { date: string };
 
-const CHANNEL_NAME = 'structs-daily';
+const CHANNEL_NAME = 'daily-challenge';
 
 /** The channel the daily page's tabs talk on, or null where `BroadcastChannel` is missing. */
 export const openTabChannel = (): BroadcastChannel | null =>

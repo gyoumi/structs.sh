@@ -1,4 +1,4 @@
-# The Rust used to build instrumenter/ and crates/. rustup reads this file
+# The Rust used to build instrumenter/ and game-server/. rustup reads this file
 # from the directory cargo runs in, so it lives at the repo root.
 [toolchain]
 channel = "1.99.0"

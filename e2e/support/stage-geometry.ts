@@ -83,7 +83,7 @@ export const describeNodes = (nodes: readonly PlacedNode[]): string =>
  * How `after` differs from `before` as the player sees it: a number missing, or drawn more than `tolerance`
  * pixels from where it was, or its text more than 3% bigger or smaller (zoom). Empty when the same.
  */
-export const placementDifferences = (before: readonly PlacedNode[], after: readonly PlacedNode[], tolerance = 3): string[] => {
+const placementDifferences = (before: readonly PlacedNode[], after: readonly PlacedNode[], tolerance = 3): string[] => {
   const now = new Map(after.map((node) => [node.value, node]));
   const differences: string[] = [];
   for (const was of before) {
