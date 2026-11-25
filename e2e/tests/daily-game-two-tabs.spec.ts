@@ -87,6 +87,9 @@ test.describe('daily game in two tabs', () => {
     await b.history.expectNoSyncedNotice(`${ended} (tab B)`);
     await b.daily.expectStatusNumber('Tries left', 2, `${ended}: tab B should show the try used, as tab A does`);
     await b.template.expectTryChips([`${goal.count} ⭐`], `${ended}: tab B`);
+    await expect
+      .poll(() => b.daily.canRun(), { message: `${ended}: Run should be enabled again in tab B once the shared run ends, with 2 tries left` })
+      .toBe(true);
     await expectRecorded(b, DATE, 1, ended);
   });
 
@@ -154,7 +157,7 @@ test.describe('daily game in two tabs', () => {
   });
 
   test('both tabs show each try when its run ends or Skip is pressed in either tab, recorded once, and Share on the last try (quicksort)', async ({ page }) => {
-    const { start, goal, highFromGoal } = DAILY_12;
+    const { start, goal, lowFromGoal } = DAILY_12;
     const ctx = `${DAILY_12.name} dated ${DATE}, both tabs open`;
     const { a, b } = await openBoth(page, QUICKSORT_DAY, ctx);
 
@@ -179,14 +182,14 @@ test.describe('daily game in two tabs', () => {
     await a.template.expectTryChips([`${start.count}`, `${goal.count} ⭐`], `${try2}: tab A`);
     await expectRecorded(a, DATE, 2, try2);
 
-    const try3 = `${ctx}, try 3 ${fmt(highFromGoal.values)} (${highFromGoal.count} ⭐) run in tab B at 0.25×, then Skip in tab A`;
+    const try3 = `${ctx}, try 3 ${fmt(lowFromGoal.values)} (${lowFromGoal.count}, below best ${goal.count}) run in tab B at 0.25×, then Skip in tab A`;
     expect(await b.daily.values(), `${try3}: test setup: tab B's Challenge array should show try 2's ${fmt(goal.values)}, which tab A ran`).toEqual([...goal.values]);
-    await b.daily.swap(highFromGoal.swap[0], highFromGoal.swap[1]);
+    await b.daily.swap(lowFromGoal.swap[0], lowFromGoal.swap[1]);
     await b.daily.transport.setSpeed(0.25);
     await b.daily.run();
     await a.midRun.waitUntilPartWay(`${try3}, tab A playing`, 'Comparisons');
     await a.skip(try3);
-    const chips = [`${start.count}`, `${goal.count} ⭐`, `${highFromGoal.count} ⭐`];
+    const chips = [`${start.count}`, `${goal.count} ⭐`, `${lowFromGoal.count}`];
     await expectSameView(a, b, COMPARISONS, try3);
     await a.history.expectNoSyncedNotice(`${try3} (tab A)`);
     const bDrawing = await b.daily.drawnValues();
@@ -198,12 +201,13 @@ test.describe('daily game in two tabs', () => {
     for (const tab of [a, b]) {
       await tab.template.expectTryChips(chips, `${try3}: ${tab.name}`);
       await tab.daily.expectStatusNumber('Tries left', 0, `${try3}: ${tab.name} should end the day`);
-      await tab.daily.expectStatusNumber('Score', highFromGoal.count, `${try3}: ${tab.name}'s Score should be the highest try, ${highFromGoal.count}`);
+      await tab.daily.expectStatusNumber('Score', goal.count, `${try3}: ${tab.name}'s Score should be the highest try, ${goal.count}`);
+      expect(await tab.daily.values(), `${try3}: ${tab.name}'s frozen Challenge array should show try 3's ${fmt(lowFromGoal.values)}`).toEqual([...lowFromGoal.values]);
       expect(await tab.daily.canShare(), `${try3}: the day is over, so Share should be enabled in ${tab.name}`).toBe(true);
       expect(await tab.daily.canRun(), `${try3}: the day is over, so Run should be disabled in ${tab.name}`).toBe(false);
       await tab.history.expectArrayFrozen(DAILY_12.challenge.values.length, `${try3} (${tab.name})`);
       const view = await tab.view(COMPARISONS, try3);
-      expect(view.message, `${try3}: ${tab.name} should give the ended message`).toBe(`You reached the goal! Your highest score was ${highFromGoal.count}.`);
+      expect(view.message, `${try3}: ${tab.name} should give the ended message`).toBe(`You reached the goal! Your highest score was ${goal.count}.`);
     }
     await expectRecorded(a, DATE, 3, try3);
   });
@@ -364,7 +368,7 @@ test.describe('daily game in two tabs', () => {
     await b.history.expectNoBroadcastChannel(`${ctx} (tab B)`);
     await a.daily.swap(goal.swap[0], goal.swap[1]);
     await a.daily.run();
-    await a.skip(ctx);
+    await a.daily.skip(ctx);
 
     await b.daily.expectStatusNumber('Tries left', 2, `${ctx}: tab B should pick up the saved try from localStorage, as before 3f`);
     await b.template.expectTryChips([`${goal.count} ⭐`], `${ctx}: tab B`);
@@ -375,10 +379,10 @@ test.describe('daily game in two tabs', () => {
 
     await a.daily.swap(lowFromGoal.swap[0], lowFromGoal.swap[1]);
     await a.daily.run();
-    await a.skip(`${ctx}, try 2`);
+    await a.daily.skip(`${ctx}, try 2`);
     await a.daily.swap(thirdFromLow.swap[0], thirdFromLow.swap[1]);
     await a.daily.run();
-    await a.skip(`${ctx}, try 3`);
+    await a.daily.skip(`${ctx}, try 3`);
     const doneCtx = `${ctx}, after tab A finished tries 2 and 3`;
     await b.daily.expectStatusNumber('Tries left', 0, `${doneCtx}: tab B should end without running a try`);
     expect(await b.daily.values(), `${doneCtx}: tab B's frozen editor should show the final saved arrangement`).toEqual([...thirdFromLow.values]);
