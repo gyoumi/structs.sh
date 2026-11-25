@@ -5,7 +5,7 @@ import { Drawing, nodeValues, type DrawnStep, type PointerLabel } from './drawin
 export type { DrawnStep, PointerLabel } from './drawing';
 
 /** What the page has shown of the compiler's download so far. */
-type CompilerDownload = { seen: boolean; finished: boolean; lastStatus: string };
+type CompilerDownload = { stage: 'unseen' | 'downloading' | 'finished'; lastStatus: string };
 
 /**
  * Console errors that are not the app's fault and are ignored by
@@ -165,7 +165,9 @@ export class DebuggerPage {
   async waitForCompilerDownload(timeoutMs = 60_000): Promise<void> {
     try {
       await this.page.waitForFunction(
-        () => (window as unknown as { __e2eCompilerDownload?: CompilerDownload }).__e2eCompilerDownload?.finished,
+        () =>
+          (window as unknown as { __e2eCompilerDownload?: CompilerDownload }).__e2eCompilerDownload?.stage ===
+          'finished',
         null,
         { timeout: timeoutMs },
       );
@@ -390,17 +392,17 @@ export class DebuggerPage {
    */
   private async watchCompilerDownload(): Promise<void> {
     await this.page.addInitScript(() => {
-      const download: CompilerDownload = { seen: false, finished: false, lastStatus: '' };
+      const download: CompilerDownload = { stage: 'unseen', lastStatus: '' };
       (window as unknown as { __e2eCompilerDownload: CompilerDownload }).__e2eCompilerDownload = download;
       const check = () => {
         const status = Array.from(document.querySelectorAll('[role="status"]')).find((el) =>
           el.textContent?.startsWith('Loading compiler'),
         );
         if (status) {
-          download.seen = true;
+          if (download.stage === 'unseen') download.stage = 'downloading';
           download.lastStatus = status.textContent ?? '';
-        } else if (download.seen) {
-          download.finished = true;
+        } else if (download.stage === 'downloading') {
+          download.stage = 'finished';
         }
       };
       new MutationObserver(check).observe(document, { childList: true, subtree: true, characterData: true });

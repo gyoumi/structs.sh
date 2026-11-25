@@ -5,8 +5,62 @@ import GraphicalSortsElement from '../data-structure/GraphicalSortsElement';
 import SortsAnimationProducer from './SortsAnimationProducer';
 import { boxWidth } from '../util/constants';
 import { canvasTheme } from '../../common/canvasTheme';
+import { StepComparison, StepTrace } from '../../common/AnimationProducer';
+
+const DIMMED_BAR_OPACITY = 0.28;
+const DIMMED_LABEL_OPACITY = 0.78;
 
 export default class SortsQuickAnimationProducer extends SortsAnimationProducer {
+  private comparisonCount = 0;
+
+  private currentTrace: StepTrace | null = null;
+
+  /** Number of value comparisons made by the quicksort that built this producer. */
+  public get comparisons(): number {
+    return this.comparisonCount;
+  }
+
+  protected get counter(): number {
+    return this.comparisonCount;
+  }
+
+  protected get stepTrace(): StepTrace | null {
+    return this.currentTrace;
+  }
+
+  /** Sets the pivot of the partition in progress, or clears the trace when the sort is done. */
+  public setPivot(pivot: number | null): void {
+    this.currentTrace = pivot === null ? null : { pivot };
+  }
+
+  /**
+   * Records one value comparison and passes its result through. Each comparison gets a timeline
+   * step of its own that marks the compared element, so the count changes by one per step.
+   */
+  public countComparison(
+    result: boolean,
+    line: number,
+    element: GraphicalSortsElement,
+    colour: string,
+    comparison?: StepComparison
+  ): boolean {
+    this.comparisonCount += 1;
+    const prior = this.currentTrace;
+    if (comparison && prior) {
+      this.currentTrace = { pivot: prior.pivot, comparison };
+    }
+    this.doAnimationAndHighlightTimestamp(line, true, this.markCompared, element, colour);
+    if (prior) this.currentTrace = { pivot: prior.pivot };
+    return result;
+  }
+
+  public markCompared(element: GraphicalSortsElement, colour: string) {
+    this.addSequenceAnimation(
+      element.boxTarget.animate(150).attr({ stroke: colour, fill: colour })
+    );
+    this.addSequenceAnimation(element.numberTarget.animate(150).attr({ fill: colour }));
+  }
+
   public renderQuickCode() {
     this.renderCode(quickCodeSnippet);
   }
@@ -51,8 +105,10 @@ export default class SortsQuickAnimationProducer extends SortsAnimationProducer 
   public greyOut(array: GraphicalSortsElement[], lo: number, hi: number) {
     array.forEach((x, i) => {
       if (i < lo || i > hi) {
-        this.addSequenceAnimation(x.boxTarget.animate(300).attr({ opacity: 0.3 }));
-        this.addSequenceAnimation(x.numberTarget.animate(300).attr({ opacity: 0.3 }));
+        this.addSequenceAnimation(x.boxTarget.animate(300).attr({ opacity: DIMMED_BAR_OPACITY }));
+        this.addSequenceAnimation(
+          x.numberTarget.animate(300).attr({ opacity: DIMMED_LABEL_OPACITY, fill: canvasTheme.ink })
+        );
       } else {
         this.addSequenceAnimation(x.boxTarget.animate(300).attr({ opacity: 1 }));
         this.addSequenceAnimation(x.numberTarget.animate(300).attr({ opacity: 1 }));
@@ -72,7 +128,7 @@ export default class SortsQuickAnimationProducer extends SortsAnimationProducer 
   }
 
   public makeSolved(array: GraphicalSortsElement[]) {
-    this.highlightBoxes(array, canvasTheme.accent);
+    this.highlightBoxes(array, canvasTheme.accent, canvasTheme.ink);
     array.forEach((x) => {
       this.addSequenceAnimation(x.boxTarget.animate(300).attr({ opacity: 1 }));
       this.addSequenceAnimation(x.numberTarget.animate(300).attr({ opacity: 1 }));

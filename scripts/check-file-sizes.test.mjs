@@ -90,27 +90,16 @@ describe('inScope', () => {
   }
 
   const outOfScopePaths = [
-    // Client files the rewrite didn't touch.
-    ['client/src/visualiser-debugger/Component/FileTree/FS/IFileSystem.ts', 'a visualiser file not on the list'],
-    ['client/src/visualiser-debugger/Component/Visualizer/Parser/treeParser.ts', 'a file in Parser/ whose name does not start with linkedList'],
-    ['client/src/visualiser-debugger/Component/Visualizer/Parser/parserFactory.ts', 'a file in Parser/ whose name does not start with linkedList'],
-    ['client/src/visualiser-debugger/Component/Visualizer/Parser/fixtures/linkedList-x.json', 'a .json file in Parser/fixtures/, though its name starts with linkedList'],
-    ['client/src/visualiser-debugger/Component/Visualizer/Parser/fixtures/linkedList-x.ts', 'a .ts file in Parser/fixtures/, though its name starts with linkedList'],
-    ['client/src/visualiser-debugger/Component/Visualizer/Parser/util/linkedListHelpers.ts', 'a linkedList file in a subfolder of Parser/, not in Parser/ itself'],
-    ['client/src/visualiser-debugger/Component/Visualizer/linkedListView.tsx', 'a linkedList file outside Parser/'],
-    ['client/src/Services/useQueue.ts', 'a Services file other than useDebugger.ts'],
-    ['client/src/Services/useDebuggerExtra.ts', 'a file whose name only starts with useDebugger'],
-    ['client/src/Services/debuggerOld/run.ts', 'a folder whose name only starts with debugger'],
-    ['client/src/App.tsx', 'the rest of the client'],
-    ['instrumenter/build.rs', 'instrumenter code outside src/ and tests/'],
-    ['debugger/src/main.ts', 'the old debugger'],
-    // Fixtures and generated folders.
+    // Fixtures, generated and mock folders.
+    ['client/src/visualiser-debugger/Component/Visualizer/Parser/fixtures/linkedList-x.json', 'a .json file in Parser/fixtures/'],
+    ['client/src/visualiser-debugger/Component/Visualizer/Parser/fixtures/linkedList-x.ts', 'a .ts file in Parser/fixtures/'],
     ['instrumenter/tests/fixtures/helper.rs', 'a .rs file in instrumenter/tests/fixtures/'],
     ['e2e/fixtures/gdb-steps/linked_list.ts', 'a .ts file in e2e/fixtures/'],
     ['client/src/Services/debugger/wasm/fixtures/variables.ts', 'a .ts file in a debugger fixtures/ folder'],
     ['scripts/fixtures/check-file-sizes/big.mjs', 'a .mjs file in scripts/fixtures/'],
     ['client/src/Services/debugger/generated/clang.js', 'a .js file in a generated/ folder'],
     ['instrumenter/src/generated/tables.rs', 'a .rs file in instrumenter/src/generated/'],
+    ['client/__mocks__/styleMock.js', 'a .js file in __mocks__/'],
     // Non-code files.
     ['client/src/Services/debugger/wasm/fixtures/variables.c', 'a .c file'],
     ['instrumenter/src/runtime.c', 'a .c file in instrumenter/src/'],
@@ -196,9 +185,9 @@ describe('oversized', () => {
   it('ignores out-of-scope paths, however long', () => {
     const oversized = exported('oversized');
     const files = [
-      { path: 'client/src/visualiser-debugger/Component/FileTree/FS/IFileSystem.ts', lines: 5000 },
       { path: 'instrumenter/tests/fixtures/helper.rs', lines: 5000 },
       { path: 'client/src/Services/debugger/generated/clang.js', lines: 5000 },
+      { path: 'client/__mocks__/styleMock.js', lines: 5000 },
       { path: 'e2e/fixtures/gdb-steps/linked_list.json', lines: 5000 },
       { path: 'client/src/Services/debugger/wasm/fixtures/variables.c', lines: 5000 },
       { path: 'scripts/README.md', lines: 5000 },
@@ -347,13 +336,13 @@ describe('CLI in a temporary git repo', () => {
     ['e2e/support/page.ts', linesOf(500)],
     ['instrumenter/src/lib.rs', linesOf(400)],
     ['instrumenter/tests/fixtures/big.rs', linesOf(900)],
-    ['client/src/visualiser-debugger/Component/FileTree/FS/IFileSystem.ts', linesOf(900)],
+    ['client/src/Services/debugger/generated/big.ts', linesOf(900)],
     ['e2e/fixtures/gdb-steps/rec.json', linesOf(900)],
     ['scripts/notes.md', linesOf(900)],
   ];
   const untrackedFiles = [['scripts/untracked.mjs', linesOf(900)]];
   const repoDescription =
-    'a temp git repo with tracked scripts/big.mjs (301 lines, no final newline), scripts/ok.mjs (300), client/src/Services/debugger/wasm/huge.test.ts (501), e2e/support/page.ts (500), instrumenter/src/lib.rs (400), and ignored 900-line instrumenter/tests/fixtures/big.rs, IFileSystem.ts, e2e/fixtures/gdb-steps/rec.json, scripts/notes.md and untracked scripts/untracked.mjs; the script is copied alone into its scripts/ folder';
+    'a temp git repo with tracked scripts/big.mjs (301 lines, no final newline), scripts/ok.mjs (300), client/src/Services/debugger/wasm/huge.test.ts (501), e2e/support/page.ts (500), instrumenter/src/lib.rs (400), and ignored 900-line instrumenter/tests/fixtures/big.rs, generated/big.ts, e2e/fixtures/gdb-steps/rec.json, scripts/notes.md and untracked scripts/untracked.mjs; the script is copied alone into its scripts/ folder';
 
   it('lists each file over its limit, sorted by path, and exits 1', () => {
     const repo = makeRepo(repoFiles, untrackedFiles);
@@ -432,7 +421,7 @@ describe('CLI in a temporary git repo', () => {
       ['client/src/Services/useDebugger.ts', linesOf(134)],
       ['client/src/visualiser-debugger/Component/Control/Controls.tsx', linesOf(250)],
       ['client/src/Services/debugger/wasm/fixtures/huge.ts', linesOf(900)],
-      ['client/src/Services/useQueue.ts', linesOf(900)],
+      ['client/src/Services/debugger/generated/huge.ts', linesOf(900)],
       ['instrumenter/tests/fixtures/README.md', linesOf(900)],
     ];
     const repo = makeRepo(files, [['scripts/untracked.mjs', linesOf(900)]]);
@@ -474,23 +463,23 @@ describe('CLI against this repo', () => {
       assert.ok(existsSync(scriptPath), `scripts/check-file-sizes.mjs does not exist, so the CLI can't be run (looked for ${scriptPath})`);
       const inScope = exported('inScope');
       const kindOf = exported('kindOf');
-      const limit = kind === 'test' ? 500 : 300;
+      const limitFor = exported('limitFor');
       const tracked = execFileSync('git', ['ls-files'], { cwd: repoRoot, encoding: 'utf8' }).split('\n').filter(Boolean);
       const expected = tracked
         .filter((path) => existsSync(join(repoRoot, path)) && inScope(path) && kindOf(path) === kind)
-        .map((path) => ({ path, lines: countLines(path) }))
-        .filter((f) => f.lines > limit)
+        .map((path) => ({ path, lines: countLines(path), limit: limitFor(path) }))
+        .filter((f) => f.lines > f.limit)
         .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
-        .map((f) => overLine(f.path, f.lines, limit, kind));
+        .map((f) => overLine(f.path, f.lines, f.limit, kind));
       const run = runCli(repoRoot, ['--only', kind]);
       const what = describeRun(`the real repo at ${repoRoot}`, ['--only', kind], run);
       same(
         reportLines(run),
         expected,
-        `the over-limit lines should be every git-tracked file with inScope true and kindOf '${kind}' over ${limit} lines (counted from the working tree), sorted by path, and nothing else\n${what}`,
+        `the over-limit lines should be every git-tracked file with inScope true and kindOf '${kind}' over its limit (counted from the working tree), sorted by path, and nothing else\n${what}`,
       );
       const code = expected.length ? 1 : 0;
-      assert.equal(run.status, code, `exit code should be ${code}: ${expected.length} ${kind} files are over ${limit} lines\n${what}`);
+      assert.equal(run.status, code, `exit code should be ${code}: ${expected.length} ${kind} files are over their limit\n${what}`);
     });
   }
 });

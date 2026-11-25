@@ -1,0 +1,281 @@
+/* The score cards and the phone HUD. The intro and tokens live in Daily.module.css. */
+
+.mobileHud {
+  display: none;
+}
+
+.card {
+  padding: 1.05rem 1.15rem;
+  border: 2.5px solid var(--edge);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: 0 var(--drop) 0 var(--shadow);
+  color: var(--ink);
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  min-height: 1.75rem;
+  margin-bottom: 0.45rem;
+}
+
+:global([data-theme]) .cardTitle {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.stepCard .cardTitle {
+  margin-bottom: 0.45rem;
+}
+
+.badge {
+  padding: 0.1rem 0.5rem;
+  border: 2px solid var(--edge);
+  border-radius: 999px;
+  background: var(--sand);
+  color: var(--button-ink);
+  font-size: 0.74rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.bigScore {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.bigNum {
+  font-size: 2.75rem;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.goalSlash {
+  color: var(--muted);
+  font-size: 1.02rem;
+  font-weight: 600;
+}
+
+.goalVal,
+.metaVal {
+  color: var(--ink);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.tries {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin: 0;
+  padding: 0.7rem 0 0;
+  border-top: 1.5px dashed var(--dash);
+  list-style: none;
+}
+
+.tryChip {
+  display: grid;
+  place-items: center;
+  height: 32px;
+  border: 1.5px solid var(--dash);
+  border-radius: 9px;
+  background: var(--bg);
+  font-size: 0.88rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The try being played: dashed like an empty one, but warm and filled so it reads as in progress. */
+.tryLive {
+  border: 2px dashed var(--edge);
+  background: var(--sand-soft);
+}
+
+:global([data-theme='dark']) .tryLive {
+  border-color: var(--sand);
+}
+
+.tryMissed {
+  color: var(--no);
+}
+
+.readouts {
+  display: grid;
+  gap: 0.2rem;
+  margin-bottom: 0.65rem;
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.readouts > span {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.miss {
+  display: block;
+  margin-top: 0.55rem;
+  color: var(--no);
+  font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.tryEmpty {
+  border-style: dashed;
+  background: transparent;
+  color: var(--muted);
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.25rem 0.75rem;
+  margin-top: 0.55rem;
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.traceRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.traceKey {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.traceVal,
+.compareExpr,
+.hudChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.swatch {
+  display: inline-block;
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+}
+
+.compareChip {
+  display: flex;
+  align-items: center;
+  min-height: 2.4rem;
+  margin-top: 0.7rem;
+  padding: 0.3rem 0.65rem;
+  border: 1.5px solid var(--dash);
+  border-radius: 10px;
+  background: var(--bg);
+  font-size: 0.92rem;
+  box-sizing: border-box;
+}
+
+.idle {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.resultYes,
+.resultNo {
+  font-weight: 700;
+}
+
+.resultYes {
+  color: var(--yes);
+}
+
+.resultNo {
+  color: var(--no);
+}
+
+@media (max-width: 860px) {
+  .mobileHud {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    min-height: 2.6rem;
+    padding: 0.35rem 0.75rem;
+    border-bottom: 2px solid var(--edge);
+    font-variant-numeric: tabular-nums;
+    box-sizing: border-box;
+  }
+
+  .hudScore {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.28rem;
+  }
+
+  .hudNum {
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .hudStar {
+    font-size: 0.9rem;
+    line-height: 1;
+  }
+
+  .hudGoal,
+  .hudRight {
+    color: var(--muted);
+    font-size: 0.8rem;
+    font-weight: 700;
+  }
+
+  .hudRight {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .hudChip {
+    gap: 0.3rem;
+    padding: 0.15rem 0.5rem;
+    border: 1.5px solid var(--dash);
+    border-radius: 999px;
+    background: var(--bg);
+    color: var(--ink);
+  }
+
+  /* Keep Step card in the accessibility tree for mobile screen readers while hiding it visually. */
+  .stepCard {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}

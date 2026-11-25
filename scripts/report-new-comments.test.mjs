@@ -224,14 +224,14 @@ describe('findNewComments: only scope source files', () => {
   });
 
   it('ignores out-of-scope files', () => {
-    for (const path of ['client/src/App.tsx', 'client/src/Services/debugger/wasm/generated/bindings.ts', 'instrumenter/tests/fixtures/prog.rs', 'docs/notes.md', 'scripts/notes.md']) {
+    for (const path of ['client/src/Services/debugger/wasm/generated/bindings.ts', 'instrumenter/tests/fixtures/prog.rs', 'client/__mocks__/styleMock.js', 'docs/notes.md', 'scripts/notes.md']) {
       expectEach(path, comments, false, 'out of the size check\'s scope');
     }
   });
 
   it('returns { path, line, text } with the same values, in input order, across mixed files', () => {
     const input = [
-      { path: 'client/src/App.tsx', line: 3, text: '// app' },
+      { path: 'client/src/Services/debugger/wasm/generated/bindings.ts', line: 3, text: '// generated' },
       { path: SRC, line: 40, text: '    // why, indented' },
       { path: 'client/src/Services/debugger/wasm/run.test.ts', line: 2, text: '// test' },
       { path: RS, line: 9, text: 'let x = 1; // rust why' },
@@ -253,7 +253,7 @@ describe('findNewComments: only scope source files', () => {
 // --- annotation ---------------------------------------------------------------
 
 const MESSAGE =
-  "Checkpoint 5 keeps only API docs, licence headers and notes about outside constraints in the debugger's code. If this explains our own code, say it with a name, type or shape instead (see the no-comments skill).";
+  'Keep only API docs, licence headers and notes about outside constraints in checked source files. If this explains our own code, say it with a name, type or shape instead (see the no-comments skill).';
 const warning = (escapedPath, line) => `::warning file=${escapedPath},line=${line},title=New comment::${MESSAGE}`;
 
 function expectAnnotation(entry, expected, what) {
@@ -345,8 +345,8 @@ function runCli(cwd, base, head) {
 
 const sorted = (list) => [...list].sort();
 const lines = (...rows) => `${rows.join('\n')}\n`;
-const NONE = "No new comments in the debugger's code.";
-const some = (n) => `${n} new comment(s) in the debugger's code. Each needs a reviewer's OK.`;
+const NONE = 'No new comments in checked source files.';
+const some = (n) => `${n} new comment(s) in checked source files. Each needs a reviewer's OK.`;
 
 describe('CLI in a temporary git repo', () => {
   it('prints an annotation per new comment in scope source files, then the count, and exits 0', () => {
@@ -356,7 +356,7 @@ describe('CLI in a temporary git repo', () => {
       [
         [SRC, lines('export function run() {', '  // old comment', '  return 1;', '}')],
         [RS, lines('pub fn f() {}')],
-        ['client/src/App.tsx', lines('export const App = 1;')],
+        ['client/src/Services/debugger/wasm/generated/bindings.ts', lines('export const x = 1;')],
       ],
       'base',
     );
@@ -366,7 +366,7 @@ describe('CLI in a temporary git repo', () => {
         [SRC, lines('export function run() {', '  // old comment', '  // new plain comment', "  const url = 'https://example.com';", '  const n = 2; // trailing why', '  /** doc */', '  // eslint-disable-next-line no-console', '  console.log(url, n);', '  return 1;', '}')],
         [RS, lines('/// doc', 'pub fn f() {}', '// rust why', 'pub fn g() {} // trailing rust')],
         ['client/src/Services/debugger/wasm/__tests__/x.test.ts', lines('// test comment', "it('x', () => {});")],
-        ['client/src/App.tsx', lines('// app comment', 'export const App = 1;')],
+        ['client/src/Services/debugger/wasm/generated/bindings.ts', lines('// generated comment', 'export const x = 1;')],
         ['scripts/new-tool.mjs', lines('#!/usr/bin/env node', '// new file comment', 'console.log(1);')],
       ],
       'head',
@@ -375,7 +375,7 @@ describe('CLI in a temporary git repo', () => {
     const scenario =
       `base: ${SRC} with "// old comment" on line 2; head adds to it "// new plain comment" (line 3), a url string, "const n = 2; // trailing why" (line 5), a /** doc */ and an eslint directive; ` +
       `adds "// rust why" (line 3) and "pub fn g() {} // trailing rust" (line 4) to ${RS}; adds new scripts/new-tool.mjs with "// new file comment" on line 2; ` +
-      'adds comments to the test file client/src/Services/debugger/wasm/__tests__/x.test.ts and the out-of-scope client/src/App.tsx';
+      'adds comments to the test file client/src/Services/debugger/wasm/__tests__/x.test.ts and the out-of-scope generated/bindings.ts';
     assert.equal(run.status, 0, `exit code should be 0 (comments never fail the run)\n  ${scenario}\n${run.what}`);
     const expected = [warning(SRC, 3), warning(SRC, 5), warning(RS, 3), warning(RS, 4), warning('scripts/new-tool.mjs', 2)];
     assert.deepStrictEqual(
@@ -413,12 +413,12 @@ describe('CLI in a temporary git repo', () => {
         [SRC, lines('export function run() {', '  // old comment', "  const url = 'https://example.com';", '  /** doc */', '  return 1;', '}')],
         [RS, lines('//! crate doc', 'pub fn f() {}')],
         ['client/src/Services/debugger/wasm/__tests__/x.test.ts', lines('// test comment')],
-        ['client/src/App.tsx', lines('// app comment')],
+        ['client/src/Services/debugger/wasm/generated/bindings.ts', lines('// generated comment')],
       ],
       'head',
     );
     const run = runCli(repo, base, head);
-    const scenario = `head adds code, a url string and a /** doc */ to ${SRC}, a //! doc to ${RS}, and comments only to a test file and the out-of-scope client/src/App.tsx`;
+    const scenario = `head adds code, a url string and a /** doc */ to ${SRC}, a //! doc to ${RS}, and comments only to a test file and the out-of-scope generated/bindings.ts`;
     assert.equal(run.status, 0, `exit code should be 0\n  ${scenario}\n${run.what}`);
     assert.deepStrictEqual(run.annotations, [], `no ::warning lines expected\n  ${scenario}\n${run.what}`);
     assert.equal(run.stdoutLines.at(-1), NONE, `the last stdout line should be the no-comments summary\n  ${scenario}\n${run.what}`);

@@ -1,5 +1,5 @@
-# The Rust used to build instrumenter/. rustup reads this file from the
-# directory cargo runs in, so it lives at the repo root.
+# The Rust used to build instrumenter/ and game-server/. rustup reads this file
+# from the directory cargo runs in, so it lives at the repo root.
 [toolchain]
 channel = "1.99.0"
 targets = ["wasm32-unknown-unknown"]

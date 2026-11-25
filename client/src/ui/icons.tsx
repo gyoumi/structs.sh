@@ -126,6 +126,12 @@ export const ChevronDownIcon = (props: IconProps) => (
   </Icon>
 );
 
+export const ArrowLeftIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M19 12H5m6-6-6 6 6 6" />
+  </Icon>
+);
+
 export const ArrowRightIcon = (props: IconProps) => (
   <Icon {...props}>
     <path d="M5 12h14m-6-6 6 6-6 6" />
@@ -154,5 +160,18 @@ export const SunIcon = (props: IconProps) => (
 export const MoonIcon = (props: IconProps) => (
   <Icon {...props}>
     <path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z" />
+  </Icon>
+);
+
+export const LockIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <rect x="5" y="11" width="14" height="9.5" rx="2" fill="currentColor" />
+    <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+  </Icon>
+);
+
+export const DailyIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M5.5 7.5H9a2 2 0 1 1 4 0h3.5V11a2 2 0 1 1 0 4v3.5H13a2 2 0 1 0-4 0H5.5z" />
   </Icon>
 );

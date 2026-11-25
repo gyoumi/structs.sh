@@ -1,0 +1,77 @@
+# The whole daily challenge stack: Postgres, the fixture seeder, the game server
+# and the production client, served at http://127.0.0.1:${DAILY_PORT:-8080}.
+#
+#   docker compose -f docker-compose.daily.yml up -d --build --wait
+#
+# For end-to-end tests, stop the server's clock and open its /clock control
+# on loopback port ${DAILY_CLOCK_PORT:-8081}:
+#
+#   DAILY_NOW=2026-10-03T13:59:59Z DAILY_TEST_CLOCK_BIND=0.0.0.0:8081 \
+#   SEED_ONLY_FIXTURES=1 docker compose -f docker-compose.daily.yml up -d --build --wait
+#
+# With access to the private snitch repo, add docker-compose.daily.generator.yml
+# to fill the database with daily-generator instead of the fixtures.
+services:
+  daily-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: daily
+      POSTGRES_PASSWORD: daily
+      POSTGRES_DB: daily_challenges
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U daily -d daily_challenges"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  daily-seed:
+    build:
+      context: .
+      dockerfile: game-server/Dockerfile
+      target: seed-runtime
+    depends_on:
+      daily-db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://daily:daily@daily-db:5432/daily_challenges
+      SEED_ONLY_FIXTURES: ${SEED_ONLY_FIXTURES:-}
+
+  daily-server:
+    build:
+      context: .
+      dockerfile: game-server/Dockerfile
+      target: runtime
+    depends_on:
+      daily-db:
+        condition: service_healthy
+      daily-seed:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgres://daily:daily@daily-db:5432/daily_challenges
+      PORT: "8080"
+      DAILY_NOW: ${DAILY_NOW:-}
+      DAILY_TEST_CLOCK_BIND: ${DAILY_TEST_CLOCK_BIND:-}
+    ports:
+      - "127.0.0.1:${DAILY_CLOCK_PORT:-8081}:8081"
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/daily-server", "--healthcheck"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  client:
+    build:
+      context: .
+      dockerfile: client/Dockerfile.prod
+    volumes:
+      - ./docker/daily-nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      daily-server:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${DAILY_PORT:-8080}:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/daily > /dev/null"]
+      interval: 2s
+      timeout: 3s
+      retries: 30

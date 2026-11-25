@@ -1,0 +1,30 @@
+.promo {
+  --section-title-size: clamp(1.5rem, 2.6vw, 2rem);
+
+  padding-block: clamp(2.25rem, 6vh, 3.5rem);
+  border-top: 2.5px solid var(--edge);
+  background: var(--hero-bg);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem 2.5rem;
+}
+
+.copy {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+  max-width: 44rem;
+}
+
+.text {
+  color: var(--muted);
+}
+
+.action {
+  flex-shrink: 0;
+}

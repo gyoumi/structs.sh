@@ -1,4 +1,6 @@
 .sponsors {
+  --focus: var(--steel);
+
   padding-block: clamp(3rem, 8vh, 4.5rem);
   border-top: 2.5px solid var(--edge);
   background: var(--sponsor-band);

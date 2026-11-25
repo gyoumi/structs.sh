@@ -23,14 +23,16 @@ const PROTECTED = [
   /(^|\/)\.cargo\//, // cargo config can change or skip what `cargo test` runs
 ];
 const MANIFEST = /^(client\/)?package\.json$/;
-// Cargo.toml settings that change which instrumenter tests cargo runs,
+// Cargo.toml settings that change which tests or workspace crates cargo runs,
 // matched anywhere in an added or removed line, since TOML can also write
-// them as dotted keys (lib.test), inline tables or quoted keys. `path` can
-// point a test at another file. Quoted keys can spell a setting with TOML's
-// \uXXXX and \UXXXXXXXX escapes, so those are decoded first.
-const CARGO_MANIFEST = /^instrumenter\/Cargo\.toml$/;
-const CARGO_TEST_SETTING = /\b(autotests|autobenches|test|harness|doctest|required-features|path)\b/;
-const CARGO_LINT_SETTING = /\blints\b|["'](allow|warn|deny|forbid)["']/;
+// them as dotted keys (lib.test, workspace.default-members), inline tables or
+// quoted keys. `path` can point a test at another file. Quoted keys can spell
+// a setting with TOML's \uXXXX and \UXXXXXXXX escapes, so those are decoded
+// first.
+const CARGO_MANIFEST = /^(instrumenter|game-server(\/[^/]+)?)\/Cargo\.toml$/;
+const CARGO_TEST_SETTING =
+  /\b(autotests|autobenches|test|harness|doctest|required-features|path|members|default-members|exclude)\b/;
+const CARGO_LINT_SETTING = /\blints\b|["'](allow|warn|deny|forbid)["']|^\s*["']?workspace["']?\s*=/;
 const decodeTomlEscapes = (text) =>
   text.replace(/\\u([0-9a-fA-F]{4})|\\U([0-9a-fA-F]{8})/g, (escape, short, long) => {
     const code = parseInt(short ?? long, 16);
@@ -39,7 +41,7 @@ const decodeTomlEscapes = (text) =>
 
 const OTHER_LOCKFILES = new Set(['package-lock.json', 'npm-shrinkwrap.json', 'yarn.lock', 'bun.lock', 'bun.lockb']);
 const IMAGE_FOLDERS = [/^client\/public\//, /^client\/src\//, /^docs\/docs\/images\//];
-const PRODUCT_CODE = /^(client|e2e|instrumenter)\//;
+const PRODUCT_CODE = /^(client|e2e|instrumenter|game-server)\//;
 const AGENT_CONFIG = /^(\.claude\/|skills-lock\.json$)/;
 const DEBUGGER_SOURCE = /^(instrumenter\/src|client\/src\/Services\/debugger)\/.*\.(tsx?|rs)$/;
 const DEBUGGER_TESTS = /(\.test\.tsx?$|\/fixtures\/)/;
@@ -48,9 +50,10 @@ const DEBUGGER_TESTS = /(\.test\.tsx?$|\/fixtures\/)/;
 // cargo's tests/*.rs, Vitest's client/src/**/*.test.ts(x), and node --test's
 // scripts/*.test.mjs.
 const TEST_FILE =
-  /^(e2e\/tests\/.*\.(spec|test)\.[cm]?[jt]sx?|instrumenter\/tests\/[^/]+\.rs|client\/src\/.*\.test\.tsx?|scripts\/[^/]+\.test\.mjs)$/;
-const TEST_CHANGE = /^(e2e\/tests\/|e2e\/programs\/|e2e\/known-failures\/[^/]+\.json$|instrumenter\/tests\/([^/]+\.rs|fixtures\/.*(?<!\.md))$|client\/src\/.*\.test\.tsx?$)/;
-const SHRINK_CHECKED = /^((client\/src|e2e|instrumenter\/src|instrumenter\/tests)\/|scripts\/[^/]+\.test\.mjs$)/;
+  /^(e2e\/tests\/.*\.(spec|test)\.[cm]?[jt]sx?|(instrumenter|game-server\/[^/]+)\/tests\/([^/]+\.rs|[^/]+\/main\.rs)|client\/src\/.*\.test\.tsx?|scripts\/[^/]+\.test\.mjs)$/;
+const TEST_CHANGE =
+  /^(e2e\/tests\/|e2e\/programs\/|e2e\/known-failures\/[^/]+\.json$|instrumenter\/tests\/([^/]+\.rs|[^/]+\/main\.rs|fixtures\/.*(?<!\.md))$|client\/src\/.*\.test\.tsx?$)/;
+const SHRINK_CHECKED = /^((client\/src|e2e|instrumenter\/src|instrumenter\/tests|game-server\/[^/]+\/(src|tests))\/|scripts\/[^/]+\.test\.mjs$)/;
 
 const basename = (path) => path.slice(path.lastIndexOf('/') + 1);
 

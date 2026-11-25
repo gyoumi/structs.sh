@@ -10,6 +10,8 @@ export interface OperationUsage {
   description: string;
   id?: number;
   noTimeline?: boolean;
+  /** Whether the operations menu lists the command; `hidden` keeps out a command only other pages run. Shown when unset. */
+  menu?: 'shown' | 'hidden';
 }
 
 export enum DataStructure {

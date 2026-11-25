@@ -19,13 +19,15 @@ import {
   ToStartIcon,
 } from '@/ui/icons';
 import StepScrubber from './StepScrubber';
-import { useSession, useSnapshot } from './useVisualiser';
+import { usePlayback, usePlaybackSnapshot } from './playback';
 import styles from './Transport.module.css';
 
-const SPEEDS = ['0.25', '0.5', '0.75', '1', '1.25', '1.5', '1.75', '2'].map((value) => ({
-  value,
-  label: `${value}×`,
-}));
+const SPEEDS = ['0.25', '0.5', '0.75', '1', '1.25', '1.5', '1.75', '2', '3', '4', '5'].map(
+  (value) => ({
+    value,
+    label: `${value}×`,
+  })
+);
 
 const IconTooltip = ({
   label,
@@ -43,18 +45,17 @@ const IconTooltip = ({
 );
 
 const Transport = () => {
-  const session = useSession();
-  const playing = useSnapshot((s) => s.playing);
-  const complete = useSnapshot((s) => s.complete);
-  const duration = useSnapshot((s) => s.duration);
-  const step = useSnapshot((s) => s.step);
-  const stepCount = useSnapshot((s) => s.stepCount);
-  const speed = useSnapshot((s) => s.speed);
+  const session = usePlayback();
+  const playback = usePlaybackSnapshot((s) => s.playback);
+  const duration = usePlaybackSnapshot((s) => s.duration);
+  const step = usePlaybackSnapshot((s) => s.step);
+  const stepCount = usePlaybackSnapshot((s) => s.stepCount);
+  const speed = usePlaybackSnapshot((s) => s.speed);
   const idle = duration === 0;
 
   let playLabel = 'Play';
-  if (playing) playLabel = 'Pause';
-  else if (complete) playLabel = 'Replay';
+  if (playback === 'playing') playLabel = 'Pause';
+  else if (playback === 'complete') playLabel = 'Replay';
 
   return (
     <div className={styles.transport}>
@@ -75,9 +76,9 @@ const Transport = () => {
           disabled={idle}
           aria-label={playLabel}
         >
-          {playing && <PauseIcon size={22} />}
-          {!playing && complete && <ReplayIcon size={22} />}
-          {!playing && !complete && <PlayIcon size={22} />}
+          {playback === 'playing' && <PauseIcon size={22} />}
+          {playback === 'complete' && <ReplayIcon size={22} />}
+          {playback === 'paused' && <PlayIcon size={22} />}
         </ToolbarButton>
         <IconTooltip label="Next step">
           <ToolbarButton className={styles.tool} onClick={session.stepForward} disabled={idle}>

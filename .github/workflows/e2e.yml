@@ -11,10 +11,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  e2e:
-    name: e2e
+  # Playwright's --shard splits the suite across three runners. The e2e job
+  # below is the one check branch rules require.
+  e2e-shard:
+    name: e2e (${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -28,21 +34,26 @@ jobs:
       - name: Install browser
         run: pnpm exec playwright install --only-shell chromium
 
-      # The debugger loads the instrumenter's .wasm, built from instrumenter/
-      # with the Rust in rust-toolchain.toml by the `instrumenter` script in
-      # package.json. The built .wasm is reused until one of those changes.
-      - name: Restore instrumenter
-        id: instrumenter-cache
+      # The debugger loads the instrumenter's .wasm, built from instrumenter/,
+      # and the daily challenge loads its scoring .wasm, built from game-server/. Both
+      # use the Rust in rust-toolchain.toml and are built by the `wasm` script
+      # in package.json. The built files are reused until one of those changes.
+      # wasm-cache.yml saves them on dev and daily-game for new PRs; keep its
+      # path and key the same as here.
+      - name: Restore wasm
+        id: wasm-cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: client/src/Services/debugger/wasm/generated/instrumenter.wasm
-          key: instrumenter-${{ hashFiles('instrumenter/**', 'rust-toolchain.toml', 'package.json') }}
+          path: |
+            client/src/Services/debugger/wasm/generated/instrumenter.wasm
+            client/src/Services/challenges/generated/challenges.wasm
+          key: wasm-${{ hashFiles('instrumenter/**', 'game-server/**', 'rust-toolchain.toml', 'package.json') }}
 
-      - name: Build instrumenter
-        if: steps.instrumenter-cache.outputs.cache-hit != 'true'
+      - name: Build wasm
+        if: steps.wasm-cache.outputs.cache-hit != 'true'
         run: |
           rustup toolchain install
-          pnpm run instrumenter
+          pnpm run wasm
 
       - name: Type-check e2e
         run: pnpm run e2e:typecheck
@@ -50,11 +61,71 @@ jobs:
       # Builds the client for production (type-checking it as `pnpm run
       # build` does) and serves the build, so the tests see what students get.
       - name: Run e2e tests
-        run: pnpm run e2e
+        run: pnpm run e2e --shard=${{ matrix.shard }}/3
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: e2e/playwright-report
           retention-days: 7
+
+  e2e:
+    name: e2e
+    needs: e2e-shard
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check every shard passed
+        env:
+          RESULT: ${{ needs.e2e-shard.result }}
+        run: test "$RESULT" = success
+
+  # The daily game tests against the whole stack in docker-compose.daily.yml:
+  # Postgres filled with the fixture puzzles, the game server with its clock
+  # stopped where the tests can move it, and the production client behind
+  # nginx. The server's clock control is only published on loopback. The
+  # other daily game specs answer /api/daily themselves, so they run in the
+  # shards above, and only daily-game-stack.spec.ts runs here.
+  e2e-daily-stack:
+    name: e2e-daily-stack
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
+        with:
+          runtime: node@22
+          cache: true
+
+      - name: Install browser
+        run: pnpm exec playwright install --only-shell chromium
+
+      - name: Start the daily stack
+        env:
+          DAILY_NOW: 2026-10-03T13:59:59Z
+          DAILY_TEST_CLOCK_BIND: 0.0.0.0:8081
+          SEED_ONLY_FIXTURES: "1"
+        run: docker compose -f docker-compose.daily.yml up -d --build --wait
+
+      - name: Run the daily stack tests
+        env:
+          E2E_BASE_URL: http://127.0.0.1:8080
+          E2E_CLOCK_URL: http://127.0.0.1:8081/clock
+        run: pnpm run e2e daily-game-stack
+
+      - name: Show the stack's logs
+        if: failure()
+        run: docker compose -f docker-compose.daily.yml logs --no-color
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: playwright-report-daily-stack
+          path: e2e/playwright-report
+          retention-days: 7
+
+      - name: Stop the daily stack
+        if: always()
+        run: docker compose -f docker-compose.daily.yml down -v

@@ -9,16 +9,27 @@ export interface TreeNode {
 }
 
 /** Rebuilds a tree from nodes sorted left to right: each slice's highest node is its root. */
-const build = (nodes: DrawnNode[]): TreeNode | undefined => {
+export const treeFromNodes = (nodes: DrawnNode[]): TreeNode | undefined => {
   if (nodes.length === 0) return undefined;
   const top = nodes.reduce((highest, node) => (node.y < highest.y ? node : highest));
   const at = nodes.indexOf(top);
-  return { value: top.value, left: build(nodes.slice(0, at)), right: build(nodes.slice(at + 1)) };
+  return { value: top.value, left: treeFromNodes(nodes.slice(0, at)), right: treeFromNodes(nodes.slice(at + 1)) };
 };
 
 /** The tree in the drawing, rebuilt from where each value is drawn. */
 export const readTree = async (page: Page): Promise<TreeNode | undefined> =>
-  build((await readDrawing(page)).sort((a, b) => a.x - b.x));
+  treeFromNodes((await readDrawing(page)).sort((a, b) => a.x - b.x));
+
+/** Rebuilds a BST from its preorder traversal. */
+export const bstFromPreorder = (preorder: readonly number[]): TreeNode | undefined => {
+  if (preorder.length === 0) return undefined;
+  const [value, ...rest] = preorder;
+  return {
+    value,
+    left: bstFromPreorder(rest.filter((v) => v < value)),
+    right: bstFromPreorder(rest.filter((v) => v > value)),
+  };
+};
 
 /** Writes a tree as value(left, right), e.g. "50(30(20, 40), 70)"; a leaf is just its value. */
 export const describeTree = (node?: TreeNode): string => {

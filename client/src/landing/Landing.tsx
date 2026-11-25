@@ -3,6 +3,7 @@ import { useTheme } from '@/ui/theme';
 import { contacts, FEEDBACK_FORM_URL, GITHUB_URL } from './content';
 import HeroSection from './HeroSection';
 import StructurePicker from './StructurePicker';
+import DailyPromo from './DailyPromo';
 import About from './About';
 import Sponsors from './Sponsors';
 import styles from './Landing.module.css';
@@ -17,6 +18,7 @@ const Landing = () => {
 
       <main>
         <StructurePicker />
+        <DailyPromo />
         <About />
         <Sponsors />
       </main>

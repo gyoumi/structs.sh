@@ -124,12 +124,19 @@
     font-size: 0.9375rem;
   }
 
-  .nav a:first-child {
+  .landingNav a:first-child {
     display: none;
   }
 
   .brand span {
     display: none;
+  }
+}
+
+@media (max-width: 420px) {
+  .nav {
+    gap: 0.75rem;
+    font-size: 0.875rem;
   }
 }
 

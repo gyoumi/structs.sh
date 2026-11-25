@@ -1,11 +1,26 @@
 import BSTAnimationProducer from './BSTAnimationProducer';
 import GraphicalBSTNode from '../data-structure/GraphicalBSTNode';
-import { lineDiffY } from '../../common/settings';
 import { getPointerStartEndCoordinates } from '../../common/helpers';
 import { insertCodeSnippet } from '../util/codeSnippets';
 import { canvasTheme } from '../../common/canvasTheme';
 
 export default class BSTInsertAnimationProducer extends BSTAnimationProducer {
+  private nodesPassedCount = 0;
+
+  /** Counts one existing node an insert compares with on its way down. */
+  public countNodePassed(): void {
+    this.nodesPassedCount += 1;
+  }
+
+  /** Existing nodes the inserts have compared with so far. */
+  public get nodesPassed(): number {
+    return this.nodesPassedCount;
+  }
+
+  protected get stepCounters(): Record<string, number> {
+    return { nodesPassed: this.nodesPassedCount };
+  }
+
   public renderInsertCode(): void {
     this.renderCode(insertCodeSnippet);
   }
@@ -30,16 +45,20 @@ export default class BSTInsertAnimationProducer extends BSTAnimationProducer {
     );
   }
 
+  /** Creates `node` and relayouts the whole tree in the same step so parent edges stay attached. */
+  public createAndLayoutNode(
+    node: GraphicalBSTNode,
+    root: GraphicalBSTNode | null,
+    highlight = false
+  ): void {
+    this.createNode(node, highlight);
+    if (root !== null) this.updateBST(root);
+  }
+
   // draws a node on the draw canvas and shows the node
   public createNode(node: GraphicalBSTNode, highlight: boolean = false): void {
-    // based on the depth of the node we are able to create left and right svg line targets
-    const lineDiffX = BSTAnimationProducer.getLineDiffX(node);
-    const leftChildCoordinates = getPointerStartEndCoordinates(
-      node.x,
-      node.y,
-      node.x - lineDiffX,
-      node.y + lineDiffY
-    );
+    const [lx, ly] = BSTAnimationProducer.childCoords(node, 'left');
+    const leftChildCoordinates = getPointerStartEndCoordinates(node.x, node.y, lx, ly);
     node.leftLineTarget.plot(
       leftChildCoordinates[0][0],
       leftChildCoordinates[0][1],
@@ -47,12 +66,8 @@ export default class BSTInsertAnimationProducer extends BSTAnimationProducer {
       leftChildCoordinates[1][1]
     );
 
-    const rightChildCoordinates = getPointerStartEndCoordinates(
-      node.x,
-      node.y,
-      node.x + lineDiffX,
-      node.y + lineDiffY
-    );
+    const [rx, ry] = BSTAnimationProducer.childCoords(node, 'right');
+    const rightChildCoordinates = getPointerStartEndCoordinates(node.x, node.y, rx, ry);
     node.rightLineTarget.plot(
       rightChildCoordinates[0][0],
       rightChildCoordinates[0][1],

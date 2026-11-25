@@ -1,0 +1,148 @@
+.array {
+  display: grid;
+  grid-template-columns: repeat(var(--slots), minmax(0, 4.25rem));
+  justify-content: center;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+}
+
+.slot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  aspect-ratio: 4 / 5;
+  padding: 0;
+  border: 2.5px solid var(--edge);
+  border-radius: 12px;
+  background: var(--sand);
+  box-shadow: 0 var(--drop) 0 var(--shadow);
+  color: var(--button-ink);
+  font: inherit;
+  cursor: pointer;
+  box-sizing: border-box;
+  container-type: inline-size;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    translate 120ms ease-out,
+    box-shadow 120ms ease-out,
+    background-color 140ms ease-out;
+}
+
+.value {
+  font-size: clamp(1rem, 4.6vw, 1.6rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.value[style*='--chars'] {
+  font-size: min(clamp(1rem, 4.6vw, 1.6rem), calc(84cqi / (var(--chars) * 0.64)));
+}
+
+@media (hover: hover) {
+  .slot:enabled:not([aria-pressed='true']):hover {
+    background: var(--sand-hover);
+  }
+}
+
+.slot:enabled:active {
+  translate: 0 var(--drop);
+  box-shadow: 0 0 0 var(--shadow);
+}
+
+.slot[aria-pressed='true'] {
+  z-index: 1;
+  border-color: var(--button-ink);
+  background: var(--indigo);
+  box-shadow: 0 calc(var(--drop) + 0.5rem) 0 var(--shadow);
+  color: #fff;
+  translate: 0 -0.5rem;
+  outline: 3px solid var(--steel);
+  outline-offset: 2px;
+}
+
+/* Extends the hit area down over the gap the lift leaves, so a tap there still deselects. */
+.slot[aria-pressed='true']::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 calc(-0.5rem - 2.5px) 0;
+}
+
+.slot:disabled {
+  border-style: dashed;
+  border-color: var(--dash);
+  background-color: var(--surface);
+  background-image: repeating-linear-gradient(
+    135deg,
+    transparent 0 6px,
+    color-mix(in srgb, var(--dash) 45%, transparent) 6px 8px
+  );
+  box-shadow: none;
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+/* A free slot that can't be swapped right now stays warm and solid, unlike a cool hatched locked
+   one, but goes flat and soft so it reads as paused. */
+.slot.frozen:disabled {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--edge) 40%, var(--sand));
+  background-color: color-mix(in srgb, var(--sand) 55%, var(--surface));
+  background-image: none;
+  box-shadow: none;
+  color: var(--button-ink);
+  cursor: default;
+}
+
+:global([data-theme='dark']) .slot.frozen:disabled {
+  border-color: color-mix(in srgb, var(--sand) 45%, var(--surface));
+  background-color: color-mix(in srgb, var(--sand) 20%, var(--surface));
+  color: var(--ink);
+}
+
+/* In the corner, clear of the digits even on a phone. */
+.lock {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .array {
+    grid-template-columns: repeat(var(--mobile-slots, var(--slots)), minmax(0, 3.2rem));
+    gap: 5px;
+  }
+
+  .slot {
+    aspect-ratio: 3 / 4;
+    border-width: 2px;
+    border-radius: 9px;
+  }
+
+  .lock {
+    top: 2px;
+    right: 2px;
+    width: 10px;
+    height: 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slot {
+    transition: none;
+  }
+}

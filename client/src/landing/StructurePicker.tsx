@@ -43,7 +43,12 @@ const StructurePicker = () => {
   const selected = destinations.find((destination) => destination.key === selectedKey);
 
   return (
-    <section id="structures" className={styles.pick} aria-labelledby="structures-title">
+    <section
+      id="structures"
+      tabIndex={-1}
+      className={styles.pick}
+      aria-labelledby="structures-title"
+    >
       <div className={landing.wrap}>
         <h2 id="structures-title" className={landing.sectionTitle}>
           Pick a structure

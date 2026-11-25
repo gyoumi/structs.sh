@@ -5,73 +5,27 @@ import {
   ReactNode,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from 'react';
+import type { DrawingBounds } from '@/visualiser-src/common/AnimationProducer';
+import { CanvasTarget, DEFAULT_CANVAS_TARGET } from '@/visualiser-src/common/canvasTarget';
+import {
+  clamp,
+  FitMode,
+  fitView,
+  insetOf,
+  unionBounds,
+  View,
+  ViewTransition,
+  visibleBounds,
+} from './stageBounds';
 import { useSnapshot } from './useVisualiser';
 import styles from './Stage.module.css';
 
-interface View {
-  x: number;
-  y: number;
-  scale: number;
-}
-
 const MIN_SCALE = 0.3;
-const MIN_FIT_SCALE = 0.05;
 const MAX_SCALE = 3;
-const FIT_PADDING = 56;
-
-const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
-
-const SHAPES = 'circle, ellipse, line, path, polygon, polyline, rect, text, image';
-
-const isShown = (element: Element, root: Element) => {
-  if (element.closest('defs, marker, clipPath, mask, pattern, symbol')) return false;
-  for (let node: Element | null = element; node && node !== root; node = node.parentElement) {
-    const style = getComputedStyle(node);
-    if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) {
-      return false;
-    }
-  }
-  return true;
-};
-
-/**
- * The bounds of what is visible in the drawing, in its own units. Deleted nodes are faded out rather
- * than removed so playback can rewind, and `getBBox()` would still count them.
- */
-const visibleBounds = (svg: SVGSVGElement) => {
-  const toSvg = svg.getCTM()?.inverse();
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
-  svg.querySelectorAll<SVGGraphicsElement>(SHAPES).forEach((shape) => {
-    if (!isShown(shape, svg)) return;
-    const box = shape.getBBox();
-    const ctm = shape.getCTM();
-    if (!ctm || !toSvg || (box.width === 0 && box.height === 0)) return;
-    const matrix = toSvg.multiply(ctm);
-    [
-      [box.x, box.y],
-      [box.x + box.width, box.y],
-      [box.x, box.y + box.height],
-      [box.x + box.width, box.y + box.height],
-    ].forEach(([x, y]) => {
-      const point = new DOMPoint(x, y).matrixTransform(matrix);
-      minX = Math.min(minX, point.x);
-      minY = Math.min(minY, point.y);
-      maxX = Math.max(maxX, point.x);
-      maxY = Math.max(maxY, point.y);
-    });
-  });
-  if (minX === Infinity) return null;
-  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
-};
-
-const insetOf = (element: Element, side: 'top' | 'right') =>
-  parseFloat(getComputedStyle(element).getPropertyValue(`--fit-inset-${side}`)) || 0;
 
 export interface StageView {
   zoomIn: () => void;
@@ -85,28 +39,58 @@ interface StageProps {
   className?: string;
   style?: CSSProperties;
   children?: (view: StageView) => ReactNode;
+  /** The elements this stage's session draws into. */
+  target?: CanvasTarget;
+  /** The smallest scale fitting draws at: a bigger drawing is panned to follow the step's focus. */
+  minScale?: number;
 }
 
-const Stage = ({ label, className, style, children }: StageProps) => {
+/** Where a playing run is heading: the drawing's upcoming bounds and the part the step works on. */
+type Ahead = { bounds: DrawingBounds | null; focus: DrawingBounds | null };
+
+/** Whether the stage fits the drawing automatically or stays where the user panned or zoomed it. */
+type CameraControl = 'auto' | 'manual';
+
+const idOf = (selector: string) => selector.replace(/^#/, '');
+
+const Stage = ({
+  label,
+  className,
+  style,
+  children,
+  target = DEFAULT_CANVAS_TARGET,
+  minScale,
+}: StageProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
-  const [view, setView] = useState<View>({ x: 0, y: 0, scale: 1 });
-  const [smooth, setSmooth] = useState(false);
+  const [view, setView] = useState<View>({ status: 'unfitted' });
   const [dragging, setDragging] = useState(false);
-  const userMoved = useRef(false);
+  const cameraControl = useRef<CameraControl>('auto');
   const lastPointer = useRef<{ x: number; y: number } | null>(null);
 
   const layoutVersion = useSnapshot((s) => s.layoutVersion);
-  const complete = useSnapshot((s) => s.complete);
+  const complete = useSnapshot((s) => s.playback === 'complete');
   const step = useSnapshot((s) => s.step);
+  const targetBounds = useSnapshot((s) => s.bounds);
+  const focus = useSnapshot((s) => s.focus);
+  const aheadRef = useRef<Ahead>({ bounds: targetBounds, focus });
+  aheadRef.current = { bounds: targetBounds, focus };
+  const prevStep = useRef(step);
 
   const zoomAround = useCallback((factor: number, cx: number, cy: number, animate: boolean) => {
-    userMoved.current = true;
-    setSmooth(animate);
+    cameraControl.current = 'manual';
+    const transition = animate ? 'smooth' : 'instant';
     setView((prev) => {
+      if (prev.status !== 'fitted') return prev;
       const scale = clamp(prev.scale * factor, Math.min(MIN_SCALE, prev.scale), MAX_SCALE);
       const ratio = scale / prev.scale;
-      return { scale, x: cx - (cx - prev.x) * ratio, y: cy - (cy - prev.y) * ratio };
+      return {
+        status: 'fitted',
+        scale,
+        x: cx - (cx - prev.x) * ratio,
+        y: cy - (cy - prev.y) * ratio,
+        transition,
+      };
     });
   }, []);
 
@@ -119,60 +103,66 @@ const Stage = ({ label, className, style, children }: StageProps) => {
     [zoomAround]
   );
 
-  const fit = useCallback((onlyIfOverflowing = false) => {
-    const svg = svgRef.current;
-    const container = containerRef.current;
-    if (!svg || !container) return;
-    const box = visibleBounds(svg);
-    const { width, height } = container.getBoundingClientRect();
-    if (!box || box.width === 0 || box.height === 0 || width === 0) return;
-    const insetTop = insetOf(container, 'top');
-    const insetRight = insetOf(container, 'right');
-    setView((prev) => {
-      if (onlyIfOverflowing) {
-        const left = prev.x + box.x * prev.scale;
-        const top = prev.y + box.y * prev.scale;
-        const right = left + box.width * prev.scale;
-        const bottom = top + box.height * prev.scale;
-        const inside =
-          left >= 0 && top >= insetTop && right <= width - insetRight && bottom <= height;
-        if (inside) return prev;
+  const fit = useCallback(
+    (
+      mode: FitMode = 'always',
+      transition: ViewTransition = 'smooth',
+      ahead: Ahead | null = null
+    ) => {
+      const svg = svgRef.current;
+      const container = containerRef.current;
+      if (!svg || !container) return;
+      const box = unionBounds(visibleBounds(svg), ahead?.bounds ?? null);
+      const { width, height } = container.getBoundingClientRect();
+      if (!box || box.width === 0 || box.height === 0 || width === 0) {
+        if (mode === 'always') {
+          cameraControl.current = 'auto';
+          setView({ status: 'unfitted' });
+        }
+        return;
       }
-      const padding = Math.min(FIT_PADDING, width * 0.05);
-      const availableWidth = width - insetRight;
-      const availableHeight = height - insetTop;
-      const scale = clamp(
-        Math.min(
-          (availableWidth - padding * 2) / box.width,
-          (availableHeight - padding * 2) / box.height
-        ),
-        MIN_FIT_SCALE,
-        1.25
-      );
-      return {
-        scale,
-        x: availableWidth / 2 - scale * (box.x + box.width / 2),
-        y: insetTop + availableHeight / 2 - scale * (box.y + box.height / 2),
-      };
-    });
-    setSmooth(true);
-    userMoved.current = false;
-  }, []);
+      const insetTop = insetOf(container, 'top');
+      const insetRight = insetOf(container, 'right');
+      const options = { mode, transition, insetTop, insetRight, minScale, focus: ahead?.focus };
+      setView((prev) => fitView(prev, box, { width, height }, options));
+      cameraControl.current = 'auto';
+    },
+    [minScale]
+  );
 
-  useEffect(() => {
-    const id = requestAnimationFrame(() => requestAnimationFrame(() => fit()));
-    return () => cancelAnimationFrame(id);
+  useLayoutEffect(() => {
+    prevStep.current = 0;
+    fit('always', 'instant', aheadRef.current);
   }, [layoutVersion, fit]);
 
   useEffect(() => {
-    if (!userMoved.current) fit(true);
-  }, [step, complete, fit]);
+    let second = 0;
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => fit('always', 'instant', aheadRef.current));
+    });
+    return () => {
+      cancelAnimationFrame(first);
+      cancelAnimationFrame(second);
+    };
+  }, [layoutVersion, fit]);
+
+  useLayoutEffect(() => {
+    const jumped = Math.abs(step - prevStep.current) > 1;
+    prevStep.current = step;
+    if (cameraControl.current === 'auto' || view.status === 'unfitted') {
+      fit(
+        complete ? 'always' : 'if-overflowing',
+        jumped ? 'instant' : 'smooth',
+        complete ? null : { bounds: targetBounds, focus }
+      );
+    }
+  }, [step, complete, targetBounds, focus, fit, view.status]);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return undefined;
     const observer = new ResizeObserver(() => {
-      if (!userMoved.current) fit();
+      if (cameraControl.current === 'auto') fit('always', 'instant');
     });
     observer.observe(container);
     return () => observer.disconnect();
@@ -208,9 +198,12 @@ const Stage = ({ label, className, style, children }: StageProps) => {
     const dx = event.clientX - last.x;
     const dy = event.clientY - last.y;
     lastPointer.current = { x: event.clientX, y: event.clientY };
-    userMoved.current = true;
-    setSmooth(false);
-    setView((prev) => ({ ...prev, x: prev.x + dx, y: prev.y + dy }));
+    cameraControl.current = 'manual';
+    setView((prev) =>
+      prev.status === 'fitted'
+        ? { ...prev, x: prev.x + dx, y: prev.y + dy, transition: 'instant' }
+        : prev
+    );
   };
 
   const endDrag = () => {
@@ -219,8 +212,10 @@ const Stage = ({ label, className, style, children }: StageProps) => {
   };
 
   const panBy = (dx: number, dy: number) => {
-    userMoved.current = true;
-    setView((p) => ({ ...p, x: p.x + dx, y: p.y + dy }));
+    cameraControl.current = 'manual';
+    setView((p) =>
+      p.status === 'fitted' ? { ...p, x: p.x + dx, y: p.y + dy, transition: 'smooth' } : p
+    );
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -238,7 +233,6 @@ const Stage = ({ label, className, style, children }: StageProps) => {
     const move = moves[event.key];
     if (move) {
       event.preventDefault();
-      setSmooth(true);
       move();
     }
   };
@@ -247,15 +241,14 @@ const Stage = ({ label, className, style, children }: StageProps) => {
     zoomIn: () => zoomFromCentre(1.2),
     zoomOut: () => zoomFromCentre(1 / 1.2),
     fit: () => fit(),
-    scale: view.scale,
+    scale: view.status === 'fitted' ? view.scale : 1,
   };
 
   return (
     <div className={[styles.frame, className].filter(Boolean).join(' ')} style={style}>
-      {/* The engine measures #visualiser-container and draws into #visualiser-canvas. */}
       {/* eslint-disable jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex */}
       <div
-        id="visualiser-container"
+        id={target.container}
         ref={containerRef}
         className={styles.surface}
         data-dragging={dragging || undefined}
@@ -271,15 +264,19 @@ const Stage = ({ label, className, style, children }: StageProps) => {
       >
         {/* eslint-enable jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex */}
         <svg
-          id="visualiser-canvas"
+          id={idOf(target.canvas)}
           ref={svgRef}
           className={styles.canvas}
-          data-smooth={smooth || undefined}
-          style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }}
+          data-smooth={(view.status === 'fitted' && view.transition === 'smooth') || undefined}
+          style={
+            view.status === 'fitted'
+              ? { transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }
+              : { opacity: 0 }
+          }
         />
       </div>
-      <div id="code-container" className={styles.hiddenCode} aria-hidden="true">
-        <svg id="code-canvas" />
+      <div id={target.codeContainer} className={styles.hiddenCode} aria-hidden="true">
+        <svg id={idOf(target.code)} />
       </div>
       {children?.(stageView)}
     </div>

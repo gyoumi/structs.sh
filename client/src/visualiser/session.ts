@@ -1,56 +1,28 @@
-import { SVG } from '@svgdotjs/svg.js';
 import VisualiserController from '@/visualiser-src/controller/VisualiserController';
-import { Documentation } from '@/visualiser-src/common/typedefs';
-import { defaultSpeed, VISUALISER_CANVAS } from '@/visualiser-src/common/constants';
+import { defaultSpeed } from '@/visualiser-src/common/constants';
+import {
+  CanvasTarget,
+  DEFAULT_CANVAS_TARGET,
+  withCanvasTarget,
+} from '@/visualiser-src/common/canvasTarget';
 import { CanvasTheme, setCanvasTheme } from '@/visualiser-src/common/canvasTheme';
+import {
+  initialSnapshot,
+  sampleChanged,
+  sampleOf,
+  type InitialDataSource,
+  type VisualiserSnapshot,
+} from './sessionSnapshot';
+import { finishDrawing, positionOf, returnTo } from './runPosition';
 
-export interface LastRun {
-  id: number;
-  command: string;
-  args: string[];
-}
-
-export interface VisualiserSnapshot {
-  topicTitle: string | null;
-  documentation: Documentation;
-  playing: boolean;
-  complete: boolean;
-  progress: number;
-  step: number;
-  stepCount: number;
-  stepTimes: number[];
-  duration: number;
-  line: number | null;
-  code: string[];
-  lastRun: LastRun | null;
-  speed: number;
-  layoutVersion: number;
-  /** How many values the structure holds, including a run that is still playing. */
-  size: number;
-}
-
-const initialSnapshot: VisualiserSnapshot = {
-  topicTitle: null,
-  documentation: {},
-  playing: false,
-  complete: false,
-  progress: 0,
-  step: 0,
-  stepCount: 0,
-  stepTimes: [],
-  duration: 0,
-  line: null,
-  code: [],
-  size: 0,
-  lastRun: null,
-  speed: 1,
-  layoutVersion: 0,
-};
-
-/** Picks the random data a topic starts with, or returns undefined to use the engine's own. */
-export type InitialDataSource = (topicTitle: string) => number[] | undefined;
+export type { StepComparison, StepTrace } from '@/visualiser-src/common/AnimationProducer';
+export type { InitialDataSource, VisualiserSnapshot } from './sessionSnapshot';
 
 const IDLE_FRAMES_BEFORE_SLEEP = 20;
+
+type TickerState =
+  | { status: 'sleeping' }
+  | { status: 'running'; frame: number; idleFrames: number };
 
 export class VisualiserSession {
   private controller = new VisualiserController();
@@ -59,16 +31,24 @@ export class VisualiserSession {
 
   private listeners = new Set<() => void>();
 
-  private frame: number | null = null;
-
-  private idleFrames = 0;
+  private ticker: TickerState = { status: 'sleeping' };
 
   private runCounter = 0;
 
   private getInitialData?: InitialDataSource;
 
-  constructor() {
+  /** The values the last run started on, so a theme switch can build it again. */
+  private runStart: number[] = [];
+
+  private readonly target: CanvasTarget;
+
+  constructor(target: CanvasTarget = DEFAULT_CANVAS_TARGET) {
+    this.target = target;
     this.controller.setSpeed(defaultSpeed);
+  }
+
+  private draw<T>(drawing: () => T): T {
+    return withCanvasTarget(this.target, drawing);
   }
 
   subscribe = (listener: () => void): (() => void) => {
@@ -90,40 +70,60 @@ export class VisualiserSession {
     topicTitle: string,
     canvasTheme: Partial<CanvasTheme>,
     data?: number[],
-    getInitialData?: InitialDataSource
+    getInitialData?: InitialDataSource,
+    immediate = false
   ): void {
     setCanvasTheme(canvasTheme);
     this.getInitialData = getInitialData;
-    this.controller.applyTopicTitle(topicTitle);
-    if (data) {
-      this.controller.loadData(data);
-    } else {
-      this.loadInitialValues(topicTitle);
-    }
-    this.update({
-      ...initialSnapshot,
-      speed: this.snapshot.speed,
-      topicTitle,
-      documentation: this.controller.documentation,
-      layoutVersion: this.snapshot.layoutVersion + 1,
-      size: this.controller.data.length,
+    this.draw(() => {
+      this.controller.applyTopicTitle(topicTitle);
+      if (data) this.controller.loadData(data);
+      else this.loadInitialValues(topicTitle);
+      if (immediate) finishDrawing(this.target);
     });
+    this.resetPlayback({ topicTitle, documentation: this.controller.documentation });
   }
 
-  /** Redraws the current values in another theme, at once. Colours are fixed when drawn, so the last run's playback is dropped. */
+  /**
+   * Redraws in another theme at once. Colours are fixed when drawn, so the last run is built again in
+   * the new theme from the values it started on, and returned to the same point: playing, playing one
+   * step, paused or ended. The run keeps its id. Only the colours change, so this is not a new
+   * layout and the stage keeps its pan and zoom.
+   */
   retheme(canvasTheme: Partial<CanvasTheme>): void {
-    const { data } = this;
+    const run = this.snapshot.lastRun;
+    const { controller } = this;
     setCanvasTheme(canvasTheme);
-    this.controller.loadData(data);
-    SVG(VISUALISER_CANVAS)
-      .find('*')
-      .forEach((element) => element.timeline().finish());
-    this.resetPlayback();
+    if (!run) {
+      const { data } = controller;
+      this.draw(() => {
+        controller.loadData(data);
+        finishDrawing(this.target);
+      });
+      return;
+    }
+    const position = positionOf(controller);
+    this.draw(() => {
+      controller.loadData(this.runStart);
+      finishDrawing(this.target);
+      controller.doOperation(run.command, () => {}, ...run.args);
+    });
+    returnTo(controller, position);
+    const { stepTimes, duration } = controller;
+    const sample = sampleOf(controller, duration, stepTimes);
+    this.update({ stepTimes, stepCount: stepTimes.length, duration, ...sample });
+    this.wake();
   }
 
-  run(command: string, args: string[]): string {
-    const error = this.controller.doOperation(command, () => {}, ...args);
+  run(command: string, args: string[], autoPlay = true): string {
+    const start = this.data;
+    const error = this.draw(() => this.controller.doOperation(command, () => {}, ...args));
     if (error) return error;
+    this.runStart = start;
+    if (!autoPlay) {
+      this.controller.pause();
+      this.controller.seekTime(0);
+    }
     this.runCounter += 1;
     const { stepTimes } = this.controller;
     const noTimeline = this.snapshot.documentation[command]?.noTimeline ?? false;
@@ -134,57 +134,68 @@ export class VisualiserSession {
       duration: this.controller.duration,
       code: this.controller.code ? this.controller.code.split('\n') : [],
       layoutVersion: noTimeline ? this.snapshot.layoutVersion + 1 : this.snapshot.layoutVersion,
-      size: this.controller.data.length,
+      ...sampleOf(this.controller, this.controller.duration, stepTimes),
     });
-    this.wake();
+    if (autoPlay) this.wake();
     return '';
   }
 
   play = (): void => {
-    if (this.snapshot.complete) this.controller.seekPercent(0);
+    if (this.snapshot.playback === 'complete') this.controller.seekPercent(0);
     this.controller.play();
-    this.wake();
+    this.syncAndWake();
   };
 
   pause = (): void => {
     this.controller.pause();
-    this.wake();
+    this.syncAndWake();
   };
 
   togglePlay = (): void => {
-    if (this.snapshot.playing) this.pause();
+    if (this.snapshot.playback === 'playing') this.pause();
     else this.play();
   };
 
   stepForward = (): void => {
-    if (this.snapshot.complete) return;
+    if (this.snapshot.playback === 'complete') return;
     this.controller.stepForwards();
-    this.wake();
+    this.syncAndWake();
   };
 
   stepBackward = (): void => {
     this.controller.pause();
     this.controller.stepBackwards();
-    this.wake();
+    this.syncAndWake();
   };
 
   rewind = (): void => {
     this.controller.pause();
     this.controller.seekPercent(0);
-    this.wake();
+    this.syncAndWake();
   };
 
   finish = (): void => {
     this.controller.seekPercent(100);
     this.controller.pause();
-    this.wake();
+    this.syncAndWake();
+  };
+
+  seekToTime = (time: number): void => {
+    this.controller.pause();
+    this.controller.seekTime(time);
+    this.syncFromController(true);
   };
 
   seekToPercent = (percent: number): void => {
     this.controller.pause();
     this.controller.seekPercent(percent);
-    this.wake();
+    this.syncAndWake();
   };
+
+  private syncAndWake(): void {
+    this.syncFromController(true);
+    this.wake();
+  }
 
   seekToStep = (step: number): void => {
     const { stepTimes, duration } = this.snapshot;
@@ -198,8 +209,18 @@ export class VisualiserSession {
     this.update({ speed });
   };
 
+  /** Draws `data` as the structure's values, dropping any run. Given a theme, draws in it. */
+  loadData = (data: number[], canvasTheme?: Partial<CanvasTheme>, immediate = false): void => {
+    if (canvasTheme) setCanvasTheme(canvasTheme);
+    this.draw(() => {
+      this.controller.loadData(data);
+      if (immediate) finishDrawing(this.target);
+    });
+    this.resetPlayback();
+  };
+
   generate = (): void => {
-    this.loadInitialValues(this.snapshot.topicTitle);
+    this.draw(() => this.loadInitialValues(this.snapshot.topicTitle));
     this.resetPlayback();
   };
 
@@ -210,7 +231,7 @@ export class VisualiserSession {
   }
 
   clear = (): void => {
-    this.controller.resetDataStructure();
+    this.draw(() => this.controller.resetDataStructure());
     this.resetPlayback();
   };
 
@@ -219,7 +240,7 @@ export class VisualiserSession {
     this.controller.finish();
   }
 
-  private resetPlayback(): void {
+  private resetPlayback(patch?: Partial<VisualiserSnapshot>): void {
     this.update({
       ...initialSnapshot,
       speed: this.snapshot.speed,
@@ -227,6 +248,7 @@ export class VisualiserSession {
       documentation: this.snapshot.documentation,
       layoutVersion: this.snapshot.layoutVersion + 1,
       size: this.controller.data.length,
+      ...patch,
     });
   }
 
@@ -236,44 +258,37 @@ export class VisualiserSession {
   }
 
   private wake(): void {
-    this.idleFrames = 0;
-    if (this.frame === null) this.frame = requestAnimationFrame(this.tick);
+    if (this.ticker.status === 'sleeping') {
+      this.ticker = { status: 'running', frame: requestAnimationFrame(this.tick), idleFrames: 0 };
+    } else {
+      this.ticker.idleFrames = 0;
+    }
   }
 
   private sleep(): void {
-    if (this.frame !== null) cancelAnimationFrame(this.frame);
-    this.frame = null;
+    if (this.ticker.status === 'running') {
+      cancelAnimationFrame(this.ticker.frame);
+      this.ticker = { status: 'sleeping' };
+    }
+  }
+
+  private syncFromController(exact = false): boolean {
+    const { snapshot } = this;
+    const sample = sampleOf(this.controller, snapshot.duration, snapshot.stepTimes);
+    const changed = sampleChanged(snapshot, sample, exact);
+    if (changed) this.update(sample);
+    return changed;
   }
 
   private tick = (): void => {
-    const { controller, snapshot } = this;
-    const { duration } = snapshot;
-    const { time } = controller;
-    const complete = duration > 0 && time >= duration - 1;
-    const playing = duration > 0 && !controller.isPaused && !complete;
-    const progress = duration > 0 ? Math.min(100, (time / duration) * 100) : 0;
-    const step = snapshot.stepTimes.filter((t) => t <= time + 1).length;
-    const line = duration > 0 ? controller.currentLine : null;
-    const size = controller.data.length;
+    const changed = this.syncFromController();
+    const prevIdle = this.ticker.status === 'running' ? this.ticker.idleFrames : 0;
+    const idleFrames = changed ? 0 : prevIdle + 1;
 
-    const changed =
-      playing !== snapshot.playing ||
-      complete !== snapshot.complete ||
-      Math.abs(progress - snapshot.progress) > 0.05 ||
-      step !== snapshot.step ||
-      line !== snapshot.line ||
-      size !== snapshot.size;
-
-    if (changed) {
-      this.idleFrames = 0;
-      this.update({ playing, complete, progress, step, line, size });
+    if (this.snapshot.playback === 'playing' || idleFrames < IDLE_FRAMES_BEFORE_SLEEP) {
+      this.ticker = { status: 'running', frame: requestAnimationFrame(this.tick), idleFrames };
     } else {
-      this.idleFrames += 1;
+      this.ticker = { status: 'sleeping' };
     }
-
-    this.frame =
-      playing || this.idleFrames < IDLE_FRAMES_BEFORE_SLEEP
-        ? requestAnimationFrame(this.tick)
-        : null;
   };
 }

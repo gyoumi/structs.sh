@@ -1,6 +1,7 @@
-import { expect, type Locator, type Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 import { isRed, readDrawing, type DrawnNode } from './visualiser-drawing';
 import { operationLabels, topicLabels, topicTitles, type TopicSlug } from './topics';
+import { TransportControls } from './transport-controls';
 
 /**
  * Drives a data structure visualiser the way a user would.
@@ -11,12 +12,18 @@ import { operationLabels, topicLabels, topicTitles, type TopicSlug } from './top
  * UI shows.
  *
  * The drawing itself is read from the engine's SVG (#visualiser-canvas), which
- * every version of the UI renders into.
+ * every version of the UI renders into. The Playback toolbar, timeline and Speed
+ * picker are driven through `transport` (`transport-controls.ts`), which /daily
+ * shares.
  */
 export class VisualiserPage {
   private topic: TopicSlug = 'linked-lists';
+  /** Play, Pause, Replay, stepping, Back to the start, Skip to the end and Speed. */
+  readonly transport: TransportControls;
 
-  constructor(readonly page: Page) {}
+  constructor(readonly page: Page) {
+    this.transport = new TransportControls(page);
+  }
 
   // ---------------------------------------------------------------- locators
 
@@ -27,18 +34,6 @@ export class VisualiserPage {
   private command(label: string): string {
     const labels = { ...operationLabels, ...topicLabels[this.topic] };
     return Object.keys(labels).find((command) => labels[command] === label) ?? label;
-  }
-
-  private get playback(): Locator {
-    return this.page.getByRole('toolbar', { name: 'Playback' });
-  }
-
-  private get timeline(): Locator {
-    return this.page.getByRole('slider', { name: 'Animation progress' });
-  }
-
-  private get speedPicker(): Locator {
-    return this.page.getByRole('combobox', { name: 'Speed' });
   }
 
   // ------------------------------------------------------------- navigation
@@ -98,6 +93,15 @@ export class VisualiserPage {
     await this.page.getByRole('link', { name: 'Debugger' }).click();
   }
 
+  async openDaily(): Promise<void> {
+    const link = this.page.getByRole('link', { name: 'Daily', exact: true });
+    await expect(
+      link,
+      `/visualiser/${this.topic}: the top <header> should contain a link named "Daily" (to /daily) beside Debugger`,
+    ).toBeVisible();
+    await link.click();
+  }
+
   // -------------------------------------------------------------- operations
 
   /** The engine commands offered for the current topic. */
@@ -124,7 +128,7 @@ export class VisualiserPage {
   /** Runs an operation and skips its animation to the end. */
   async runToEnd(command: string, ...args: (number | string)[]): Promise<void> {
     await this.run(command, ...args);
-    await this.skipToEnd();
+    await this.transport.skipToEnd();
   }
 
   /** The error shown for the last operation, or '' if there is none. */
@@ -151,67 +155,9 @@ export class VisualiserPage {
 
   // ---------------------------------------------------------------- playback
 
-  async play(): Promise<void> {
-    await this.playback.getByRole('button', { name: 'Play' }).click();
-  }
-
-  async pause(): Promise<void> {
-    await this.playback.getByRole('button', { name: 'Pause' }).click();
-  }
-
-  async replay(): Promise<void> {
-    await this.playback.getByRole('button', { name: 'Replay' }).click();
-  }
-
-  async stepForward(): Promise<void> {
-    await this.playback.getByRole('button', { name: 'Next step' }).click();
-  }
-
-  async stepBack(): Promise<void> {
-    await this.playback.getByRole('button', { name: 'Previous step' }).click();
-  }
-
-  async rewind(): Promise<void> {
-    await this.playback.getByRole('button', { name: 'Back to the start' }).click();
-  }
-
-  async skipToEnd(): Promise<void> {
-    await this.playback.getByRole('button', { name: 'Skip to the end' }).click();
-    await expect.poll(() => this.progress()).toBe(100);
-  }
-
-  /** Clicks the timeline at a fraction (0 to 1) of its length. */
-  async seekTo(fraction: number): Promise<void> {
-    const track = this.page.locator('[data-slot="slider-control"]').filter({ has: this.timeline });
-    const box = await track.boundingBox();
-    if (!box) throw new Error('The timeline is not visible');
-    await this.page.mouse.click(box.x + box.width * fraction, box.y + box.height / 2);
-  }
-
-  /** How far through the current animation playback is, from 0 to 100. */
+  /** How far through the current animation playback is, rounded, from 0 to 100. */
   async progress(): Promise<number> {
-    return Math.round(Number(await this.timeline.inputValue()));
-  }
-
-  async isPlaying(): Promise<boolean> {
-    return this.playback.getByRole('button', { name: 'Pause' }).isVisible();
-  }
-
-  /** The speeds on offer, as multipliers of the default speed. */
-  async speeds(): Promise<number[]> {
-    await this.speedPicker.click();
-    const options = await this.page.getByRole('option').allTextContents();
-    await this.page.keyboard.press('Escape');
-    return options.map((option) => parseFloat(option));
-  }
-
-  async setSpeed(speed: number): Promise<void> {
-    await this.speedPicker.click();
-    await this.page.getByRole('option', { name: `${speed}×`, exact: true }).click();
-  }
-
-  async speed(): Promise<number> {
-    return parseFloat((await this.speedPicker.textContent()) ?? '');
+    return this.transport.roundedProgress();
   }
 
   // ------------------------------------------------------------------ output
@@ -242,14 +188,24 @@ export class VisualiserPage {
     return [...new Set(found.map((node) => node.value))];
   }
 
-  /** Steps the running traversal to its end, and returns the values in the order it visited them. */
-  async visitOrder(): Promise<number[]> {
+  /**
+   * Steps the running traversal to its end, and returns the values in the order it visited them.
+   * `context` (the page, data, operation and speed) prefixes the error thrown when one step visits several nodes.
+   */
+  async visitOrder(context?: string): Promise<number[]> {
     const steps = await this.stepThrough();
     const resting = new Map(steps[steps.length - 1].map((node) => [node.value, node.fill]));
     const order: number[] = [];
-    for (const step of steps) {
+    for (const [index, step] of steps.entries()) {
       const visited = step.filter((node) => node.fill !== resting.get(node.value) && !order.includes(node.value));
-      if (visited.length > 1) throw new Error(`Several nodes were visited in one step: ${visited.map((node) => node.value)}`);
+      if (visited.length > 1) {
+        const fills = visited.map((node) => `${node.value} fill ${node.fill} (${resting.get(node.value)} once the traversal ends)`);
+        throw new Error(
+          `${context ? `${context}: ` : ''}Several nodes were visited in one step: ${visited.map((node) => node.value)}. ` +
+            `Next step press ${index + 1} of ${steps.length} left ${visited.length} nodes coloured as visited at once (${fills.join('; ')}); ` +
+            `each Next step should visit at most one node. Visited in earlier steps: [${order.join(', ')}]`,
+        );
+      }
       order.push(...visited.map((node) => node.value));
     }
     return order;
@@ -260,7 +216,7 @@ export class VisualiserPage {
     const steps: DrawnNode[][] = [];
     while ((await this.progress()) < 100) {
       const before = await this.progress();
-      await this.stepForward();
+      await this.transport.stepForward();
       await expect.poll(() => this.progress()).not.toBe(before);
       await this.waitForProgressToSettle();
       steps.push(await readDrawing(this.page));

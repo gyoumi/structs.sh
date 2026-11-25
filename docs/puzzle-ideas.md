@@ -41,10 +41,10 @@ passes the checks below on real instances.
 
 ### The generator's checks
 
-For each candidate instance, the generator finds the best score and sets
-par from it, then runs three checks. These checks were run when par meant
-the best score, so in the tables below "reached par" means reached the
-best.
+For each candidate instance, the generator finds the best score and sets the
+goal 65% of the way from a typical random input's score to the best, then
+runs three checks. The experiments in the tables below were run when "par"
+meant the best score, not today's goal, so "par" there means the best.
 
 1. **Is it solvable?** With fixed values, some instances have no answer at
    all. For example, between 8% and 30% of Insertion beats merge instances
@@ -55,9 +55,9 @@ best.
    "fill the free slots in ascending order". Each template lists its known
    shortcuts. If one reaches the best, the instance is rerolled.
 3. **How hard is it?** The bot player tries a random change and keeps it if
-   the score didn't drop. If it reaches par often, the instance is easy. That
-   sets its difficulty grade, not whether it ships. An algorithm you have to
-   run on the instance, such as rebuilding a string from its KMP failure
+   the score didn't drop. If it reaches the goal often, the instance is easy.
+   That sets its difficulty grade, not whether it ships. An algorithm you have
+   to run on the instance, such as rebuilding a string from its KMP failure
    table, is the puzzle itself and counts here, not as a shortcut.
 
 ### Linked list costs

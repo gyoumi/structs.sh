@@ -1,5 +1,4 @@
 import { Polygon } from '@svgdotjs/svg.js';
-import AnimationProducer from '@/visualiser-src/common/AnimationProducer';
 import { canvasTheme } from '@/visualiser-src/common/canvasTheme';
 import GraphicalSortsElement from '../data-structure/GraphicalSortsElement';
 import SortsQuickAnimationProducer from '../animation-producer/SortsQuickAnimationProducer';
@@ -13,6 +12,7 @@ function partition(
   jpointer: Polygon
 ) {
   const v = elements[lo].data.value; // pivot
+  producer.setPivot(v);
   // Highligh pivot
   producer.doAnimationAndHighlightTimestamp(
     11,
@@ -36,12 +36,30 @@ function partition(
 
   for (;;) {
     // Shift i pointer
-    while (elements[i].data.value <= v && i < j) {
+    while (
+      producer.countComparison(elements[i].data.value <= v, 14, elements[i], canvasTheme.pointer, {
+        left: elements[i].data.value,
+        op: '<=',
+        right: v,
+        result: elements[i].data.value <= v,
+        tone: 'pointer',
+      }) &&
+      i < j
+    ) {
       i += 1;
       producer.doAnimationAndHighlightTimestamp(14, true, producer.movePointer, ipointer, i);
     }
     // Shift j pointer
-    while (v < elements[j].data.value && j > i) {
+    while (
+      producer.countComparison(v < elements[j].data.value, 15, elements[j], canvasTheme.danger, {
+        left: v,
+        op: '<',
+        right: elements[j].data.value,
+        result: v < elements[j].data.value,
+        tone: 'danger',
+      }) &&
+      j > i
+    ) {
       j -= 1;
       producer.doAnimationAndHighlightTimestamp(15, true, producer.movePointer, jpointer, j);
     }
@@ -80,7 +98,15 @@ function partition(
   }
 
   // Swap Pivot with number at the center of partition that is less than it
-  j = elements[i].data.value < v ? i : i - 1;
+  j = producer.countComparison(elements[i].data.value < v, 19, elements[i], canvasTheme.compare, {
+    left: elements[i].data.value,
+    op: '<',
+    right: v,
+    result: elements[i].data.value < v,
+    tone: 'compare',
+  })
+    ? i
+    : i - 1;
   producer.doAnimationAndHighlightTimestamp(19, true, producer.movePointer, jpointer, j);
   producer.doAnimationAndHighlightTimestamp(
     20,
@@ -101,6 +127,7 @@ function partition(
     elements.slice(lo, hi + 1),
     canvasTheme.ink
   );
+  producer.setPivot(null);
 
   return j;
 }
@@ -165,18 +192,18 @@ function quickSortRange(
     hi,
     canvasTheme.danger
   );
-  // Make everything left of recursing array solved
   producer.doAnimationAndHighlightTimestamp(
     7,
     true,
     producer.highlightBoxes,
     elements.slice(0, i + 1),
-    canvasTheme.accent
+    canvasTheme.accent,
+    canvasTheme.ink
   );
   quickSortRange(elements, i + 1, hi, producer, ipointer, jpointer);
 }
 
-export function quickSort(elements: GraphicalSortsElement[]): AnimationProducer {
+export function quickSort(elements: GraphicalSortsElement[]): SortsQuickAnimationProducer {
   const ipointer = GraphicalSortsElement.pointer(0, canvasTheme.pointer);
   const jpointer = GraphicalSortsElement.pointer(0, canvasTheme.danger);
 
@@ -190,6 +217,7 @@ export function quickSort(elements: GraphicalSortsElement[]): AnimationProducer 
 
   // End quicksort
   producer.hidePointers(ipointer, jpointer);
+  producer.setPivot(null);
   producer.doAnimationAndHighlight(4, producer.makeSolved, elements);
   return producer;
 }
