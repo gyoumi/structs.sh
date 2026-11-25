@@ -190,10 +190,11 @@ export class VisualiserPage {
 
   /**
    * Steps the running traversal to its end, and returns the values in the order it visited them.
-   * `context` (the page, data, operation and speed) prefixes the error thrown when one step visits several nodes.
+   * `context` (the page, data, operation and speed) prefixes the error thrown when one step visits several nodes,
+   * and the failure when a Next step press doesn't move or settle the progress bar.
    */
   async visitOrder(context?: string): Promise<number[]> {
-    const steps = await this.stepThrough();
+    const steps = await this.stepThrough(context);
     const resting = new Map(steps[steps.length - 1].map((node) => [node.value, node.fill]));
     const order: number[] = [];
     for (const [index, step] of steps.entries()) {
@@ -211,20 +212,24 @@ export class VisualiserPage {
     return order;
   }
 
-  /** Steps the running operation to its end, and returns the drawing after each step. */
-  private async stepThrough(): Promise<DrawnNode[][]> {
+  /** Steps the running operation to its end, and returns the drawing after each step. `context` prefixes the poll failures. */
+  private async stepThrough(context?: string): Promise<DrawnNode[][]> {
+    const prefix = context ? `${context}: ` : '';
     const steps: DrawnNode[][] = [];
     while ((await this.progress()) < 100) {
+      const press = steps.length + 1;
       const before = await this.progress();
       await this.transport.stepForward();
-      await expect.poll(() => this.progress()).not.toBe(before);
-      await this.waitForProgressToSettle();
+      await expect
+        .poll(() => this.progress(), { message: `${prefix}Next step press ${press} should move the progress bar from ${before}` })
+        .not.toBe(before);
+      await this.waitForProgressToSettle(`${prefix}after Next step press ${press} the progress bar should stop moving`);
       steps.push(await readDrawing(this.page));
     }
     return steps;
   }
 
-  private async waitForProgressToSettle(): Promise<void> {
+  private async waitForProgressToSettle(message: string): Promise<void> {
     let previous = -1;
     await expect
       .poll(async () => {
@@ -232,7 +237,7 @@ export class VisualiserPage {
         const still = now === previous;
         previous = now;
         return still;
-      }, { intervals: [150] })
+      }, { intervals: [150], message })
       .toBe(true);
   }
 }
