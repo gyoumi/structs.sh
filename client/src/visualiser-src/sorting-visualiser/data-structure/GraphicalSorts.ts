@@ -5,6 +5,7 @@ import GraphicalDataStructure from '@/visualiser-src/common/GraphicalDataStructu
 import { injectIds } from '@/visualiser-src/common/helpers';
 import { CANVAS } from '@/visualiser-src/linked-list-visualiser/util/constants';
 import { generateNumbers } from '@/visualiser-src/common/RandomNumGenerator';
+import { palette } from '@/visualiser-src/common/palette';
 import GraphicalSortsElement from './GraphicalSortsElement';
 import SortsBubbleAnimationProducer from '../animation-producer/SortsBubbleAnimationProducer';
 import SortsMergeAnimationProducer from '../animation-producer/SortsMergeAnimationProducer';
@@ -307,7 +308,7 @@ export default class GraphicalSortList extends GraphicalDataStructure {
   }
 
   public quick() {
-    const ipointer = GraphicalSortsElement.pointer(0, '#36CBCC');
+    const ipointer = GraphicalSortsElement.pointer(0, palette.pointer);
     const jpointer = GraphicalSortsElement.pointer(0, redColour);
 
     const producer = new SortsQuickAnimationProducer();
@@ -352,7 +353,7 @@ export default class GraphicalSortList extends GraphicalDataStructure {
       producer.initialisePointers,
       ipointer,
       lo,
-      '#36CBCC',
+      palette.pointer,
       jpointer,
       hi,
       redColour
@@ -368,7 +369,7 @@ export default class GraphicalSortList extends GraphicalDataStructure {
       producer.initialisePointers,
       ipointer,
       lo,
-      '#36CBCC',
+      palette.pointer,
       jpointer,
       i - 1,
       redColour
@@ -376,7 +377,7 @@ export default class GraphicalSortList extends GraphicalDataStructure {
     this.quicksort(lo, i - 1, producer, ipointer, jpointer);
 
     producer.greyOut(this.elementList, i + 1, hi);
-    producer.initialisePointers(ipointer, i + 1, '#36CBCC', jpointer, hi, redColour);
+    producer.initialisePointers(ipointer, i + 1, palette.pointer, jpointer, hi, redColour);
     // Make everything left of recursing array solved
     producer.doAnimationAndHighlightTimestamp(
       7,
@@ -413,7 +414,7 @@ export default class GraphicalSortList extends GraphicalDataStructure {
       producer.initialisePointer,
       ipointer,
       i,
-      '#36CBCC'
+      palette.pointer
     );
     let j = hi;
 
@@ -439,7 +440,7 @@ export default class GraphicalSortList extends GraphicalDataStructure {
         }
 
         // Highlight partition
-        producer.highlightBoxes(this.elementList.slice(lo + 1, end), '#36CBCC');
+        producer.highlightBoxes(this.elementList.slice(lo + 1, end), palette.pointer);
         producer.doAnimationAndHighlightTimestamp(
           16,
           true,

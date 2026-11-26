@@ -1,0 +1,664 @@
+/*
+ * The visualiser page's structure: a bar of structure tabs, operations and a
+ * number pad on the left, the drawing with its playback dock in the middle and
+ * the code on the right. Colours, type and shape come from each demo's tokens.
+ */
+
+.sx-app {
+  --sx-pad-width: 17.5rem;
+  --sx-code-width: 22rem;
+  --sx-gap: 0px;
+  --sx-control: 2.25rem;
+
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+/* ----------------------------------- Bar ---------------------------------- */
+
+.sx-bar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+  padding: 0.625rem 1rem;
+  background: var(--sx-bar-bg, var(--sx-bg));
+  color: var(--sx-bar-ink, var(--sx-ink));
+}
+
+.sx-brand {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--sx-display, var(--sx-font));
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+}
+
+.sx-brand img {
+  display: block;
+  width: 2rem;
+  height: 2rem;
+}
+
+.sx-tabs {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.sx-tabs-list {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.sx-tabs-ruler {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.sx-tabs-ruler .sx-tabs-list {
+  width: max-content;
+}
+
+.sx-tab {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: var(--sx-control);
+  padding: 0 0.75rem;
+  border-radius: var(--sx-radius);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  white-space: nowrap;
+  text-decoration: none;
+  transition:
+    background-color 140ms var(--sx-ease-out),
+    color 140ms var(--sx-ease-out);
+}
+
+.sx-tab .sx-art {
+  flex: none;
+  width: 2rem;
+  height: 1.375rem;
+}
+
+.sx-tab[aria-current='page'] {
+  background: var(--sx-accent);
+  color: var(--sx-on-accent);
+}
+
+.sx-bar-end {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.5rem;
+  margin-inline-start: auto;
+}
+
+.sx-bar-link,
+.sx-bar-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-width: var(--sx-control);
+  min-height: var(--sx-control);
+  border-radius: var(--sx-radius);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.sx-bar-link {
+  padding: 0 0.75rem;
+}
+
+/* ---------------------------------- Work ---------------------------------- */
+
+.sx-work {
+  display: grid;
+  grid-template-columns: var(--sx-pad-width) minmax(0, 1fr) var(--sx-code-width);
+  gap: var(--sx-gap);
+  min-height: 0;
+}
+
+.sx-pad {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  min-height: 0;
+  padding: 1rem;
+  overflow-y: auto;
+  background: var(--sx-panel, var(--sx-surface));
+}
+
+.sx-pad-title,
+.sx-codepanel-head h2 {
+  font-family: var(--sx-font);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sx-muted);
+}
+
+.sx-ops {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.375rem;
+}
+
+.sx-op {
+  display: flex;
+  align-items: center;
+  min-height: var(--sx-control);
+  padding: 0.25rem 0.625rem;
+  border: 1px solid var(--sx-line);
+  border-radius: var(--sx-radius);
+  background: var(--sx-surface);
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.25;
+  text-align: start;
+  transition:
+    background-color 140ms var(--sx-ease-out),
+    border-color 140ms var(--sx-ease-out),
+    color 140ms var(--sx-ease-out);
+}
+
+.sx-op[data-checked] {
+  border-color: var(--sx-accent);
+  background: var(--sx-accent);
+  color: var(--sx-on-accent);
+}
+
+.sx-pad-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding-block-start: 0.875rem;
+  border-block-start: 1px solid var(--sx-line);
+}
+
+.sx-pad-fields {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: 0.5rem;
+}
+
+.sx-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.sx-field-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.sx-input {
+  width: 100%;
+  min-width: 0;
+  height: 2.5rem;
+  padding: 0 0.625rem;
+  border: 1px solid var(--sx-line);
+  border-radius: var(--sx-radius);
+  background: var(--sx-field-bg, var(--sx-bg));
+  font-family: var(--sx-mono);
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.sx-input::placeholder {
+  color: var(--sx-muted);
+  opacity: 0.7;
+}
+
+.sx-input[data-active] {
+  border-color: var(--sx-accent);
+}
+
+.sx-field[data-invalid] .sx-input {
+  border-color: var(--sx-danger, #d1432f);
+}
+
+.sx-keys {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.375rem;
+}
+
+.sx-key {
+  display: grid;
+  place-items: center;
+  height: 2.5rem;
+  border: 1px solid var(--sx-line);
+  border-radius: var(--sx-radius);
+  background: var(--sx-surface);
+  font-family: var(--sx-mono);
+  font-size: 1rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  transition: transform 120ms var(--sx-ease-out);
+}
+
+.sx-key:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.sx-key:disabled {
+  opacity: 0.4;
+}
+
+.sx-run {
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  border-radius: var(--sx-radius);
+  background: var(--sx-accent);
+  color: var(--sx-on-accent);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  transition: transform 120ms var(--sx-ease-out);
+}
+
+.sx-run:active {
+  transform: scale(0.98);
+}
+
+.sx-pad-error {
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  color: var(--sx-danger, #d1432f);
+}
+
+.sx-pad-error:empty {
+  display: none;
+}
+
+/* ---------------------------------- View ---------------------------------- */
+
+.sx-view {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.sx-app .sx-stage {
+  min-height: 0;
+  background: var(--sx-stage-bg, var(--sx-bg));
+}
+
+.sx-app .sx-stage-empty {
+  color: var(--sx-muted);
+  font-size: 0.9375rem;
+}
+
+.sx-data {
+  position: absolute;
+  inset-block-start: 0.75rem;
+  inset-inline-start: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  cursor: default;
+}
+
+.sx-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: var(--sx-control);
+  padding: 0 0.75rem;
+  border: 1px solid var(--sx-line);
+  border-radius: var(--sx-radius);
+  background: var(--sx-surface);
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: transform 120ms var(--sx-ease-out);
+}
+
+.sx-chip:active {
+  transform: scale(0.97);
+}
+
+.sx-app .sx-zoom {
+  position: absolute;
+  inset-block-start: 0.75rem;
+  inset-inline-end: 0.75rem;
+  gap: 0.25rem;
+  cursor: default;
+}
+
+.sx-app .sx-zoom [data-slot='toolbar-button'] {
+  width: var(--sx-control);
+  height: var(--sx-control);
+  border: 1px solid var(--sx-line);
+  border-radius: var(--sx-radius);
+  background: var(--sx-surface);
+}
+
+.sx-dock {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  min-width: 0;
+  padding: 0.625rem 1rem;
+  background: var(--sx-dock-bg, var(--sx-surface));
+}
+
+.sx-dock .sx-transport-group {
+  gap: 0.25rem;
+}
+
+.sx-dock [data-slot='toolbar-button'] {
+  width: var(--sx-control);
+  height: var(--sx-control);
+  border-radius: var(--sx-radius);
+}
+
+.sx-dock [data-slot='toolbar-button'][data-role='play'] {
+  width: 2.75rem;
+  height: 2.75rem;
+  background: var(--sx-accent);
+  color: var(--sx-on-accent);
+}
+
+.sx-stepcount {
+  flex: none;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--sx-muted);
+}
+
+.sx-stepcount b {
+  color: var(--sx-ink);
+}
+
+.sx-speed {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  min-width: 3.5rem;
+  height: var(--sx-control);
+  padding: 0 0.625rem;
+  border: 1px solid var(--sx-line);
+  border-radius: var(--sx-radius);
+  background: var(--sx-surface);
+  font-family: var(--sx-mono);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+/* ---------------------------------- Code ---------------------------------- */
+
+.sx-codepanel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--sx-code-bg, var(--sx-surface));
+  color: var(--sx-code-ink, var(--sx-ink));
+}
+
+.sx-codepanel-head {
+  display: flex;
+  flex: none;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1rem 0.625rem;
+}
+
+.sx-codepanel-head h2 {
+  color: var(--sx-code-muted, var(--sx-muted));
+}
+
+.sx-codepanel-head code {
+  overflow: hidden;
+  font-family: var(--sx-mono);
+  font-size: 0.8125rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sx-codepanel .sx-code {
+  --sx-code-pad: 1rem;
+  flex: 1;
+  min-height: 0;
+  padding-block-end: 1rem;
+  /* A long line wraps under its own indent, so nothing has to be scrolled sideways to be read. */
+  overflow-x: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Nothing running: one quiet line, no frame around it. */
+.sx-codepanel .sx-code-empty {
+  padding-inline: 1rem;
+  font-family: var(--sx-font);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  white-space: normal;
+  color: var(--sx-code-muted, var(--sx-muted));
+}
+
+/* --------------------------------- Dialog --------------------------------- */
+
+.sx-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgb(10 9 24 / 0.55);
+  transition: opacity 200ms var(--sx-ease-out);
+}
+
+.sx-backdrop[data-starting-style],
+.sx-backdrop[data-ending-style] {
+  opacity: 0;
+}
+
+.sx-dialog {
+  position: fixed;
+  inset: 0;
+  width: min(24rem, calc(100vw - 2rem));
+  height: fit-content;
+  max-height: calc(100dvh - 2rem);
+  margin: auto;
+  overflow-y: auto;
+  padding: 1.25rem;
+  border: 1px solid var(--sx-line);
+  border-radius: calc(var(--sx-radius) * 1.5);
+  background: var(--sx-surface);
+  color: var(--sx-ink);
+  font-family: var(--sx-font);
+  box-shadow: 0 24px 64px rgb(10 9 24 / 0.35);
+  transition:
+    opacity 200ms var(--sx-ease-out),
+    transform 200ms var(--sx-ease-out);
+}
+
+.sx-dialog[data-starting-style],
+.sx-dialog[data-ending-style] {
+  opacity: 0;
+  transform: scale(0.96);
+}
+
+.sx-dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sx-dialog-title {
+  margin-block: 0 0.5rem;
+  font-family: var(--sx-display, var(--sx-font));
+  font-size: 1.0625rem;
+  font-weight: 700;
+}
+
+.sx-dialog-head .sx-dialog-title {
+  margin: 0;
+}
+
+.sx-shortcuts {
+  margin-block: 0.5rem 1.25rem;
+}
+
+.sx-shortcuts > div {
+  display: grid;
+  grid-template-columns: 5rem minmax(0, 1fr);
+  align-items: center;
+  min-height: 2.125rem;
+  border-block-start: 1px solid var(--sx-line);
+  font-size: 0.9375rem;
+}
+
+.sx-shortcuts kbd {
+  display: inline-block;
+  min-width: 1.75rem;
+  padding: 0.0625rem 0.4375rem;
+  border: 1px solid var(--sx-line);
+  border-radius: 5px;
+  font-family: var(--sx-mono);
+  font-size: 0.8125rem;
+  text-align: center;
+}
+
+.sx-dialog-legend {
+  flex-direction: column;
+  font-size: 0.9375rem;
+}
+
+/* ------------------------------ Smaller screens --------------------------- */
+
+@media (max-width: 1100px) {
+  .sx-app {
+    --sx-pad-width: 16rem;
+    --sx-code-width: 18rem;
+  }
+}
+
+/* The code moves under the drawing once three columns stop fitting. */
+@media (max-width: 920px) {
+  .sx-work {
+    grid-template-columns: var(--sx-pad-width) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 13rem);
+  }
+
+  .sx-pad {
+    grid-row: 1 / -1;
+  }
+
+  /* Out of sight, but still the link's name. */
+  .sx-bar-link span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .sx-bar-link {
+    padding: 0;
+  }
+}
+
+/* A phone gets one scrolling column: the drawing, then the pad, then the code. */
+@media (max-width: 700px) {
+  .sx-app {
+    display: block;
+    height: auto;
+    overflow: visible;
+  }
+
+  .sx-bar {
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .sx-brand span {
+    display: none;
+  }
+
+  .sx-work {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sx-view {
+    order: -1;
+  }
+
+  .sx-app .sx-stage {
+    height: 42vh;
+    height: 42dvh;
+    min-height: 15rem;
+  }
+
+  .sx-app .sx-stage-frame {
+    inset: 3.75rem 0.75rem 3.75rem;
+  }
+
+  /* The zoom buttons drop to the bottom corner, clear of the buttons along the top. */
+  .sx-app .sx-zoom {
+    inset-block: auto 0.75rem;
+    flex-direction: row;
+  }
+
+  .sx-dock {
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .sx-dock .sx-stepcount,
+  .sx-dock [aria-label='Back to start'],
+  .sx-dock [aria-label='Skip to end'] {
+    display: none;
+  }
+
+  .sx-pad {
+    overflow: visible;
+  }
+
+  .sx-key {
+    height: 2.75rem;
+  }
+
+  .sx-codepanel {
+    min-height: 12rem;
+  }
+
+  .sx-codepanel .sx-code {
+    max-height: 60vh;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sx-tab,
+  .sx-op,
+  .sx-key,
+  .sx-run,
+  .sx-chip,
+  .sx-dialog,
+  .sx-backdrop {
+    transition-duration: 1ms;
+  }
+}

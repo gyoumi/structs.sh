@@ -1,5 +1,5 @@
 import { useParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, type Variants } from 'framer-motion';
 import Helmet from 'react-helmet';
 import { toTitleCase, urlToTitle } from '@/utils/url';
 import '@/visualiser-src/linked-list-visualiser/styles/visualiser.css';
@@ -8,7 +8,7 @@ import { LineLoader } from '@/components/Loader';
 import Visualiser from '@/components/Visualiser';
 import Box from '@mui/material/Box';
 
-const containerVariants = {
+const containerVariants: Variants = {
   hidden: {
     opacity: 0,
   },

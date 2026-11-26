@@ -1,3 +1,4 @@
+import { palette } from '@/visualiser-src/common/palette';
 import LinkedListAnimationProducer from './LinkedListAnimationProducer';
 import GraphicalLinkedListNode from '../data-structure/GraphicalLinkedListNode';
 import { searchCodeSnippet } from '../util/codeSnippets';
@@ -20,8 +21,8 @@ export default class LinkedListSearchAnimationProducer extends LinkedListAnimati
     this.resetPointers();
     let curr: GraphicalLinkedListNode | null = head;
     while (curr != null) {
-      this.addSequenceAnimation(curr.boxTarget.animate().attr({ stroke: '#000000' }));
-      this.addSequenceAnimation(curr.numberTarget.animate().attr({ fill: '#000000' }));
+      this.addSequenceAnimation(curr.boxTarget.animate().attr({ stroke: palette.ink }));
+      this.addSequenceAnimation(curr.numberTarget.animate().attr({ fill: palette.ink }));
       curr = curr.next;
     }
   }

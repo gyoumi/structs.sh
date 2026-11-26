@@ -13,6 +13,7 @@ import { useGlobalStore } from '@/visualiser-debugger/Store/globalStateStore';
 import { useEffect } from 'react';
 import { useFrontendStateStore } from '@/visualiser-debugger/Store/frontendStateStore';
 import Toast from '@/visualiser-debugger/Component/Toast/Toast';
+import { demoRoutes } from '@/demos/routes';
 
 const App = () => {
   useEffect(() => {
@@ -38,6 +39,9 @@ const App = () => {
 
             {/* Development mode */}
             <Route path="/debugger" element={<DevelopmentMode />} />
+
+            {/* UI overhaul demos: /1 to /5 */}
+            {demoRoutes}
 
             {/* 404 page */}
             <Route path="*" element={<Page404 />} />

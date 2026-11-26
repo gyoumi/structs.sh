@@ -17,7 +17,7 @@ const animations = {
       opacity: 1,
       scale: 1,
       transition: {
-        type: 'spring',
+        type: 'spring' as const,
         bounce: 0,
         duration: 0.5,
       },
@@ -29,7 +29,7 @@ const animations = {
       scale: 0.7,
       transition: {
         duration: 0.5,
-        type: 'spring',
+        type: 'spring' as const,
       },
     },
   },

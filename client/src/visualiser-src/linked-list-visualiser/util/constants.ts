@@ -1,4 +1,5 @@
 // SVG Attributes
+import { palette } from '@/visualiser-src/common/palette';
 import { nodeDiameter, strokeWidth, actualNodeDiameter } from '../../common/constants';
 
 export const pathLength = 50;
@@ -11,15 +12,21 @@ export const PREV = '#prev';
 export const CANVAS = '#visualiser-canvas';
 export const nodeAttributes = {
   class: 'node',
-  stroke: 'black',
+  get stroke() {
+    return palette.ink;
+  },
   opacity: 0,
 };
 
 export const shapeAttributes = {
   r: nodeDiameter / 2,
   'stroke-width': strokeWidth,
-  stroke: 'black',
-  fill: '#EBE8F4',
+  get stroke() {
+    return palette.ink;
+  },
+  get fill() {
+    return palette.nodeFill;
+  },
   opacity: 0,
 };
 
@@ -29,14 +36,21 @@ export const textAttributes = {
   'dominant-baseline': 'middle',
   'text-anchor': 'middle',
   'stroke-width': 0,
-  'font-family': 'CodeText',
+  get fill() {
+    return palette.ink;
+  },
+  get 'font-family'() {
+    return palette.fontFamily;
+  },
   'font-size': '24',
   opacity: 0,
 };
 
 export const pathAttributes = {
   'stroke-width': strokeWidth,
-  stroke: 'black',
+  get stroke() {
+    return palette.ink;
+  },
   'stroke-linecap': 'round',
   'stroke-linejoin': 'round',
   class: 'path',

@@ -1,3 +1,4 @@
+import { palette } from '@/visualiser-src/common/palette';
 import BSTAnimationProducer from './BSTAnimationProducer';
 import GraphicalBSTNode from '../data-structure/GraphicalBSTNode';
 import { lineDiffY } from '../../common/settings';
@@ -66,15 +67,15 @@ export default class BSTInsertAnimationProducer extends BSTAnimationProducer {
       this.addSequenceAnimation(
         node.nodeTarget.animate(400).attr({
           opacity: 1,
-          fill: '#39AF8E',
-          stroke: '#39AF8E',
+          fill: palette.highlight,
+          stroke: palette.highlight,
         })
       );
 
       this.addSequenceAnimation(
         node.textTarget.animate(400).attr({
           opacity: 1,
-          fill: '#ffffff',
+          fill: palette.onHighlight,
         })
       );
     } else {

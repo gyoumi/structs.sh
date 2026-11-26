@@ -1,0 +1,490 @@
+/*
+ * The landing page's structure: a hero and a "Pick a structure" section that
+ * each fill the window, then what the site does, and the sponsors. Colours,
+ * type and shape come from each demo's tokens.
+ */
+
+html:has(.sx-landing) {
+  scroll-behavior: smooth;
+}
+
+.sx-landing {
+  --sx-wrap: 76rem;
+  --sx-gutter: clamp(1rem, 5vw, 4.5rem);
+}
+
+.sx-wrap {
+  width: 100%;
+  max-width: calc(var(--sx-wrap) + var(--sx-gutter) * 2);
+  margin-inline: auto;
+  padding-inline: var(--sx-gutter);
+}
+
+/* ---------------------------------- Hero ---------------------------------- */
+
+.sx-hero {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100svh;
+  background: var(--sx-hero-bg, var(--sx-bg));
+  color: var(--sx-hero-ink, var(--sx-ink));
+}
+
+.sx-nav {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  max-width: calc(var(--sx-wrap) + var(--sx-gutter) * 2);
+  margin-inline: auto;
+  padding: 1.25rem var(--sx-gutter);
+}
+
+.sx-landing .sx-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  font-family: var(--sx-display, var(--sx-font));
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+}
+
+.sx-landing .sx-brand img {
+  display: block;
+  width: 2.25rem;
+  height: 2.25rem;
+}
+
+.sx-nav-links {
+  display: flex;
+  align-items: center;
+  gap: clamp(1rem, 3vw, 2.25rem);
+  font-weight: 500;
+}
+
+.sx-nav-links a {
+  padding-block: 0.25rem;
+  text-decoration: none;
+}
+
+.sx-hero-body {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(2rem, 5vw, 5rem);
+  padding-block: 2rem 4rem;
+}
+
+.sx-hero h1 {
+  font-family: var(--sx-display, var(--sx-font));
+  font-size: clamp(2.75rem, 7vw, 5.5rem);
+  font-weight: 700;
+  line-height: 0.98;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+.sx-hero-tagline {
+  margin-block-start: 1rem;
+  font-family: var(--sx-display, var(--sx-font));
+  font-size: clamp(1.25rem, 2.4vw, 1.875rem);
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--sx-hero-accent, var(--sx-accent));
+}
+
+.sx-hero-lede {
+  max-width: 30rem;
+  margin-block-start: 1.25rem;
+  font-size: clamp(1rem, 1.4vw, 1.1875rem);
+  line-height: 1.55;
+  color: var(--sx-hero-muted, var(--sx-muted));
+}
+
+.sx-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-block-start: 2rem;
+}
+
+.sx-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-height: 3rem;
+  padding: 0 1.25rem;
+  border: 1px solid transparent;
+  border-radius: var(--sx-radius);
+  font-size: 1rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition:
+    transform 140ms var(--sx-ease-out),
+    background-color 140ms var(--sx-ease-out);
+}
+
+.sx-cta[data-kind='primary'] {
+  background: var(--sx-accent);
+  color: var(--sx-on-accent);
+}
+
+.sx-cta[data-kind='secondary'] {
+  border-color: currentColor;
+}
+
+.sx-cta:active {
+  transform: scale(0.98);
+}
+
+.sx-cta .sx-icon {
+  transition: transform 180ms var(--sx-ease-out);
+}
+
+.sx-hero-art {
+  min-width: 0;
+}
+
+/* ---------------------------------- Pick ---------------------------------- */
+
+.sx-pick {
+  display: grid;
+  align-content: center;
+  min-height: 100vh;
+  min-height: 100svh;
+  padding-block: 3rem;
+  background: var(--sx-pick-bg, var(--sx-bg));
+  /* Lands a little above the heading when the hero button scrolls here. */
+  scroll-margin-block-start: 0;
+}
+
+.sx-section-title {
+  font-family: var(--sx-display, var(--sx-font));
+  font-size: clamp(1.75rem, 3.6vw, 2.75rem);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+.sx-tiles {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: clamp(0.5rem, 1.4vw, 1.125rem);
+  margin-block-start: clamp(1.25rem, 3vh, 2rem);
+}
+
+.sx-tile {
+  --art-ink: currentColor;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: clamp(0.875rem, 2.5vh, 1.5rem) 0.5rem 1rem;
+  border: 1px solid var(--sx-line);
+  border-radius: var(--sx-radius);
+  background: var(--sx-surface);
+  transition:
+    transform 160ms var(--sx-ease-out),
+    border-color 160ms var(--sx-ease-out),
+    background-color 160ms var(--sx-ease-out);
+}
+
+.sx-tile-art {
+  width: min(7.5rem, 70%);
+  height: auto;
+  aspect-ratio: 3 / 2;
+}
+
+.sx-tile-name {
+  font-size: clamp(0.875rem, 1.25vw, 1.0625rem);
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.sx-tile[data-checked] {
+  border-color: var(--sx-accent);
+}
+
+.sx-detail {
+  display: grid;
+  min-height: clamp(11rem, 26vh, 14.5rem);
+  margin-block-start: clamp(0.75rem, 2vh, 1.25rem);
+  border: 1px dashed var(--sx-line);
+  border-radius: var(--sx-radius);
+}
+
+.sx-detail:has(.sx-detail-body) {
+  border-style: solid;
+  background: var(--sx-surface);
+}
+
+.sx-detail-empty {
+  place-self: center;
+  padding: 1rem;
+  font-weight: 500;
+  text-align: center;
+  color: var(--sx-muted);
+}
+
+.sx-detail-body {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  align-items: center;
+  gap: clamp(1rem, 4vw, 3rem);
+  padding: clamp(1rem, 3vh, 1.75rem) clamp(1rem, 4vw, 3rem);
+  animation: sx-detail-in 240ms var(--sx-ease-out);
+}
+
+@keyframes sx-detail-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.sx-detail-art {
+  width: min(13rem, 100%);
+  height: auto;
+  aspect-ratio: 3 / 2;
+  justify-self: center;
+}
+
+.sx-detail-text h3 {
+  font-family: var(--sx-display, var(--sx-font));
+  font-size: clamp(1.25rem, 2.2vw, 1.75rem);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.sx-detail-text p {
+  max-width: 34rem;
+  margin-block: 0.5rem 1rem;
+  line-height: 1.5;
+  color: var(--sx-muted);
+}
+
+.sx-detail-text .sx-cta {
+  min-height: 2.75rem;
+}
+
+/* ---------------------------------- About --------------------------------- */
+
+.sx-about {
+  padding-block: clamp(3rem, 8vh, 5rem);
+  border-block-start: 1px solid var(--sx-line);
+  background: var(--sx-about-bg, var(--sx-surface));
+}
+
+.sx-about-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: clamp(2rem, 6vw, 5rem);
+}
+
+.sx-about .sx-section-title {
+  font-size: clamp(1.5rem, 2.6vw, 2rem);
+}
+
+.sx-features {
+  display: grid;
+  gap: 0.75rem;
+  margin-block-start: 1.25rem;
+}
+
+.sx-features li {
+  position: relative;
+  padding-inline-start: 1.5rem;
+  line-height: 1.5;
+  color: var(--sx-muted);
+}
+
+.sx-features li::before {
+  content: '';
+  position: absolute;
+  inset-block-start: 0.5em;
+  inset-inline-start: 0;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--sx-bullet-radius, 50%);
+  background: var(--sx-accent);
+}
+
+.sx-about-text {
+  margin-block: 1.25rem;
+  line-height: 1.5;
+  color: var(--sx-muted);
+}
+
+/* -------------------------------- Sponsors -------------------------------- */
+
+/* The sponsors' logos are drawn for a dark page, so this band is always dark. */
+.sx-sponsors {
+  padding-block: clamp(3rem, 8vh, 4.5rem);
+  background: var(--sx-band-bg, #14113c);
+  color: var(--sx-band-ink, #fff);
+  text-align: center;
+}
+
+.sx-tier {
+  margin-block-start: 2rem;
+}
+
+.sx-tier h3 {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--sx-band-muted, #a9b4e8);
+}
+
+.sx-tier ul {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem clamp(1.5rem, 5vw, 4rem);
+  margin-block-start: 1.25rem;
+}
+
+.sx-tier a {
+  display: block;
+  border-radius: 4px;
+  transition: opacity 160ms var(--sx-ease-out);
+}
+
+.sx-tier img {
+  display: block;
+  width: auto;
+  height: calc(var(--h) * 1px);
+}
+
+/* --------------------------------- Footer --------------------------------- */
+
+.sx-footer {
+  padding-block: 1.25rem;
+  background: var(--sx-footer-bg, #0e0c2c);
+  color: var(--sx-footer-ink, #c9cdf0);
+  font-size: 0.875rem;
+}
+
+.sx-footer .sx-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1.5rem;
+}
+
+.sx-footer nav {
+  display: flex;
+  gap: 1.25rem;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sx-cta[data-kind='primary']:hover .sx-icon,
+  .sx-cta[data-kind='secondary']:hover .sx-icon {
+    transform: translateX(3px);
+  }
+
+  .sx-hero-actions .sx-cta[data-kind='primary']:hover .sx-icon {
+    transform: translateY(3px);
+  }
+
+  .sx-tile:hover {
+    transform: translateY(-3px);
+  }
+
+  .sx-tier a:hover {
+    opacity: 0.75;
+  }
+}
+
+/* ------------------------------ Smaller screens --------------------------- */
+
+@media (max-width: 860px) {
+  .sx-hero-body {
+    grid-template-columns: minmax(0, 1fr);
+    align-content: center;
+    padding-block: 1rem 3rem;
+  }
+
+  .sx-hero-art {
+    max-width: 30rem;
+  }
+
+  .sx-about-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 700px) {
+  .sx-nav-links {
+    gap: 1rem;
+    font-size: 0.9375rem;
+  }
+
+  .sx-landing .sx-brand span {
+    display: none;
+  }
+
+  /* Three across, then two, so every tile keeps a finger-sized target. */
+  .sx-tiles {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .sx-tile {
+    grid-column: span 2;
+    padding: 0.75rem 0.25rem;
+    gap: 0.5rem;
+  }
+
+  /* Counted by type, because each tile is followed by its hidden form input. */
+  .sx-tile:nth-of-type(n + 4) {
+    grid-column: span 3;
+  }
+
+  .sx-tile-art {
+    width: min(5rem, 80%);
+  }
+
+  .sx-detail-body {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.5rem;
+  }
+
+  .sx-detail-art {
+    display: none;
+  }
+
+  .sx-tier img {
+    height: calc(var(--h) * 0.8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:has(.sx-landing) {
+    scroll-behavior: auto;
+  }
+
+  .sx-cta,
+  .sx-cta .sx-icon,
+  .sx-tile,
+  .sx-tier a {
+    transition-duration: 1ms;
+  }
+
+  .sx-detail-body {
+    animation: none;
+  }
+}

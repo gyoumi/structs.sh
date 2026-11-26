@@ -1,0 +1,419 @@
+@import '@fontsource-variable/overpass/index.css';
+@import '@fontsource-variable/jetbrains-mono/index.css';
+
+/*
+ * Demo 3: Colour-coded.
+ * Each structure owns one colour and keeps it everywhere: its tile, its tab,
+ * its run button and the highlights in its drawing. Everything else is the
+ * site's navy on white, square-cornered, in heavy type.
+ */
+
+.d3 {
+  --d3-c: var(--sx-ink);
+  --d3-on: #ffffff;
+  --d3-navy: #14113c;
+  --d3-wash: #eef0f7;
+  --d3-rule: 2px solid var(--sx-ink);
+
+  --sx-bg: #ffffff;
+  --sx-surface: #ffffff;
+  --sx-ink: #14113c;
+  --sx-muted: #555a7d;
+  --sx-line: #cdd1e2;
+  --sx-accent: var(--d3-c);
+  --sx-on-accent: var(--d3-on);
+  --sx-focus: #14113c;
+  --sx-danger: #b93a18;
+  --sx-radius: 0px;
+  --sx-font: 'Overpass Variable', 'Helvetica Neue', Arial, sans-serif;
+  --sx-mono: 'JetBrains Mono Variable', ui-monospace, Menlo, monospace;
+  --sx-icon-stroke: 2.25;
+  --art-stroke: 3;
+}
+
+.d3 [data-topic='linked-lists'],
+.d3[data-topic='linked-lists'] {
+  --d3-c: #2a66b3;
+  --d3-on: #ffffff;
+}
+
+.d3 [data-topic='binary-search-trees'],
+.d3[data-topic='binary-search-trees'] {
+  --d3-c: #7447c2;
+  --d3-on: #ffffff;
+}
+
+.d3 [data-topic='avl-trees'],
+.d3[data-topic='avl-trees'] {
+  --d3-c: #12805c;
+  --d3-on: #ffffff;
+}
+
+.d3 [data-topic='sorting-algorithms'],
+.d3[data-topic='sorting-algorithms'] {
+  --d3-c: #e9ac32;
+  --d3-on: #14113c;
+}
+
+.d3 [data-topic='debugger'] {
+  --d3-c: #cf4520;
+  --d3-on: #ffffff;
+}
+
+/* -------------------------------- Landing --------------------------------- */
+
+.d3.sx-landing {
+  --d3-c: var(--d3-navy);
+}
+
+.d3 .sx-nav {
+  max-width: none;
+  padding-block: 0.875rem;
+  background: var(--d3-navy);
+  color: #ffffff;
+}
+
+.d3 .sx-nav-links {
+  font-weight: 600;
+}
+
+/* The words on top, the four colours across the bottom. */
+.d3 .sx-hero-body {
+  grid-template-columns: minmax(0, 1fr);
+  align-content: center;
+  gap: clamp(1.5rem, 5vh, 3rem);
+  padding-block: 2rem 3rem;
+}
+
+.d3 .sx-hero h1 {
+  font-size: clamp(3.5rem, 12vw, 9rem);
+  font-weight: 900;
+  line-height: 0.85;
+  letter-spacing: -0.045em;
+}
+
+.d3 .sx-hero-lede {
+  max-width: 36rem;
+  font-size: clamp(1.0625rem, 1.6vw, 1.3125rem);
+  color: var(--sx-ink);
+}
+
+.d3 .sx-cta {
+  border: var(--d3-rule);
+  font-weight: 800;
+}
+
+.d3 .sx-cta[data-kind='primary'] {
+  background: var(--sx-ink);
+  color: #ffffff;
+}
+
+.d3-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.d3-panel {
+  --art-ink: var(--d3-on);
+  --art-accent: var(--d3-on);
+
+  display: grid;
+  place-items: center;
+  height: clamp(6.5rem, 22vh, 12rem);
+  background: var(--d3-c);
+  color: var(--d3-on);
+}
+
+.d3-panel .sx-art {
+  width: min(11rem, 62%);
+  height: auto;
+}
+
+.d3 .sx-pick {
+  --sx-pick-bg: var(--d3-wash);
+  border-block-start: var(--d3-rule);
+}
+
+.d3 .sx-section-title {
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+
+/* A tile is a white card with its colour along the top, and all colour once chosen. */
+.d3 .sx-tile {
+  --art-ink: var(--d3-c);
+  --art-accent: var(--d3-c);
+
+  border: var(--d3-rule);
+  border-block-start: 0.75rem solid var(--d3-c);
+}
+
+.d3 .sx-tile[data-checked] {
+  --art-ink: var(--d3-on);
+  --art-accent: var(--d3-on);
+
+  border-color: var(--sx-ink);
+  border-block-start-color: var(--d3-c);
+  background: var(--d3-c);
+  color: var(--d3-on);
+}
+
+.d3 .sx-tile-name {
+  font-weight: 800;
+  color: var(--sx-ink);
+}
+
+.d3 .sx-tile[data-checked] .sx-tile-name {
+  color: inherit;
+}
+
+.d3 .sx-detail {
+  border: 2px dashed var(--sx-muted);
+}
+
+.d3 .sx-detail:has(.sx-detail-body) {
+  border: var(--d3-rule);
+  border-inline-start: 0.75rem solid var(--d3-c);
+}
+
+.d3 .sx-detail-art {
+  --art-ink: var(--d3-c);
+  --art-accent: var(--d3-c);
+}
+
+.d3 .sx-detail-text h3 {
+  font-weight: 900;
+}
+
+.d3 .sx-detail .sx-cta[data-kind='primary'] {
+  border-color: var(--sx-ink);
+  background: var(--d3-c);
+  color: var(--d3-on);
+}
+
+.d3 .sx-about {
+  border-block-start: var(--d3-rule);
+}
+
+.d3 .sx-features li::before {
+  inset-block-start: 0.45em;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 0;
+  background: var(--sx-ink);
+}
+
+/* Four bullets, four colours. */
+.d3 .sx-features li:nth-child(1)::before {
+  background: #2a66b3;
+}
+
+.d3 .sx-features li:nth-child(2)::before {
+  background: #7447c2;
+}
+
+.d3 .sx-features li:nth-child(3)::before {
+  background: #12805c;
+}
+
+/* ------------------------------- Visualiser ------------------------------- */
+
+.d3.sx-app {
+  --sx-bar-bg: var(--d3-navy);
+  --sx-bar-ink: #ffffff;
+  --sx-code-bg: var(--d3-navy);
+  --sx-code-ink: #f1f1fa;
+  --sx-code-muted: #a9add0;
+  --sx-code-active-bg: var(--d3-c);
+  --sx-code-active-ink: var(--d3-on);
+  --sx-field-bg: #ffffff;
+}
+
+/* The bar is underlined in the colour of the structure on screen. */
+.d3 .sx-bar {
+  padding-block: 0;
+  border-block-end: 0.375rem solid var(--d3-c);
+}
+
+.d3 .sx-brand {
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.d3 .sx-tabs-list {
+  gap: 0;
+}
+
+.d3 .sx-tab {
+  min-height: 3.25rem;
+  padding-inline: 1rem;
+  font-weight: 700;
+}
+
+.d3 .sx-tab[data-topic]::before {
+  content: '';
+  flex: none;
+  width: 0.75rem;
+  height: 0.75rem;
+  background: var(--d3-c);
+}
+
+.d3 .sx-tab[aria-current='page'] {
+  background: var(--d3-c);
+  color: var(--d3-on);
+}
+
+.d3 .sx-tab[aria-current='page']::before {
+  background: var(--d3-on);
+}
+
+.d3 .sx-tab-more {
+  --d3-c: #ffffff;
+}
+
+.d3 .sx-bar-link,
+.d3 .sx-bar-button {
+  font-weight: 700;
+}
+
+.d3 .sx-pad {
+  border-inline-end: var(--d3-rule);
+}
+
+.d3 .sx-pad-title,
+.d3 .sx-codepanel-head h2 {
+  font-weight: 800;
+}
+
+.d3 .sx-op {
+  border: 2px solid var(--sx-ink);
+  font-weight: 700;
+}
+
+.d3 .sx-op[data-checked] {
+  border-color: var(--sx-ink);
+}
+
+.d3 .sx-input {
+  border: 2px solid var(--sx-ink);
+}
+
+.d3 .sx-input:focus-visible,
+.d3 .sx-input[data-active] {
+  outline: 3px solid var(--d3-c);
+  outline-offset: 0;
+}
+
+.d3 .sx-key {
+  border: 0;
+  background: var(--d3-wash);
+  font-size: 1.0625rem;
+  font-weight: 700;
+}
+
+.d3 .sx-key[data-key] {
+  background: var(--sx-ink);
+  color: #ffffff;
+}
+
+.d3 .sx-run {
+  border: var(--d3-rule);
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.d3 .sx-chip,
+.d3 .sx-zoom [data-slot='toolbar-button'],
+.d3 .sx-speed {
+  border: 2px solid var(--sx-ink);
+  font-weight: 700;
+}
+
+.d3 .sx-dock {
+  border-block-start: var(--d3-rule);
+}
+
+.d3 .sx-dock [data-slot='toolbar-button'][data-role='play'] {
+  border: var(--d3-rule);
+}
+
+.d3 .sx-scrubber {
+  --sx-track-height: 8px;
+  --sx-thumb-size: 18px;
+}
+
+.d3 .sx-scrubber-track {
+  background: var(--d3-wash);
+}
+
+.d3 .sx-scrubber-thumb {
+  border-radius: 0;
+}
+
+.d3 .sx-codepanel-head code {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.d3 .sx-code [data-token='keyword'] {
+  color: #b9c6ff;
+}
+
+.d3 .sx-code [data-token='number'] {
+  color: #ffd98a;
+}
+
+.d3 .sx-dialog {
+  border: var(--d3-rule);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .d3 .sx-nav-links a:hover {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 5px;
+  }
+
+  .d3 .sx-tab:not([aria-current='page']):hover,
+  .d3 .sx-bar-link:hover,
+  .d3 .sx-bar-button:hover {
+    background: rgb(255 255 255 / 0.12);
+  }
+
+  .d3 .sx-op:not([data-checked]):hover,
+  .d3 .sx-chip:hover,
+  .d3 .sx-zoom [data-slot='toolbar-button']:hover,
+  .d3 .sx-cta[data-kind='secondary']:hover {
+    background: var(--d3-wash);
+  }
+
+  .d3 .sx-key:not(:disabled, [data-key]):hover {
+    background: #dfe2ee;
+  }
+
+  .d3 .sx-hero .sx-cta[data-kind='primary']:hover {
+    background: #2a2670;
+  }
+}
+
+@media (max-width: 920px) {
+  .d3 .sx-tab {
+    min-height: 2.75rem;
+    padding-inline: 0.75rem;
+  }
+}
+
+@media (max-width: 700px) {
+  .d3 .sx-pad {
+    border-block: var(--d3-rule);
+    border-inline-end: 0;
+  }
+
+  .d3-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .d3-panel {
+    height: clamp(5rem, 14vh, 8rem);
+  }
+}

@@ -243,6 +243,21 @@ class VisualiserController {
   private get currentTime() {
     return Math.min(this.currentTimeline.time(), this.timelineDuration);
   }
+
+  /** Where each step of the current animation ends, as a percentage of the timeline. */
+  public get stepMarks(): number[] {
+    if (this.timelineDuration === 0) return [];
+    const marks = this.timestamps.map((time) =>
+      Math.min((time / this.timelineDuration) * 100, 100)
+    );
+    return [...new Set(marks)].sort((x, y) => x - y);
+  }
+
+  /** How many steps the timeline has finished, from 0 to `stepMarks.length`. */
+  public get currentStep(): number {
+    const time = this.currentTime;
+    return [...new Set(this.timestamps)].filter((timestamp) => timestamp <= time + 1).length;
+  }
 }
 
 export default VisualiserController;

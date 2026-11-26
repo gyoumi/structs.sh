@@ -1,4 +1,5 @@
 import { SVG, Runner } from '@svgdotjs/svg.js';
+import { palette } from '@/visualiser-src/common/palette';
 import { CodeLine } from './typedefs';
 import { showLineNumbers, CODE_CANVAS, CODE_CONTAINER } from './constants';
 
@@ -57,12 +58,12 @@ export default abstract class AnimationProducer {
         rectTarget: SVG()
           .rect(450, 18)
           .move(-5, 18 * i)
-          .fill('#14113C')
+          .fill(palette.codeBackground)
           .addTo(CODE_CANVAS),
         textTarget: SVG()
           .text(showLineNumbers ? String(i + 1).padEnd(4, ' ') + line : line.trim())
-          .font({ family: 'CodeText', size: 10 })
-          .fill('#FFFFFF')
+          .font({ family: palette.fontFamily, size: 10 })
+          .fill(palette.codeText)
           .attr('style', 'white-space: pre-wrap')
           .move(0, 18 * i + 2)
           .x(showLineNumbers ? 0 : line.search(/\S/) * 5)
@@ -83,7 +84,7 @@ export default abstract class AnimationProducer {
 
     this.addSequenceAnimation(
       this.codeTargets[line - 1].rectTarget.animate(1).attr({
-        fill: '#39AF8E',
+        fill: palette.codeHighlight,
         rx: '10',
         ry: '10',
       })
@@ -129,7 +130,7 @@ export default abstract class AnimationProducer {
     this.highlightedLines.forEach((line) => {
       this.addSequenceAnimation(
         this.codeTargets[line - 1].rectTarget.animate(1).attr({
-          fill: '#14113C',
+          fill: palette.codeBackground,
         })
       );
     });

@@ -1,15 +1,18 @@
 packages:
   - client
 
+# Every package uses the client's React.
 overrides:
-  react-is: ^18.3.1
+  react: ^19.2.0
+  react-dom: ^19.2.0
 
 # These packages declare old peer ranges but work with the versions we use.
 peerDependencyRules:
   allowedVersions:
-    flux>react: '18'
-    react-json-view>react: '18'
-    react-json-view>react-dom: '18'
+    flux>react: '19'
+    react-json-view>react: '19'
+    react-json-view>react-dom: '19'
+    react-remove-scroll>@types/react: '19'
     '@pigment-css/vite-plugin>vite': '8'
 
 # These install scripts only rebuild or check native binaries that already

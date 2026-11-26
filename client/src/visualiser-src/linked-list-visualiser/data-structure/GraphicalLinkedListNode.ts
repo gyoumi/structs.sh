@@ -1,4 +1,5 @@
 import { SVG, Path, Text, Circle, Svg, Marker } from '@svgdotjs/svg.js';
+import { palette } from '@/visualiser-src/common/palette';
 import {
   shapeAttributes,
   textAttributes,
@@ -11,6 +12,7 @@ import { actualNodeDiameter, markerLength, pathD, VISUALISER_CANVAS } from '../.
 
 function addMarker(this: Path, add: Marker) {
   add.path(pathD);
+  add.fill(palette.ink);
   this.attr('markerUnits', 'userSpaceOnUse');
 }
 interface SVGData {
@@ -38,7 +40,7 @@ export default class GraphicalLinkedListNode {
       .text('head')
       .attr(textAttributes)
       .opacity(1)
-      .attr({ 'font-size': 16, 'font-family': 'CodeText' })
+      .attr({ 'font-size': 16, 'font-family': palette.fontFamily })
       .addTo(VISUALISER_CANVAS);
     const headPointer = SVG()
       .path()

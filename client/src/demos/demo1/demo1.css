@@ -1,0 +1,374 @@
+@import '@fontsource-variable/bricolage-grotesque/index.css';
+@import '@fontsource-variable/caveat/index.css';
+@import '@fontsource-variable/jetbrains-mono/index.css';
+
+/*
+ * Demo 1: Paper.
+ * Grid paper and ink, like a worked example in a tutorial. The site's navy is
+ * the ink, indigo marks anything you can press, and the logo's sand is the
+ * highlighter that follows the running line.
+ */
+
+.d1 {
+  --d1-paper: #f6f7fb;
+  --d1-grid: #e1e4f2;
+  --d1-sand: #f3d9a4;
+  --d1-hand: 'Caveat Variable', 'Bradley Hand', cursive;
+  --d1-rule: 1.5px solid var(--sx-ink);
+  --d1-drop: 3px 3px 0 var(--sx-ink);
+
+  --sx-bg: var(--d1-paper);
+  --sx-surface: #ffffff;
+  --sx-ink: #1b1a4b;
+  --sx-muted: #575a80;
+  --sx-line: #c5c9e0;
+  --sx-accent: #3f3ab8;
+  --sx-on-accent: #ffffff;
+  --sx-danger: #c22f1f;
+  --sx-radius: 4px;
+  --sx-font: 'Bricolage Grotesque Variable', 'Helvetica Neue', Arial, sans-serif;
+  --sx-mono: 'JetBrains Mono Variable', ui-monospace, Menlo, monospace;
+  --sx-code-active-bg: var(--d1-sand);
+  --sx-code-active-ink: var(--sx-ink);
+  --sx-icon-stroke: 2;
+  --art-fill: #ffffff;
+  --art-accent: var(--d1-sand);
+}
+
+/* Small squares, with nothing heavier than the ink drawn on them. */
+.d1 .sx-hero,
+.d1 .sx-pick,
+.d1 .sx-stage {
+  background-color: var(--d1-paper);
+  background-image:
+    linear-gradient(var(--d1-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--d1-grid) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* -------------------------------- Landing --------------------------------- */
+
+.d1 .sx-hero h1 {
+  font-variation-settings: 'opsz' 96;
+  font-size: clamp(2.75rem, 6.4vw, 5rem);
+}
+
+.d1 .sx-nav-links a {
+  border-block-end: 1.5px solid transparent;
+}
+
+.d1 .sx-cta {
+  border: var(--d1-rule);
+  box-shadow: var(--d1-drop);
+}
+
+.d1 .sx-cta[data-kind='secondary'] {
+  background: var(--sx-surface);
+}
+
+.d1 .sx-cta:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--sx-ink);
+}
+
+.d1-figure {
+  padding: 1.25rem;
+  border: var(--d1-rule);
+  background: var(--sx-surface);
+  box-shadow: 6px 6px 0 rgb(27 26 75 / 0.14);
+  rotate: 1.2deg;
+}
+
+.d1-figure svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.d1-pencil {
+  fill: none;
+  stroke: var(--sx-ink);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.d1-pencil-fill {
+  fill: var(--sx-surface);
+}
+
+.d1-pen {
+  stroke: var(--sx-accent);
+}
+
+.d1-figure text {
+  font-family: var(--sx-mono);
+  font-size: 15px;
+  font-weight: 600;
+  fill: var(--sx-ink);
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.d1-figure text.d1-hand {
+  font-family: var(--d1-hand);
+  font-size: 21px;
+  font-weight: 500;
+  fill: var(--sx-accent);
+  text-anchor: start;
+}
+
+.d1-figure text.d1-codeline {
+  font-size: 13px;
+  font-weight: 500;
+  text-anchor: start;
+}
+
+.d1-swipe {
+  fill: var(--d1-sand);
+}
+
+/* The list is drawn, then the new node, then the two pointers that link it in. */
+@media (prefers-reduced-motion: no-preference) {
+  .d1-figure [data-draw] {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: d1-draw 520ms var(--sx-ease-in-out) forwards;
+    animation-delay: calc(var(--at, 0) * 1ms);
+  }
+
+  .d1-figure [data-appear] {
+    opacity: 0;
+    animation: d1-appear 260ms ease forwards;
+    animation-delay: calc(var(--at, 0) * 1ms);
+  }
+
+  .d1-figure .d1-swipe {
+    transform-box: fill-box;
+    transform-origin: left center;
+    transform: scaleX(0);
+    animation: d1-swipe 380ms var(--sx-ease-out) forwards;
+    animation-delay: calc(var(--at, 0) * 1ms);
+  }
+}
+
+@keyframes d1-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes d1-appear {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes d1-swipe {
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.d1 .sx-tile {
+  border: var(--d1-rule);
+  box-shadow: 4px 4px 0 rgb(27 26 75 / 0.12);
+}
+
+.d1 .sx-tile[data-checked] {
+  border-color: var(--sx-ink);
+  box-shadow: 4px 4px 0 var(--sx-accent);
+}
+
+/* The chosen tile's name gets a stroke of highlighter. */
+.d1 .sx-tile-name {
+  padding-inline: 0.25rem;
+  background: linear-gradient(var(--d1-sand), var(--d1-sand)) no-repeat 0 85% / 0 0.5em;
+  transition: background-size 260ms var(--sx-ease-out);
+}
+
+.d1 .sx-tile[data-checked] .sx-tile-name {
+  background-size: 100% 0.5em;
+}
+
+.d1 .sx-detail {
+  border: 1.5px dashed var(--sx-muted);
+}
+
+.d1 .sx-detail:has(.sx-detail-body) {
+  border: var(--d1-rule);
+  box-shadow: 6px 6px 0 rgb(27 26 75 / 0.12);
+}
+
+.d1 .sx-about {
+  border-block-start: var(--d1-rule);
+}
+
+.d1 .sx-features li::before {
+  inset-block-start: 0.6em;
+  width: 0.875rem;
+  height: 0.3125rem;
+  border-radius: 0;
+  background: var(--d1-sand);
+  outline: 1px solid var(--sx-ink);
+}
+
+/* ------------------------------- Visualiser ------------------------------- */
+
+.d1.sx-app {
+  --sx-panel: #ffffff;
+  --sx-field-bg: var(--d1-paper);
+}
+
+.d1 .sx-bar {
+  border-block-end: var(--d1-rule);
+  background: var(--sx-surface);
+}
+
+/* Tabs are words on the page. The one you're on is highlighted. */
+.d1 .sx-tab {
+  padding-inline: 0.625rem;
+  border-radius: 0;
+  background: linear-gradient(var(--d1-sand), var(--d1-sand)) no-repeat 50% 78% / 0 0.5em;
+  color: var(--sx-muted);
+  transition:
+    background-size 240ms var(--sx-ease-out),
+    color 140ms var(--sx-ease-out);
+}
+
+.d1 .sx-tab[aria-current='page'] {
+  background-color: transparent;
+  background-size: calc(100% - 0.75rem) 0.5em;
+  color: var(--sx-ink);
+  font-weight: 700;
+}
+
+.d1 .sx-bar-link {
+  color: var(--sx-accent);
+}
+
+.d1 .sx-pad {
+  border-inline-end: var(--d1-rule);
+}
+
+.d1 .sx-op {
+  border-color: var(--sx-ink);
+}
+
+.d1 .sx-key,
+.d1 .sx-chip,
+.d1 .sx-zoom [data-slot='toolbar-button'],
+.d1 .sx-speed {
+  border-color: var(--sx-ink);
+  box-shadow: 2px 2px 0 var(--sx-ink);
+}
+
+.d1 .sx-key:active:not(:disabled),
+.d1 .sx-chip:active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+
+.d1 .sx-key[data-key] {
+  background: var(--d1-paper);
+}
+
+.d1 .sx-input {
+  border-color: var(--sx-ink);
+}
+
+.d1 .sx-input:focus-visible,
+.d1 .sx-input[data-active] {
+  border-color: var(--sx-accent);
+  outline: 2px solid var(--sx-accent);
+  outline-offset: 0;
+}
+
+.d1 .sx-run {
+  border: var(--d1-rule);
+  box-shadow: var(--d1-drop);
+}
+
+.d1 .sx-run:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--sx-ink);
+}
+
+.d1 .sx-dock {
+  border-block-start: var(--d1-rule);
+}
+
+.d1 .sx-dock [data-slot='toolbar-button'][data-role='play'] {
+  border: var(--d1-rule);
+  border-radius: 50%;
+  box-shadow: 2px 2px 0 var(--sx-ink);
+}
+
+.d1 .sx-scrubber-track {
+  border-radius: 2px;
+}
+
+.d1 .sx-codepanel {
+  border-inline-start: var(--d1-rule);
+}
+
+.d1 .sx-code [data-token='keyword'] {
+  color: var(--sx-accent);
+  font-weight: 600;
+}
+
+.d1 .sx-code [data-token='number'] {
+  color: #a3540a;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .d1 .sx-nav-links a:hover {
+    border-block-end-color: currentColor;
+  }
+
+  .d1 .sx-tab:not([aria-current='page']):hover,
+  .d1 .sx-bar-link:hover span {
+    color: var(--sx-ink);
+  }
+
+  .d1 .sx-op:not([data-checked]):hover,
+  .d1 .sx-key:not(:disabled):hover,
+  .d1 .sx-chip:hover,
+  .d1 .sx-zoom [data-slot='toolbar-button']:hover,
+  .d1 .sx-bar-button:hover {
+    background: var(--d1-sand);
+  }
+
+  .d1 .sx-run:hover,
+  .d1 .sx-cta[data-kind='primary']:hover {
+    background: #322ea0;
+  }
+
+  .d1 .sx-cta[data-kind='secondary']:hover {
+    background: var(--d1-sand);
+  }
+}
+
+@media (max-width: 920px) {
+  .d1 .sx-codepanel {
+    border-block-start: var(--d1-rule);
+  }
+}
+
+@media (max-width: 700px) {
+  .d1 .sx-pad {
+    border-block: var(--d1-rule);
+    border-inline-end: 0;
+  }
+
+  .d1 .sx-codepanel {
+    border: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .d1 .sx-tab,
+  .d1 .sx-tile-name {
+    transition-duration: 1ms;
+  }
+}

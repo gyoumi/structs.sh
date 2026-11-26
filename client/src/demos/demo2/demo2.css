@@ -1,0 +1,484 @@
+@import '@fontsource-variable/jetbrains-mono/index.css';
+@import '@fontsource-variable/martian-mono/index.css';
+
+/*
+ * Demo 2: Editor.
+ * The place C gets written: one monospace family on the site's deep navy, with
+ * the logo's sand marking the line that is running. Panes sit edge to edge and
+ * are split by hairlines, the way an editor's are.
+ */
+
+.d2 {
+  --d2-raised: #211f52;
+  --d2-mint: #6fd3b4;
+  --d2-display: 'Martian Mono Variable', 'JetBrains Mono Variable', ui-monospace, monospace;
+  --d2-rule: 1px solid var(--sx-line);
+
+  --sx-bg: #100e2b;
+  --sx-surface: #171538;
+  --sx-ink: #e7e6f7;
+  --sx-muted: #9d9bc9;
+  --sx-line: #2e2b63;
+  --sx-accent: #e9c98a;
+  --sx-on-accent: #1a1638;
+  --sx-danger: #f0787e;
+  --sx-radius: 3px;
+  --sx-font: 'JetBrains Mono Variable', ui-monospace, Menlo, monospace;
+  --sx-mono: var(--sx-font);
+  --sx-display: var(--d2-display);
+  --sx-code-active-bg: var(--sx-accent);
+  --sx-code-active-ink: var(--sx-on-accent);
+  --sx-icon-stroke: 1.75;
+  --art-stroke: 2;
+  --art-fill: var(--sx-surface);
+
+  font-variant-ligatures: none;
+  color-scheme: dark;
+}
+
+/* -------------------------------- Landing --------------------------------- */
+
+.d2 .sx-nav {
+  max-width: none;
+  border-block-end: var(--d2-rule);
+  background: var(--sx-surface);
+  padding-block: 0.75rem;
+}
+
+.d2 .sx-nav-links {
+  font-size: 0.875rem;
+  color: var(--sx-muted);
+}
+
+.d2 .sx-hero h1 {
+  font-size: clamp(2.5rem, 6vw, 4.5rem);
+  font-weight: 600;
+  letter-spacing: -0.05em;
+}
+
+.d2 .sx-hero-lede {
+  font-size: 1rem;
+}
+
+.d2 .sx-cta {
+  min-height: 2.75rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.d2 .sx-cta[data-kind='secondary'] {
+  border-color: var(--sx-line);
+  background: var(--sx-surface);
+}
+
+.d2-window {
+  overflow: hidden;
+  border: var(--d2-rule);
+  border-radius: 8px;
+  background: var(--sx-surface);
+  box-shadow: 0 24px 60px rgb(4 3 18 / 0.5);
+}
+
+.d2-window-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.625rem 0.875rem;
+  border-block-end: var(--d2-rule);
+  font-size: 0.8125rem;
+  color: var(--sx-muted);
+}
+
+.d2-window-bar i {
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 50%;
+  background: var(--sx-line);
+}
+
+.d2-window-bar span {
+  margin-inline-start: 0.5rem;
+}
+
+.d2-list {
+  display: block;
+  width: 100%;
+  height: auto;
+  padding: 1rem 0.5rem 0;
+  fill: none;
+  stroke: var(--sx-ink);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.d2-list circle {
+  fill: var(--d2-raised);
+  transition:
+    fill 200ms var(--sx-ease-out),
+    stroke 200ms var(--sx-ease-out);
+}
+
+.d2-list text {
+  fill: var(--sx-ink);
+  stroke: none;
+  font-family: var(--sx-mono);
+  font-size: 15px;
+  font-weight: 600;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.d2-list [data-found] circle {
+  fill: var(--d2-mint);
+  stroke: var(--d2-mint);
+}
+
+.d2-list [data-found] text {
+  fill: var(--sx-on-accent);
+}
+
+.d2-curr {
+  stroke: var(--sx-accent);
+  transition: transform 320ms var(--sx-ease-out);
+}
+
+.d2-curr text {
+  fill: var(--sx-accent);
+  font-size: 12px;
+}
+
+.d2-listing {
+  padding-block: 0.75rem 1rem;
+  border-block-start: var(--d2-rule);
+  counter-reset: line;
+  font-size: clamp(0.6875rem, 1.05vw, 0.8125rem);
+  line-height: 1.8;
+  white-space: pre;
+  overflow: hidden;
+}
+
+.d2-listing li {
+  counter-increment: line;
+  margin-inline-start: 2.75rem;
+  color: var(--sx-muted);
+}
+
+.d2-listing li::before {
+  content: counter(line);
+  position: absolute;
+  inset-inline-start: 0;
+  width: 2rem;
+  text-align: end;
+  color: var(--sx-line);
+}
+
+.d2-listing {
+  position: relative;
+}
+
+.d2-listing li[data-active] {
+  background: var(--sx-accent);
+  color: var(--sx-on-accent);
+}
+
+.d2 .sx-pick {
+  border-block-start: var(--d2-rule);
+}
+
+.d2 .sx-section-title {
+  font-weight: 600;
+  letter-spacing: -0.04em;
+}
+
+.d2 .sx-tile {
+  border-radius: 6px;
+  color: var(--sx-muted);
+}
+
+.d2 .sx-tile[data-checked] {
+  background: var(--d2-raised);
+  color: var(--sx-ink);
+  box-shadow: inset 0 -3px 0 var(--sx-accent);
+}
+
+.d2 .sx-tile-name {
+  font-weight: 600;
+}
+
+.d2 .sx-detail {
+  border-radius: 6px;
+}
+
+.d2 .sx-features li::before {
+  content: '>';
+  inset-block-start: 0;
+  width: auto;
+  height: auto;
+  background: none;
+  color: var(--sx-accent);
+  font-weight: 700;
+}
+
+.d2 .sx-sponsors {
+  --sx-band-bg: #171538;
+  border-block-start: var(--d2-rule);
+}
+
+.d2 .sx-footer {
+  --sx-footer-bg: #0b0a20;
+  border-block-start: var(--d2-rule);
+}
+
+/* ------------------------------- Visualiser ------------------------------- */
+
+.d2.sx-app {
+  --sx-control: 2rem;
+  --sx-panel: var(--sx-surface);
+  --sx-dock-bg: var(--sx-surface);
+  --sx-code-bg: var(--sx-surface);
+  --sx-pad-width: 17rem;
+  --sx-code-width: 23rem;
+}
+
+.d2 .sx-bar {
+  gap: 0.75rem;
+  padding-block: 0;
+  border-block-end: var(--d2-rule);
+  background: var(--sx-surface);
+}
+
+.d2 .sx-brand {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+}
+
+.d2 .sx-brand img {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+/* Tabs the way an editor draws its open files. */
+.d2 .sx-tabs-list {
+  gap: 0;
+}
+
+.d2 .sx-tab {
+  min-height: 2.75rem;
+  padding-inline: 1rem;
+  border-inline-end: var(--d2-rule);
+  border-radius: 0;
+  font-size: 0.8125rem;
+  color: var(--sx-muted);
+}
+
+.d2 .sx-tabs-list > :first-child {
+  border-inline-start: var(--d2-rule);
+}
+
+.d2 .sx-tab[aria-current='page'] {
+  background: var(--sx-bg);
+  color: var(--sx-ink);
+  box-shadow: inset 0 2px 0 var(--sx-accent);
+}
+
+.d2 .sx-bar-link,
+.d2 .sx-bar-button {
+  font-size: 0.8125rem;
+  color: var(--sx-muted);
+}
+
+.d2 .sx-pad {
+  border-inline-end: var(--d2-rule);
+}
+
+.d2 .sx-op {
+  font-size: 0.8125rem;
+  background: transparent;
+  color: var(--sx-muted);
+}
+
+.d2 .sx-op[data-checked] {
+  border-color: var(--sx-accent);
+  background: rgb(233 201 138 / 0.12);
+  color: var(--sx-accent);
+}
+
+.d2 .sx-key {
+  background: var(--d2-raised);
+  border-color: transparent;
+  font-weight: 500;
+}
+
+.d2 .sx-key[data-key] {
+  background: transparent;
+  border-color: var(--sx-line);
+  color: var(--sx-muted);
+}
+
+.d2 .sx-input:focus-visible,
+.d2 .sx-input[data-active] {
+  border-color: var(--sx-accent);
+  outline: none;
+}
+
+.d2 .sx-run,
+.d2 .sx-chip,
+.d2 .sx-field-label {
+  font-size: 0.8125rem;
+}
+
+.d2 .sx-chip,
+.d2 .sx-zoom [data-slot='toolbar-button'],
+.d2 .sx-speed {
+  color: var(--sx-muted);
+}
+
+/* A dotted floor under the drawing, faint enough to disappear while reading. */
+.d2 .sx-stage {
+  background-image: radial-gradient(rgb(157 155 201 / 0.16) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.d2 .sx-dock {
+  border-block-start: var(--d2-rule);
+  padding-block: 0.375rem;
+}
+
+.d2 .sx-dock [data-slot='toolbar-button'] {
+  color: var(--sx-muted);
+}
+
+.d2 .sx-dock [data-slot='toolbar-button'][data-role='play'] {
+  width: 2.25rem;
+  height: 2.25rem;
+}
+
+.d2 .sx-scrubber {
+  --sx-track-height: 3px;
+  --sx-thumb-size: 12px;
+}
+
+.d2 .sx-scrubber-thumb {
+  border-radius: 2px;
+  background: var(--sx-accent);
+}
+
+.d2 .sx-codepanel {
+  border-inline-start: var(--d2-rule);
+}
+
+.d2 .sx-codepanel-head {
+  padding-block: 0.75rem;
+  border-block-end: var(--d2-rule);
+}
+
+.d2 .sx-codepanel-head code {
+  color: var(--sx-accent);
+}
+
+/* Line numbers in the gutter, like the editor this is styled after. */
+.d2 .sx-codepanel ol.sx-code {
+  --sx-code-pad: 3rem;
+  padding-block-start: 0.75rem;
+  counter-reset: line;
+}
+
+.d2 .sx-codepanel .sx-code-line {
+  position: relative;
+  counter-increment: line;
+}
+
+.d2 .sx-codepanel .sx-code-line::before {
+  content: counter(line);
+  position: absolute;
+  inset-inline-start: 0;
+  width: 2.125rem;
+  text-align: end;
+  color: var(--sx-muted);
+  opacity: 0.55;
+}
+
+.d2 .sx-codepanel .sx-code-line[data-active]::before {
+  color: var(--sx-on-accent);
+  opacity: 1;
+}
+
+.d2 .sx-codepanel .sx-code-empty {
+  padding-block-start: 0.75rem;
+  font-size: 0.8125rem;
+}
+
+.d2 .sx-code [data-token='keyword'] {
+  color: #c79bf2;
+}
+
+.d2 .sx-code [data-token='number'] {
+  color: var(--d2-mint);
+}
+
+.d2 .sx-dialog {
+  background: var(--d2-raised);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .d2 .sx-nav-links a:hover,
+  .d2 .sx-tab:not([aria-current='page']):hover,
+  .d2 .sx-bar-link:hover,
+  .d2 .sx-bar-button:hover,
+  .d2 .sx-op:not([data-checked]):hover,
+  .d2 .sx-chip:hover,
+  .d2 .sx-zoom [data-slot='toolbar-button']:hover,
+  .d2 .sx-dock [data-slot='toolbar-button']:not([data-role='play'], [data-disabled]):hover {
+    color: var(--sx-ink);
+  }
+
+  .d2 .sx-tab:not([aria-current='page']):hover,
+  .d2 .sx-op:not([data-checked]):hover {
+    background: var(--d2-raised);
+  }
+
+  .d2 .sx-key:not(:disabled):hover {
+    border-color: var(--sx-accent);
+  }
+
+  .d2 .sx-run:hover,
+  .d2 .sx-cta[data-kind='primary']:hover {
+    background: #f3d8a2;
+  }
+
+  .d2 .sx-cta[data-kind='secondary']:hover,
+  .d2 .sx-tile:not([data-checked]):hover {
+    border-color: var(--sx-muted);
+    color: var(--sx-ink);
+  }
+}
+
+@media (max-width: 920px) {
+  .d2 .sx-codepanel {
+    border-block-start: var(--d2-rule);
+  }
+}
+
+@media (max-width: 700px) {
+  .d2 .sx-pad {
+    border-block: var(--d2-rule);
+    border-inline-end: 0;
+  }
+
+  .d2 .sx-codepanel {
+    border: 0;
+  }
+
+  .d2 .sx-tab {
+    padding-inline: 0.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .d2-curr,
+  .d2-list circle {
+    transition-duration: 1ms;
+  }
+}

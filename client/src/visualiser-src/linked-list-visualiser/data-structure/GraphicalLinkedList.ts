@@ -5,6 +5,7 @@ import { Documentation } from '@/visualiser-src/common/typedefs';
 import { VISUALISER_CANVAS } from '@/visualiser-src/common/constants';
 import { injectIds } from '@/visualiser-src/common/helpers';
 import { generateNumbers } from '@/visualiser-src/common/RandomNumGenerator';
+import { palette } from '@/visualiser-src/common/palette';
 import currTextPath from '../assets/currTextPath';
 import prevTextPath from '../assets/prevTextPath';
 import { CURRENT, PREV } from '../util/constants';
@@ -83,15 +84,15 @@ export default class GraphicalLinkedList extends GraphicalDataStructure {
     const currGroup = (SVG(VISUALISER_CANVAS) as Svg).group().opacity(0).id('current');
     currGroup
       .path('M18 27L25 1L32 27L25 23L18 27Z')
-      .fill('#5EEEC3')
-      .stroke({ color: '#46B49B', width: 2, linejoin: 'round' });
-    currGroup.path(currTextPath).fill('black');
+      .fill(palette.currFill)
+      .stroke({ color: palette.currStroke, width: 2, linejoin: 'round' });
+    currGroup.path(currTextPath).fill(palette.ink);
     const prevGroup = (SVG(VISUALISER_CANVAS) as Svg).group().opacity(0).id('prev');
     prevGroup
       .path('M18 27L25 1L32 27L25 23L18 27Z')
-      .fill({ color: '#EE5E78', opacity: 0.65 })
-      .stroke({ color: '#E85A84', width: 2, linejoin: 'round' });
-    prevGroup.path(prevTextPath);
+      .fill({ color: palette.prevFill, opacity: 0.65 })
+      .stroke({ color: palette.prevStroke, width: 2, linejoin: 'round' });
+    prevGroup.path(prevTextPath).fill(palette.ink);
   }
 
   constructor() {

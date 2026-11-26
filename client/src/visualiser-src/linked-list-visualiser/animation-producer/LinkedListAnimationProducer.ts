@@ -1,4 +1,5 @@
 import { SVG, Path, Element } from '@svgdotjs/svg.js';
+import { palette } from '@/visualiser-src/common/palette';
 import { topOffset, nodePathWidth, insertedNodeTopOffset, CURRENT, PREV } from '../util/constants';
 import { actualNodeDiameter, strokeWidth, nodeDiameter } from '../../common/constants';
 import AnimationProducer from '../../common/AnimationProducer';
@@ -24,18 +25,18 @@ export default class LinkedListAnimationProducer extends AnimationProducer {
   }
 
   public highlightRightNode(node: GraphicalLinkedListNode) {
-    this.addSequenceAnimation(node.boxTarget.animate().attr({ stroke: '#46B493' }));
-    this.addSequenceAnimation(node.numberTarget.animate().attr({ fill: '#46B493' }));
+    this.addSequenceAnimation(node.boxTarget.animate().attr({ stroke: palette.listHighlight }));
+    this.addSequenceAnimation(node.numberTarget.animate().attr({ fill: palette.listHighlight }));
   }
 
   public highlightNotRightNode(node: GraphicalLinkedListNode) {
-    this.addSequenceAnimation(node.boxTarget.animate().attr({ stroke: '#FF0000' }));
-    this.addSequenceAnimation(node.numberTarget.animate().attr({ fill: '#FF0000' }));
+    this.addSequenceAnimation(node.boxTarget.animate().attr({ stroke: palette.listAlert }));
+    this.addSequenceAnimation(node.numberTarget.animate().attr({ fill: palette.listAlert }));
   }
 
   public removeHighlightNode(node: GraphicalLinkedListNode) {
-    this.addSequenceAnimation(node.boxTarget.animate().attr({ stroke: '#000000' }));
-    this.addSequenceAnimation(node.numberTarget.animate().attr({ fill: '#000000' }));
+    this.addSequenceAnimation(node.boxTarget.animate().attr({ stroke: palette.ink }));
+    this.addSequenceAnimation(node.numberTarget.animate().attr({ fill: palette.ink }));
   }
 
   public initialisePointer(pointerId: string) {
@@ -56,8 +57,8 @@ export default class LinkedListAnimationProducer extends AnimationProducer {
   }
 
   public resetColorNode(head: GraphicalLinkedListNode) {
-    this.addSequenceAnimation(head.boxTarget.animate().attr({ stroke: '#000000' }));
-    this.addSequenceAnimation(head.numberTarget.animate().attr({ fill: '#000000' }));
+    this.addSequenceAnimation(head.boxTarget.animate().attr({ stroke: palette.ink }));
+    this.addSequenceAnimation(head.numberTarget.animate().attr({ fill: palette.ink }));
   }
 
   public resetPositioning(headPointer: Path, head: GraphicalLinkedListNode) {

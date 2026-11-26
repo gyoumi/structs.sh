@@ -1,0 +1,557 @@
+/*
+ * Structure shared by every demo. Nothing here picks a colour, a typeface or a
+ * radius: each demo sets the --sx-* tokens on its own root and restyles from there.
+ */
+
+.sx {
+  --sx-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --sx-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --sx-radius: 6px;
+  --sx-focus: var(--sx-accent);
+  --sx-icon-stroke: 1.75;
+
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--sx-bg);
+  color: var(--sx-ink);
+  font-family: var(--sx-font);
+  font-size: 1rem;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  accent-color: var(--sx-accent);
+}
+
+.sx *,
+.sx *::before,
+.sx *::after {
+  box-sizing: border-box;
+}
+
+.sx :where(h1, h2, h3, h4, p, ul, ol, dl, dd, figure) {
+  margin: 0;
+}
+
+.sx :where(ul, ol) {
+  padding: 0;
+  list-style: none;
+}
+
+/*
+ * The debugger's stack inspector styles every `dl` on the site. This undoes it
+ * for the demos, and stays weaker than any class so a demo can still lay one out.
+ */
+html :where(.sx) dl {
+  display: block;
+  grid-template-columns: none;
+  grid-auto-rows: auto;
+  overflow: visible;
+  background: none;
+}
+
+html :where(.sx) dd {
+  justify-self: auto;
+  margin: 0;
+}
+
+html :where(.sx) dt {
+  align-self: auto;
+}
+
+.sx :where(a) {
+  color: inherit;
+}
+
+.sx :where(button, input, select, textarea) {
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+}
+
+.sx :where(button) {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sx :where(button):disabled,
+.sx :where([data-slot])[data-disabled] {
+  cursor: not-allowed;
+}
+
+.sx :where(a, button, input, [tabindex]):focus-visible {
+  outline: 2px solid var(--sx-focus);
+  outline-offset: 2px;
+}
+
+.sx ::selection {
+  background: var(--sx-accent);
+  color: var(--sx-on-accent);
+}
+
+.sx-icon {
+  flex: none;
+  stroke-width: var(--sx-icon-stroke);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sx-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.sx-skip {
+  position: absolute;
+  inset-block-start: 0.5rem;
+  inset-inline-start: 0.5rem;
+  z-index: 50;
+  padding: 0.5rem 0.75rem;
+  background: var(--sx-ink);
+  color: var(--sx-bg);
+  transform: translateY(-200%);
+}
+
+.sx-skip:focus {
+  transform: none;
+}
+
+/* ---------------------------------- Stage --------------------------------- */
+
+.sx-stage {
+  position: relative;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.sx-stage[data-dragging] {
+  cursor: grabbing;
+}
+
+.sx-stage-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+
+/* Where a fit puts the drawing: the stage, less the room floating panels take. */
+.sx-stage-frame {
+  position: absolute;
+  inset: var(--sx-inset-top, 0) var(--sx-inset-right, 0) var(--sx-inset-bottom, 0)
+    var(--sx-inset-left, 0);
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* A fit or a zoom button glides the camera. A drag or a scroll never does. */
+.sx-stage[data-gliding] .sx-stage-canvas {
+  transition: transform 280ms var(--sx-ease-out);
+}
+
+.sx-offstage {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.sx-stage-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+  text-align: center;
+  pointer-events: none;
+}
+
+.sx-stage-empty > * {
+  pointer-events: auto;
+}
+
+/* -------------------------------- Transport ------------------------------- */
+
+.sx-transport,
+.sx-transport-group,
+.sx-zoom {
+  display: flex;
+  align-items: center;
+}
+
+.sx-zoom {
+  flex-direction: column;
+}
+
+.sx [data-slot='toolbar-button'] {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  transition: transform 140ms var(--sx-ease-out);
+}
+
+.sx [data-slot='toolbar-button']:active:not([data-disabled]) {
+  transform: scale(0.94);
+}
+
+.sx [data-slot='toolbar-button'][data-disabled] {
+  opacity: 0.4;
+}
+
+/* -------------------------------- Scrubber -------------------------------- */
+
+.sx-scrubber {
+  --sx-track-height: 4px;
+  --sx-thumb-size: 14px;
+  flex: 1;
+  min-width: 0;
+}
+
+.sx-scrubber-control {
+  display: flex;
+  align-items: center;
+  height: 28px;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.sx-scrubber[data-disabled] .sx-scrubber-control {
+  cursor: not-allowed;
+}
+
+.sx-scrubber-track {
+  position: relative;
+  flex: 1;
+  height: var(--sx-track-height);
+  background: var(--sx-line);
+}
+
+.sx-scrubber-fill {
+  height: 100%;
+  background: var(--sx-accent);
+}
+
+.sx-scrubber-mark {
+  position: absolute;
+  inset-block: 0;
+  width: 2px;
+  margin-inline-start: -1px;
+  background: var(--sx-bg);
+}
+
+.sx-scrubber-thumb {
+  width: var(--sx-thumb-size);
+  height: var(--sx-thumb-size);
+  border-radius: 50%;
+  background: var(--sx-ink);
+}
+
+.sx-scrubber[data-disabled] .sx-scrubber-thumb {
+  visibility: hidden;
+}
+
+.sx-scrubber-thumb:has(:focus-visible) {
+  outline: 2px solid var(--sx-focus);
+  outline-offset: 2px;
+}
+
+/* ----------------------------- Popups and menus --------------------------- */
+
+.sx-tooltip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--sx-radius);
+  background: var(--sx-ink);
+  color: var(--sx-bg);
+  font-family: var(--sx-font);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  white-space: nowrap;
+  transform-origin: var(--transform-origin);
+  transition:
+    opacity 125ms var(--sx-ease-out),
+    transform 125ms var(--sx-ease-out);
+}
+
+.sx-tooltip[data-starting-style],
+.sx-tooltip[data-ending-style] {
+  opacity: 0;
+  transform: scale(0.97);
+}
+
+.sx-tooltip[data-instant] {
+  transition-duration: 0ms;
+}
+
+.sx-kbd {
+  font-family: var(--sx-mono);
+  font-size: 0.6875rem;
+  opacity: 0.72;
+}
+
+.sx-menu {
+  min-width: max(var(--anchor-width, 0px), 7rem);
+  max-height: var(--available-height);
+  overflow-y: auto;
+  padding: 0.25rem;
+  border: 1px solid var(--sx-line);
+  border-radius: var(--sx-radius);
+  background: var(--sx-surface);
+  color: var(--sx-ink);
+  font-family: var(--sx-font);
+  font-size: 0.875rem;
+  transform-origin: var(--transform-origin);
+  transition:
+    opacity 160ms var(--sx-ease-out),
+    transform 160ms var(--sx-ease-out);
+}
+
+.sx-menu[data-starting-style],
+.sx-menu[data-ending-style] {
+  opacity: 0;
+  transform: scale(0.96);
+}
+
+.sx-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.625rem;
+  border-radius: calc(var(--sx-radius) - 2px);
+  cursor: pointer;
+  text-decoration: none;
+  outline: none;
+}
+
+.sx-menu-item[data-highlighted] {
+  background: var(--sx-ink);
+  color: var(--sx-bg);
+}
+
+.sx-menu-item[data-selected],
+.sx-menu-item[aria-current='page'] {
+  font-weight: 700;
+}
+
+/* ---------------------------------- Code ---------------------------------- */
+
+.sx-code {
+  --sx-code-pad: 0.75rem;
+  margin: 0;
+  overflow: auto;
+  font-family: var(--sx-mono);
+  font-size: 0.8125rem;
+  line-height: 1.7;
+  white-space: pre;
+  tab-size: 4;
+  /* People are learning to type this C, so show the characters they would type. */
+  font-variant-ligatures: none;
+}
+
+.sx-code-line {
+  padding-inline-end: var(--sx-code-pad);
+  /* Colour changes at once: the line that runs next should never lag the drawing. */
+}
+
+.sx-code-line[data-active] {
+  background: var(--sx-code-active-bg, var(--sx-accent));
+  color: var(--sx-code-active-ink, var(--sx-on-accent));
+}
+
+/* Doubled up so a demo's syntax colours never win on the highlighted line. */
+.sx .sx-code .sx-code-line[data-active] [data-token] {
+  color: inherit;
+}
+
+.sx-code [data-token='comment'] {
+  opacity: 0.6;
+}
+
+/* --------------------------------- Legend --------------------------------- */
+
+.sx-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem 1rem;
+}
+
+.sx-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sx-legend-chip {
+  flex: none;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 50%;
+}
+
+/* ------------------------------ Structure art ----------------------------- */
+
+/*
+ * Whatever holds a drawing switches it on: a tile under the mouse, a focused or
+ * chosen tile, or anything marked active. The drawing's parts all move off the
+ * one number, so they ease back by themselves when it returns to 0.
+ */
+.sx {
+  --art-on: 0;
+}
+
+.sx-art-host:is(:focus-visible, [data-checked], [data-active]) {
+  --art-on: 1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sx-art-host:hover {
+    --art-on: 1;
+  }
+}
+
+.sx-art {
+  overflow: visible;
+  fill: none;
+  stroke: var(--art-ink, currentColor);
+  stroke-width: var(--art-stroke, 2.5);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sx-art * {
+  transition:
+    transform 460ms var(--sx-ease-out),
+    opacity 260ms var(--sx-ease-out),
+    stroke-dashoffset 520ms var(--sx-ease-out);
+}
+
+.sx-art-node {
+  fill: var(--art-fill, none);
+}
+
+.sx-art-lit {
+  fill: var(--art-accent, var(--sx-accent));
+  opacity: var(--art-on);
+}
+
+.sx-art-shift {
+  transform: translate(
+    calc(var(--art-on) * var(--dx, 0) * 1px),
+    calc(var(--art-on) * var(--dy, 0) * 1px)
+  );
+}
+
+.sx-art-appear {
+  opacity: var(--art-on);
+}
+
+.sx-art-vanish {
+  opacity: calc(1 - var(--art-on));
+}
+
+.sx-art-pop {
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: var(--art-on);
+  transform: scale(calc(0.6 + var(--art-on) * 0.4));
+}
+
+.sx-art-trace {
+  stroke: var(--art-accent, var(--sx-accent));
+  stroke-width: calc(var(--art-stroke, 2.5) * 1.6);
+  stroke-dasharray: 1;
+  stroke-dashoffset: calc(1 - var(--art-on));
+}
+
+.sx-art-cursor {
+  fill: var(--art-accent, var(--sx-accent));
+  stroke: none;
+  opacity: 0.45;
+}
+
+/* ------------------------------ Demo switcher ----------------------------- */
+
+.sx-switcher {
+  position: fixed;
+  z-index: 40;
+  inset-block: var(--sx-switcher-top, auto) var(--sx-switcher-bottom, 0.75rem);
+  inset-inline-end: var(--sx-switcher-end, 0.75rem);
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+  padding: 0.1875rem;
+  border-radius: 999px;
+  background: rgb(20 20 24 / 0.88);
+  color: #fff;
+  font:
+    500 0.75rem/1 ui-sans-serif,
+    system-ui,
+    sans-serif;
+  backdrop-filter: blur(8px);
+}
+
+.sx-switcher-label {
+  padding-inline: 0.5rem 0.25rem;
+  opacity: 0.7;
+}
+
+.sx-switcher a {
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  color: inherit;
+  text-decoration: none;
+}
+
+.sx-switcher a:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 1px;
+}
+
+.sx-switcher a[aria-current='page'] {
+  background: #fff;
+  color: #141418;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sx-switcher a:not([aria-current='page']):hover {
+    background: rgb(255 255 255 / 0.18);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sx-stage[data-gliding] .sx-stage-canvas,
+  .sx-art *,
+  .sx [data-slot='toolbar-button'],
+  .sx-tooltip,
+  .sx-menu {
+    transition-duration: 1ms;
+  }
+}
+
+/*
+ * The engine colours a bar and its number together. On a light page a yellow
+ * number is unreadable, so light demos opt in to keeping sort numbers in ink.
+ */
+.sx-ink-numbers .sx-stage[data-kind='sort'] .sx-stage-canvas text {
+  fill: var(--sx-ink);
+}

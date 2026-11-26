@@ -1,0 +1,566 @@
+@import '@fontsource-variable/fredoka/wdth.css';
+@import '@fontsource-variable/jetbrains-mono/index.css';
+
+/*
+ * Demo 5: Blocks.
+ * Built from the blocks in the Structs.sh logo and in its colours: indigo,
+ * steel blue and sand. Anything you can press is a chunky block that sinks
+ * when pushed, and the panels float over the drawing like pieces on a table.
+ */
+
+.d5 {
+  --d5-indigo: #3b379f;
+  --d5-steel: #6fa3d8;
+  --d5-sky: #c4def4;
+  --d5-sand: #ecc98f;
+  --d5-drop: 4px;
+  --d5-edge: 2.5px solid var(--sx-ink);
+
+  --sx-bg: #edf1fa;
+  --sx-surface: #ffffff;
+  --sx-ink: #1f1d5c;
+  --sx-muted: #5b5a8c;
+  --sx-line: #c5cce6;
+  --sx-accent: var(--d5-sand);
+  --sx-on-accent: var(--sx-ink);
+  --sx-focus: var(--d5-indigo);
+  --sx-danger: #c9412f;
+  --sx-radius: 12px;
+  --sx-font: 'Fredoka Variable', 'Trebuchet MS', sans-serif;
+  --sx-mono: 'JetBrains Mono Variable', ui-monospace, Menlo, monospace;
+  --sx-code-active-bg: var(--d5-sand);
+  --sx-code-active-ink: var(--sx-ink);
+  --sx-icon-stroke: 2.5;
+  --art-stroke: 3;
+  --art-fill: var(--d5-sky);
+  --art-accent: var(--d5-sand);
+}
+
+/* Drawn nodes are blocks here, not circles. */
+.d5 .sx-art-node:not(.sx-art-bar, .sx-art-window) {
+  rx: 3px;
+}
+
+/* Every block: an edge all round, and a thick underside it sinks into. */
+.d5 .sx-cta,
+.d5 .sx-tile,
+.d5 .sx-op,
+.d5 .sx-key,
+.d5 .sx-run,
+.d5 .sx-chip,
+.d5 .sx-speed,
+.d5 .sx-tab,
+.d5 .sx-bar-link,
+.d5 .sx-bar-button,
+.d5 .sx-zoom [data-slot='toolbar-button'],
+.d5 .sx-dock [data-slot='toolbar-button'] {
+  border: var(--d5-edge);
+  background: var(--sx-surface);
+  box-shadow: 0 var(--d5-drop) 0 var(--sx-ink);
+  transition:
+    transform 110ms var(--sx-ease-out),
+    box-shadow 110ms var(--sx-ease-out),
+    background-color 140ms var(--sx-ease-out);
+}
+
+.d5 .sx-cta:active,
+.d5 .sx-tile:active,
+.d5 .sx-op:active,
+.d5 .sx-key:active:not(:disabled),
+.d5 .sx-run:active,
+.d5 .sx-chip:active,
+.d5 .sx-tab:active,
+.d5 .sx-bar-link:active,
+.d5 .sx-bar-button:active,
+.d5 .sx-zoom [data-slot='toolbar-button']:active,
+.d5 .sx-dock [data-slot='toolbar-button']:active:not([data-disabled]) {
+  transform: translateY(var(--d5-drop));
+  box-shadow: 0 0 0 var(--sx-ink);
+}
+
+/* -------------------------------- Landing --------------------------------- */
+
+.d5 .sx-hero {
+  --sx-hero-bg: var(--d5-indigo);
+  --sx-hero-ink: #ffffff;
+  --sx-hero-muted: #d9dcf7;
+  --sx-hero-accent: var(--d5-sky);
+  --sx-ink: #14123f;
+
+  background-image: radial-gradient(rgb(255 255 255 / 0.1) 1.5px, transparent 1.5px);
+  background-size: 28px 28px;
+}
+
+.d5 .sx-hero h1 {
+  font-size: clamp(3.25rem, 9vw, 7rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.d5 .sx-hero-tagline {
+  font-weight: 600;
+}
+
+.d5 .sx-cta {
+  --d5-drop: 5px;
+  min-height: 3.25rem;
+  border-radius: 14px;
+  color: var(--sx-ink);
+  font-weight: 600;
+}
+
+.d5 .sx-cta[data-kind='primary'] {
+  background: var(--d5-sand);
+}
+
+/*
+ * Stacks of blocks, each one a front, a top and a side. `--at` is a stack's
+ * place in the row, and a swap is a slide from one place to another.
+ */
+.d5-sort {
+  --unit: clamp(1.25rem, 3.4vw, 2.5rem);
+  --depth: calc(var(--unit) * 0.4);
+  --gap: calc(var(--unit) * 0.5);
+
+  position: relative;
+  width: calc(var(--unit) * 8 + var(--gap) * 7 + var(--depth));
+  height: calc(var(--unit) * 8 + var(--depth));
+  margin-inline: auto;
+}
+
+.d5-stack {
+  --front: var(--d5-steel);
+  --top: var(--d5-sky);
+  --side: #3f78b5;
+
+  position: absolute;
+  inset-block-end: 0;
+  inset-inline-start: 0;
+  width: var(--unit);
+  height: calc(var(--size) * var(--unit));
+  background:
+    repeating-linear-gradient(
+      to top,
+      transparent 0 calc(var(--unit) - 2px),
+      rgb(20 18 63 / 0.22) calc(var(--unit) - 2px) var(--unit)
+    ),
+    var(--front);
+  transform: translateX(calc(var(--at) * (var(--unit) + var(--gap))));
+  transition:
+    transform 260ms var(--sx-ease-out),
+    background-color 160ms ease;
+}
+
+.d5-stack::before,
+.d5-stack::after {
+  content: '';
+  position: absolute;
+  transition: background-color 160ms ease;
+}
+
+.d5-stack::before {
+  inset-block-end: 100%;
+  inset-inline-start: 0;
+  width: 100%;
+  height: var(--depth);
+  background: var(--top);
+  transform: skewX(-45deg);
+  transform-origin: bottom left;
+}
+
+.d5-stack::after {
+  inset-block-start: 0;
+  inset-inline-start: 100%;
+  width: var(--depth);
+  height: 100%;
+  background:
+    repeating-linear-gradient(
+      to top,
+      transparent 0 calc(var(--unit) - 2px),
+      rgb(20 18 63 / 0.22) calc(var(--unit) - 2px) var(--unit)
+    ),
+    var(--side);
+  transform: skewY(-45deg);
+  transform-origin: top left;
+}
+
+.d5-stack[data-state='comparing'] {
+  --front: var(--d5-sand);
+  --top: #f7e6c4;
+  --side: #b98a45;
+  z-index: 1;
+}
+
+.d5-stack[data-state='sorted'] {
+  --front: #8f8ae0;
+  --top: #c3c0f2;
+  --side: #5d58bd;
+}
+
+.d5 .sx-tile {
+  --d5-drop: 6px;
+  border-radius: 18px;
+}
+
+.d5 .sx-tile[data-checked] {
+  background: var(--d5-sky);
+  --art-fill: #ffffff;
+}
+
+.d5 .sx-tile-name {
+  font-weight: 600;
+}
+
+.d5 .sx-detail {
+  border: 2.5px dashed #a4abd0;
+  border-radius: 18px;
+}
+
+.d5 .sx-detail:has(.sx-detail-body) {
+  border: var(--d5-edge);
+  box-shadow: 0 6px 0 var(--sx-ink);
+}
+
+.d5 .sx-section-title {
+  font-weight: 700;
+}
+
+.d5 .sx-about {
+  border-block-start: var(--d5-edge);
+}
+
+.d5 .sx-features li::before {
+  inset-block-start: 0.4em;
+  width: 0.75rem;
+  height: 0.75rem;
+  border: 2px solid var(--sx-ink);
+  border-radius: 3px;
+  background: var(--d5-steel);
+}
+
+.d5 .sx-sponsors {
+  --sx-band-bg: #1c1a5e;
+  border-block-start: var(--d5-edge);
+}
+
+.d5 .sx-footer {
+  --sx-footer-bg: #141247;
+}
+
+/* ------------------------------- Visualiser ------------------------------- */
+
+.d5.sx-app {
+  --sx-control: 2.5rem;
+  --sx-pad-width: 18.5rem;
+  --sx-code-width: 23rem;
+  --sx-stage-bg: var(--sx-bg);
+  --sx-field-bg: #f4f6fc;
+  --d5-drop: 3px;
+}
+
+.d5 .sx-stage {
+  background-image: radial-gradient(#c9d0e8 1.5px, transparent 1.5px);
+  background-size: 28px 28px;
+}
+
+.d5 .sx-stage[data-kind='sort'] .sx-stage-canvas rect {
+  rx: 6px;
+}
+
+.d5 .sx-bar {
+  position: relative;
+  z-index: 2;
+  padding: 0.75rem 0.875rem 0.5rem;
+  background: transparent;
+}
+
+.d5 .sx-tabs-list {
+  gap: 0.5rem;
+  padding-block-end: var(--d5-drop);
+}
+
+.d5 .sx-tab {
+  padding-inline: 0.5rem 0.875rem;
+  font-weight: 600;
+}
+
+.d5 .sx-tab-more {
+  padding-inline: 0.75rem;
+}
+
+.d5 .sx-tab[aria-current='page'] {
+  background: var(--d5-indigo);
+  color: #ffffff;
+  --art-ink: #ffffff;
+  --art-fill: var(--d5-steel);
+}
+
+.d5 .sx-bar-end {
+  padding-block-end: var(--d5-drop);
+}
+
+.d5 .sx-bar-link {
+  font-weight: 600;
+}
+
+.d5 .sx-pad,
+.d5 .sx-codepanel {
+  border: var(--d5-edge);
+  border-radius: 18px;
+  box-shadow: 0 5px 0 var(--sx-ink);
+}
+
+.d5 .sx-pad-title,
+.d5 .sx-codepanel-head h2 {
+  font-size: 0.8125rem;
+  letter-spacing: 0.06em;
+}
+
+.d5 .sx-ops {
+  gap: 0.5rem;
+  padding-block-end: var(--d5-drop);
+}
+
+.d5 .sx-op {
+  font-weight: 500;
+}
+
+.d5 .sx-op[data-checked] {
+  border-color: var(--sx-ink);
+  background: var(--d5-indigo);
+  color: #ffffff;
+}
+
+.d5 .sx-pad-form {
+  border-block-start: 2px dashed var(--sx-line);
+}
+
+.d5 .sx-input {
+  height: 2.75rem;
+  border: var(--d5-edge);
+}
+
+.d5 .sx-input:focus-visible,
+.d5 .sx-input[data-active] {
+  outline: 3px solid var(--d5-steel);
+  outline-offset: 0;
+}
+
+.d5 .sx-keys {
+  gap: 0.5rem;
+  padding-block-end: var(--d5-drop);
+}
+
+.d5 .sx-key {
+  height: 2.625rem;
+  font-family: var(--sx-font);
+  font-size: 1.125rem;
+}
+
+.d5 .sx-key[data-key] {
+  background: var(--d5-sky);
+}
+
+.d5 .sx-run {
+  --d5-drop: 4px;
+  min-height: 3rem;
+  background: var(--d5-sand);
+  font-size: 1.0625rem;
+  font-weight: 600;
+}
+
+.d5 .sx-chip {
+  font-weight: 600;
+}
+
+.d5 .sx-zoom {
+  gap: 0.5rem;
+}
+
+.d5 .sx-dock {
+  gap: 0.75rem;
+  padding-block: 0.625rem calc(0.625rem + var(--d5-drop));
+}
+
+.d5 .sx-dock [data-slot='toolbar-button'][data-role='play'] {
+  background: var(--d5-sand);
+  color: var(--sx-ink);
+}
+
+.d5 .sx-scrubber {
+  --sx-track-height: 10px;
+  --sx-thumb-size: 20px;
+}
+
+.d5 .sx-scrubber-track {
+  border: 2px solid var(--sx-ink);
+  border-radius: 999px;
+  background: #ffffff;
+}
+
+.d5 .sx-scrubber-fill {
+  border-radius: 999px;
+  background: var(--d5-steel);
+}
+
+.d5 .sx-scrubber-mark {
+  display: none;
+}
+
+.d5 .sx-scrubber-thumb {
+  border: var(--d5-edge);
+  border-radius: 6px;
+  background: var(--d5-sand);
+}
+
+.d5 .sx-codepanel {
+  overflow: hidden;
+}
+
+.d5 .sx-code [data-token='keyword'] {
+  color: var(--d5-indigo);
+  font-weight: 600;
+}
+
+.d5 .sx-code [data-token='number'] {
+  color: #9a5b12;
+}
+
+.d5 .sx-dialog {
+  border: var(--d5-edge);
+  border-radius: 18px;
+  box-shadow: 0 6px 0 var(--sx-ink);
+}
+
+/* On a wide screen the drawing takes the whole window and the panels float on it. */
+@media (min-width: 921px) {
+  .d5 .sx-work {
+    position: static;
+    align-items: start;
+    gap: 0.875rem;
+    padding: 0.375rem 0.875rem 0.875rem;
+    pointer-events: none;
+  }
+
+  .d5 .sx-view {
+    position: absolute;
+    inset: 0;
+    display: block;
+    pointer-events: auto;
+  }
+
+  .d5 .sx-view .sx-stage {
+    height: 100%;
+  }
+
+  .d5 .sx-pad,
+  .d5 .sx-codepanel {
+    position: relative;
+    z-index: 1;
+    max-height: calc(100% - 5px);
+    pointer-events: auto;
+  }
+
+  .d5 .sx-pad {
+    grid-column: 1;
+  }
+
+  .d5 .sx-codepanel {
+    grid-column: 3;
+  }
+
+  .d5 .sx-stage-frame {
+    inset: 8.5rem calc(var(--sx-code-width) + 2rem) 6.5rem calc(var(--sx-pad-width) + 2rem);
+  }
+
+  .d5 .sx-data {
+    inset-block-start: 4.75rem;
+    inset-inline-start: calc(var(--sx-pad-width) + 1.75rem);
+  }
+
+  .d5 .sx-zoom {
+    inset-block-start: 4.75rem;
+    inset-inline-end: calc(var(--sx-code-width) + 1.75rem);
+  }
+
+  .d5 .sx-dock {
+    position: absolute;
+    z-index: 1;
+    inset-block-end: 0.875rem;
+    inset-inline: calc(var(--sx-pad-width) + 1.75rem) calc(var(--sx-code-width) + 1.75rem);
+    padding: 0.625rem 0.875rem calc(0.625rem + var(--d5-drop));
+    border: var(--d5-edge);
+    border-radius: 18px;
+    box-shadow: 0 5px 0 var(--sx-ink);
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .d5 .sx-nav-links a:hover {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 5px;
+  }
+
+  .d5 .sx-tab:not([aria-current='page']):hover,
+  .d5 .sx-op:not([data-checked]):hover,
+  .d5 .sx-key:not(:disabled, [data-key]):hover,
+  .d5 .sx-chip:hover,
+  .d5 .sx-speed:hover,
+  .d5 .sx-bar-link:hover,
+  .d5 .sx-bar-button:hover,
+  .d5 .sx-tile:not([data-checked]):hover,
+  .d5 .sx-cta[data-kind='secondary']:hover,
+  .d5 .sx-zoom [data-slot='toolbar-button']:hover,
+  .d5 .sx-dock [data-slot='toolbar-button']:not([data-role='play'], [data-disabled]):hover {
+    background: var(--d5-sky);
+  }
+
+  .d5 .sx-run:hover,
+  .d5 .sx-cta[data-kind='primary']:hover,
+  .d5 .sx-dock [data-slot='toolbar-button'][data-role='play']:not([data-disabled]):hover {
+    background: #f3d8a8;
+  }
+
+  .d5 .sx-tile:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 calc(var(--d5-drop) + 3px) 0 var(--sx-ink);
+  }
+}
+
+@media (max-width: 920px) {
+  .d5 .sx-work {
+    gap: 0.75rem;
+    padding: 0.25rem 0.75rem 0.75rem;
+  }
+
+  .d5 .sx-view {
+    overflow: hidden;
+    border: var(--d5-edge);
+    border-radius: 18px;
+  }
+
+  .d5 .sx-dock {
+    border-block-start: var(--d5-edge);
+  }
+}
+
+@media (max-width: 700px) {
+  .d5 .sx-tab .sx-art {
+    display: none;
+  }
+
+  .d5 .sx-tab {
+    padding-inline: 0.75rem;
+  }
+
+  .d5 .sx-codepanel {
+    margin-block-end: 0.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .d5-stack {
+    transition-duration: 1ms;
+  }
+}
