@@ -26,6 +26,12 @@
 //!
 //! `score` is `null` when the try is unsolved. A failure reply is a
 //! plain-English message a player can read, as UTF-8 text.
+//!
+//! A step log request ([`step_log_request`]) is tagged by `algorithm`:
+//! `{"algorithm": "hash-table-linear", "capacity": 11, "slots": [{"kind": "empty"}, ..],
+//! "op": {"kind": "insert", "key": 23}}`, and its reply is the
+//! [`HashRunResult`](crate::hash_table::HashRunResult) as JSON:
+//! `{"slots": [..], "steps": [..], "probes": 1}`.
 
 use crate::avl_rotations::{self, AvlRotations};
 use crate::bst_forced_order::{self, BstForcedOrder};
@@ -38,6 +44,8 @@ use crate::request::{ArrayRequest, Request};
 use crate::upset_bst_beats_avl::{self, UpsetBstBeatsAvl};
 use crate::{InputError, Template};
 use serde::Serialize;
+
+pub use crate::step_log_wire::step_log_request;
 
 const TEMPLATES: [&str; 7] = [
     Quicksort::ID,

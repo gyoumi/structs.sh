@@ -1,3 +1,7 @@
+import type { HashRunResult, HashTableRequest } from './hashTableTypes';
+
+export type { HashOp, HashRunResult, HashSlot, HashStep, HashTableRequest } from './hashTableTypes';
+
 const CHALLENGES_URL = new URL('./generated/challenges.wasm', import.meta.url);
 
 export type ChallengeInstance = { template: string; values: number[]; fixed: number[] };
@@ -7,6 +11,7 @@ type ChallengesExports = {
   memory: WebAssembly.Memory;
   alloc: (length: number) => number;
   score: (pointer: number, length: number) => number;
+  step_log: (pointer: number, length: number) => number;
   result_ptr: () => number;
   result_len: () => number;
   free_result: () => void;
@@ -23,12 +28,16 @@ const readBytes = async (url: URL) => {
 };
 
 let challengesLoad: Promise<ChallengesExports> | null = null;
+let loadedChallenges: ChallengesExports | null = null;
 
 /** Loads the challenges wasm once (client/src/Services/challenges/generated/challenges.wasm, built by `pnpm run challenges` from the repo root). A failed load can be tried again. */
 export const loadChallenges = (): Promise<unknown> => {
   challengesLoad ??= readBytes(CHALLENGES_URL)
     .then((bytes) => WebAssembly.instantiate(bytes, {}))
-    .then(({ instance }) => instance.exports as unknown as ChallengesExports)
+    .then(({ instance }) => {
+      loadedChallenges = instance.exports as unknown as ChallengesExports;
+      return loadedChallenges;
+    })
     .catch((error) => {
       challengesLoad = null;
       const reason = error instanceof Error ? error.message : String(error);
@@ -39,10 +48,18 @@ export const loadChallenges = (): Promise<unknown> => {
   return challengesLoad;
 };
 
-const callWasm = (challenges: ChallengesExports, request: Uint8Array): unknown => {
+/** Whether `loadChallenges()` has resolved, so the wasm build can be called synchronously. */
+export const isChallengesLoaded = (): boolean => loadedChallenges !== null;
+
+const callWasm = (
+  challenges: ChallengesExports,
+  entry: 'score' | 'step_log',
+  body: object
+): unknown => {
+  const request = new TextEncoder().encode(JSON.stringify(body));
   const pointer = challenges.alloc(request.length);
   new Uint8Array(challenges.memory.buffer, pointer, request.length).set(request);
-  const status = challenges.score(pointer, request.length);
+  const status = challenges[entry](pointer, request.length);
   // Read after the call: the wasm's memory may have grown.
   const reply = new TextDecoder().decode(
     new Uint8Array(challenges.memory.buffer, challenges.result_ptr(), challenges.result_len())
@@ -54,7 +71,21 @@ const callWasm = (challenges: ChallengesExports, request: Uint8Array): unknown =
 
 const requestReply = async (request: object): Promise<unknown> => {
   const challenges = (await loadChallenges()) as ChallengesExports;
-  return callWasm(challenges, new TextEncoder().encode(JSON.stringify(request)));
+  return callWasm(challenges, 'score', request);
+};
+
+/** Runs `request.op` on the linear-probing hash table in the wasm build and returns the table and step log. Throws if `loadChallenges()` has not resolved yet. */
+export const runHashTableStepLog = (request: HashTableRequest): HashRunResult => {
+  if (!loadedChallenges) {
+    throw new Error('Challenges wasm is not loaded yet; await loadChallenges() first.');
+  }
+  const { capacity, slots, op } = request;
+  return callWasm(loadedChallenges, 'step_log', {
+    algorithm: 'hash-table-linear',
+    capacity,
+    slots,
+    op,
+  }) as HashRunResult;
 };
 
 const MULTI_OUTCOME_TEMPLATES = new Set([
