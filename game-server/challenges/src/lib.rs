@@ -3,8 +3,9 @@
 //! Built for `wasm32-unknown-unknown`, the browser calls these exports (see
 //! `ffi.rs`; the JSON they take and return is described in [`wire`]):
 //! 1. `alloc(len)` for the request, which the caller copies in.
-//! 2. `score(ptr, len)`, which frees the request and returns 0 on success or
-//!    1 on failure.
+//! 2. `score(ptr, len)` to score a try, or `step_log(ptr, len)` to run an
+//!    algorithm's step log. Each frees the request and returns 0 on success
+//!    or 1 on failure.
 //! 3. `result_ptr()` and `result_len()` to read the reply, or the error
 //!    message, as UTF-8.
 //! 4. `free_result()` once the caller has copied it.
@@ -23,6 +24,7 @@ pub mod quicksort;
 mod request;
 mod rng;
 mod search;
+mod step_log_wire;
 mod tree;
 pub mod upset_bst_beats_avl;
 mod validate;
