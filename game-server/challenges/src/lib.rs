@@ -14,6 +14,7 @@ pub mod bst_forced_order;
 mod bst_space;
 pub mod bubble;
 mod fixed_slots;
+pub mod hash_table;
 pub mod insertion_beats_merge;
 pub mod linked_list_index_drift;
 mod list_space;
