@@ -100,6 +100,11 @@ agent writes the tests from this spec than writes the implementation.
 - **Horizontal row of `11` slots.** Reinforces the array intuition behind open
   addressing and fits widescreen canvases naturally. (In v2, separate chaining
   can hang chains downward from each bucket.)
+- **Tombstone visual label: `DEL`.** Deleted buckets render with a muted/dashed
+  style and a `DEL` label, matching the `DELETED` state in the COMP2521 C code.
+- **Wrap-around cue (`10 → 0`).** When probing wraps from slot `10` back to slot
+  `0`, animate a wrap indicator/arc back to slot `0` alongside a `"wrap → 0"`
+  cue in the banner so `% 11` wrap-around is unmistakable.
 - **Compact on-canvas banner above the buckets.** Shows the hash formula, live
   probe count, and step status/outcome (for example:
   `h(23) = 23 % 11 = 1 · Probes: 2 · Placed at slot 2`, or
@@ -139,7 +144,7 @@ changing how `challenges.wasm` is built or cached in CI.
 `pnpm run challenges`, and Vitest WASM contract tests all pass for every
 operation and edge case.
 
-See "Checkpoint 1, step by step".
+**Status:** reached (#102, #103; 1c tidy clean with no PR). See "Checkpoint 1, step by step".
 
 ### 2. Drawing & step player
 
@@ -185,6 +190,8 @@ See "Checkpoint 3, step by step".
 ```
 
 ### 1a. Rust `hash_table` module
+
+**Done in #102.**
 
 Add `game-server/challenges/src/hash_table.rs` (`pub mod hash_table;` in
 `lib.rs`) and its integration test suite in
@@ -259,6 +266,8 @@ file.
 
 ### 1b. WASM `step_log` export & TS bridge
 
+**Done in #103.**
+
 - Add `#[unsafe(no_mangle)] pub unsafe extern "C" fn step_log(pointer: *mut u8, len: usize) -> u32`
   to `game-server/challenges/src/ffi.rs` and dispatch in `wire.rs` (tagged by
   `algorithm: "hash-table-linear"` so future step-log visualisers share the same
@@ -280,90 +289,86 @@ file.
 
 ### 1c. Tidy
 
-Review error messages, check file sizes (`pnpm run check:file-sizes`), and make
-sure `challenges.wasm` CI jobs (`pre-merge.yml`, `wasm-cache.yml`) pass
-unchanged. Open a tidy PR into `hash-table` if anything changes (or record as
-done with no PR if nothing needs changing).
+**Done (no PR needed):** audited all 10 Checkpoint 1 files — all well within
+line limits (source max 264/300, test max 490/500), no loose boolean stages, no
+redundant inline comments, and CI workflows pass unchanged.
 
 ---
 
 ## Checkpoint 2, step by step
 
 ```
-2a. Visualiser & share-encoding unit tests ──► 2b. SVG table renderer ──► 2c. Step player & GraphicalHashTable ──► 2d. Tidy
+2a. Share encoding & retheme state hook ──► 2b. SVG renderer, step player & GraphicalHashTable ──► 2c. Tidy
 ```
 
-### 2a. Visualiser & share-encoding unit tests
+### 2a. Share encoding & `retheme()` state hook
 
-Write failing Vitest tests (separate test-writer agent, loading the real
-`challenges.wasm` in `beforeAll`):
+Pure TypeScript foundation needed before the SVG visualiser:
 
-- `insert`, `search`, and `delete` produce non-empty timestamped timelines in
-  `VisualiserController`, highlighting valid 1-indexed lines of the COMP2521 C
-  snippets at each step.
-- Stepping forward and backward (`stepForwards` / `stepBackwards`) lands cleanly
-  on each step without missing timestamps or throwing.
-- `generate()` produces `5`–`6` distinct keys with at least one collision;
-  `load(values)` populates deterministically; `clear` / reset empties all `11`
-  slots.
-- Re-theming mid-run (`VisualiserSession.retheme()`) preserves exact pre-run
-  slot state including tombstones and restores the same timeline position.
-- Share-link encoding/decoding round-trips empty slots, occupied keys (`00`–`99`),
-  and tombstones (`s--12xx23--------------`), handles `empty`, and falls back to
-  inserting plain two-digit key lists (e.g. `122334`) in order.
+- Add `client/src/visualiser-src/hash-table-visualiser/util/shareEncoding.ts`:
+  - `HASH_TABLE_CAPACITY = 11`
+  - `ParsedHashTableShare = { kind: 'slots'; slots: HashSlot[] } | { kind: 'keys'; keys: number[] }`
+  - `encodeHashTableSlots(slots)`: returns `'empty'` when all slots are empty;
+    otherwise validates length `11` and occupied keys `0..99` and returns
+    `'s'` followed by 11 two-character tokens (`--` empty, `xx` tombstone,
+    `00`–`99` occupied).
+  - `decodeHashTableShare(segment)`: decodes `'empty'`, `'s...'` fixed-width
+    slot strings (case-insensitive for `s`/`xx`), or plain even-length two-digit
+    key lists (`122334`), returning `undefined` on missing or malformed input.
+- Add optional state snapshot/restore hooks on `GraphicalDataStructure`
+  (`snapshotState(): unknown` defaulting to `this.data`, and
+  `restoreState(state: unknown): void` defaulting to `this.load(state)` for
+  arrays), forward them through `VisualiserController`, and use them in
+  `VisualiserSession.run()` and `VisualiserSession.retheme()` so structures
+  with extra state (such as tombstones) redraw identically on theme switches
+  without changing existing visualisers.
 
-**You'll know it's done when** the tests fail only because the hash-table
-visualiser and share encoder aren't implemented yet.
+**You'll know it's done when** Vitest tests cover share encoding/decoding round
+trips, malformed URLs, and `VisualiserSession.retheme()` preserving tombstone
+state both when idle and mid-run, and all client checks pass.
 
-### 2b. SVG table renderer
+### 2b. SVG renderer, step player & `GraphicalHashTable`
 
-Build the SVG drawing primitives under
+Build the step-log visualiser under
 `client/src/visualiser-src/hash-table-visualiser/`:
 
-- Horizontal row of `11` indexed buckets (`0..10`) styled exclusively with
-  `canvasTheme` tokens (adapting automatically to light and dark themes).
-- Distinct, colour-blind-friendly states for **empty** (blank cell),
-  **occupied** (key value), and **tombstone** (muted/dashed cell with a clear
-  `DEL` / `×` marker).
-- Active probe indicator (highlight + pointer) and a wrap-around cue when
-  probing moves from slot `10` to slot `0`.
-- Compact on-canvas banner above the buckets showing the hash formula, live
-  probe count, and step status/outcome (e.g.
-  `h(23) = 23 % 11 = 1 · Probes: 2 · Placed at slot 2`).
-- Compute `stepBounds` / `stepFocus` so `Stage` frames the whole 11-slot strip
-  cleanly on desktop and keeps active probes in view when zoomed on narrow
-  screens.
-
-**You'll know it's done when** the renderer passes SVG unit checks with no
-hard-coded hex colours outside `canvasTheme`.
-
-### 2c. Step player & `GraphicalHashTable`
-
-- Write COMP2521-style C snippets (`insert`, `search`, `delete`) in
-  `client/src/visualiser-src/hash-table-visualiser/util/codeSnippets.ts`.
-- Implement `HashTableAnimationProducer extends AnimationProducer`:
-  - Renders the operation's C snippet via `renderCode`.
-  - Translates each semantic `HashStep` into SVG runners, updates the
-    formula/probe/status banner, maps the step to its C line via
-    `highlightCode(line)`, and calls `finishSequence()`.
-- Implement `GraphicalHashTable extends GraphicalDataStructure`:
-  - `documentation` exposing `insert`, `search`, and `delete` (each taking
-    `value`).
+- **SVG table renderer:**
+  - Horizontal row of `11` indexed buckets (`0..10`) styled exclusively with
+    `canvasTheme` tokens (light and dark).
+  - Distinct states for **empty** (blank cell), **occupied** (key value), and
+    **tombstone** (muted/dashed cell labelled `DEL`).
+  - Active probe pointer/highlight and a visual wrap-around cue (`10 → 0`)
+    alongside `"wrap → 0"` in the banner when probing wraps past slot `10`.
+  - Compact on-canvas banner above the buckets showing the hash formula, live
+    probe count, and step status/outcome (e.g.
+    `h(23) = 23 % 11 = 1 · Probes: 2 · Placed at slot 2`).
+  - Compute `stepBounds` / `stepFocus` so `Stage` frames the 11-slot strip
+    cleanly on desktop and keeps active probes in view on narrow screens.
+- **COMP2521 C snippets** (`util/codeSnippets.ts`) for `insert`, `search`, and
+  `delete`.
+- **`HashTableAnimationProducer extends AnimationProducer`:** renders the C
+  snippet, plays semantic `HashStep[]` from `runHashTableStepLog`, maps each
+  step to its C line via `highlightCode(line)`, updates the banner and probe
+  count, and emits standard `AnimationProducer` sequences.
+- **`GraphicalHashTable extends GraphicalDataStructure`:**
+  - `documentation` exposing `insert`, `search`, and `delete` (`value`).
   - `insert(value)`, `search(value)`, `delete(value)` calling
-    `runHashTableStepLog` synchronously and building playback via
+    `runHashTableStepLog` synchronously and returning a
     `HashTableAnimationProducer`.
-  - `load(data)`, `loadSlots(slots)`, `slots` snapshot/restore hook for
-    `VisualiserSession.retheme()`, `generate()` (5–6 keys with ≥1 collision),
-    and `data` getter.
+  - `load(data)`, `loadSlots(slots)`, `snapshotState()`/`restoreState()`
+    preserving tombstones, `generate()` (`5`–`6` distinct keys in `0..99`
+    guaranteeing at least one collision), and `data` getter.
 
-**You'll know it's done when** all tests from 2a pass alongside the rest of
-`cd client && pnpm test`.
+**You'll know it's done when** Vitest tests driving `VisualiserController` with
+the real `challenges.wasm` pass for all operations, C code-line highlights,
+stepping forward/backward, tombstone reuse, wrap-around, `generate()` collision
+guarantee, and mid-run `retheme()`.
 
-### 2d. Tidy
+### 2c. Tidy
 
-Check SVG cleanup on `clear` / `reset`, ensure no DOM leaks between runs, run
-`cd client && pnpm run tsc && pnpm run lint && pnpm test`, and open PR 2 into
-`hash-table`.
+Check SVG cleanup on `clear` / `reset`, file sizes, stages, comments, and test
+coverage across Checkpoint 2 files. Open a tidy PR into `hash-table` if anything
+changes, or record as done with no PR.
 
 ---
 
