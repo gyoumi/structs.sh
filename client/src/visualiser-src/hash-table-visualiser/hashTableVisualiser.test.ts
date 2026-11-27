@@ -177,6 +177,20 @@ describe('GraphicalHashTable state API', () => {
     expect(hashTable.slots, 'restoreState([1, 12])').toEqual(wasmLoad([1, 12]));
   });
 
+  it('restoreState([]) on a used table starts again from 11 empty slots', () => {
+    const hashTable = new GraphicalHashTable();
+    hashTable.loadSlots(MIXED);
+    expect(
+      () => hashTable.restoreState([]),
+      `loadSlots(${pictureOf(MIXED)}) then restoreState([]) should not throw`
+    ).not.toThrow();
+    expect(hashTable.slots, `loadSlots(${pictureOf(MIXED)}) then restoreState([])`).toEqual(
+      table()
+    );
+    expect(hashTable.data, 'restoreState([]).data').toEqual([]);
+    expectDrawn(table(), 'loadSlots(MIXED) then restoreState([])');
+  });
+
   it('generate() fills 5–6 distinct keys 0..99 with at least one collision (20 runs)', () => {
     for (let run = 1; run <= 20; run += 1) {
       resetCanvases();

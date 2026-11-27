@@ -4,7 +4,6 @@ import type { HashOp, HashRunResult, HashSlot } from '@/Services/challenges/chal
 import type { DrawingBounds } from '@/visualiser-src/common/AnimationProducer';
 import { canvasTheme, setCanvasTheme } from '@/visualiser-src/common/canvasTheme';
 import GraphicalDataStructureFactory from '@/visualiser-src/common/GraphicalDataStructureFactory';
-import VisualiserController from '@/visualiser-src/controller/VisualiserController';
 import { canvasThemes } from '@/visualiser/canvasThemes';
 import { VisualiserSession } from '@/visualiser/session';
 import {
@@ -14,16 +13,23 @@ import {
   bannerText,
   canvasMarkup,
   expectedValues,
+  highlightCoversDash,
   isDashed,
   pictureOf,
+  play,
   positionOf,
   resetCanvases,
   setUpHashTableEnvironment,
   show,
   slotElement,
+  slotLook,
+  stepBothWaysProblems,
+  stopProblems,
   table,
+  validBox,
   wasmRun,
-  wrapShown,
+  withFrameClock,
+  wrapStepIndices,
 } from '@/test/hashTableVisualiser';
 import HashTableAnimationProducer from './animation-producer/HashTableAnimationProducer';
 import GraphicalHashTable from './data-structure/GraphicalHashTable';
@@ -151,19 +157,6 @@ const runCase = (c: Case) => {
   return { hashTable, wasm, producer };
 };
 
-const play = (producer: HashTableAnimationProducer) => {
-  const controller = new VisualiserController();
-  controller.constructTimeline(producer, () => {});
-  controller.pause();
-  return controller;
-};
-
-const validBox = (box: DrawingBounds | null | undefined) =>
-  !!box &&
-  [box.x, box.y, box.width, box.height].every(Number.isFinite) &&
-  box.width > 0 &&
-  box.height > 0;
-
 describe.each(CASES)('$label', (c) => {
   const name = `${pictureOf(c.start)} ${describeOp(c.op)}`;
 
@@ -222,7 +215,7 @@ describe.each(CASES)('$label', (c) => {
     });
   });
 
-  it('plays on VisualiserController with a live probe count and steps both ways', () => {
+  it('plays on VisualiserController with a live probe count', () => {
     const { wasm, producer } = runCase(c);
     const controller = play(producer);
     const { duration, stepTimes } = controller;
@@ -248,14 +241,17 @@ describe.each(CASES)('$label', (c) => {
       seen,
       `${name}: the live count should pass through every value 1..${wasm.probes}; missing ${show(seen)} in ${show(counts)}`
     ).toEqual([]);
-    expect(() => {
-      controller.stepForwards();
-      controller.pause();
-      controller.seekTime(stepTimes[Math.floor(stepTimes.length / 2)]);
-      controller.stepBackwards();
-      controller.seekTime(0);
-      controller.finish();
-    }, `${name}: stepForwards, seekTime, stepBackwards, seekTime(0) and finish should not throw`).not.toThrow();
+  });
+
+  it('stepForwards() stops at each next stop and stepBackwards() returns to the stop before', () => {
+    withFrameClock(() => {
+      const { producer } = runCase(c);
+      const controller = play(producer);
+      expect(
+        stepBothWaysProblems(controller, 2),
+        `${name}: from 0, two stepForwards() presses then two stepBackwards(); stepTimes ${show(controller.stepTimes)}`
+      ).toEqual([]);
+    });
   });
 
   it('ends showing the result in the buckets and banner, and seekTime(0) shows the start again', () => {
@@ -291,33 +287,63 @@ describe.each(CASES)('$label', (c) => {
     ).toEqual(c.start.map(expectedValues));
   });
 
-  it(
-    c.wraps
-      ? 'shows the wrap cue and "wrap → 0" in the banner at some step'
-      : 'never shows the wrap cue',
-    () => {
-      const { producer } = runCase(c);
-      const controller = play(producer);
-      const frames = controller.stepTimes.map((time) => {
-        controller.seekTime(time);
-        return { time, wrap: wrapShown(), banner: bannerText() };
-      });
-      const wrapping = frames.filter(
-        (f) => f.wrap && /wrap/i.test(f.banner) && /\b0\b/.test(f.banner)
-      );
-      if (c.wraps) {
-        expect(
-          wrapping.length > 0,
-          `${name}: probing wraps from slot 10 to 0, so some step should show [data-hash-wrap] with the banner mentioning wrap and 0; frames ${show(frames)}`
-        ).toBe(true);
-      } else {
-        expect(
-          frames.filter((f) => f.wrap),
-          `${name}: no wrap, so [data-hash-wrap] should stay hidden at every step`
-        ).toEqual([]);
-      }
-    }
-  );
+  it('each stop pairs with its wasm step: C statement, one active bucket, wrap cue only on the 10 → 0 probe', () => {
+    const { wasm, producer } = runCase(c);
+    expect(
+      wrapStepIndices(wasm.steps).length > 0,
+      `fixture check: wasm ${name} ${c.wraps ? 'probes' : 'never probes'} 10 then 0`
+    ).toBe(c.wraps);
+    const controller = play(producer);
+    expect(
+      controller.stepTimes.length,
+      `${name}: one stepTimes stop per wasm step ${show(wasm.steps.map((s) => s.kind))}; stepTimes ${show(controller.stepTimes)}`
+    ).toBe(wasm.steps.length);
+    expect(
+      stopProblems(controller, wasm.steps),
+      `${name}: at each controller.stepTimes[i], what the canvas and code panel show for wasm.steps[i]`
+    ).toEqual([]);
+  });
+});
+
+it.each([
+  { what: 'delete 14 at slot 4, after finish()', c: CASES[7], slot: 4 },
+  { what: 'search 14, at the stop probing the DEL at slot 3', c: CASES[5], slot: 3 },
+])('the highlight sits inside the dashed tombstone border ($what)', ({ c, slot }) => {
+  const { wasm, producer } = runCase(c);
+  const controller = play(producer);
+  const stop = wasm.steps.findIndex((s) => s.kind === 'probe' && s.index === slot);
+  if (c.op.kind === 'delete') controller.finish();
+  else controller.seekTime(controller.stepTimes[stop]);
+  expect(
+    highlightCoversDash(slot),
+    `${pictureOf(c.start)} ${describeOp(c.op)}: dashed border and [data-hash-highlight] on slot ${slot}`
+  ).toBe('');
+});
+
+it('insert 25 over DEL at 3: finish() shows 25 solid, stepBackwards() across Place brings DEL and its dashes back', () => {
+  const c = CASES[3];
+  const name = `${pictureOf(c.start)} ${describeOp(c.op)}`;
+  const { wasm, producer } = runCase(c);
+  expect(wasm.steps.at(-1), `fixture check: wasm ${name} ends placing 25 over DEL at 3`).toEqual({
+    kind: 'place',
+    key: 25,
+    index: 3,
+    replacedTombstone: true,
+  });
+  const controller = play(producer);
+  controller.finish();
+  const end = controller.time;
+  expect(slotLook(3), `${name}: after finish(), slot 3`).toEqual({ values: ['25'], dashed: false });
+  controller.stepBackwards();
+  const before = controller.stepTimes.at(-2) as number;
+  expect(
+    controller.time < end && Math.abs(controller.time - before) <= 1,
+    `${name}: stepBackwards() from the end (${end}) should go to the stop before Place, stepTimes.at(-2) = ${before}; went to ${controller.time}`
+  ).toBe(true);
+  expect(slotLook(3), `${name}: after stepBackwards() across Place, slot 3`).toEqual({
+    values: ['DEL'],
+    dashed: true,
+  });
 });
 
 const finalLine = (start: HashSlot[], op: HashOp) => {

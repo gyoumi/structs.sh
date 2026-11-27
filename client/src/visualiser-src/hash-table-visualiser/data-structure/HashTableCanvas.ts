@@ -5,6 +5,7 @@ import { getCanvasTarget } from '@/visualiser-src/common/canvasTarget';
 import {
   BANNER_FONT_SIZE,
   BANNER_Y,
+  HIGHLIGHT_INSET,
   INDEX_FONT_SIZE,
   INDEX_Y,
   ROW_CENTRE_X,
@@ -77,7 +78,13 @@ const drawSlot = (canvas: Svg, slot: HashSlot, index: number): SlotView => {
   const dashedBorder = border(group, index)
     .attr('stroke-dasharray', TOMBSTONE_DASH)
     .opacity(isTombstone ? 1 : 0);
-  const highlight = border(group, index).stroke({ color: canvasTheme.accent, width: 4 }).opacity(0);
+  const highlight = group
+    .rect(SLOT_SIZE - 2 * HIGHLIGHT_INSET, SLOT_SIZE - 2 * HIGHLIGHT_INSET)
+    .attr({ x: slotX(index) + HIGHLIGHT_INSET, y: ROW_Y + HIGHLIGHT_INSET })
+    .attr('data-hash-highlight', '')
+    .fill('none')
+    .stroke({ color: canvasTheme.accent, width: 3 })
+    .opacity(0);
   centredText(group, String(index), slotCentreX(index), INDEX_Y, INDEX_FONT_SIZE).attr(
     'data-hash-index',
     ''

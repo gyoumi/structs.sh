@@ -12,6 +12,7 @@ export const BANNER_FONT_SIZE = 15;
 export const VALUE_FONT_SIZE = 20;
 export const INDEX_FONT_SIZE = 13;
 export const TOMBSTONE_DASH = '6 4';
+export const HIGHLIGHT_INSET = 4;
 export const FADE_MS = 400;
 
 const PADDING = 12;

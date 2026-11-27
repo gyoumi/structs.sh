@@ -1,13 +1,23 @@
-import { beforeAll } from 'vitest';
+import { Animator } from '@svgdotjs/svg.js';
+import { beforeAll, vi } from 'vitest';
 import {
   loadChallenges,
   runHashTableStepLog,
   type HashOp,
   type HashRunResult,
   type HashSlot,
+  type HashStep,
 } from '@/Services/challenges/challenges';
 import { getCanvasTarget } from '@/visualiser-src/common/canvasTarget';
-import { CODE_CANVAS, CODE_CONTAINER, VISUALISER_CANVAS } from '@/visualiser-src/common/constants';
+import {
+  CODE_CANVAS,
+  CODE_CONTAINER,
+  VISUALISER_CANVAS,
+  defaultSpeed,
+} from '@/visualiser-src/common/constants';
+import type { DrawingBounds } from '@/visualiser-src/common/AnimationProducer';
+import type AnimationProducer from '@/visualiser-src/common/AnimationProducer';
+import VisualiserController from '@/visualiser-src/controller/VisualiserController';
 import { setUpParityEnvironment } from './sortingParity';
 
 /**
@@ -121,6 +131,12 @@ export const isDashed = (index: number) => {
   });
 };
 
+/** What bucket `index` shows: its value texts and whether its border is dashed. */
+export const slotLook = (index: number) => ({
+  values: shownValues(index),
+  dashed: isDashed(index),
+});
+
 /** The text of the shown `<text>` elements in the banner, joined by spaces. */
 export const bannerText = () => {
   const banner = canvasElement().querySelector('[data-hash-banner]');
@@ -166,4 +182,182 @@ export const positionOf = (el: Element) => {
     point.y += shift.y;
   }
   return point;
+};
+
+/** A paused VisualiserController with `producer`'s timeline built, at time 0. */
+export const play = (producer: AnimationProducer) => {
+  const controller = new VisualiserController();
+  controller.constructTimeline(producer, () => {});
+  controller.pause();
+  return controller;
+};
+
+export const validBox = (box: DrawingBounds | null | undefined) =>
+  !!box &&
+  [box.x, box.y, box.width, box.height].every(Number.isFinite) &&
+  box.width > 0 &&
+  box.height > 0;
+
+/** Indices of the buckets whose `[data-hash-highlight]` is shown. */
+export const highlightedSlots = () =>
+  Array.from({ length: CAPACITY }, (_, i) => i).filter((i) =>
+    isShown(slotElement(i)?.querySelector('[data-hash-highlight]') ?? null)
+  );
+
+const boxOf = (el: Element) => ({
+  ...positionOf(el),
+  width: Number(el.getAttribute('width')),
+  height: Number(el.getAttribute('height')),
+  stroke: Number(el.getAttribute('stroke-width') ?? 1),
+});
+
+/**
+ * Why bucket `index`'s highlight could hide its dashed tombstone border, or '' when the dashed
+ * border and `[data-hash-highlight]` are both shown and the highlight's stroke sits strictly inside
+ * the border's stroke on every side.
+ */
+export const highlightCoversDash = (index: number): string => {
+  const slot = slotElement(index);
+  const dashed = slot?.querySelector('[stroke-dasharray]') ?? null;
+  const highlight = slot?.querySelector('[data-hash-highlight]') ?? null;
+  if (!isShown(dashed)) return `slot ${index}: no shown dashed border (stroke-dasharray)`;
+  if (!isShown(highlight)) return `slot ${index}: [data-hash-highlight] is not shown`;
+  const d = boxOf(dashed as Element);
+  const h = boxOf(highlight as Element);
+  const gap = (d.stroke + h.stroke) / 2;
+  const sides = [
+    h.x - d.x,
+    h.y - d.y,
+    d.x + d.width - h.x - h.width,
+    d.y + d.height - h.y - h.height,
+  ];
+  return sides.every((side) => side > gap)
+    ? ''
+    : `slot ${index}: highlight ${show(h)} should sit inside dashed border ${show(d)} by more than ${gap} on every side (left, top, right, bottom were ${show(sides)}), or its stroke covers the dashes`;
+};
+
+/** A C statement each kind of step may highlight, matched against `codeLines[line - 1]`. */
+const STATEMENT: Record<HashStep['kind'], RegExp> = {
+  computeHash: /key % ht->size/,
+  probe: /state\[idx\]|target = idx/,
+  place: /ht->(keys|state)\[target\]/,
+  alreadyPresent: /^\s*return;/,
+  tableFull: /Table is full/,
+  found: /return true;/,
+  markTombstone: /= DELETED;/,
+  notFound: /return false;|^\s*return;|Not found/,
+};
+
+/** The bucket a step looks at: none for computeHash, notFound and tableFull. */
+const activeSlotOf = (step: HashStep): number[] =>
+  step.kind === 'computeHash' || step.kind === 'notFound' || step.kind === 'tableFull'
+    ? []
+    : [step.index];
+
+/** Indices of the steps that probe bucket 0 straight after probing bucket 10. */
+export const wrapStepIndices = (steps: readonly HashStep[]) =>
+  steps.flatMap((step, i) => {
+    const prev = steps[i - 1];
+    const wraps = step.kind === 'probe' && step.index === 0 && prev?.kind === 'probe';
+    return wraps && prev.index === 10 ? [i] : [];
+  });
+
+/**
+ * Seeks to each `controller.stepTimes[i]` and lists where the drawing disagrees with `steps[i]`:
+ * the highlighted C statement, the one highlighted bucket, and the wrap cue plus "wrap … 0" banner
+ * shown on exactly the 10 → 0 probe.
+ */
+export const stopProblems = (controller: VisualiserController, steps: readonly HashStep[]) => {
+  const codeLines = controller.code.split('\n');
+  const wrapAt = wrapStepIndices(steps);
+  return steps.flatMap((step, i) => {
+    controller.seekTime(controller.stepTimes[i]);
+    const line = controller.currentLine;
+    const statement = line === null ? '<no line>' : (codeLines[line - 1] ?? '<past the end>');
+    const lit = highlightedSlots();
+    const banner = bannerText();
+    const wrapWanted = wrapAt.includes(i);
+    const wrapSeen = wrapShown() || /wrap/i.test(banner);
+    const wrapFull = wrapShown() && /wrap/i.test(banner) && /\b0\b/.test(banner);
+    const issues = [
+      STATEMENT[step.kind].test(statement)
+        ? ''
+        : `highlights line ${line} "${statement.trim()}", want a line matching ${STATEMENT[step.kind]}`,
+      show(lit) === show(activeSlotOf(step))
+        ? ''
+        : `[data-hash-highlight] shown on buckets ${show(lit)}, want ${show(activeSlotOf(step))}`,
+      wrapWanted && !wrapFull
+        ? `10 → 0 probe: want [data-hash-wrap] shown (${wrapShown()}) and a banner with "wrap" and "0"; banner "${banner}"`
+        : '',
+      !wrapWanted && wrapSeen
+        ? `not the 10 → 0 probe (that is step ${show(wrapAt)}), yet [data-hash-wrap] shown=${wrapShown()}, banner "${banner}"`
+        : '',
+    ].filter(Boolean);
+    return issues.length ? [`stop ${i} ${show(step)}: ${issues.join('; ')}`] : [];
+  });
+};
+
+const FRAME_MS = 1000 / 60;
+
+/** Drops a frame svg.js asked for, so the next animation asks the current requestAnimationFrame. */
+const dropPendingFrame = () => {
+  if (Animator.nextDraw !== null) cancelAnimationFrame(Animator.nextDraw);
+  Animator.nextDraw = null;
+};
+
+/**
+ * Runs `body` with fake timers, one svg.js animation frame every 1/60 s, as in
+ * VisualiserController.stepping.test.ts. Earlier tests' frames wait on the real clock, so drop them.
+ */
+export const withFrameClock = (body: () => void) => {
+  dropPendingFrame();
+  vi.useFakeTimers();
+  vi.stubGlobal('requestAnimationFrame', (draw: FrameRequestCallback) =>
+    setTimeout(() => draw(performance.now()), FRAME_MS)
+  );
+  vi.stubGlobal('cancelAnimationFrame', (id: number) => clearTimeout(id));
+  try {
+    body();
+  } finally {
+    vi.advanceTimersByTime(1000);
+    dropPendingFrame();
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  }
+};
+
+/**
+ * From time 0, presses stepForwards() `presses` times, letting frames run until each press stops,
+ * then stepBackwards() as many times. Lists presses that did not stop at, or go back to, the
+ * neighbouring entry of `controller.stepTimes` (within 1 ms). Call inside withFrameClock.
+ */
+export const stepBothWaysProblems = (controller: VisualiserController, presses: number) => {
+  const { stepTimes } = controller;
+  const limit = controller.duration / defaultSpeed + 5_000;
+  const problems: string[] = [];
+  controller.seekTime(0);
+  for (let k = 0; k < presses; k += 1) {
+    controller.stepForwards();
+    const started = controller.stepping;
+    for (let waited = 0; controller.stepping && waited < limit; waited += FRAME_MS) {
+      vi.advanceTimersByTime(FRAME_MS);
+    }
+    const at = controller.time;
+    if (!started) problems.push(`stepForwards() press ${k + 1} did not set controller.stepping`);
+    if (controller.stepping) problems.push(`stepForwards() press ${k + 1} never stopped`);
+    if (Math.abs(at - stepTimes[k]) > 1)
+      problems.push(
+        `stepForwards() press ${k + 1} stopped at ${at}, want stepTimes[${k}] = ${stepTimes[k]}`
+      );
+  }
+  for (let k = presses - 1; k >= 0; k -= 1) {
+    const before = controller.time;
+    const want = k === 0 ? 0 : stepTimes[k - 1];
+    controller.stepBackwards();
+    if (!(controller.time < before) || Math.abs(controller.time - want) > 1)
+      problems.push(
+        `stepBackwards() from ${before} went to ${controller.time}, want ${k === 0 ? 'the start, 0' : `stepTimes[${k - 1}] = ${want}`}`
+      );
+  }
+  return problems;
 };

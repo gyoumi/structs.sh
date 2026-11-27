@@ -18,6 +18,7 @@ const copySlots = (slots: readonly HashSlot[]): HashSlot[] => slots.map((slot) =
 
 const isSlotList = (state: unknown): state is HashSlot[] =>
   Array.isArray(state) &&
+  state.length > 0 &&
   state.every(
     (slot: unknown) =>
       typeof slot === 'object' &&
