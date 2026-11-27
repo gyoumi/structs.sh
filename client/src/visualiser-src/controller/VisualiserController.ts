@@ -6,6 +6,7 @@ import { defaultSpeed } from '../common/constants';
 import AnimationProducer, { DrawingBounds, StepTrace } from '../common/AnimationProducer';
 import TimelineTrack from './TimelineTrack';
 import { parseOperationArgs, validateOperationArgs } from './operationArgs';
+import { distinctStepTimes, previousStepTime } from './stepTimes';
 
 interface TimeEvent extends Event {
   detail?: number;
@@ -60,6 +61,15 @@ class VisualiserController {
   public loadData(data: number[]): void {
     this.resetDataStructure();
     this.dataStructure?.load(data);
+  }
+
+  public snapshotState(): unknown {
+    return this.dataStructure?.snapshotState() ?? [];
+  }
+
+  public restoreState(state: unknown): void {
+    this.resetDataStructure();
+    this.dataStructure?.restoreState(state);
   }
 
   public constructTimeline(
@@ -155,7 +165,7 @@ class VisualiserController {
   }
 
   public stepBackwards(): void {
-    this.currentTimeline.time(this.computePrevTimestamp());
+    this.currentTimeline.time(previousStepTime(this.timestamps, this.currentTime));
   }
 
   public stepForwards(): void {
@@ -210,18 +220,6 @@ class VisualiserController {
   public generateDataStructure(): void {
     this.resetDataStructure();
     this.dataStructure?.generate();
-  }
-
-  private computePrevTimestamp(): number {
-    const sortedTimestamps = [...this.timestamps].sort((x, y) => y - x);
-    let prevTimestamp = 0;
-    for (let i = 0; i < this.timestamps.length; i += 1) {
-      if (sortedTimestamps[i] + 25 < this.currentTime) {
-        prevTimestamp = sortedTimestamps[i];
-        break;
-      }
-    }
-    return prevTimestamp;
   }
 
   private get currentTime() {
@@ -281,9 +279,7 @@ class VisualiserController {
 
   /** Times the timeline pauses at when stepping, ending with the full duration. */
   public get stepTimes(): number[] {
-    return [...this.timestamps]
-      .sort((a, b) => a - b)
-      .filter((t, i, sorted) => i === 0 || t - sorted[i - 1] > 2);
+    return distinctStepTimes(this.timestamps);
   }
 
   public get currentLine(): number | null {
