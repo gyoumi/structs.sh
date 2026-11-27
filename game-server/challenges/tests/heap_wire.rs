@@ -180,6 +180,33 @@ fn every_heap_step_serialises_with_a_camel_case_kind() {
 }
 
 #[test]
+fn compare_children_without_a_right_field_is_rejected() {
+    // Every field of a variant with fields is required: a missing right child is written as
+    // "right": null, so leaving the key out is a malformed step, not None.
+    let with_null = json!({"kind": "compareChildren", "index": 0, "left": 1, "right": null, "best": 1, "swap": true});
+    let step: HeapStep = from_json("HeapStep with \"right\": null", &with_null);
+    let want = HeapStep::CompareChildren {
+        index: 0,
+        left: 1,
+        right: None,
+        best: 1,
+        swap: true,
+    };
+    assert!(
+        step == want,
+        "{with_null} should read back as {want:?}, got {step:?}"
+    );
+    let without =
+        json!({"kind": "compareChildren", "index": 0, "left": 1, "best": 1, "swap": true});
+    if let Ok(step) = serde_json::from_value::<HeapStep>(without.clone()) {
+        panic!(
+            "HeapStep from {without}: expected Err because the field right is missing (it must be \
+             present, as null or a number), got Ok({step:?})"
+        );
+    }
+}
+
+#[test]
 fn heap_steps_with_unknown_or_snake_case_fields_are_rejected() {
     let cases = [
         json!({"kind": "swap", "parent": 0, "child": 1, "line": 5}),

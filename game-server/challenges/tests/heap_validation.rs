@@ -1,7 +1,9 @@
 mod common;
 
-use common::heap::{both, insert, keys, name, other, run_err, run_ok};
-use daily_challenges::heap::{HeapOp, HeapOrder};
+use common::heap::{
+    both, call, copy_op, insert, keys, name, other, run_err, run_ok, same, show_log,
+};
+use daily_challenges::heap::{HeapOp, HeapOrder, run};
 
 // From docs/heap.md ("1a. Rust heap module"): run rejects capacity == 0, then
 // items.len() > capacity (naming both numbers), then items that aren't a heap for `order` (for
@@ -68,6 +70,34 @@ fn a_full_heap_is_not_an_error() {
     for order in both() {
         for op in ops() {
             run_ok(&order, 3, &[100, 100, 100], &op);
+        }
+    }
+}
+
+#[test]
+fn an_insert_into_a_full_heap_is_still_validated() {
+    // Validation runs before the operation, so a full array that isn't a heap is an error, not
+    // [HeapFull]. [1 2] breaks a max-heap and [2 1] a min-heap at index 1 (parent 0).
+    let cases = [(HeapOrder::Max, [1, 2]), (HeapOrder::Min, [2, 1])];
+    for (order, items) in cases {
+        let op = insert(5);
+        let ctx = call(&order, 2, &items, &op);
+        let why = format!(
+            "full at capacity 2 and not a {} heap: index 1 is better than its parent 0",
+            name(&order)
+        );
+        match run(same(&order), 2, &items, copy_op(&op)) {
+            Ok(result) => panic!(
+                "{ctx} [{why}]: expected Err naming index 1 and parent 0, got Ok with items {:?} and log\n{}",
+                result.items,
+                show_log(&result.steps)
+            ),
+            Err(message) => names_all(
+                &format!("{ctx} [{why}]"),
+                &message,
+                "the first index that breaks the heap and its parent",
+                &[1, 0],
+            ),
         }
     }
 }

@@ -53,7 +53,7 @@ different agent from the one writing the code.
 
 | Layer | Runner | What it checks |
 |---|---|---|
-| Rust heap and step log | `cargo test` (`game-server/challenges/tests/heap.rs`) | Sift up, sift down, ties, min and max order, a full heap, an empty heap, the exact step sequence |
+| Rust heap and step log | `cargo test` (`game-server/challenges/tests/heap_*.rs`) | Sift up, sift down, ties, min and max order, a full heap, an empty heap, the exact step sequence |
 | WASM boundary | Vitest (`client/src/Services/challenges/challenges.heap.test.ts`) | The real `challenges.wasm` `step_log` export with `algorithm: "binary-heap"`, and the decoded replies |
 | Step player | Vitest (`client/src/visualiser-src/heap-visualiser/`) | `GraphicalHeap` driving `VisualiserController`: tree and array in step, code-line highlights, stepping both ways, re-theme mid-run, switching order, share encoding |
 | Browser behaviour | Playwright (`e2e/tests/heap.spec.ts`) | The user-facing spec, written at the start of checkpoint 3 |
@@ -81,7 +81,7 @@ without it, and because it shows early whether `step_log_wire.rs` takes a
 second algorithm cleanly. If adding the heap means reshaping the wire format,
 that change goes to the hash table thread before more is built on it.
 
-**Done when** every behaviour in `tests/heap.rs` and
+**Done when** every behaviour in `tests/heap_*.rs` and
 `challenges.heap.test.ts` passes, with `cargo clippy` clean for
 `wasm32-unknown-unknown`.
 
@@ -169,9 +169,9 @@ Agreed on 28 November 2026:
 ### 1a. Rust `heap` module
 
 Add `game-server/challenges/src/heap.rs` (`pub mod heap;` in `lib.rs`) and
-`game-server/challenges/tests/heap.rs`. The test writer writes `tests/heap.rs`
-from the contract below. The implementer writes `src/heap.rs` without reading
-it.
+its tests in `game-server/challenges/tests/heap_*.rs`. The test writer writes
+the tests from the contract below. The implementer writes `src/heap.rs`
+without reading them.
 
 **Public interface** (serde attributes as in `hash_table.rs`: tagged by
 `kind`, camelCase, `deny_unknown_fields`):
@@ -264,10 +264,10 @@ other.
   and a pop on an empty heap.
 - A capacity above 15 is allowed, and nothing depends on it.
 
-**Behaviours `tests/heap.rs` covers**, each for both min and max. To stay
-under the 500-line limit for test files, the tests can be split into
-`tests/heap_insert.rs`, `tests/heap_pop.rs`, `tests/heap_rebuild.rs` and so
-on:
+**Behaviours the tests cover**, each for both min and max. They're split
+across `tests/heap_insert.rs`, `heap_pop.rs`, `heap_rebuild.rs`,
+`heap_validation.rs`, `heap_invariants.rs` and `heap_wire.rs`, with helpers
+in `tests/common/`, to stay under the 500-line limit for test files:
 
 - Insert into an empty heap.
 - Insert that stops at once, sifts part of the way, or sifts all the way to the
