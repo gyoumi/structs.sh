@@ -211,7 +211,63 @@ it.
   an `items` that isn't a heap for `order`, or for the other order when the
   operation is `Rebuild` (naming the index and its parent).
 
-**Behaviours `tests/heap.rs` covers**, each for both min and max:
+**Exact step order.** "Better" means strictly greater for a max-heap and
+strictly smaller for a min-heap, so equal keys are never better than each
+other.
+
+- **Insert**, when `items.len() == capacity`: the log is `[HeapFull { key }]`
+  and `items` is returned unchanged. Otherwise `Append { key, index: len }`,
+  then, while `index > 0`, `CompareParent { index, parent, swap }`. When
+  `swap` is true, `Swap { parent, child: index }` follows and the key moves up
+  to `parent`. When it's false, sifting stops. The log ends with
+  `Settled { key, index }` at the key's final index.
+- **Pop**, on an empty heap: `[Empty]`. On a heap of one key:
+  `[TakeRoot { key }, PoppedLast { key }]`. Otherwise `TakeRoot { key: root }`,
+  `MoveLastToRoot { key: last, from: len - 1 }`, then, while the moved key's
+  index has a left child in the shrunk heap,
+  `CompareChildren { index, left, right, best, swap }`. When `swap` is true,
+  `Swap { parent: index, child: best }` follows and the key moves down to
+  `best`. When it's false, sifting stops. The log ends with
+  `Settled { key, index }`. `popped` is the old root on a successful pop and
+  `None` otherwise.
+- **Rebuild**: `StartRebuild { order }`, then, for each key of the old
+  `items` in index order, the same `Append`, `CompareParent` and `Swap` steps
+  an insert into the heap built so far would emit, ending with
+  `Reinserted { key, index }` instead of `Settled`. The log ends with
+  `Rebuilt { order }`.
+- `comparisons` counts `CompareParent` and `CompareChildren` steps, and
+  `swaps` counts `Swap` steps.
+- On the wire: `HeapOrder` is the plain string `"min"` or `"max"`. `HeapOp` is
+  `{"kind": "insert", "key": 5}`, `{"kind": "pop"}` or `{"kind": "rebuild"}`.
+  Steps look like `{"kind": "compareChildren", "index": 0, "left": 1,
+  "right": null, "best": 1, "swap": true}`, with a missing `right` written as
+  `null` rather than left out. `HeapRunResult` is `{"items": [..],
+  "steps": [..], "comparisons": 2, "swaps": 1, "popped": null}`.
+- `HeapOrder`, `HeapOp` and `HeapStep` derive `Debug`, `Clone`, `PartialEq`,
+  `Eq`, `Serialize` and `Deserialize`. `HeapRunResult` derives `Debug`,
+  `Clone`, `PartialEq`, `Eq` and `Serialize`.
+- Validation runs in this order: `capacity == 0`, then too many items, then
+  the heap check, for every operation (including a pop on an empty heap and
+  an insert into a full one). The capacity error contains the word
+  "capacity" and doesn't depend on the items. The heap check names the
+  smallest index `i` whose key is better than its parent's (for `Rebuild`,
+  better under the other order) and that index's parent, and doesn't name any
+  later bad index. Numbers in errors are written as plain decimal numbers.
+- An insert into a full heap isn't an error: it's `Ok` with `[HeapFull]`. A
+  rebuild of a full heap rebuilds normally.
+- `HeapOrder` is case-sensitive: `"Min"`, `"MAX"` and `0` are rejected.
+  Variants with fields reject unknown fields and require every field. Serde
+  ignores extra keys on tagged unit variants (`pop`, `rebuild`, `empty`),
+  and that's allowed.
+- `HeapRunResult`'s JSON has exactly the fields `items`, `steps`,
+  `comparisons`, `swaps` and `popped`. `popped` is `None` for insert, rebuild
+  and a pop on an empty heap.
+- A capacity above 15 is allowed, and nothing depends on it.
+
+**Behaviours `tests/heap.rs` covers**, each for both min and max. To stay
+under the 500-line limit for test files, the tests can be split into
+`tests/heap_insert.rs`, `tests/heap_pop.rs`, `tests/heap_rebuild.rs` and so
+on:
 
 - Insert into an empty heap.
 - Insert that stops at once, sifts part of the way, or sifts all the way to the
