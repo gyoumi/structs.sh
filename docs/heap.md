@@ -85,7 +85,7 @@ that change goes to the hash table thread before more is built on it.
 `challenges.heap.test.ts` passes, with `cargo clippy` clean for
 `wasm32-unknown-unknown`.
 
-**Status:** not started.
+**Status:** 1a done (#108). 1b and 1c to go.
 
 ### 2. It plays
 
@@ -167,6 +167,8 @@ Agreed on 28 November 2026:
   two-digit share encoding. Rust accepts any `i32`.
 
 ### 1a. Rust `heap` module
+
+**Done in #108.**
 
 Add `game-server/challenges/src/heap.rs` (`pub mod heap;` in `lib.rs`) and
 its tests in `game-server/challenges/tests/heap_*.rs`. The test writer writes
