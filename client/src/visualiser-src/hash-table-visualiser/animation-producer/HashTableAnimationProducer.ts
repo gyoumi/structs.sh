@@ -27,6 +27,8 @@ export default class HashTableAnimationProducer extends AnimationProducer {
 
   private focusBox: DrawingBounds = bannerBounds();
 
+  private currentStatus: string | null = null;
+
   public constructor(
     private readonly view: HashTableView,
     private readonly op: HashOp
@@ -43,8 +45,12 @@ export default class HashTableAnimationProducer extends AnimationProducer {
     return tableBounds();
   }
 
-  protected get stepFocus(): DrawingBounds {
+  protected get stepFocus(): DrawingBounds | null {
     return this.focusBox;
+  }
+
+  protected get stepStatus(): string | null {
+    return this.currentStatus;
   }
 
   /** Adds one timestamped sequence per step in `steps`. */
@@ -55,8 +61,10 @@ export default class HashTableAnimationProducer extends AnimationProducer {
   private playStep(step: HashStep): void {
     if (step.kind === 'computeHash') this.start = step.index;
     if (step.kind === 'probe') this.probes = step.probeNumber;
+    const banner = stepBanner(this.op.key, this.start, this.probes, step);
+    this.currentStatus = banner;
     this.highlightCode(lineForStep(this.op.kind, step, this.lastProbed));
-    this.showBanner(stepBanner(this.op.key, this.start, this.probes, step));
+    this.showBanner(banner);
     this.showWrap(isWrapProbe(step));
     const index = stepSlotIndex(step);
     this.moveHighlight(index);
@@ -89,7 +97,7 @@ export default class HashTableAnimationProducer extends AnimationProducer {
 
   private moveHighlight(index: number | null): void {
     if (index === this.activeSlot) return;
-    if (this.activeSlot !== null) this.fade(this.view.slots[this.activeSlot].highlight, 0);
+    if (this.activeSlot !== null) this.hideImmediate(this.view.slots[this.activeSlot].highlight);
     if (index !== null) this.fade(this.view.slots[index].highlight, 1);
     this.activeSlot = index;
   }

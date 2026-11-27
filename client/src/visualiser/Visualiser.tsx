@@ -16,11 +16,11 @@ import { useMediaQuery } from './useVisualiser';
 import styles from './Visualiser.module.css';
 
 const NARROW_STAGE = '(max-width: 560px)';
-const PHONE_HASH_TABLE_MIN_SCALE = 0.72;
 
 const Workspace = ({ topic }: { topic: Topic }) => {
   const narrow = useMediaQuery(NARROW_STAGE);
-  const phoneHashTable = narrow && topic.slug === 'hash-tables';
+  const isHashTable = topic.slug === 'hash-tables';
+  const phoneHashTable = narrow && isHashTable;
 
   return (
     <div className={styles.main}>
@@ -28,8 +28,7 @@ const Workspace = ({ topic }: { topic: Topic }) => {
       <div className={styles.stageWrap}>
         <Stage
           label={`${topic.name} drawing`}
-          className={styles.stage}
-          minScale={phoneHashTable ? PHONE_HASH_TABLE_MIN_SCALE : undefined}
+          className={isHashTable ? `${styles.stage} ${styles.hashStage}` : styles.stage}
         >
           {(view) => (
             <>

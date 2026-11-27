@@ -92,7 +92,8 @@ const drawSlot = (canvas: Svg, slot: HashSlot, index: number): SlotView => {
     .rect(SLOT_SIZE - 2 * HIGHLIGHT_INSET, SLOT_SIZE - 2 * HIGHLIGHT_INSET)
     .attr({ x: slotX(index) + HIGHLIGHT_INSET, y: ROW_Y + HIGHLIGHT_INSET })
     .attr('data-hash-highlight', '')
-    .fill('none')
+    .fill(canvasTheme.accent)
+    .attr('fill-opacity', 0.14)
     .stroke({ color: canvasTheme.accent, width: 3 })
     .opacity(0);
   centredText(group, String(index), slotCentreX(index), INDEX_Y, INDEX_FONT_SIZE).attr(

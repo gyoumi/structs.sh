@@ -311,7 +311,7 @@ test.describe('hash table', () => {
     const release = await hashTable.holdChallengesWasm();
     await page.goto('/visualiser/hash-tables/122334');
     await hashTable.expectLoading(ctx);
-    release();
+    await release();
     const state = await hashTable.settled(`${ctx}, then let through`);
     expect(describeSlots(state.slots), `${ctx}, then let through: the buckets`).toBe(table({ 1: 12, 2: 23, 3: 34 }));
   });
@@ -347,12 +347,40 @@ test.describe('hash table', () => {
       .toBeGreaterThan(0);
     const drawnBeforeRelease = await visualiser.values();
 
-    release();
+    await release();
     await visualiser.waitForDrawingToSettle();
     expect(await visualiser.values(), `${ctx}, after challenges.wasm resolves: the linked-list drawing should stay intact`).toEqual(
       drawnBeforeRelease,
     );
     expect(await hashTable.slots(), `${ctx}, after challenges.wasm resolves: no hash-table buckets should overwrite the linked list`).toEqual([]);
     expect(loggedErrors(), `${ctx}: console errors and uncaught page errors`).toEqual([]);
+  });
+
+  test.describe('phone status pill', () => {
+    test.use({ viewport: { width: 390, height: 844 } });
+
+    test('updates on every intermediate probe step during a run', async ({ visualiser, hashTable }) => {
+      const ctx = `/visualiser/hash-tables/${TOMBSTONE} at 390x844, insert(45)`;
+      await visualiser.open('hash-tables', TOMBSTONE);
+      expect(await hashTable.phoneBanner(), `${ctx}, before running: idle phone status pill`).toContain('% 11');
+
+      await visualiser.runToEnd('insert', 45);
+      await hashTable.transport.rewind();
+      const expected = [
+        'Start at slot 1',
+        'Probes: 1 · slot 1 holds 12',
+        'Probes: 2 · slot 2 is DEL',
+        'Probes: 3 · slot 3 holds 34',
+        'Probes: 4 · slot 4 is empty',
+        'Probes: 4 · Placed at slot 2 (reused DEL)',
+      ];
+      for (const [i, phrase] of expected.entries()) {
+        await hashTable.nextStep(`${ctx}, step ${i + 1}`);
+        expect(
+          await hashTable.phoneBanner(),
+          `${ctx}, step ${i + 1}: phone status pill should update immediately with the playhead`,
+        ).toContain(phrase);
+      }
+    });
   });
 });

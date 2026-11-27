@@ -97,6 +97,13 @@ export class HashTablePage {
     return shown.length > 0 ? shown[shown.length - 1].text : '';
   }
 
+  /** The screen-sized status pill shown on narrow phone viewports, or '' when absent. */
+  async phoneBanner(): Promise<string> {
+    const pill = this.page.locator('[data-hash-phone-banner]');
+    if ((await pill.count()) === 0) return '';
+    return ((await pill.first().textContent()) ?? '').trim();
+  }
+
   /** Whether the 10 → 0 wrap-around arc is visible. */
   async wrapShown(): Promise<boolean> {
     const wrap = this.page.locator('#visualiser-canvas [data-hash-wrap]');
@@ -218,13 +225,15 @@ export class HashTablePage {
 
   /**
    * Holds the next request for challenges.wasm until the returned function is called, so a test
-   * can see the page while the wasm build is still loading.
+   * can see the page while the wasm build is still loading. Calling the returned function releases
+   * the request and resolves once the browser receives the challenges.wasm response.
    */
-  async holdChallengesWasm(): Promise<() => void> {
+  async holdChallengesWasm(): Promise<() => Promise<void>> {
     let release = () => {};
     const released = new Promise<void>((resolve) => {
       release = resolve;
     });
+    const responsePromise = this.page.waitForResponse(CHALLENGES_WASM);
     await this.page.route(
       CHALLENGES_WASM,
       async (route: Route) => {
@@ -233,7 +242,10 @@ export class HashTablePage {
       },
       { times: 1 },
     );
-    return () => release();
+    return async () => {
+      release();
+      await responsePromise;
+    };
   }
 
   async expectLoading(context: string): Promise<void> {

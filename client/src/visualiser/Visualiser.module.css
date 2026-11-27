@@ -164,6 +164,10 @@
     min-height: 280px;
   }
 
+  .hashStage {
+    --fit-inset-right: 0;
+  }
+
   .stage [data-hash-banner] {
     visibility: hidden;
   }

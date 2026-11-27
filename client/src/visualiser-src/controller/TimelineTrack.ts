@@ -36,14 +36,19 @@ export default class TimelineTrack {
 
   private focus: Timed<DrawingBounds | null>[] = [];
 
+  private statuses: Timed<string | null>[] = [];
+
   public recordStep(
     stepStart: number,
     segmentStart: number,
     stepEnd: number,
-    info: Pick<RunnerInfo, 'counter' | 'counters' | 'trace' | 'bounds' | 'focus'>
+    info: Pick<RunnerInfo, 'counter' | 'counters' | 'trace' | 'bounds' | 'focus' | 'status'>
   ): void {
     if (info.focus !== undefined && !sameBounds(this.focus.at(-1)?.value ?? null, info.focus)) {
       this.focus.push({ time: stepStart, value: info.focus });
+    }
+    if (info.status !== undefined) {
+      this.statuses.push({ time: segmentStart, value: info.status });
     }
     if (info.trace !== undefined) {
       this.traces.push({ time: segmentStart, value: info.trace });
@@ -84,11 +89,17 @@ export default class TimelineTrack {
     return latestAt(this.focus, time, null);
   }
 
+  /** The producer's step status line at `time`, or null when none is recorded. */
+  public statusAt(time: number): string | null {
+    return latestAt(this.statuses, time, null);
+  }
+
   public clear(): void {
     this.counters = [];
     this.traces = [];
     this.namedCounters = [];
     this.bounds = [];
     this.focus = [];
+    this.statuses = [];
   }
 }

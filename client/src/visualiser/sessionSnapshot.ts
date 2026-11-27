@@ -33,6 +33,8 @@ export interface VisualiserSnapshot {
   bounds: DrawingBounds | null;
   /** The part of the drawing the active step works on, so a stage too small for all of it can follow it. */
   focus: DrawingBounds | null;
+  /** Short status line for the active step, or null when the producer has none or playback hasn't started. */
+  status: string | null;
   /** How many values the structure holds, including a run that is still playing. */
   size: number;
 }
@@ -57,6 +59,7 @@ export const initialSnapshot: VisualiserSnapshot = {
   trace: null,
   bounds: null,
   focus: null,
+  status: null,
 };
 
 /** Picks the random data a topic starts with, or returns undefined to use the engine's own. */
@@ -80,6 +83,7 @@ export const sampleOf = (
     trace: duration > 0 ? controller.traceAt(time) : null,
     bounds: duration > 0 ? controller.boundsAt(time) : null,
     focus: duration > 0 ? controller.track.focusAt(time) : null,
+    status: duration > 0 ? controller.track.statusAt(time) : null,
   };
 };
 
@@ -100,4 +104,5 @@ export const sampleChanged = (
   sample.counters !== snapshot.counters ||
   sample.trace !== snapshot.trace ||
   sample.bounds !== snapshot.bounds ||
-  sample.focus !== snapshot.focus;
+  sample.focus !== snapshot.focus ||
+  sample.status !== snapshot.status;

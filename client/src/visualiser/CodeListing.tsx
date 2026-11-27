@@ -69,8 +69,8 @@ interface CodeListingProps {
 
 const SCROLL_MARGIN = 6;
 
+/** Scrolls only the code list so narrow screens do not pull the drawing out of view. */
 const keepCurrentVisible = (list: HTMLOListElement | null, instant: boolean) => {
-  // scrollIntoView would also scroll the page, moving the drawing away on narrow screens.
   const current = list?.querySelector<HTMLElement>('[data-current]');
   const scroller = current && scrollParent(current);
   if (!current || !scroller) return;
