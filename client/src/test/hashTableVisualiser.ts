@@ -251,7 +251,9 @@ const statementFor = (step: HashStep, isInsert: boolean): RegExp => {
   if (step.kind !== 'probe') return STATEMENT[step.kind];
   if (step.slot.kind === 'empty') return /state\[idx\]\s*==\s*EMPTY/;
   if (step.slot.kind === 'tombstone' && isInsert) {
-    return step.firstTombstone === step.index ? /target = idx/ : /state\[idx\]\s*==\s*DELETED/;
+    return step.firstTombstone === step.index
+      ? /^\s*target = idx;$/
+      : /state\[idx\]\s*==\s*DELETED/;
   }
   return /state\[idx\]\s*==\s*OCCUPIED/;
 };
