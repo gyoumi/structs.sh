@@ -136,6 +136,22 @@ const CASES: Case[] = [
     outcome: /not found/i,
     wraps: false,
   },
+  {
+    label: 'search 13 misses across a full table (wraps 10 → 0)',
+    start: FULL,
+    op: find(13),
+    terminal: 'notFound',
+    outcome: /not found/i,
+    wraps: true,
+  },
+  {
+    label: 'delete 13 misses across a full table (wraps 10 → 0)',
+    start: FULL,
+    op: del(13),
+    terminal: 'notFound',
+    outcome: /not found/i,
+    wraps: true,
+  },
 ];
 
 const SNIPPETS = {
