@@ -236,10 +236,9 @@ export const highlightCoversDash = (index: number): string => {
     : `slot ${index}: highlight ${show(h)} should sit inside dashed border ${show(d)} by more than ${gap} on every side (left, top, right, bottom were ${show(sides)}), or its stroke covers the dashes`;
 };
 
-/** A C statement each kind of step may highlight, matched against `codeLines[line - 1]`. */
-const STATEMENT: Record<HashStep['kind'], RegExp> = {
+/** A C statement each non-probe step may highlight, matched against `codeLines[line - 1]`. */
+const STATEMENT: Record<Exclude<HashStep['kind'], 'probe'>, RegExp> = {
   computeHash: /key % ht->size/,
-  probe: /state\[idx\]|target = idx/,
   place: /ht->(keys|state)\[target\]/,
   alreadyPresent: /^\s*return;/,
   tableFull: /Table is full/,
@@ -247,6 +246,17 @@ const STATEMENT: Record<HashStep['kind'], RegExp> = {
   markTombstone: /= DELETED;/,
   notFound: /return false;|^\s*return;|Not found/,
 };
+
+const statementFor = (step: HashStep, isInsert: boolean): RegExp => {
+  if (step.kind !== 'probe') return STATEMENT[step.kind];
+  if (step.slot.kind === 'empty') return /state\[idx\]\s*==\s*EMPTY/;
+  if (step.slot.kind === 'tombstone' && isInsert) {
+    return step.firstTombstone === step.index ? /target = idx/ : /state\[idx\]\s*==\s*DELETED/;
+  }
+  return /state\[idx\]\s*==\s*OCCUPIED/;
+};
+
+const WRAP_CUE = /wrap\s*(?:→|->)\s*0\b/i;
 
 /** The bucket a step looks at: none for computeHash, notFound and tableFull. */
 const activeSlotOf = (step: HashStep): number[] =>
@@ -264,30 +274,32 @@ export const wrapStepIndices = (steps: readonly HashStep[]) =>
 
 /**
  * Seeks to each `controller.stepTimes[i]` and lists where the drawing disagrees with `steps[i]`:
- * the highlighted C statement, the one highlighted bucket, and the wrap cue plus "wrap … 0" banner
+ * the highlighted C statement, the one highlighted bucket, and the wrap cue plus "wrap → 0" banner
  * shown on exactly the 10 → 0 probe.
  */
 export const stopProblems = (controller: VisualiserController, steps: readonly HashStep[]) => {
   const codeLines = controller.code.split('\n');
+  const isInsert = /void insert\(/.test(controller.code);
   const wrapAt = wrapStepIndices(steps);
   return steps.flatMap((step, i) => {
     controller.seekTime(controller.stepTimes[i]);
     const line = controller.currentLine;
     const statement = line === null ? '<no line>' : (codeLines[line - 1] ?? '<past the end>');
+    const wantStatement = statementFor(step, isInsert);
     const lit = highlightedSlots();
     const banner = bannerText();
     const wrapWanted = wrapAt.includes(i);
     const wrapSeen = wrapShown() || /wrap/i.test(banner);
-    const wrapFull = wrapShown() && /wrap/i.test(banner) && /\b0\b/.test(banner);
+    const wrapFull = wrapShown() && WRAP_CUE.test(banner);
     const issues = [
-      STATEMENT[step.kind].test(statement)
+      wantStatement.test(statement)
         ? ''
-        : `highlights line ${line} "${statement.trim()}", want a line matching ${STATEMENT[step.kind]}`,
+        : `highlights line ${line} "${statement.trim()}", want a line matching ${wantStatement}`,
       show(lit) === show(activeSlotOf(step))
         ? ''
         : `[data-hash-highlight] shown on buckets ${show(lit)}, want ${show(activeSlotOf(step))}`,
       wrapWanted && !wrapFull
-        ? `10 → 0 probe: want [data-hash-wrap] shown (${wrapShown()}) and a banner with "wrap" and "0"; banner "${banner}"`
+        ? `10 → 0 probe: want [data-hash-wrap] shown (${wrapShown()}) and banner matching ${WRAP_CUE}; banner "${banner}"`
         : '',
       !wrapWanted && wrapSeen
         ? `not the 10 → 0 probe (that is step ${show(wrapAt)}), yet [data-hash-wrap] shown=${wrapShown()}, banner "${banner}"`
