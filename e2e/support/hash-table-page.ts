@@ -226,12 +226,23 @@ export class HashTablePage {
   /**
    * Holds the next request for challenges.wasm until the returned function is called, so a test
    * can see the page while the wasm build is still loading. Calling the returned function releases
-   * the request and resolves once the browser receives the challenges.wasm response.
+   * the request and resolves once the browser has downloaded and instantiated the wasm module.
    */
   async holdChallengesWasm(): Promise<() => Promise<void>> {
     let release = () => {};
     const released = new Promise<void>((resolve) => {
       release = resolve;
+    });
+    await this.page.addInitScript(() => {
+      const original = WebAssembly.instantiate.bind(WebAssembly);
+      let instantiated = 0;
+      const win = window as unknown as { __wasmInstantiated?: () => number };
+      win.__wasmInstantiated = () => instantiated;
+      WebAssembly.instantiate = ((...args: Parameters<typeof WebAssembly.instantiate>) =>
+        (original(...args) as Promise<unknown>).then((result) => {
+          instantiated += 1;
+          return result;
+        })) as typeof WebAssembly.instantiate;
     });
     const responsePromise = this.page.waitForResponse(CHALLENGES_WASM);
     await this.page.route(
@@ -245,6 +256,15 @@ export class HashTablePage {
     return async () => {
       release();
       await responsePromise;
+      await expect
+        .poll(
+          () =>
+            this.page.evaluate(
+              () => (window as unknown as { __wasmInstantiated?: () => number }).__wasmInstantiated?.() ?? 0,
+            ),
+          { message: 'challenges.wasm should finish WebAssembly.instantiate after the held request is released' },
+        )
+        .toBeGreaterThan(0);
     };
   }
 
