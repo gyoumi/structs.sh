@@ -37,8 +37,8 @@ export class VisualiserSession {
 
   private getInitialData?: InitialDataSource;
 
-  /** The values the last run started on, so a theme switch can build it again. */
-  private runStart: number[] = [];
+  /** The state the last run started on, so a theme switch can build it again. */
+  private runStart: unknown = [];
 
   private readonly target: CanvasTarget;
 
@@ -95,16 +95,16 @@ export class VisualiserSession {
     const { controller } = this;
     setCanvasTheme(canvasTheme);
     if (!run) {
-      const { data } = controller;
+      const state = controller.snapshotState();
       this.draw(() => {
-        controller.loadData(data);
+        controller.restoreState(state);
         finishDrawing(this.target);
       });
       return;
     }
     const position = positionOf(controller);
     this.draw(() => {
-      controller.loadData(this.runStart);
+      controller.restoreState(this.runStart);
       finishDrawing(this.target);
       controller.doOperation(run.command, () => {}, ...run.args);
     });
@@ -116,7 +116,7 @@ export class VisualiserSession {
   }
 
   run(command: string, args: string[], autoPlay = true): string {
-    const start = this.data;
+    const start = this.controller.snapshotState();
     const error = this.draw(() => this.controller.doOperation(command, () => {}, ...args));
     if (error) return error;
     this.runStart = start;

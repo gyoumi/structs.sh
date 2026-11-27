@@ -28,6 +28,16 @@ abstract class GraphicalDataStructure {
   public load(data: number[]): void {
     console.log('Loading data structure with data: ', data);
   }
+
+  /** The state a theme switch rebuilds the structure from. Values by default. */
+  public snapshotState(): unknown {
+    return this.data;
+  }
+
+  /** Rebuilds the structure from what `snapshotState` returned. */
+  public restoreState(state: unknown): void {
+    if (Array.isArray(state)) this.load(state as number[]);
+  }
 }
 
 export default GraphicalDataStructure;
