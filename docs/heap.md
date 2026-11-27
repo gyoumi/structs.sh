@@ -53,7 +53,7 @@ different agent from the one writing the code.
 
 | Layer | Runner | What it checks |
 |---|---|---|
-| Rust heap and step log | `cargo test` (`game-server/challenges/tests/heap.rs`) | Sift up, sift down, ties, min and max order, a full heap, an empty heap, the exact step sequence |
+| Rust heap and step log | `cargo test` (`game-server/challenges/tests/heap_*.rs`) | Sift up, sift down, ties, min and max order, a full heap, an empty heap, the exact step sequence |
 | WASM boundary | Vitest (`client/src/Services/challenges/challenges.heap.test.ts`) | The real `challenges.wasm` `step_log` export with `algorithm: "binary-heap"`, and the decoded replies |
 | Step player | Vitest (`client/src/visualiser-src/heap-visualiser/`) | `GraphicalHeap` driving `VisualiserController`: tree and array in step, code-line highlights, stepping both ways, re-theme mid-run, switching order, share encoding |
 | Browser behaviour | Playwright (`e2e/tests/heap.spec.ts`) | The user-facing spec, written at the start of checkpoint 3 |
@@ -81,7 +81,7 @@ without it, and because it shows early whether `step_log_wire.rs` takes a
 second algorithm cleanly. If adding the heap means reshaping the wire format,
 that change goes to the hash table thread before more is built on it.
 
-**Done when** every behaviour in `tests/heap.rs` and
+**Done when** every behaviour in `tests/heap_*.rs` and
 `challenges.heap.test.ts` passes, with `cargo clippy` clean for
 `wasm32-unknown-unknown`.
 
@@ -169,9 +169,9 @@ Agreed on 28 November 2026:
 ### 1a. Rust `heap` module
 
 Add `game-server/challenges/src/heap.rs` (`pub mod heap;` in `lib.rs`) and
-`game-server/challenges/tests/heap.rs`. The test writer writes `tests/heap.rs`
-from the contract below. The implementer writes `src/heap.rs` without reading
-it.
+its tests in `game-server/challenges/tests/heap_*.rs`. The test writer writes
+the tests from the contract below. The implementer writes `src/heap.rs`
+without reading them.
 
 **Public interface** (serde attributes as in `hash_table.rs`: tagged by
 `kind`, camelCase, `deny_unknown_fields`):
@@ -211,7 +211,63 @@ it.
   an `items` that isn't a heap for `order`, or for the other order when the
   operation is `Rebuild` (naming the index and its parent).
 
-**Behaviours `tests/heap.rs` covers**, each for both min and max:
+**Exact step order.** "Better" means strictly greater for a max-heap and
+strictly smaller for a min-heap, so equal keys are never better than each
+other.
+
+- **Insert**, when `items.len() == capacity`: the log is `[HeapFull { key }]`
+  and `items` is returned unchanged. Otherwise `Append { key, index: len }`,
+  then, while `index > 0`, `CompareParent { index, parent, swap }`. When
+  `swap` is true, `Swap { parent, child: index }` follows and the key moves up
+  to `parent`. When it's false, sifting stops. The log ends with
+  `Settled { key, index }` at the key's final index.
+- **Pop**, on an empty heap: `[Empty]`. On a heap of one key:
+  `[TakeRoot { key }, PoppedLast { key }]`. Otherwise `TakeRoot { key: root }`,
+  `MoveLastToRoot { key: last, from: len - 1 }`, then, while the moved key's
+  index has a left child in the shrunk heap,
+  `CompareChildren { index, left, right, best, swap }`. When `swap` is true,
+  `Swap { parent: index, child: best }` follows and the key moves down to
+  `best`. When it's false, sifting stops. The log ends with
+  `Settled { key, index }`. `popped` is the old root on a successful pop and
+  `None` otherwise.
+- **Rebuild**: `StartRebuild { order }`, then, for each key of the old
+  `items` in index order, the same `Append`, `CompareParent` and `Swap` steps
+  an insert into the heap built so far would emit, ending with
+  `Reinserted { key, index }` instead of `Settled`. The log ends with
+  `Rebuilt { order }`.
+- `comparisons` counts `CompareParent` and `CompareChildren` steps, and
+  `swaps` counts `Swap` steps.
+- On the wire: `HeapOrder` is the plain string `"min"` or `"max"`. `HeapOp` is
+  `{"kind": "insert", "key": 5}`, `{"kind": "pop"}` or `{"kind": "rebuild"}`.
+  Steps look like `{"kind": "compareChildren", "index": 0, "left": 1,
+  "right": null, "best": 1, "swap": true}`, with a missing `right` written as
+  `null` rather than left out. `HeapRunResult` is `{"items": [..],
+  "steps": [..], "comparisons": 2, "swaps": 1, "popped": null}`.
+- `HeapOrder`, `HeapOp` and `HeapStep` derive `Debug`, `Clone`, `PartialEq`,
+  `Eq`, `Serialize` and `Deserialize`. `HeapRunResult` derives `Debug`,
+  `Clone`, `PartialEq`, `Eq` and `Serialize`.
+- Validation runs in this order: `capacity == 0`, then too many items, then
+  the heap check, for every operation (including a pop on an empty heap and
+  an insert into a full one). The capacity error contains the word
+  "capacity" and doesn't depend on the items. The heap check names the
+  smallest index `i` whose key is better than its parent's (for `Rebuild`,
+  better under the other order) and that index's parent, and doesn't name any
+  later bad index. Numbers in errors are written as plain decimal numbers.
+- An insert into a full heap isn't an error: it's `Ok` with `[HeapFull]`. A
+  rebuild of a full heap rebuilds normally.
+- `HeapOrder` is case-sensitive: `"Min"`, `"MAX"` and `0` are rejected.
+  Variants with fields reject unknown fields and require every field. Serde
+  ignores extra keys on tagged unit variants (`pop`, `rebuild`, `empty`),
+  and that's allowed.
+- `HeapRunResult`'s JSON has exactly the fields `items`, `steps`,
+  `comparisons`, `swaps` and `popped`. `popped` is `None` for insert, rebuild
+  and a pop on an empty heap.
+- A capacity above 15 is allowed, and nothing depends on it.
+
+**Behaviours the tests cover**, each for both min and max. They're split
+across `tests/heap_insert.rs`, `heap_pop.rs`, `heap_rebuild.rs`,
+`heap_validation.rs`, `heap_invariants.rs` and `heap_wire.rs`, with helpers
+in `tests/common/`, to stay under the 500-line limit for test files:
 
 - Insert into an empty heap.
 - Insert that stops at once, sifts part of the way, or sifts all the way to the
