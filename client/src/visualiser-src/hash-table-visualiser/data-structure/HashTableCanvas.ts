@@ -62,7 +62,7 @@ export const addValueText = (group: G, index: number, slot: HashSlot): Text => {
   )
     .attr('data-hash-value', '')
     .opacity(0);
-  return isTombstone ? text.attr('fill-opacity', 0.65) : text;
+  return isTombstone ? text.attr('fill-opacity', 0.75) : text;
 };
 
 /** Adds a hidden banner line, for an animation to fade in. */
