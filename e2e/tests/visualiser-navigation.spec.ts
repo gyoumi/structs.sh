@@ -14,6 +14,7 @@ const operations: Record<TopicSlug, string[]> = {
   ],
   'avl-trees': ['insert', 'delete', 'inorderTraversal', 'preorderTraversal', 'postorderTraversal'],
   'sorting-algorithms': ['append', 'delete', 'bubble', 'insertion', 'selection', 'merge', 'quick'],
+  'hash-tables': ['insert', 'search', 'delete'],
 };
 
 test.describe('visualiser navigation', () => {

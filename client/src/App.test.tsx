@@ -48,11 +48,15 @@ describe('visualiser', () => {
   test('links every structure and has a theme toggle', async () => {
     await renderVisualiser();
     const nav = screen.getByRole('navigation', { name: 'Data structures' });
-    expect([...nav.querySelectorAll('a')].map((link) => link.getAttribute('href'))).toEqual([
+    expect(
+      [...nav.querySelectorAll('a')].map((link) => link.getAttribute('href')),
+      '/visualiser/linked-lists: hrefs of the links in the "Data structures" nav, in order (hash tables added last in step 3a)'
+    ).toEqual([
       '/visualiser/linked-lists',
       '/visualiser/binary-search-trees',
       '/visualiser/avl-trees',
       '/visualiser/sorting-algorithms',
+      '/visualiser/hash-tables',
     ]);
     expect(screen.getByRole('button', { name: 'Dark mode' })).toBeTruthy();
   });

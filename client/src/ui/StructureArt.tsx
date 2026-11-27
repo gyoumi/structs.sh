@@ -131,6 +131,33 @@ const SortArt = ({ className }: ArtProps) => (
   </Frame>
 );
 
+const buckets = [20, 40, 60, 80, 100];
+
+const HashTableArt = ({ className }: ArtProps) => (
+  <Frame className={className}>
+    <path d={buckets.map((x) => `M${x} 60v5`).join('')} />
+    {buckets.map((x) => (
+      <rect key={x} className={styles.node} x={x - 9} y={36} width={18} height={18} rx={2} />
+    ))}
+    <rect
+      className={cx(styles.node, styles.round, styles.lit)}
+      x={71}
+      y={36}
+      width={18}
+      height={18}
+      rx={2}
+      style={after(260)}
+    />
+    <Node x={40} y={45} r={4} />
+    <Node x={60} y={45} r={4} />
+    <path className={styles.vanish} d="M60 23v7m-3-3 3 3 3-3" />
+    <path className={styles.trace} d="M60 30q10-9 20 0" pathLength={1} style={after(120)} />
+    <g className={styles.shift} style={shift(20, 31)}>
+      <Node x={60} y={14} r={6} highlightDelay={0} />
+    </g>
+  </Frame>
+);
+
 const DebuggerArt = ({ className }: ArtProps) => (
   <Frame className={className}>
     <rect className={styles.node} x={8} y={10} width={104} height={60} rx={6} />
@@ -156,6 +183,7 @@ const artById: Record<string, (props: ArtProps) => JSX.Element> = {
   'binary-search-trees': TreeArt,
   'avl-trees': AvlTreeArt,
   'sorting-algorithms': SortArt,
+  'hash-tables': HashTableArt,
   debugger: DebuggerArt,
 };
 

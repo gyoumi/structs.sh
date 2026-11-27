@@ -1,5 +1,5 @@
 import '@fontsource-variable/fredoka';
-import { useEffect } from 'react';
+import { ReactNode, useEffect } from 'react';
 import { Theme, useTheme } from '@/ui/theme';
 import Stage from './Stage';
 import VisualiserHeader from './VisualiserHeader';
@@ -13,12 +13,31 @@ import { Topic } from './topics';
 import { canvasThemes } from './canvasThemes';
 import styles from './Visualiser.module.css';
 
-interface WorkspaceProps {
+const Workspace = ({ topic }: { topic: Topic }) => (
+  <div className={styles.main}>
+    <Operations topic={topic} />
+    <div className={styles.stageWrap}>
+      <Stage label={`${topic.name} drawing`} className={styles.stage}>
+        {(view) => (
+          <>
+            <DataActions topic={topic} />
+            <ZoomControls view={view} />
+          </>
+        )}
+      </Stage>
+      <Transport />
+    </div>
+    <CodePanel topic={topic} />
+  </div>
+);
+
+interface PageProps {
   topic: Topic;
   theme: Theme;
+  children: ReactNode;
 }
 
-const Workspace = ({ topic, theme }: WorkspaceProps) => {
+const Page = ({ topic, theme, children }: PageProps) => {
   useEffect(() => {
     const root = document.documentElement;
     root.dataset.structsTheme = theme;
@@ -31,22 +50,7 @@ const Workspace = ({ topic, theme }: WorkspaceProps) => {
     <div className={styles.page} data-theme={theme}>
       <title>{`${topic.name} visualiser | structs.sh`}</title>
       <VisualiserHeader topic={topic} />
-
-      <div className={styles.main}>
-        <Operations topic={topic} />
-        <div className={styles.stageWrap}>
-          <Stage label={`${topic.name} drawing`} className={styles.stage}>
-            {(view) => (
-              <>
-                <DataActions topic={topic} />
-                <ZoomControls view={view} />
-              </>
-            )}
-          </Stage>
-          <Transport />
-        </div>
-        <CodePanel topic={topic} />
-      </div>
+      {children}
     </div>
   );
 };
@@ -68,14 +72,16 @@ const Visualiser = () => {
   return (
     <TopicRoute>
       {(topic) => (
-        <VisualiserProvider
-          key={topic.slug}
-          topic={topic}
-          canvasTheme={canvasThemes[theme]}
-          getInitialData={getPhoneInitialData}
-        >
-          <Workspace topic={topic} theme={theme} />
-        </VisualiserProvider>
+        <Page topic={topic} theme={theme}>
+          <VisualiserProvider
+            key={topic.slug}
+            topic={topic}
+            canvasTheme={canvasThemes[theme]}
+            getInitialData={getPhoneInitialData}
+          >
+            <Workspace topic={topic} />
+          </VisualiserProvider>
+        </Page>
       )}
     </TopicRoute>
   );

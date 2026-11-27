@@ -38,13 +38,21 @@ export class VisualiserPage {
 
   // ------------------------------------------------------------- navigation
 
-  /** Opens a visualiser, optionally with share-link data such as [10, 20, 30]. */
-  async open(topic: TopicSlug, data?: number[]): Promise<void> {
+  /**
+   * Opens a visualiser, optionally with share-link data: values such as [10, 20, 30] (two digits
+   * each), or a raw link segment such as 'empty' or a hash table's 's--12xx23--------------'.
+   */
+  async open(topic: TopicSlug, data?: number[] | string): Promise<void> {
     this.topic = topic;
-    const encoded = data?.map((value) => String(value).padStart(2, '0')).join('') ?? '';
-    await this.page.goto(`/visualiser/${topic}${encoded ? `/${encoded}` : ''}`);
-    await expect(this.page.locator('#visualiser-canvas')).toBeAttached();
-    await expect.poll(() => this.operations()).not.toEqual([]);
+    const encoded =
+      typeof data === 'string' ? data : (data?.map((value) => String(value).padStart(2, '0')).join('') ?? '');
+    const path = `/visualiser/${topic}${encoded ? `/${encoded}` : ''}`;
+    await this.page.goto(path);
+    await expect(
+      this.page.locator('#visualiser-canvas'),
+      `${path}: the visualiser drawing (#visualiser-canvas) should be on the page; an unknown topic redirects to /`,
+    ).toBeAttached();
+    await expect.poll(() => this.operations(), { message: `${path}: the Operations radio group should offer operations` }).not.toEqual([]);
     await this.waitForDrawingToSettle();
   }
 
