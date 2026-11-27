@@ -8,28 +8,43 @@ import DataActions from './DataActions';
 import ZoomControls from './ZoomControls';
 import Transport from './Transport';
 import CodePanel from './CodePanel';
+import HashTablePhoneBanner from './HashTablePhoneBanner';
 import { TopicRoute, VisualiserProvider } from './VisualiserProvider';
 import { Topic } from './topics';
 import { canvasThemes } from './canvasThemes';
+import { useMediaQuery } from './useVisualiser';
 import styles from './Visualiser.module.css';
 
-const Workspace = ({ topic }: { topic: Topic }) => (
-  <div className={styles.main}>
-    <Operations topic={topic} />
-    <div className={styles.stageWrap}>
-      <Stage label={`${topic.name} drawing`} className={styles.stage}>
-        {(view) => (
-          <>
-            <DataActions topic={topic} />
-            <ZoomControls view={view} />
-          </>
-        )}
-      </Stage>
-      <Transport />
+const NARROW_STAGE = '(max-width: 560px)';
+const PHONE_HASH_TABLE_MIN_SCALE = 0.72;
+
+const Workspace = ({ topic }: { topic: Topic }) => {
+  const narrow = useMediaQuery(NARROW_STAGE);
+  const phoneHashTable = narrow && topic.slug === 'hash-tables';
+
+  return (
+    <div className={styles.main}>
+      <Operations topic={topic} />
+      <div className={styles.stageWrap}>
+        <Stage
+          label={`${topic.name} drawing`}
+          className={styles.stage}
+          minScale={phoneHashTable ? PHONE_HASH_TABLE_MIN_SCALE : undefined}
+        >
+          {(view) => (
+            <>
+              <DataActions topic={topic} />
+              <ZoomControls view={view} />
+              {phoneHashTable && <HashTablePhoneBanner />}
+            </>
+          )}
+        </Stage>
+        <Transport />
+      </div>
+      <CodePanel topic={topic} />
     </div>
-    <CodePanel topic={topic} />
-  </div>
-);
+  );
+};
 
 interface PageProps {
   topic: Topic;

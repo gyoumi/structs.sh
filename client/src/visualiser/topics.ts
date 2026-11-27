@@ -3,6 +3,7 @@ import {
   decodeHashTableShare,
   encodeHashTableSlots,
   HASH_TABLE_CAPACITY,
+  isValidLinearProbingSlots,
 } from '@/visualiser-src/hash-table-visualiser/util/shareEncoding';
 
 export type TopicSlug =
@@ -184,5 +185,8 @@ export const parseSharedInitial = (
   if (slug !== 'hash-tables') return parseSharedData(segment);
   const share = decodeHashTableShare(segment);
   if (!share) return undefined;
-  return share.kind === 'slots' ? { state: share.slots } : share.keys;
+  if (share.kind === 'slots') {
+    return isValidLinearProbingSlots(share.slots) ? { state: share.slots } : undefined;
+  }
+  return share.keys;
 };

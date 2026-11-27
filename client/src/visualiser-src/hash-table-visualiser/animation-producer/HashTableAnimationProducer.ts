@@ -70,9 +70,13 @@ export default class HashTableAnimationProducer extends AnimationProducer {
     this.addSequenceAnimation(element.animate(FADE_MS).attr({ opacity }));
   }
 
+  private hideImmediate(element: Element): void {
+    this.addSequenceAnimation(element.animate(1).attr({ opacity: 0 }));
+  }
+
   private showBanner(content: string): void {
     const next = addBannerText(this.view.banner, content);
-    this.fade(this.view.bannerText, 0);
+    this.hideImmediate(this.view.bannerText);
     this.fade(next, 1);
     this.view.bannerText = next;
   }
@@ -93,7 +97,7 @@ export default class HashTableAnimationProducer extends AnimationProducer {
   private replaceValue(index: number, slot: HashSlot): void {
     const view = this.view.slots[index];
     const next = addValueText(view.group, index, slot);
-    this.fade(view.value, 0);
+    this.hideImmediate(view.value);
     this.fade(next, 1);
     view.value = next;
   }

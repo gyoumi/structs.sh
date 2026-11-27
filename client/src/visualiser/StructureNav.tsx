@@ -79,7 +79,14 @@ const StructureNav = ({
     update();
     const observer = new ResizeObserver(update);
     observer.observe(root);
-    return () => observer.disconnect();
+    let active = true;
+    document.fonts?.ready.then(() => {
+      if (active) update();
+    });
+    return () => {
+      active = false;
+      observer.disconnect();
+    };
   }, [current, alwaysMore]);
 
   const shown = visibleTopics(visibleCount, current);

@@ -80,16 +80,16 @@
   overflow: auto;
   list-style: none;
   font-family: CodeText, monospace;
-  font-size: 13px;
+  font-size: 12px;
   font-variant-ligatures: none;
-  line-height: 1.75;
+  line-height: 1.65;
 }
 
 .codeLine {
   position: relative;
   display: grid;
-  grid-template-columns: 44px 1fr;
-  padding-right: 14px;
+  grid-template-columns: 36px 1fr;
+  padding-right: 10px;
   color: var(--code-text);
   transition:
     background-color 160ms ease,

@@ -7,10 +7,11 @@ export const ORIGIN_X = 24;
 export const BANNER_Y = 28;
 export const ROW_Y = 64;
 export const INDEX_Y = ROW_Y + SLOT_SIZE + 18;
-export const WRAP_DEPTH = INDEX_Y + 34;
-export const BANNER_FONT_SIZE = 15;
-export const VALUE_FONT_SIZE = 20;
-export const INDEX_FONT_SIZE = 13;
+export const WRAP_DEPTH = INDEX_Y + 42;
+export const BANNER_FONT_SIZE = 16;
+export const VALUE_FONT_SIZE = 21;
+export const TOMBSTONE_FONT_SIZE = 14;
+export const INDEX_FONT_SIZE = 15;
 export const TOMBSTONE_DASH = '6 4';
 export const HIGHLIGHT_INSET = 4;
 export const FADE_MS = 400;
@@ -56,13 +57,13 @@ export const bannerBounds = (): DrawingBounds => ({
 export const wrapPath = (): string => {
   const startX = slotCentreX(HASH_TABLE_CAPACITY - 1);
   const endX = slotCentreX(0);
-  const top = INDEX_Y + 8;
+  const top = INDEX_Y + 13;
   return `M ${startX} ${top} C ${startX} ${WRAP_DEPTH + 10}, ${endX} ${WRAP_DEPTH + 10}, ${endX} ${top}`;
 };
 
 /** The arrowhead at the end of the wrap arc, pointing up into bucket 0. */
 export const wrapArrowPoints = (): string => {
   const x = slotCentreX(0);
-  const tip = INDEX_Y + 6;
+  const tip = INDEX_Y + 11;
   return `${x},${tip} ${x - 6},${tip + 10} ${x + 6},${tip + 10}`;
 };

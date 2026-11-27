@@ -190,6 +190,11 @@ test.describe('hash table', () => {
       .toBe(100);
     const played = await hashTable.settled(`${ctx}, played to the end`);
     expect(summary(played), `${ctx}, Play to the end: should match the last step of the step-through`).toEqual(summary(steps[steps.length - 1]));
+    await expect
+      .poll(() => hashTable.codeLineInView(), {
+        message: `${ctx}, Play to the end: the highlighted placement line should stay scrolled into view after the completion banner expands`,
+      })
+      .toBe(true);
 
     await hashTable.transport.setSpeed(0.25);
     expect(await hashTable.transport.speed(), `${ctx}: after choosing 0.25×, the Speed picker`).toBe(0.25);
@@ -322,5 +327,32 @@ test.describe('hash table', () => {
     const state = await hashTable.settled(`${ctx}, then Retry`);
     expect(describeSlots(state.slots), `${ctx}, then Retry: the buckets`).toBe(table({ 1: 12, 2: 23, 3: 34 }));
     await hashTable.expectNoLoadError(`${ctx}, then Retry`);
+  });
+
+  test('switching to another topic while challenges.wasm is pending keeps the new topic drawing intact', async ({ visualiser, hashTable, page }) => {
+    const ctx = '/visualiser/hash-tables with challenges.wasm held back, switching to linked-lists before release';
+    const loggedErrors = watchPageErrors(page);
+    const release = await hashTable.holdChallengesWasm();
+    await page.goto('/visualiser/hash-tables');
+    await hashTable.expectLoading(ctx);
+
+    await visualiser.switchTopic('linked-lists');
+    await expect(page, `${ctx}: clicking Linked Lists in the header should navigate to /visualiser/linked-lists`).toHaveURL(
+      /\/visualiser\/linked-lists$/,
+    );
+    await expect
+      .poll(async () => (await visualiser.values()).length, {
+        message: `${ctx}: the linked list should draw without waiting for challenges.wasm`,
+      })
+      .toBeGreaterThan(0);
+    const drawnBeforeRelease = await visualiser.values();
+
+    release();
+    await visualiser.waitForDrawingToSettle();
+    expect(await visualiser.values(), `${ctx}, after challenges.wasm resolves: the linked-list drawing should stay intact`).toEqual(
+      drawnBeforeRelease,
+    );
+    expect(await hashTable.slots(), `${ctx}, after challenges.wasm resolves: no hash-table buckets should overwrite the linked list`).toEqual([]);
+    expect(loggedErrors(), `${ctx}: console errors and uncaught page errors`).toEqual([]);
   });
 });

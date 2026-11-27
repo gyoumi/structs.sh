@@ -67,6 +67,21 @@ interface CodeListingProps {
   emptyClassName?: string;
 }
 
+const SCROLL_MARGIN = 6;
+
+const keepCurrentVisible = (list: HTMLOListElement | null, instant: boolean) => {
+  // scrollIntoView would also scroll the page, moving the drawing away on narrow screens.
+  const current = list?.querySelector<HTMLElement>('[data-current]');
+  const scroller = current && scrollParent(current);
+  if (!current || !scroller) return;
+  const item = current.getBoundingClientRect();
+  const box = scroller.getBoundingClientRect();
+  const above = item.top - (box.top + SCROLL_MARGIN);
+  const below = item.bottom - (box.bottom - SCROLL_MARGIN);
+  const offset = above < 0 ? above : below > 0 ? below : 0;
+  if (offset) scroller.scrollBy({ top: offset, behavior: instant ? 'auto' : 'smooth' });
+};
+
 const CodeListing = ({
   className,
   lineClassName,
@@ -80,15 +95,16 @@ const CodeListing = ({
   const reducedMotion = usePrefersReducedMotion();
 
   useEffect(() => {
-    // scrollIntoView would also scroll the page, moving the drawing away on narrow screens.
-    const current = listRef.current?.querySelector<HTMLElement>('[data-current]');
-    const scroller = current && scrollParent(current);
-    if (!current || !scroller) return;
-    const item = current.getBoundingClientRect();
-    const box = scroller.getBoundingClientRect();
-    const offset = Math.min(0, item.top - box.top) || Math.max(0, item.bottom - box.bottom);
-    if (offset) scroller.scrollBy({ top: offset, behavior: reducedMotion ? 'auto' : 'smooth' });
+    keepCurrentVisible(listRef.current, reducedMotion);
   }, [line, reducedMotion]);
+
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list || typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(() => keepCurrentVisible(list, true));
+    observer.observe(list);
+    return () => observer.disconnect();
+  }, [code.length]);
 
   if (code.length === 0) {
     return <p className={emptyClassName}>{emptyMessage}</p>;

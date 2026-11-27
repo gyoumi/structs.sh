@@ -114,6 +114,20 @@ export class HashTablePage {
     return ((await current.first().textContent()) ?? '').replace(/\s+/g, ' ').trim();
   }
 
+  /** Whether the highlighted C line is completely inside the visible scroll window of the code list. */
+  async codeLineInView(): Promise<boolean> {
+    const list = this.page.getByRole('list', { name: 'Code for this operation' });
+    const current = list.locator('li[aria-current="step"]');
+    if ((await current.count()) === 0) return false;
+    return current.first().evaluate((item) => {
+      const scroller = item.closest('ol');
+      if (!scroller) return false;
+      const itemRect = item.getBoundingClientRect();
+      const boxRect = scroller.getBoundingClientRect();
+      return itemRect.top >= boxRect.top - 1 && itemRect.bottom <= boxRect.bottom + 1;
+    });
+  }
+
   async state(): Promise<HashTableState> {
     const slots = await this.slots();
     return {

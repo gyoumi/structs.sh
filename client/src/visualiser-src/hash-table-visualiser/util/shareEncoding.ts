@@ -66,3 +66,21 @@ export const decodeHashTableShare = (
   if (KEY_LIST.test(segment)) return { kind: 'keys', keys: chunksOf(segment).map(Number) };
   return undefined;
 };
+
+/** Whether `slots` has distinct occupied keys that linear probing can each reach from `key % 11`. */
+export const isValidLinearProbingSlots = (slots: readonly HashSlot[]): boolean => {
+  if (slots.length !== HASH_TABLE_CAPACITY) return false;
+  const seen = new Set<number>();
+  for (let index = 0; index < slots.length; index += 1) {
+    const slot = slots[index];
+    if (slot.kind === 'occupied') {
+      if (seen.has(slot.key)) return false;
+      seen.add(slot.key);
+      const home = ((slot.key % HASH_TABLE_CAPACITY) + HASH_TABLE_CAPACITY) % HASH_TABLE_CAPACITY;
+      for (let i = home; i !== index; i = (i + 1) % HASH_TABLE_CAPACITY) {
+        if (slots[i].kind === 'empty') return false;
+      }
+    }
+  }
+  return true;
+};

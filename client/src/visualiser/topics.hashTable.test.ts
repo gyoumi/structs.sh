@@ -177,7 +177,7 @@ describe('parseSharedInitial for hash-tables', () => {
   });
 
   test('a link made by shareLink reads back to the same buckets', () => {
-    const slots = [key(44), X, key(13), E, key(99), E, X, E, E, key(9), key(21)];
+    const slots = [key(44), X, key(13), E, key(48), E, X, E, E, key(9), key(21)];
     const segment = shareLink('hash-tables', slots, ORIGIN).split('/').pop();
     expect(
       read(segment),
@@ -185,6 +185,46 @@ describe('parseSharedInitial for hash-tables', () => {
     ).toEqual({
       state: slots,
     });
+  });
+
+  test('a wrap-around chain bridged by occupied slots or tombstones is accepted', () => {
+    const wrapped = [key(21), key(32), E, E, E, E, E, E, E, E, X];
+    const segment = shareLink('hash-tables', wrapped, ORIGIN).split('/').pop();
+    expect(
+      read(segment),
+      `parseSharedInitial('hash-tables', '${segment}'): 21 and 32 hash to 10 (tombstone) and wrap to 0 and 1`
+    ).toEqual({
+      state: wrapped,
+    });
+  });
+
+  const invalidTables = [
+    {
+      label: 'unreachable key 12 in slot 0 while home slot 1 is empty',
+      segment: 's12--------------------',
+    },
+    {
+      label: 'unreachable wrap-around key 21 in slot 0 while home slot 10 is empty',
+      segment: 's21--------------------',
+    },
+    {
+      label: 'unreachable key 34 in slot 3 with empty gap at slot 2',
+      segment: 's--12--34--------------',
+    },
+    {
+      label: 'duplicate key 12 in adjacent slots 1 and 2',
+      segment: 's--1212----------------',
+    },
+    {
+      label: 'duplicate key 12 separated by a tombstone',
+      segment: 's--12xx12--------------',
+    },
+  ];
+  test.each(invalidTables)('rejects impossible slot state: $label', ({ segment }) => {
+    expect(
+      read(segment),
+      `parseSharedInitial('hash-tables', '${segment}') must reject an unreachable or duplicate slot state`
+    ).toBeUndefined();
   });
 });
 
