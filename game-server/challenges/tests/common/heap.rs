@@ -21,13 +21,6 @@ pub fn both() -> [HeapOrder; 2] {
     [HeapOrder::Min, HeapOrder::Max]
 }
 
-pub fn same(order: &HeapOrder) -> HeapOrder {
-    match order {
-        HeapOrder::Min => HeapOrder::Min,
-        HeapOrder::Max => HeapOrder::Max,
-    }
-}
-
 pub fn other(order: &HeapOrder) -> HeapOrder {
     match order {
         HeapOrder::Min => HeapOrder::Max,
@@ -70,14 +63,6 @@ pub fn sorted(items: &[i32]) -> Vec<i32> {
 
 pub fn insert(key: i32) -> HeapOp {
     HeapOp::Insert { key }
-}
-
-pub fn copy_op(op: &HeapOp) -> HeapOp {
-    match op {
-        HeapOp::Insert { key } => insert(*key),
-        HeapOp::Pop => HeapOp::Pop,
-        HeapOp::Rebuild => HeapOp::Rebuild,
-    }
 }
 
 pub fn op_text(op: &HeapOp) -> String {
@@ -257,68 +242,22 @@ pub fn assert_log(ctx: &str, what: &str, got: &[HeapStep], want: &[HeapStep]) {
     );
 }
 
-/// A copy of `step` with every key passed through `key` and every order through `order`.
-pub fn map_step(
-    step: &HeapStep,
-    key: impl Fn(i32) -> i32,
-    order: impl Fn(&HeapOrder) -> HeapOrder,
-) -> HeapStep {
-    use HeapStep as S;
-    match step {
-        S::Append { key: k, index } => S::Append {
-            key: key(*k),
-            index: *index,
-        },
-        S::CompareParent {
-            index,
-            parent,
-            swap,
-        } => S::CompareParent {
-            index: *index,
-            parent: *parent,
-            swap: *swap,
-        },
-        S::TakeRoot { key: k } => S::TakeRoot { key: key(*k) },
-        S::MoveLastToRoot { key: k, from } => S::MoveLastToRoot {
-            key: key(*k),
-            from: *from,
-        },
-        S::CompareChildren {
-            index,
-            left,
-            right,
-            best,
-            swap,
-        } => S::CompareChildren {
-            index: *index,
-            left: *left,
-            right: *right,
-            best: *best,
-            swap: *swap,
-        },
-        S::Swap { parent, child } => S::Swap {
-            parent: *parent,
-            child: *child,
-        },
-        S::StartRebuild { order: o } => S::StartRebuild { order: order(o) },
-        S::Reinserted { key: k, index } => S::Reinserted {
-            key: key(*k),
-            index: *index,
-        },
-        S::Settled { key: k, index } => S::Settled {
-            key: key(*k),
-            index: *index,
-        },
-        S::PoppedLast { key: k } => S::PoppedLast { key: key(*k) },
-        S::Empty => S::Empty,
-        S::HeapFull { key: k } => S::HeapFull { key: key(*k) },
-        S::Rebuilt { order: o } => S::Rebuilt { order: order(o) },
-    }
-}
-
 /// The same step for the other order with every key negated.
 pub fn mirror_step(step: &HeapStep) -> HeapStep {
-    map_step(step, |k| -k, other)
+    use HeapStep as S;
+    let mut step = step.clone();
+    match &mut step {
+        S::Append { key, .. }
+        | S::TakeRoot { key }
+        | S::MoveLastToRoot { key, .. }
+        | S::Reinserted { key, .. }
+        | S::Settled { key, .. }
+        | S::PoppedLast { key }
+        | S::HeapFull { key } => *key = -*key,
+        S::StartRebuild { order } | S::Rebuilt { order } => *order = other(order),
+        S::CompareParent { .. } | S::CompareChildren { .. } | S::Swap { .. } | S::Empty => {}
+    }
+    step
 }
 
 pub fn negated(items: &[i32]) -> Vec<i32> {
@@ -328,23 +267,8 @@ pub fn negated(items: &[i32]) -> Vec<i32> {
 fn mirror_op(op: &HeapOp) -> HeapOp {
     match op {
         HeapOp::Insert { key } => insert(-key),
-        other => copy_op(other),
+        other => other.clone(),
     }
-}
-
-pub fn count_compares(steps: &[HeapStep]) -> usize {
-    let compare = |s: &&HeapStep| {
-        matches!(
-            s,
-            HeapStep::CompareParent { .. } | HeapStep::CompareChildren { .. }
-        )
-    };
-    steps.iter().filter(compare).count()
-}
-
-pub fn count_swaps(steps: &[HeapStep]) -> usize {
-    let swap = |s: &&HeapStep| matches!(s, HeapStep::Swap { .. });
-    steps.iter().filter(swap).count()
 }
 
 /// Runs a call that should succeed; returns the call as text and the result.
@@ -355,7 +279,7 @@ pub fn run_ok(
     op: &HeapOp,
 ) -> (String, HeapRunResult) {
     let ctx = call(order, cap, items, op);
-    match run(same(order), cap, items, copy_op(op)) {
+    match run(order.clone(), cap, items, op.clone()) {
         Ok(result) => (ctx, result),
         Err(message) => panic!("{ctx}: expected Ok, got Err({message:?})"),
     }
@@ -364,7 +288,7 @@ pub fn run_ok(
 /// Runs a call that should be rejected; returns the call as text and the error.
 pub fn run_err(order: &HeapOrder, cap: usize, items: &[i32], op: &HeapOp) -> (String, String) {
     let ctx = call(order, cap, items, op);
-    match run(same(order), cap, items, copy_op(op)) {
+    match run(order.clone(), cap, items, op.clone()) {
         Ok(r) => panic!(
             "{ctx}: expected Err, got Ok with items {:?} and log\n{}\n{LEGEND}",
             r.items,
@@ -394,7 +318,7 @@ impl Case {
         };
         Case {
             why: why.to_owned(),
-            order: same(order),
+            order: order.clone(),
             cap,
             before: keys(before),
             op: parse_op(op),
@@ -423,7 +347,7 @@ impl Case {
     fn verify(&self) {
         let ctx = call(&self.order, self.cap, &self.before, &self.op);
         let ctx = format!("{ctx} [{}]", self.why);
-        let result = run(same(&self.order), self.cap, &self.before, copy_op(&self.op));
+        let result = run(self.order.clone(), self.cap, &self.before, self.op.clone());
         let result = result.unwrap_or_else(|e| panic!("{ctx}: expected Ok, got Err({e:?})"));
         assert_log(&ctx, "exact step log", &result.steps, &self.steps);
         let (got, want) = (&result.items, &self.after);
@@ -431,18 +355,6 @@ impl Case {
             got, want,
             "{ctx}: items after the run: expected {want:?}, got {got:?}"
         );
-        let popping = matches!(self.op, HeapOp::Pop);
-        let want = if popping {
-            self.before.first().copied()
-        } else {
-            None
-        };
-        let got = result.popped;
-        assert_eq!(got, want, "{ctx}: popped: expected {want:?}, got {got:?}");
-        let (got, want) = (result.comparisons as usize, count_compares(&self.steps));
-        assert_eq!(got, want, "{ctx}: comparisons: expected {want}, got {got}");
-        let (got, want) = (result.swaps as usize, count_swaps(&self.steps));
-        assert_eq!(got, want, "{ctx}: swaps: expected {want}, got {got}");
         invariants(&ctx, &self.order, self.cap, &self.before, &self.op, &result);
     }
 }

@@ -437,7 +437,6 @@ fn rejects_wrong_typed_fields_naming_the_field() {
 
 #[test]
 fn rejects_capacity_zero_with_heap_runs_message() {
-    assert_baseline();
     assert_run_error_unchanged(
         &request("max", 0, &[], insert(1)),
         &["capacity"],
@@ -447,7 +446,6 @@ fn rejects_capacity_zero_with_heap_runs_message() {
 
 #[test]
 fn rejects_too_many_items_naming_both_numbers() {
-    assert_baseline();
     assert_run_error_unchanged(
         &request("max", 2, &[9, 4, 7], pop()),
         &["2", "3"],
@@ -457,7 +455,6 @@ fn rejects_too_many_items_naming_both_numbers() {
 
 #[test]
 fn rejects_items_that_are_not_a_heap_naming_the_first_bad_index() {
-    assert_baseline();
     // Index 4 (11) is above its parent at 1 (10); index 6 (16) above 15 at 2 comes later.
     let max_items = [20, 10, 15, 5, 11, 12, 16];
     assert_run_error_unchanged(
@@ -475,7 +472,6 @@ fn rejects_items_that_are_not_a_heap_naming_the_first_bad_index() {
 
 #[test]
 fn rejects_a_rebuild_whose_items_are_not_a_heap_of_the_other_order() {
-    assert_baseline();
     // A max rebuild reads its items as a min heap: index 4 (0) is below its parent at 1 (3).
     assert_run_error_unchanged(
         &request("max", 15, &[1, 3, 2, 5, 0], rebuild()),

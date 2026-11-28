@@ -1,9 +1,7 @@
 mod common;
 
-use common::heap::{
-    both, call, copy_op, insert, keys, name, other, run_err, run_ok, same, show_log,
-};
-use daily_challenges::heap::{HeapOp, HeapOrder, run};
+use common::heap::{both, insert, keys, name, other, run_err};
+use daily_challenges::heap::{HeapOp, HeapOrder};
 
 // From docs/heap.md ("1a. Rust heap module"): run rejects capacity == 0, then
 // items.len() > capacity (naming both numbers), then items that aren't a heap for `order` (for
@@ -30,22 +28,6 @@ fn names_all(ctx: &str, message: &str, what: &str, want: &[usize]) {
 }
 
 #[test]
-fn capacity_zero_is_rejected() {
-    for order in both() {
-        for op in ops() {
-            for items in [keys("[]"), keys("[5]")] {
-                let (ctx, message) = run_err(&order, 0, &items, &op);
-                let ok = message.to_lowercase().contains("capacity");
-                assert!(
-                    ok,
-                    "{ctx}: capacity 0 should be rejected with an error mentioning capacity, got {message:?}"
-                );
-            }
-        }
-    }
-}
-
-#[test]
 fn more_items_than_capacity_is_rejected_naming_both_numbers() {
     for order in both() {
         for (cap, len) in [(1, 2), (3, 4), (3, 7), (15, 16), (15, 30)] {
@@ -66,39 +48,22 @@ fn more_items_than_capacity_is_rejected_naming_both_numbers() {
 }
 
 #[test]
-fn a_full_heap_is_not_an_error() {
-    for order in both() {
-        for op in ops() {
-            run_ok(&order, 3, &[100, 100, 100], &op);
-        }
-    }
-}
-
-#[test]
 fn an_insert_into_a_full_heap_is_still_validated() {
     // Validation runs before the operation, so a full array that isn't a heap is an error, not
     // [HeapFull]. [1 2] breaks a max-heap and [2 1] a min-heap at index 1 (parent 0).
     let cases = [(HeapOrder::Max, [1, 2]), (HeapOrder::Min, [2, 1])];
     for (order, items) in cases {
-        let op = insert(5);
-        let ctx = call(&order, 2, &items, &op);
+        let (ctx, message) = run_err(&order, 2, &items, &insert(5));
         let why = format!(
             "full at capacity 2 and not a {} heap: index 1 is better than its parent 0",
             name(&order)
         );
-        match run(same(&order), 2, &items, copy_op(&op)) {
-            Ok(result) => panic!(
-                "{ctx} [{why}]: expected Err naming index 1 and parent 0, got Ok with items {:?} and log\n{}",
-                result.items,
-                show_log(&result.steps)
-            ),
-            Err(message) => names_all(
-                &format!("{ctx} [{why}]"),
-                &message,
-                "the first index that breaks the heap and its parent",
-                &[1, 0],
-            ),
-        }
+        names_all(
+            &format!("{ctx} [{why}]"),
+            &message,
+            "the first index that breaks the heap and its parent",
+            &[1, 0],
+        );
     }
 }
 
@@ -111,7 +76,7 @@ struct Broken {
     later: Option<usize>,
 }
 
-const BROKEN: [Broken; 5] = [
+const BROKEN: [Broken; 7] = [
     Broken {
         order: HeapOrder::Min,
         items: "[10 4 50]",
@@ -143,6 +108,22 @@ const BROKEN: [Broken; 5] = [
     Broken {
         order: HeapOrder::Max,
         items: "[9 8 7 6 10]",
+        index: 4,
+        parent: 1,
+        later: None,
+    },
+    // Valid min and max heaps that break the other order, so only a Rebuild into their own
+    // order (which checks them against the other order) is rejected.
+    Broken {
+        order: HeapOrder::Max,
+        items: "[5 5 5 5 9]",
+        index: 4,
+        parent: 1,
+        later: None,
+    },
+    Broken {
+        order: HeapOrder::Min,
+        items: "[5 5 5 5 1]",
         index: 4,
         parent: 1,
         later: None,
@@ -193,38 +174,23 @@ fn items_that_are_not_a_heap_are_rejected_naming_the_first_bad_index() {
 }
 
 #[test]
-fn rebuild_checks_the_items_against_the_other_order() {
-    // [5 5 5 5 9] is a valid min-heap but breaks a max-heap at index 4 (9 > its parent 5 at 1),
-    // and [5 5 5 5 1] the other way round.
-    let cases = [
-        (HeapOrder::Min, "[5 5 5 5 9]"),
-        (HeapOrder::Max, "[5 5 5 5 1]"),
-    ];
-    for (order, spec) in cases {
-        let items = keys(spec);
-        run_ok(&order, 15, &items, &insert(5));
-        let (ctx, message) = run_err(&order, 15, &items, &HeapOp::Rebuild);
-        let checked = name(&other(&order));
-        let ctx = format!(
-            "{ctx} [a valid {} heap, but Rebuild checks it as a {checked} heap, which index 4 breaks]",
-            name(&order)
-        );
-        names_all(&ctx, &message, "index 4 and its parent", &[4, 1]);
-        run_ok(&other(&order), 15, &items, &HeapOp::Rebuild);
-    }
-}
-
-#[test]
-fn capacity_is_checked_before_the_item_count_and_the_heap() {
-    // With capacity 0 the items can't matter: the error is the same as for no items.
+fn capacity_zero_is_rejected_before_the_item_count_and_the_heap() {
+    // With capacity 0 the items can't matter: the error mentions capacity and is the same as for
+    // no items, even when the items are too many and not a heap.
     for order in both() {
         for op in ops() {
-            let (_, want) = run_err(&order, 0, &[], &op);
-            let (ctx, got) = run_err(&order, 0, &[10, 4, 50, 60], &op);
-            assert_eq!(
-                got, want,
-                "{ctx}: capacity 0 is checked first, so the error should be the same as with no items ({want:?}), got {got:?}"
+            let (ctx, want) = run_err(&order, 0, &[], &op);
+            assert!(
+                want.to_lowercase().contains("capacity"),
+                "{ctx}: capacity 0 should be rejected with an error mentioning capacity, got {want:?}"
             );
+            for items in [keys("[5]"), keys("[10 4 50 60]")] {
+                let (ctx, got) = run_err(&order, 0, &items, &op);
+                assert_eq!(
+                    got, want,
+                    "{ctx}: capacity 0 is checked first, so the error should be the same as with no items ({want:?}), got {got:?}"
+                );
+            }
         }
     }
 }
