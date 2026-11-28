@@ -103,7 +103,7 @@ nothing else depends on the layout.
 **Done when** every behaviour in the heap visualiser's Vitest suite passes, and
 screenshots from the test harness have been looked at.
 
-**Status:** not started.
+**Status:** in progress. 2a (#111) done.
 
 ### 3. It's in the app
 
@@ -360,6 +360,8 @@ Agreed on 28 November 2026:
   its order loads by inserting them in order too.
 
 ### 2a. Share encoding and order state
+
+**Done in #111.**
 
 Pure TypeScript: encoding and decoding the order and the array, and keeping the
 order through `snapshotState`/`restoreState` so a re-theme mid-run redraws the
