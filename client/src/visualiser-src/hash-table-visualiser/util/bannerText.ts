@@ -1,11 +1,7 @@
-import type { HashOp, HashSlot, HashStep } from '@/Services/challenges/challenges';
+import type { HashSlot, HashStep } from '@/Services/challenges/challenges';
 import { HASH_TABLE_CAPACITY } from './shareEncoding';
 
 const SEPARATOR = ' · ';
-
-/** The banner shown before an operation runs, and on a table drawn without one. */
-export const idleBanner = (op?: HashOp): string =>
-  op ? `${op.kind}(${op.key})` : `h(key) = key % ${HASH_TABLE_CAPACITY}`;
 
 const describeSlot = (slot: HashSlot, index: number): string => {
   if (slot.kind === 'empty') return `slot ${index} is empty`;

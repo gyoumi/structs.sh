@@ -26,7 +26,7 @@
   --code-title: var(--muted);
   --code-text: var(--muted);
   --code-number: var(--faint);
-  --code-current-number: var(--faint);
+  --code-current-number: #23225e;
   --narration: var(--ground);
 
   display: grid;
@@ -162,5 +162,11 @@
 
     height: 42svh;
     min-height: 280px;
+  }
+
+  .hashStage {
+    --zoom-column-height: 154;
+    --fit-inset-top: var(--zoom-column-height);
+    --fit-inset-right: 0;
   }
 }

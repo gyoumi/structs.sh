@@ -21,7 +21,9 @@ const CopyLink = ({ topic }: { topic: Topic }) => {
     // Outside a secure context there is no clipboard, and touching it throws before any promise exists.
     Promise.resolve()
       .then(() =>
-        navigator.clipboard.writeText(shareLink(topic.slug, session.data, window.location.origin))
+        navigator.clipboard.writeText(
+          shareLink(topic.slug, session.state ?? session.data, window.location.origin)
+        )
       )
       .then(() => setState('copied'))
       .catch(() => setState('failed'));

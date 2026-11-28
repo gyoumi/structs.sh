@@ -40,6 +40,8 @@ export interface RunnerInfo {
   bounds?: DrawingBounds | null;
   /** The part of the drawing this step works on, so a stage too small for all of it can keep it in view. */
   focus?: DrawingBounds | null;
+  /** Short human-readable status line for this step, if the producer keeps one. */
+  status?: string | null;
 }
 export default abstract class AnimationProducer {
   private _allRunners: RunnerInfo[] = [];
@@ -84,6 +86,11 @@ export default abstract class AnimationProducer {
 
   /** The part of the drawing the step works on, such as the node a pointer moves to. */
   protected get stepFocus(): DrawingBounds | null | undefined {
+    return undefined;
+  }
+
+  /** Short status line for the active step, shown by screen-scale overlays such as on phone. */
+  protected get stepStatus(): string | null | undefined {
     return undefined;
   }
 
@@ -226,6 +233,7 @@ export default abstract class AnimationProducer {
         trace: this.stepTrace,
         bounds: this.stepBounds,
         focus: this.stepFocus,
+        status: this.stepStatus,
       });
     }
 

@@ -66,18 +66,24 @@ export class VisualiserSession {
     return this.controller.data;
   }
 
+  get state(): unknown {
+    return this.controller.snapshotState();
+  }
+
   attach(
     topicTitle: string,
     canvasTheme: Partial<CanvasTheme>,
     data?: number[],
     getInitialData?: InitialDataSource,
-    immediate = false
+    immediate = false,
+    initialState?: unknown
   ): void {
     setCanvasTheme(canvasTheme);
     this.getInitialData = getInitialData;
     this.draw(() => {
       this.controller.applyTopicTitle(topicTitle);
-      if (data) this.controller.loadData(data);
+      if (initialState !== undefined) this.controller.restoreState(initialState);
+      else if (data) this.controller.loadData(data);
       else this.loadInitialValues(topicTitle);
       if (immediate) finishDrawing(this.target);
     });

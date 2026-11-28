@@ -6,6 +6,7 @@ import { DailyStackPage } from './daily-stack';
 import { DailyStageView } from './daily-stage-view';
 import { DailyTemplatePage } from './daily-template-page';
 import { DebuggerPage } from './debugger-page';
+import { HashTablePage } from './hash-table-page';
 import { LandingPage } from './landing-page';
 import { DetailedVisualiserPage } from './visualiser-details';
 
@@ -37,6 +38,7 @@ export const test = base.extend<{
   dailyStage: DailyStageView;
   dailyTemplate: DailyTemplatePage;
   debuggerPage: DebuggerPage;
+  hashTable: HashTablePage;
   landingPage: LandingPage;
   visualiser: DetailedVisualiserPage;
   knownFailure: void;
@@ -66,6 +68,9 @@ export const test = base.extend<{
   },
   debuggerPage: async ({ page }, use) => {
     await use(new DebuggerPage(page));
+  },
+  hashTable: async ({ page }, use) => {
+    await use(new HashTablePage(page));
   },
   landingPage: async ({ page }, use) => {
     await use(new LandingPage(page));

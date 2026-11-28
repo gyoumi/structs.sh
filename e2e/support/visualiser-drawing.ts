@@ -22,6 +22,8 @@ export const readDrawnTexts = (texts: Locator): Promise<DrawnNode[]> =>
   texts.evaluateAll((texts) =>
     texts
       .filter((text) => /^-?\d+$/.test(text.textContent?.trim() ?? ''))
+      // A hash table's bucket numbers 0..10 label the slots; they are not stored values.
+      .filter((text) => !text.closest('[data-hash-index]'))
       .filter((text) => {
         // The engine hides removed nodes with opacity="0" rather than deleting them.
         for (let el: Element | null = text; el; el = el.parentElement) {
@@ -46,6 +48,8 @@ export const readSvgDrawnTexts = (svg: Locator): Promise<DrawnNode[]> =>
     const toSvg = svgEl.getScreenCTM()?.inverse();
     return Array.from(svgEl.querySelectorAll('text'))
       .filter((text) => /^-?\d+$/.test(text.textContent?.trim() ?? ''))
+      // A hash table's bucket numbers 0..10 label the slots; they are not stored values.
+      .filter((text) => !text.closest('[data-hash-index]'))
       .filter((text) => {
         for (let el: Element | null = text; el; el = el.parentElement) {
           const style = getComputedStyle(el);

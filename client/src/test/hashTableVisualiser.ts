@@ -137,19 +137,9 @@ export const slotLook = (index: number) => ({
   dashed: isDashed(index),
 });
 
-/** The text of the shown `<text>` elements in the banner, joined by spaces. */
-export const bannerText = () => {
-  const banner = canvasElement().querySelector('[data-hash-banner]');
-  if (!banner) return '<no [data-hash-banner]>';
-  const texts = banner.tagName.toLowerCase() === 'text' ? [banner] : [];
-  texts.push(...Array.from(banner.querySelectorAll('text')));
-  return texts
-    .filter(isShown)
-    .map((el) => el.textContent ?? '')
-    .join(' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-};
+/** The step status recorded on `controller`'s timeline at its current playhead time. */
+export const bannerText = (controller: VisualiserController) =>
+  controller.track.statusAt(controller.time) ?? '';
 
 export const wrapShown = () => isShown(canvasElement().querySelector('[data-hash-wrap]'));
 
@@ -289,7 +279,7 @@ export const stopProblems = (controller: VisualiserController, steps: readonly H
     const statement = line === null ? '<no line>' : (codeLines[line - 1] ?? '<past the end>');
     const wantStatement = statementFor(step, isInsert);
     const lit = highlightedSlots();
-    const banner = bannerText();
+    const banner = bannerText(controller);
     const wrapWanted = wrapAt.includes(i);
     const wrapSeen = wrapShown() || /wrap/i.test(banner);
     const wrapFull = wrapShown() && WRAP_CUE.test(banner);

@@ -11,7 +11,7 @@ import { useShortcut } from '@ui-sdk/react/shortcuts';
 import { CanvasTarget, DEFAULT_CANVAS_TARGET } from '@/visualiser-src/common/canvasTarget';
 import { CanvasTheme } from '@/visualiser-src/common/canvasTheme';
 import { InitialDataSource, VisualiserSession, VisualiserSnapshot } from './session';
-import { Topic } from './topics';
+import { SharedInitial, Topic } from './topics';
 
 export const SessionContext = createContext<VisualiserSession | null>(null);
 
@@ -26,21 +26,34 @@ export function useSnapshot<T>(selector: (snapshot: VisualiserSnapshot) => T): T
   return useSyncExternalStore(session.subscribe, () => selector(session.getSnapshot()));
 }
 
+const initialKey = (initial: SharedInitial | undefined): string => {
+  if (initial === undefined) return 'random';
+  if (Array.isArray(initial)) return `data:${initial.join(',')}`;
+  return `state:${JSON.stringify(initial.state)}`;
+};
+
 export const useCreateSession = (
   topic: Topic,
   canvasTheme: Partial<CanvasTheme>,
-  data?: number[],
+  initial?: SharedInitial,
   getInitialData?: InitialDataSource,
   immediate = false,
   target: CanvasTarget = DEFAULT_CANVAS_TARGET
 ): VisualiserSession => {
   const [session] = useState(() => new VisualiserSession(target));
-  const dataKey = data ? `data:${data.join(',')}` : 'random';
+  const dataKey = initialKey(initial);
   const drawnTheme = useRef(canvasTheme);
 
   const attach = useEffectEvent(() => {
     drawnTheme.current = canvasTheme;
-    session.attach(topic.title, canvasTheme, data, getInitialData, immediate);
+    session.attach(
+      topic.title,
+      canvasTheme,
+      Array.isArray(initial) ? initial : undefined,
+      getInitialData,
+      immediate,
+      initial && !Array.isArray(initial) ? initial.state : undefined
+    );
   });
 
   useEffect(() => attach(), [session, topic.title, dataKey]);

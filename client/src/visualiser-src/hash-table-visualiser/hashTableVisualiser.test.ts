@@ -8,7 +8,6 @@ import {
   K,
   T,
   allShownValues,
-  bannerText,
   canvasMarkup,
   expectedValues,
   isDashed,
@@ -266,24 +265,16 @@ describe('GraphicalHashTable static drawing', () => {
     });
   });
 
-  it('puts the banner above the bucket row and hides the wrap cue when idle', () => {
+  it('keeps the canvas free of operation banners and hides the wrap cue when idle', () => {
     new GraphicalHashTable().load([1, 12]);
-    const banner = document.querySelector('[data-hash-banner]');
     expect(
-      isShown(banner),
-      'load([1, 12]): a shown [data-hash-banner] should be in the canvas'
-    ).toBe(true);
-    const slotY = positionOf(slotElement(0) as Element).y;
-    const bannerY = positionOf(banner as Element).y;
-    expect(
-      bannerY < slotY,
-      `banner y (${bannerY}) should be above the bucket row y (${slotY})`
-    ).toBe(true);
+      document.querySelector('[data-hash-banner]'),
+      'load([1, 12]): operation status belongs in CodePanel, not on the SVG canvas'
+    ).toBeNull();
     expect(
       wrapShown(),
       'load([1, 12]): [data-hash-wrap] should be absent or hidden before any probe'
     ).toBe(false);
-    expect(typeof bannerText(), 'banner text readable').toBe('string');
   });
 
   it.each([

@@ -110,7 +110,7 @@ export class StagePlayback {
 }
 
 /**
- * Opens `/visualiser/<topic>/<data>` in a new browser context whose system colour scheme is `theme`, 1440 wide
+ * Opens `/visualiser/<topic>/<data>` (values, or a raw link segment) in a new browser context whose system colour scheme is `theme`, 1440 wide
  * with nothing saved, plays `play` there and returns the settled stage view: what the stage looks like when
  * the page is freshly loaded in that theme.
  */
@@ -118,7 +118,7 @@ export async function viewVisualiserInFreshPage(
   browser: Browser,
   theme: Theme,
   topic: TopicSlug,
-  data: number[],
+  data: number[] | string,
   play: (visualiser: VisualiserPage) => Promise<void>,
   context: string,
 ): Promise<StageView> {

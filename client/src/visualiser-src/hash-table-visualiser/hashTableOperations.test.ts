@@ -33,6 +33,7 @@ import {
 } from '@/test/hashTableVisualiser';
 import HashTableAnimationProducer from './animation-producer/HashTableAnimationProducer';
 import GraphicalHashTable from './data-structure/GraphicalHashTable';
+import { FADE_MS } from './util/layout';
 import { deleteCodeSnippet, insertCodeSnippet, searchCodeSnippet } from './util/codeSnippets';
 
 /** GraphicalHashTable operations played through VisualiserController. Needs `pnpm run challenges` first. */
@@ -240,6 +241,11 @@ describe.each(CASES)('$label', (c) => {
       stepTimes.length >= wasm.steps.length,
       `${name}: ${stepTimes.length} stepTimes, want at least ${wasm.steps.length} (one per wasm step)`
     ).toBe(true);
+    const gaps = stepTimes.map((t, i) => t - (stepTimes[i - 1] ?? 0));
+    expect(
+      gaps.every((gap) => gap >= FADE_MS),
+      `${name}: every step should last at least ${FADE_MS}ms during playback; gaps were ${show(gaps)}`
+    ).toBe(true);
     const counts = [0, ...stepTimes].map((t) => controller.counterAt(t));
     expect(counts[0], `${name}: counterAt(0) before any probe`).toBe(0);
     expect(
@@ -282,7 +288,7 @@ describe.each(CASES)('$label', (c) => {
       if (slot.kind === 'tombstone')
         expect(isDashed(i), `${name}: after finish() tombstone slot ${i} dashed`).toBe(true);
     });
-    const banner = bannerText();
+    const banner = bannerText(controller);
     const formula = `${c.op.key} % 11`;
     expect(
       banner.includes(formula),
