@@ -85,7 +85,7 @@ that change goes to the hash table thread before more is built on it.
 `challenges.heap.test.ts` passes, with `cargo clippy` clean for
 `wasm32-unknown-unknown`.
 
-**Status:** 1a done (#108), 1b done (#109). 1c to go.
+**Status:** done. 1a (#108), 1b (#109) and the tidy 1c (#110).
 
 ### 2. It plays
 
@@ -318,6 +318,10 @@ in `tests/common/`, to stay under the 500-line limit for test files:
 `heap`.
 
 ### 1c. Tidy
+
+**Done in #110.** Doc comments that only repeated a name are gone,
+`push` is `push_and_sift_up`, and 63 heap tests became 57 with the same
+coverage of `heap.rs`.
 
 Run the tidy rules over checkpoint 1's files. Open a PR into `heap` if
 anything changes. Otherwise record it here as done with no PR.
