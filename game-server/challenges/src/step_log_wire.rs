@@ -1,6 +1,7 @@
 //! Running a step log request for [`crate::wire`].
 
 use crate::hash_table::{self, HashOp, HashSlot};
+use crate::heap::{self, HeapOp, HeapOrder};
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
@@ -16,6 +17,13 @@ enum StepLogRequest {
         slots: Value,
         op: Value,
     },
+    #[serde(rename = "binary-heap")]
+    BinaryHeap {
+        order: Value,
+        capacity: Value,
+        items: Value,
+        op: Value,
+    },
 }
 
 /// Decodes `request`, runs its algorithm, and returns the step log as JSON,
@@ -27,17 +35,31 @@ pub fn step_log_request(request: &[u8]) -> Result<String, String> {
     if !request.is_object() {
         return Err("The step log request has to be a JSON object.".to_owned());
     }
-    let StepLogRequest::HashTableLinear {
-        capacity,
-        slots,
-        op,
-    } = serde_json::from_value(request).map_err(unreadable)?;
-    let capacity: usize = field("capacity", capacity)?;
-    let slots: Vec<HashSlot> = field("slots", slots)?;
-    let op: HashOp = field("op", op)?;
-    let result = hash_table::run(capacity, &slots, op)?;
-    serde_json::to_string(&result)
-        .map_err(|error| format!("The step log reply could not be written: {error}."))
+    let reply = match serde_json::from_value(request).map_err(unreadable)? {
+        StepLogRequest::HashTableLinear {
+            capacity,
+            slots,
+            op,
+        } => {
+            let capacity: usize = field("capacity", capacity)?;
+            let slots: Vec<HashSlot> = field("slots", slots)?;
+            let op: HashOp = field("op", op)?;
+            serde_json::to_string(&hash_table::run(capacity, &slots, op)?)
+        }
+        StepLogRequest::BinaryHeap {
+            order,
+            capacity,
+            items,
+            op,
+        } => {
+            let order: HeapOrder = field("order", order)?;
+            let capacity: usize = field("capacity", capacity)?;
+            let items: Vec<i32> = field("items", items)?;
+            let op: HeapOp = field("op", op)?;
+            serde_json::to_string(&heap::run(order, capacity, &items, op)?)
+        }
+    };
+    reply.map_err(|error| format!("The step log reply could not be written: {error}."))
 }
 
 fn unreadable(error: serde_json::Error) -> String {

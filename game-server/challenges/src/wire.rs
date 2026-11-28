@@ -31,7 +31,11 @@
 //! `{"algorithm": "hash-table-linear", "capacity": 11, "slots": [{"kind": "empty"}, ..],
 //! "op": {"kind": "insert", "key": 23}}`, and its reply is the
 //! [`HashRunResult`](crate::hash_table::HashRunResult) as JSON:
-//! `{"slots": [..], "steps": [..], "probes": 1}`.
+//! `{"slots": [..], "steps": [..], "probes": 1}`. A `binary-heap` request is
+//! `{"algorithm": "binary-heap", "order": "max", "capacity": 15, "items": [..],
+//! "op": {"kind": "insert", "key": 8}}`, and its reply is the
+//! [`HeapRunResult`](crate::heap::HeapRunResult) as JSON:
+//! `{"items": [..], "steps": [..], "comparisons": 2, "swaps": 1, "popped": null}`.
 
 use crate::avl_rotations::{self, AvlRotations};
 use crate::bst_forced_order::{self, BstForcedOrder};

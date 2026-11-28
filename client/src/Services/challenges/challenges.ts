@@ -1,6 +1,8 @@
 import type { HashRunResult, HashTableRequest } from './hashTableTypes';
+import type { HeapRequest, HeapRunResult } from './heapTypes';
 
 export type { HashOp, HashRunResult, HashSlot, HashStep, HashTableRequest } from './hashTableTypes';
+export type { HeapOp, HeapOrder, HeapRequest, HeapRunResult, HeapStep } from './heapTypes';
 
 const CHALLENGES_URL = new URL('./generated/challenges.wasm', import.meta.url);
 
@@ -74,18 +76,34 @@ const requestReply = async (request: object): Promise<unknown> => {
   return callWasm(challenges, 'score', request);
 };
 
-/** Runs `request.op` on the linear-probing hash table in the wasm build and returns the table and step log. Throws if `loadChallenges()` has not resolved yet. */
-export const runHashTableStepLog = (request: HashTableRequest): HashRunResult => {
+const loaded = (): ChallengesExports => {
   if (!loadedChallenges) {
     throw new Error('Challenges wasm is not loaded yet; await loadChallenges() first.');
   }
+  return loadedChallenges;
+};
+
+/** Runs `request.op` on the linear-probing hash table in the wasm build and returns the table and step log. Throws if `loadChallenges()` has not resolved yet. */
+export const runHashTableStepLog = (request: HashTableRequest): HashRunResult => {
   const { capacity, slots, op } = request;
-  return callWasm(loadedChallenges, 'step_log', {
+  return callWasm(loaded(), 'step_log', {
     algorithm: 'hash-table-linear',
     capacity,
     slots,
     op,
   }) as HashRunResult;
+};
+
+/** Runs `request.op` on the binary heap in the wasm build and returns the heap and step log. Throws if `loadChallenges()` has not resolved yet. */
+export const runHeapStepLog = (request: HeapRequest): HeapRunResult => {
+  const { order, capacity, items, op } = request;
+  return callWasm(loaded(), 'step_log', {
+    algorithm: 'binary-heap',
+    order,
+    capacity,
+    items,
+    op,
+  }) as HeapRunResult;
 };
 
 const MULTI_OUTCOME_TEMPLATES = new Set([
