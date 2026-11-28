@@ -27,7 +27,7 @@ export type HeapStep =
   | { kind: 'heapFull'; key: number }
   | { kind: 'rebuilt'; order: HeapOrder };
 
-/** A heap of `order` with room for `capacity` keys holding `items`, and the operation to run on it. */
+/** Room for `capacity` keys holding `items` (a heap of `order`, or of the other order for a rebuild into `order`), and the operation to run. */
 export type HeapRequest = { order: HeapOrder; capacity: number; items: number[]; op: HeapOp };
 
 /** The heap and step log after one operation. */

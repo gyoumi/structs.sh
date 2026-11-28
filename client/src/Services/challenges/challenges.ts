@@ -85,8 +85,9 @@ const loaded = (): ChallengesExports => {
 
 /** Runs `request.op` on the linear-probing hash table in the wasm build and returns the table and step log. Throws if `loadChallenges()` has not resolved yet. */
 export const runHashTableStepLog = (request: HashTableRequest): HashRunResult => {
+  const challenges = loaded();
   const { capacity, slots, op } = request;
-  return callWasm(loaded(), 'step_log', {
+  return callWasm(challenges, 'step_log', {
     algorithm: 'hash-table-linear',
     capacity,
     slots,
@@ -96,8 +97,9 @@ export const runHashTableStepLog = (request: HashTableRequest): HashRunResult =>
 
 /** Runs `request.op` on the binary heap in the wasm build and returns the heap and step log. Throws if `loadChallenges()` has not resolved yet. */
 export const runHeapStepLog = (request: HeapRequest): HeapRunResult => {
+  const challenges = loaded();
   const { order, capacity, items, op } = request;
-  return callWasm(loaded(), 'step_log', {
+  return callWasm(challenges, 'step_log', {
     algorithm: 'binary-heap',
     order,
     capacity,

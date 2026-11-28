@@ -356,6 +356,8 @@ describe('runHeapStepLog — binary-heap through the wasm build', () => {
         ['items', [2147483648], 'an item past i32 max'],
         ['op', 'insert 8', 'an op that is a string'],
         ['op', { kind: 'insert' }, 'an insert with no key'],
+        ['op', { kind: 'insert', key: '8' }, 'an insert whose key is a string'],
+        ['op', { kind: 'insert', key: 2147483648 }, 'an insert whose key is past i32 max'],
         ['op', { kind: 'push', key: 8 }, 'an unknown op kind'],
         ['op', { kind: 'insert', key: 8, extra: 1 }, 'an insert with an unknown field extra'],
       ] as const

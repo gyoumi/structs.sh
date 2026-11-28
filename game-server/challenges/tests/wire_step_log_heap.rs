@@ -110,14 +110,21 @@ fn assert_rejected(request: &Value, needles: &[&str], behaviour: &str) -> String
     message
 }
 
+/// Reads `field` of the test's own request as a `T`, to call `heap::run` directly.
+fn decode<T: serde::de::DeserializeOwned>(request: &Value, field: &str) -> T {
+    let value = &request[field];
+    serde_json::from_value(value.clone()).unwrap_or_else(|error| {
+        panic!("test fixture broken: `{field}` {value} of request {request} should decode as {}: {error}", std::any::type_name::<T>())
+    })
+}
+
 /// Must fail with exactly the message `heap::run` gives for the request's fields.
 fn assert_run_error_unchanged(request: &Value, needles: &[&str], behaviour: &str) {
     let message = assert_rejected(request, needles, behaviour);
-    let read = |field: &str| request[field].clone();
-    let order: HeapOrder = serde_json::from_value(read("order")).expect("test order");
-    let capacity: usize = serde_json::from_value(read("capacity")).expect("test capacity");
-    let items: Vec<i32> = serde_json::from_value(read("items")).expect("test items");
-    let op: HeapOp = serde_json::from_value(read("op")).expect("test op");
+    let order: HeapOrder = decode(request, "order");
+    let capacity: usize = decode(request, "capacity");
+    let items: Vec<i32> = decode(request, "items");
+    let op: HeapOp = decode(request, "op");
     let direct = heap::run(order, capacity, &items, op);
     assert_eq!(
         Err(message.clone()),
@@ -406,6 +413,12 @@ fn rejects_wrong_typed_fields_naming_the_field() {
         ("items", json!([2_147_483_648_i64]), "an item past i32::MAX"),
         ("op", json!("insert 8"), "an op that is a string"),
         ("op", json!({"kind": "insert"}), "an insert with no key"),
+        ("op", json!({"kind": "insert", "key": "8"}), "a string key"),
+        (
+            "op",
+            json!({"kind": "insert", "key": 2_147_483_648_i64}),
+            "a key past i32::MAX",
+        ),
         ("op", json!({"kind": "push", "key": 8}), "an unknown kind"),
         (
             "op",
