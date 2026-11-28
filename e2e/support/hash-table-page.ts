@@ -88,20 +88,16 @@ export class HashTablePage {
     });
   }
 
-  /** The banner line currently shown above the buckets (the most opaque one), or '' when none is drawn. */
+  /** The step status shown inside the Code panel's narration box, or '' when idle. */
   async banner(): Promise<string> {
-    const lines = await this.page.locator('#visualiser-canvas [data-hash-banner] text').evaluateAll((texts) =>
-      texts.map((text) => ({ text: (text.textContent ?? '').trim(), opacity: Number(getComputedStyle(text).opacity) })),
-    );
-    const shown = lines.filter((line) => line.opacity >= 0.5);
-    return shown.length > 0 ? shown[shown.length - 1].text : '';
+    const status = this.page.locator('[data-step-status]');
+    if ((await status.count()) === 0) return '';
+    return ((await status.first().textContent()) ?? '').trim();
   }
 
-  /** The screen-sized status pill shown on narrow phone viewports, or '' when absent. */
-  async phoneBanner(): Promise<string> {
-    const pill = this.page.locator('[data-hash-phone-banner]');
-    if ((await pill.count()) === 0) return '';
-    return ((await pill.first().textContent()) ?? '').trim();
+  /** Number of operation status banners drawn on the SVG canvas or stage overlay (should stay 0). */
+  async canvasBannerCount(): Promise<number> {
+    return this.page.locator('#visualiser-canvas [data-hash-banner], [data-hash-phone-banner]').count();
   }
 
   /** Whether the 10 → 0 wrap-around arc is visible. */

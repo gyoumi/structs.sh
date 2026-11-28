@@ -1,9 +1,9 @@
 import type { Element } from '@svgdotjs/svg.js';
 import type { HashOp, HashSlot, HashStep } from '@/Services/challenges/challenges';
 import AnimationProducer, { DrawingBounds } from '@/visualiser-src/common/AnimationProducer';
-import { HashTableView, addBannerText, addValueText } from '../data-structure/HashTableCanvas';
+import { HashTableView, addValueText } from '../data-structure/HashTableCanvas';
 import { isWrapProbe, stepBanner } from '../util/bannerText';
-import { FADE_MS, bannerBounds, slotBounds, tableBounds } from '../util/layout';
+import { FADE_MS, slotBounds, tableBounds } from '../util/layout';
 import { lineForStep, snippetFor } from '../util/stepLines';
 
 const stepSlotIndex = (step: HashStep): number | null => {
@@ -25,7 +25,7 @@ export default class HashTableAnimationProducer extends AnimationProducer {
 
   private lastProbed: HashSlot | null = null;
 
-  private focusBox: DrawingBounds = bannerBounds();
+  private focusBox: DrawingBounds = tableBounds();
 
   private currentStatus: string | null = null;
 
@@ -61,16 +61,14 @@ export default class HashTableAnimationProducer extends AnimationProducer {
   private playStep(step: HashStep): void {
     if (step.kind === 'computeHash') this.start = step.index;
     if (step.kind === 'probe') this.probes = step.probeNumber;
-    const banner = stepBanner(this.op.key, this.start, this.probes, step);
-    this.currentStatus = banner;
+    this.currentStatus = stepBanner(this.op.key, this.start, this.probes, step);
     this.highlightCode(lineForStep(this.op.kind, step, this.lastProbed));
-    this.showBanner(banner);
     this.showWrap(isWrapProbe(step));
     const index = stepSlotIndex(step);
     this.moveHighlight(index);
     this.changeSlot(step);
     if (step.kind === 'probe') this.lastProbed = step.slot;
-    this.focusBox = index === null ? bannerBounds() : slotBounds(index);
+    this.focusBox = index === null ? tableBounds() : slotBounds(index);
     this.finishSequence(true);
   }
 
@@ -80,13 +78,6 @@ export default class HashTableAnimationProducer extends AnimationProducer {
 
   private hideImmediate(element: Element): void {
     this.addSequenceAnimation(element.animate(1).attr({ opacity: 0 }));
-  }
-
-  private showBanner(content: string): void {
-    const next = addBannerText(this.view.banner, content);
-    this.hideImmediate(this.view.bannerText);
-    this.fade(next, 1);
-    this.view.bannerText = next;
   }
 
   private showWrap(shown: boolean): void {

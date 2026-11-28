@@ -3,12 +3,9 @@ import type { HashSlot } from '@/Services/challenges/challenges';
 import { canvasTheme } from '@/visualiser-src/common/canvasTheme';
 import { getCanvasTarget } from '@/visualiser-src/common/canvasTarget';
 import {
-  BANNER_FONT_SIZE,
-  BANNER_Y,
   HIGHLIGHT_INSET,
   INDEX_FONT_SIZE,
   INDEX_Y,
-  ROW_CENTRE_X,
   ROW_Y,
   SLOT_SIZE,
   TOMBSTONE_DASH,
@@ -29,11 +26,9 @@ export interface SlotView {
   value: Text;
 }
 
-/** The drawn table: buckets, banner and wrap cue. */
+/** The drawn table: buckets and wrap cue. */
 export interface HashTableView {
   slots: SlotView[];
-  banner: G;
-  bannerText: Text;
   wrap: G;
 }
 
@@ -64,10 +59,6 @@ export const addValueText = (group: G, index: number, slot: HashSlot): Text => {
     .opacity(0);
   return isTombstone ? text.attr('fill-opacity', 0.75) : text;
 };
-
-/** Adds a hidden banner line, for an animation to fade in. */
-export const addBannerText = (banner: G, content: string): Text =>
-  centredText(banner, content, ROW_CENTRE_X, BANNER_Y, BANNER_FONT_SIZE).opacity(0);
 
 const border = (group: G, index: number): Rect =>
   group
@@ -111,12 +102,10 @@ const drawWrap = (canvas: Svg): G => {
   return wrap;
 };
 
-/** Clears the canvas and draws `slots` as a still table with `banner` above it. */
-export const drawHashTable = (slots: readonly HashSlot[], banner: string): HashTableView => {
+/** Clears the canvas and draws `slots` as a still table. */
+export const drawHashTable = (slots: readonly HashSlot[]): HashTableView => {
   const canvas = SVG(getCanvasTarget().canvas) as Svg;
   canvas.clear();
   const slotViews = slots.map((slot, index) => drawSlot(canvas, slot, index));
-  const bannerGroup = canvas.group().attr('data-hash-banner', '');
-  const bannerText = addBannerText(bannerGroup, banner).opacity(1);
-  return { slots: slotViews, banner: bannerGroup, bannerText, wrap: drawWrap(canvas) };
+  return { slots: slotViews, wrap: drawWrap(canvas) };
 };

@@ -282,7 +282,7 @@ describe.each(CASES)('$label', (c) => {
       if (slot.kind === 'tombstone')
         expect(isDashed(i), `${name}: after finish() tombstone slot ${i} dashed`).toBe(true);
     });
-    const banner = bannerText();
+    const banner = bannerText(controller);
     const formula = `${c.op.key} % 11`;
     expect(
       banner.includes(formula),

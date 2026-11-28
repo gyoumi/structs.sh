@@ -4,7 +4,6 @@ import GraphicalDataStructure from '@/visualiser-src/common/GraphicalDataStructu
 import { injectIds } from '@/visualiser-src/common/helpers';
 import { Documentation } from '@/visualiser-src/common/typedefs';
 import HashTableAnimationProducer from '../animation-producer/HashTableAnimationProducer';
-import { idleBanner } from '../util/bannerText';
 import { generateCollidingKeys } from '../util/generateKeys';
 import { HASH_TABLE_CAPACITY } from '../util/shareEncoding';
 import { drawHashTable } from './HashTableCanvas';
@@ -47,7 +46,7 @@ export default class GraphicalHashTable extends GraphicalDataStructure {
 
   public constructor() {
     super();
-    drawHashTable(this._slots, idleBanner());
+    drawHashTable(this._slots);
   }
 
   public get documentation(): Documentation {
@@ -73,7 +72,7 @@ export default class GraphicalHashTable extends GraphicalDataStructure {
       }).slots;
     });
     this._slots = slots;
-    drawHashTable(this._slots, idleBanner());
+    drawHashTable(this._slots);
   }
 
   /** Draws exactly `slots`, keeping tombstones. */
@@ -82,7 +81,7 @@ export default class GraphicalHashTable extends GraphicalDataStructure {
       throw new Error(`A hash table has ${HASH_TABLE_CAPACITY} slots, got ${slots.length}.`);
     }
     this._slots = copySlots(slots);
-    drawHashTable(this._slots, idleBanner());
+    drawHashTable(this._slots);
   }
 
   public snapshotState(): HashSlot[] {
@@ -117,7 +116,7 @@ export default class GraphicalHashTable extends GraphicalDataStructure {
     const beforeSlots = this.slots;
     const result = runHashTableStepLog({ capacity: HASH_TABLE_CAPACITY, slots: beforeSlots, op });
     this._slots = copySlots(result.slots);
-    const producer = new HashTableAnimationProducer(drawHashTable(beforeSlots, idleBanner(op)), op);
+    const producer = new HashTableAnimationProducer(drawHashTable(beforeSlots), op);
     producer.playSteps(result.steps);
     return producer;
   }

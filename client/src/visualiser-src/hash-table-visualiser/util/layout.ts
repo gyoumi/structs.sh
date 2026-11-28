@@ -4,11 +4,9 @@ import { HASH_TABLE_CAPACITY } from './shareEncoding';
 export const SLOT_SIZE = 52;
 export const SLOT_GAP = 6;
 export const ORIGIN_X = 24;
-export const BANNER_Y = 28;
-export const ROW_Y = 64;
+export const ROW_Y = 24;
 export const INDEX_Y = ROW_Y + SLOT_SIZE + 18;
 export const WRAP_DEPTH = INDEX_Y + 42;
-export const BANNER_FONT_SIZE = 16;
 export const VALUE_FONT_SIZE = 23;
 export const TOMBSTONE_FONT_SIZE = 15;
 export const INDEX_FONT_SIZE = 16;
@@ -26,15 +24,12 @@ export const slotCentreX = (index: number): number => slotX(index) + SLOT_SIZE /
 
 const rowRight = slotX(HASH_TABLE_CAPACITY - 1) + SLOT_SIZE;
 
-/** The horizontal centre of the whole bucket row. */
-export const ROW_CENTRE_X = (ORIGIN_X + rowRight) / 2;
-
-/** Everything the table draws: banner, buckets, indexes and the wrap arc. */
+/** Everything the table draws: buckets, indexes and the wrap arc. */
 export const tableBounds = (): DrawingBounds => ({
   x: ORIGIN_X - PADDING,
-  y: BANNER_Y - BANNER_FONT_SIZE - PADDING,
+  y: ROW_Y - PADDING,
   width: rowRight - ORIGIN_X + 2 * PADDING,
-  height: WRAP_DEPTH - BANNER_Y + BANNER_FONT_SIZE + 2 * PADDING,
+  height: WRAP_DEPTH - ROW_Y + 2 * PADDING,
 });
 
 /** The bucket at `index` with its index label. */
@@ -43,14 +38,6 @@ export const slotBounds = (index: number): DrawingBounds => ({
   y: ROW_Y - PADDING,
   width: SLOT_SIZE + 2 * PADDING,
   height: INDEX_Y - ROW_Y + 2 * PADDING,
-});
-
-/** The banner line above the buckets. */
-export const bannerBounds = (): DrawingBounds => ({
-  x: ORIGIN_X - PADDING,
-  y: BANNER_Y - BANNER_FONT_SIZE - PADDING,
-  width: rowRight - ORIGIN_X + 2 * PADDING,
-  height: BANNER_FONT_SIZE + 2 * PADDING,
 });
 
 /** The arc from the bottom of bucket 10 back to the bottom of bucket 0. */

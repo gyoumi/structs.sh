@@ -8,19 +8,13 @@ import DataActions from './DataActions';
 import ZoomControls from './ZoomControls';
 import Transport from './Transport';
 import CodePanel from './CodePanel';
-import HashTablePhoneBanner from './HashTablePhoneBanner';
 import { TopicRoute, VisualiserProvider } from './VisualiserProvider';
 import { Topic } from './topics';
 import { canvasThemes } from './canvasThemes';
-import { useMediaQuery } from './useVisualiser';
 import styles from './Visualiser.module.css';
 
-const NARROW_STAGE = '(max-width: 560px)';
-
 const Workspace = ({ topic }: { topic: Topic }) => {
-  const narrow = useMediaQuery(NARROW_STAGE);
   const isHashTable = topic.slug === 'hash-tables';
-  const phoneHashTable = narrow && isHashTable;
 
   return (
     <div className={styles.main}>
@@ -34,7 +28,6 @@ const Workspace = ({ topic }: { topic: Topic }) => {
             <>
               <DataActions topic={topic} />
               <ZoomControls view={view} />
-              {phoneHashTable && <HashTablePhoneBanner />}
             </>
           )}
         </Stage>

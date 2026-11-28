@@ -105,8 +105,10 @@ agent writes the tests from this spec than writes the implementation.
 - **Wrap-around cue (`10 → 0`).** When probing wraps from slot `10` back to slot
   `0`, animate a wrap indicator/arc back to slot `0` alongside a `"wrap → 0"`
   cue in the banner so `% 11` wrap-around is unmistakable.
-- **Compact on-canvas banner above the buckets.** Shows the hash formula, live
-  probe count, and step status/outcome (for example:
+- **Step status in `CodePanel`'s narration card (off the canvas).** Keeps the
+  drawing canvas clean like the other visualisers (buckets, index labels, and
+  wrap arc only) while showing the hash formula, live probe count, and step
+  outcome inside `CodePanel`'s existing narration card (for example:
   `h(23) = 23 % 11 = 1 · Probes: 2 · Placed at slot 2`, or
   `Not found`, `Already present`, `Table is full`).
 - **Initial table (`generate()`):** Pre-fills `5`–`6` distinct random keys

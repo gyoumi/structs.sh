@@ -67,7 +67,8 @@ test.describe('hash table', () => {
       Array.from({ length: 11 }, (_, i) => String(i)),
     );
     expectGeneratedTable(state.slots, ctx);
-    expect(state.banner, `${ctx}: the banner above the buckets should give the hash function`).toContain('% 11');
+    expect(state.banner, `${ctx}: no step status should appear before an operation runs`).toBe('');
+    expect(await hashTable.canvasBannerCount(), `${ctx}: operation status should stay off the drawing canvas`).toBe(0);
     expect(await visualiser.values(), `${ctx}: the values drawn, left to right, should be the stored keys without the bucket numbers`).toEqual(
       keysOf(state.slots),
     );
@@ -356,13 +357,13 @@ test.describe('hash table', () => {
     expect(loggedErrors(), `${ctx}: console errors and uncaught page errors`).toEqual([]);
   });
 
-  test.describe('phone status pill', () => {
+  test.describe('phone layout', () => {
     test.use({ viewport: { width: 390, height: 844 } });
 
-    test('updates on every intermediate probe step during a run', async ({ visualiser, hashTable }) => {
+    test('keeps the canvas free of banners and updates step status in the Code panel on every probe', async ({ visualiser, hashTable }) => {
       const ctx = `/visualiser/hash-tables/${TOMBSTONE} at 390x844, insert(45)`;
       await visualiser.open('hash-tables', TOMBSTONE);
-      expect(await hashTable.phoneBanner(), `${ctx}, before running: idle phone status pill`).toContain('% 11');
+      expect(await hashTable.canvasBannerCount(), `${ctx}: no banner or overlay pill should sit on the stage`).toBe(0);
 
       await visualiser.runToEnd('insert', 45);
       await hashTable.transport.rewind();
@@ -377,10 +378,11 @@ test.describe('hash table', () => {
       for (const [i, phrase] of expected.entries()) {
         await hashTable.nextStep(`${ctx}, step ${i + 1}`);
         expect(
-          await hashTable.phoneBanner(),
-          `${ctx}, step ${i + 1}: phone status pill should update immediately with the playhead`,
+          await hashTable.banner(),
+          `${ctx}, step ${i + 1}: Code panel status should update immediately with the playhead`,
         ).toContain(phrase);
       }
+      expect(await hashTable.canvasBannerCount(), `${ctx}: canvas should stay free of operation banners during playback`).toBe(0);
     });
   });
 });
