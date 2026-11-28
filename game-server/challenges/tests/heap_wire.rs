@@ -1,13 +1,15 @@
 mod common;
 
-use common::heap::{describe, insert, keys, name, op_text, run_ok};
+use common::heap::{describe, insert, op_text};
 use daily_challenges::heap::{HeapOp, HeapOrder, HeapStep};
 use serde_json::{Value, json};
 
-// The JSON shape from docs/heap.md ("On the wire"): HeapOrder is "min" or "max"; HeapOp and
-// HeapStep are tagged by a camelCase "kind" with camelCase fields and unknown fields rejected;
-// a missing CompareChildren right child is written as null; HeapRunResult is
-// {"items", "steps", "comparisons", "swaps", "popped"} with popped null when nothing was popped.
+// The JSON shape from docs/heap.md ("On the wire") at the serde level: HeapOp and HeapStep are
+// tagged by a camelCase "kind" with camelCase fields and unknown fields rejected, and a missing
+// CompareChildren right child is written as null. HeapOrder's strings, the HeapRunResult reply and
+// the op and order rejections a request can hit are checked through `step_log_request` in
+// wire_step_log_heap.rs; this file keeps what only the types show: serialising a HeapOp and
+// reading HeapSteps back.
 
 fn from_json<T: serde::de::DeserializeOwned>(what: &str, json: &Value) -> T {
     serde_json::from_value(json.clone())
@@ -21,28 +23,6 @@ fn to_json<T: serde::Serialize>(what: &str, value: &T) -> Value {
 fn rejects<T: serde::de::DeserializeOwned + std::fmt::Debug>(what: &str, json: &Value, why: &str) {
     if let Ok(value) = serde_json::from_value::<T>(json.clone()) {
         panic!("{what} from {json}: should be rejected ({why}), got {value:?}");
-    }
-}
-
-#[test]
-fn heap_order_is_the_plain_string_min_or_max() {
-    for (order, want) in [(HeapOrder::Min, "min"), (HeapOrder::Max, "max")] {
-        let what = format!("HeapOrder::{}", name(&order));
-        let got = to_json("HeapOrder", &order);
-        assert_eq!(
-            got,
-            json!(want),
-            "{what} as JSON should be {want:?}, got {got}"
-        );
-        let back: HeapOrder = from_json(&what, &json!(want));
-        assert!(
-            back == order,
-            "{want:?} should read back as {what}, got HeapOrder::{}",
-            name(&back)
-        );
-    }
-    for bad in [json!("Min"), json!("MAX"), json!("ascending"), json!(0)] {
-        rejects::<HeapOrder>("HeapOrder", &bad, "only \"min\" and \"max\" are orders");
     }
 }
 
@@ -66,17 +46,10 @@ fn heap_op_is_tagged_by_kind() {
 
 #[test]
 fn bad_heap_ops_are_rejected() {
-    // Only variants with fields can reject extras: serde ignores extra keys on tagged unit
-    // variants such as {"kind": "pop"}.
+    // An unknown field, a missing or string key and an unknown kind are checked on the wire in
+    // wire_step_log_heap.rs.
     let cases = [
-        (
-            json!({"kind": "insert", "key": 5, "value": 1}),
-            "unknown field value",
-        ),
-        (json!({"kind": "insert"}), "insert needs a key"),
-        (json!({"kind": "insert", "key": "5"}), "the key is a number"),
         (json!({"kind": "Insert", "key": 5}), "kinds are camelCase"),
-        (json!({"kind": "push", "key": 5}), "unknown kind push"),
         (json!({"key": 5}), "no kind"),
     ];
     for (json, why) in cases {
@@ -182,20 +155,8 @@ fn every_heap_step_serialises_with_a_camel_case_kind() {
 #[test]
 fn compare_children_without_a_right_field_is_rejected() {
     // Every field of a variant with fields is required: a missing right child is written as
-    // "right": null, so leaving the key out is a malformed step, not None.
-    let with_null = json!({"kind": "compareChildren", "index": 0, "left": 1, "right": null, "best": 1, "swap": true});
-    let step: HeapStep = from_json("HeapStep with \"right\": null", &with_null);
-    let want = HeapStep::CompareChildren {
-        index: 0,
-        left: 1,
-        right: None,
-        best: 1,
-        swap: true,
-    };
-    assert!(
-        step == want,
-        "{with_null} should read back as {want:?}, got {step:?}"
-    );
+    // "right": null (read back as None in every_heap_step_serialises_with_a_camel_case_kind), so
+    // leaving the key out is a malformed step, not None.
     let without =
         json!({"kind": "compareChildren", "index": 0, "left": 1, "best": 1, "swap": true});
     if let Ok(step) = serde_json::from_value::<HeapStep>(without.clone()) {
@@ -220,80 +181,6 @@ fn heap_steps_with_unknown_or_snake_case_fields_are_rejected() {
             "HeapStep",
             &json,
             "unknown field, snake_case kind or missing field",
-        );
-    }
-}
-
-#[test]
-fn run_results_serialise_as_camel_case_json() {
-    // The logs follow docs/heap.md's "Exact step order"; heap_pop.rs, heap_insert.rs and
-    // heap_rebuild.rs check the same runs step by step.
-    let cases = [
-        (
-            HeapOrder::Max,
-            "[9 5 7]",
-            HeapOp::Pop,
-            json!({"items": [7, 5], "comparisons": 1, "swaps": 0, "popped": 9, "steps": [
-            {"kind": "takeRoot", "key": 9},
-            {"kind": "moveLastToRoot", "key": 7, "from": 2},
-            {"kind": "compareChildren", "index": 0, "left": 1, "right": null, "best": 1, "swap": false},
-            {"kind": "settled", "key": 7, "index": 0}]}),
-        ),
-        (
-            HeapOrder::Min,
-            "[1 5 3 7]",
-            insert(2),
-            json!({"items": [1, 2, 3, 7, 5], "comparisons": 2, "swaps": 1, "popped": null, "steps": [
-            {"kind": "append", "key": 2, "index": 4},
-            {"kind": "compareParent", "index": 4, "parent": 1, "swap": true},
-            {"kind": "swap", "parent": 1, "child": 4},
-            {"kind": "compareParent", "index": 1, "parent": 0, "swap": false},
-            {"kind": "settled", "key": 2, "index": 1}]}),
-        ),
-        (
-            HeapOrder::Min,
-            "[]",
-            HeapOp::Pop,
-            json!({"items": [], "comparisons": 0, "swaps": 0, "popped": null, "steps": [{"kind": "empty"}]}),
-        ),
-        (
-            HeapOrder::Max,
-            "[4]",
-            HeapOp::Pop,
-            json!({"items": [], "comparisons": 0, "swaps": 0, "popped": 4, "steps": [
-            {"kind": "takeRoot", "key": 4}, {"kind": "poppedLast", "key": 4}]}),
-        ),
-        (
-            HeapOrder::Max,
-            "[1 4]",
-            HeapOp::Rebuild,
-            json!({"items": [4, 1], "comparisons": 1, "swaps": 1, "popped": null, "steps": [
-            {"kind": "startRebuild", "order": "max"},
-            {"kind": "append", "key": 1, "index": 0},
-            {"kind": "reinserted", "key": 1, "index": 0},
-            {"kind": "append", "key": 4, "index": 1},
-            {"kind": "compareParent", "index": 1, "parent": 0, "swap": true},
-            {"kind": "swap", "parent": 0, "child": 1},
-            {"kind": "reinserted", "key": 4, "index": 0},
-            {"kind": "rebuilt", "order": "max"}]}),
-        ),
-    ];
-    for (order, items, op, want) in cases {
-        let (ctx, result) = run_ok(&order, 15, &keys(items), &op);
-        let got = to_json("HeapRunResult", &result);
-        let mut fields: Vec<&str> = got
-            .as_object()
-            .map(|o| o.keys().map(String::as_str).collect())
-            .unwrap_or_default();
-        fields.sort_unstable();
-        let expected_fields = ["comparisons", "items", "popped", "steps", "swaps"];
-        assert_eq!(
-            fields, expected_fields,
-            "{ctx}: HeapRunResult JSON should have exactly the fields {expected_fields:?}, got {fields:?} in {got}"
-        );
-        assert_eq!(
-            got, want,
-            "{ctx}: HeapRunResult JSON should be\n  {want}\ngot\n  {got}"
         );
     }
 }

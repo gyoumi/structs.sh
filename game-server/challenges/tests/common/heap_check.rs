@@ -3,9 +3,7 @@
 
 use daily_challenges::heap::{HeapOp, HeapOrder, HeapRunResult, HeapStep};
 
-use crate::common::heap::{
-    LEGEND, better, count_compares, count_swaps, describe, same, show_log, sorted, violation,
-};
+use crate::common::heap::{LEGEND, better, describe, show_log, sorted, violation};
 
 fn is_terminal(step: &HeapStep) -> bool {
     matches!(
@@ -16,6 +14,21 @@ fn is_terminal(step: &HeapStep) -> bool {
             | HeapStep::HeapFull { .. }
             | HeapStep::Rebuilt { .. }
     )
+}
+
+fn count_compares(steps: &[HeapStep]) -> usize {
+    let compare = |s: &&HeapStep| {
+        matches!(
+            s,
+            HeapStep::CompareParent { .. } | HeapStep::CompareChildren { .. }
+        )
+    };
+    steps.iter().filter(compare).count()
+}
+
+fn count_swaps(steps: &[HeapStep]) -> usize {
+    let swap = |s: &&HeapStep| matches!(s, HeapStep::Swap { .. });
+    steps.iter().filter(swap).count()
 }
 
 fn is_stop(step: Option<&HeapStep>) -> bool {
@@ -291,7 +304,7 @@ fn check_op(
                     before.len()
                 ));
             }
-            let order = same(order);
+            let order = order.clone();
             (None, sorted(before), HeapStep::StartRebuild { order })
         }
     };

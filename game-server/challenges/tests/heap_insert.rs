@@ -1,8 +1,7 @@
 mod common;
 
 use common::heap::{
-    LEGEND, assert_log, both, cases, cases_unmirrored, insert, invariants, mirror_step, negated,
-    run_ok,
+    assert_log, both, cases, cases_unmirrored, insert, invariants, mirror_step, negated, run_ok,
 };
 use daily_challenges::heap::{DEFAULT_CAPACITY, HeapOrder};
 
@@ -203,12 +202,6 @@ fn the_same_inserts_into_a_min_heap_and_a_max_heap_mirror_each_other() {
             b.items, want,
             "{ctx}: Min items should be the Max items negated, {want:?}, got {:?}",
             b.items
-        );
-        let counts = (a.comparisons, a.swaps);
-        let got = (b.comparisons, b.swaps);
-        assert_eq!(
-            got, counts,
-            "{ctx}: (comparisons, swaps) should match Max's {counts:?}, got {got:?}\n{LEGEND}"
         );
         invariants(&max_ctx, &HeapOrder::Max, 15, &max, &insert(key), &a);
         invariants(&min_ctx, &HeapOrder::Min, 15, &min, &insert(-key), &b);

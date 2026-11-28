@@ -1,8 +1,6 @@
 mod common;
 
-use common::heap::{
-    assert_log, cases, insert, invariants, keys, map_step, name, other, run_ok, same, violation,
-};
+use common::heap::{assert_log, cases, insert, invariants, keys, name, other, run_ok, violation};
 use daily_challenges::heap::{HeapOp, HeapOrder, HeapStep};
 
 // Expected logs are worked by hand from docs/heap.md ("1a. Rust heap module", "Exact step
@@ -91,7 +89,9 @@ fn rebuild_of_a_full_heap_never_reports_heap_full() {
 /// What docs/heap.md says a rebuild is: StartRebuild, then each old item inserted in index order
 /// into the heap built so far (Settled becoming Reinserted), then Rebuilt.
 fn by_inserting(order: &HeapOrder, cap: usize, old: &[i32]) -> (Vec<HeapStep>, Vec<i32>) {
-    let mut steps = vec![HeapStep::StartRebuild { order: same(order) }];
+    let mut steps = vec![HeapStep::StartRebuild {
+        order: order.clone(),
+    }];
     let mut items = Vec::new();
     for key in old {
         let (_, result) = run_ok(order, cap, &items, &insert(*key));
@@ -100,11 +100,13 @@ fn by_inserting(order: &HeapOrder, cap: usize, old: &[i32]) -> (Vec<HeapStep>, V
                 key: *key,
                 index: *index,
             },
-            s => map_step(s, |k| k, same),
+            s => s.clone(),
         }));
         items = result.items;
     }
-    steps.push(HeapStep::Rebuilt { order: same(order) });
+    steps.push(HeapStep::Rebuilt {
+        order: order.clone(),
+    });
     (steps, items)
 }
 
@@ -145,22 +147,13 @@ fn rebuild_is_inserting_the_old_items_in_index_order() {
                 "{ctx}: items {what}: expected {want_items:?}, got {got:?}"
             );
             invariants(&ctx, &to, 15, &old, &HeapOp::Rebuild, &result);
+            // The rebuilt heap is a valid input for rebuilding back to the first order.
+            let (call, back) = run_ok(&from, 15, &result.items, &HeapOp::Rebuild);
+            let ctx = format!(
+                "{call} [the result of {ctx}, rebuilt back to {}]",
+                name(&from)
+            );
+            invariants(&ctx, &from, 15, &result.items, &HeapOp::Rebuild, &back);
         }
     }
-}
-
-#[test]
-fn rebuilding_twice_returns_to_a_valid_heap_of_the_first_order() {
-    let start = keys("[90 80 70 60 50 40 30 55 10]");
-    let (ctx, min) = run_ok(&HeapOrder::Min, 15, &start, &HeapOp::Rebuild);
-    invariants(&ctx, &HeapOrder::Min, 15, &start, &HeapOp::Rebuild, &min);
-    let (ctx, max) = run_ok(&HeapOrder::Max, 15, &min.items, &HeapOp::Rebuild);
-    invariants(
-        &ctx,
-        &HeapOrder::Max,
-        15,
-        &min.items,
-        &HeapOp::Rebuild,
-        &max,
-    );
 }

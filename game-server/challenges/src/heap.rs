@@ -25,21 +25,16 @@
 
 use serde::{Deserialize, Serialize};
 
-/// The heap size the visualiser uses: four full levels.
 pub const DEFAULT_CAPACITY: usize = 15;
 
-/// Which key sits at the root.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum HeapOrder {
-    /// The smallest key is at the root.
     Min,
-    /// The largest key is at the root.
     Max,
 }
 
 impl HeapOrder {
-    /// Whether `a` is strictly better than `b` under this order.
     fn better(&self, a: i32, b: i32) -> bool {
         match self {
             Self::Min => a < b,
@@ -48,7 +43,6 @@ impl HeapOrder {
     }
 }
 
-/// One operation to run on the heap.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(
     tag = "kind",
@@ -57,15 +51,14 @@ impl HeapOrder {
     deny_unknown_fields
 )]
 pub enum HeapOp {
-    /// Add `key`.
-    Insert { key: i32 },
-    /// Remove the root.
+    Insert {
+        key: i32,
+    },
     Pop,
     /// Rebuild a heap of the other order in the requested order.
     Rebuild,
 }
 
-/// One recorded event while an operation runs.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(
     tag = "kind",
@@ -117,13 +110,10 @@ pub enum HeapStep {
     Rebuilt { order: HeapOrder },
 }
 
-/// The heap and step log after one operation.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HeapRunResult {
-    /// The array after the operation.
     pub items: Vec<i32>,
-    /// Everything the operation did, in order.
     pub steps: Vec<HeapStep>,
     /// How many [`HeapStep::CompareParent`] and [`HeapStep::CompareChildren`]
     /// steps `steps` holds.
@@ -192,8 +182,7 @@ impl HeapRunResult {
         self.steps.push(HeapStep::Swap { parent, child });
     }
 
-    /// Appends `key`, sifts it up and returns its final index.
-    fn push(&mut self, order: &HeapOrder, key: i32) -> usize {
+    fn push_and_sift_up(&mut self, order: &HeapOrder, key: i32) -> usize {
         let mut index = self.items.len();
         self.items.push(key);
         self.steps.push(HeapStep::Append { key, index });
@@ -215,7 +204,6 @@ impl HeapRunResult {
         index
     }
 
-    /// Sifts the key at `index` down and returns its final index.
     fn sift_down(&mut self, order: &HeapOrder, mut index: usize) -> usize {
         let len = self.items.len();
         while 2 * index + 1 < len {
@@ -248,7 +236,7 @@ impl HeapRunResult {
             self.steps.push(HeapStep::HeapFull { key });
             return;
         }
-        let index = self.push(order, key);
+        let index = self.push_and_sift_up(order, key);
         self.steps.push(HeapStep::Settled { key, index });
     }
 
@@ -278,7 +266,7 @@ impl HeapRunResult {
             order: order.clone(),
         });
         for key in old {
-            let index = self.push(&order, key);
+            let index = self.push_and_sift_up(&order, key);
             self.steps.push(HeapStep::Reinserted { key, index });
         }
         self.steps.push(HeapStep::Rebuilt { order });
