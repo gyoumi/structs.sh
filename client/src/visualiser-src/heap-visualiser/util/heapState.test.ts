@@ -22,6 +22,15 @@ const FULL_MIN = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
 const withKey = (items: number[], index: number, key: number) =>
   items.map((k, i) => (i === index ? key : k));
 
+/** A sparse array of `length` slots with only `filled` (index to key) set; the rest are holes. */
+const withHoles = (length: number, filled: Record<number, number>): number[] => {
+  const items = new Array<number>(length);
+  Object.entries(filled).forEach(([index, key]) => {
+    items[Number(index)] = key;
+  });
+  return items;
+};
+
 describe('HEAP_CAPACITY', () => {
   it('is 15, the engine DEFAULT_CAPACITY', () => {
     expect(HEAP_CAPACITY, `HEAP_CAPACITY should be 15, got ${show(HEAP_CAPACITY)}`).toBe(15);
@@ -191,6 +200,26 @@ describe('readHeapState rejects anything else', () => {
     { label: 'an Infinity key', state: { order: 'max', items: [Number.POSITIVE_INFINITY] } },
     { label: "a string key '5'", state: { order: 'max', items: ['5'] } },
     { label: 'a null key', state: { order: 'min', items: [null] } },
+    {
+      label: 'a hole at index 1 of [9, <hole>, 3] (shown as null)',
+      state: { order: 'max', items: withHoles(3, { 0: 9, 2: 3 }) },
+    },
+    {
+      label: 'a hole at index 1 of [1, <hole>, 3] (shown as null)',
+      state: { order: 'min', items: withHoles(3, { 0: 1, 2: 3 }) },
+    },
+    {
+      label: 'a trailing hole in [9, 4, <hole>] (shown as null)',
+      state: { order: 'max', items: withHoles(3, { 0: 9, 1: 4 }) },
+    },
+    {
+      label: 'one hole, [<hole>] (shown as null)',
+      state: { order: 'max', items: withHoles(1, {}) },
+    },
+    {
+      label: 'only holes, Array(3) (shown as nulls)',
+      state: { order: 'min', items: withHoles(3, {}) },
+    },
     { label: 'key -1', state: { order: 'max', items: [9, -1] } },
     { label: 'key 100', state: { order: 'max', items: [100, 9] } },
     { label: 'key -1 in a min-heap', state: { order: 'min', items: [-1, 9] } },

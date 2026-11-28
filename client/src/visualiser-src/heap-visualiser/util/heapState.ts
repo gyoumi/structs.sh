@@ -8,7 +8,8 @@ export type HeapState = { order: HeapOrder; items: number[] };
 
 const isOrder = (value: unknown): value is HeapOrder => value === 'min' || value === 'max';
 
-const isHeapKey = (value: unknown): value is number =>
+/** True for a whole number from 0 to 99, the keys a heap can hold. */
+export const isHeapKey = (value: unknown): value is number =>
   typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 99;
 
 const isBetter = (order: HeapOrder, a: number, b: number): boolean =>
@@ -23,6 +24,7 @@ export const readHeapState = (state: unknown): HeapState | undefined => {
   if (typeof state !== 'object' || state === null) return undefined;
   const { order, items } = state as { order?: unknown; items?: unknown };
   if (!isOrder(order) || !Array.isArray(items) || items.length > HEAP_CAPACITY) return undefined;
-  if (!items.every(isHeapKey) || !isHeap(order, items)) return undefined;
-  return { order, items: [...items] };
+  const copy: unknown[] = Array.from(items);
+  if (!copy.every(isHeapKey) || !isHeap(order, copy)) return undefined;
+  return { order, items: copy };
 };

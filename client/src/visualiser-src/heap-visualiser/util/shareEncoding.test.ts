@@ -17,6 +17,15 @@ const FULL_MAX_ENCODED = 'max-999080706050403020100908070605';
 const FULL_MIN = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
 const FULL_MIN_ENCODED = 'min-000102030405060708091011121314';
 
+/** A sparse array of `length` slots with only `filled` (index to key) set; the rest are holes. */
+const withHoles = (length: number, filled: Record<number, number>): number[] => {
+  const items = new Array<number>(length);
+  Object.entries(filled).forEach(([index, key]) => {
+    items[Number(index)] = key;
+  });
+  return items;
+};
+
 const heap = (order: HeapState['order'], items: number[]): ParsedHeapShare => ({
   kind: 'heap',
   state: { order, items },
@@ -98,6 +107,22 @@ describe('encodeHeapShare', () => {
     {
       reason: 'not a max-heap only at the last index 14 (45 > its parent 40)',
       state: { order: 'max', items: FULL_MAX.map((k, i) => (i === 14 ? 45 : k)) } as HeapState,
+    },
+    {
+      reason: 'a hole at index 1 of [9, <hole>, 3] (shown as null), which is no key',
+      state: { order: 'max', items: withHoles(3, { 0: 9, 2: 3 }) } as HeapState,
+    },
+    {
+      reason: 'a hole at index 1 of [1, <hole>, 3] (shown as null), which is no key',
+      state: { order: 'min', items: withHoles(3, { 0: 1, 2: 3 }) } as HeapState,
+    },
+    {
+      reason: 'only holes, [<hole>, <hole>] (shown as nulls), which are no keys',
+      state: { order: 'max', items: withHoles(2, {}) } as HeapState,
+    },
+    {
+      reason: 'a trailing hole in [1, 3, <hole>] (shown as null), which is no key',
+      state: { order: 'min', items: withHoles(3, { 0: 1, 1: 3 }) } as HeapState,
     },
   ])('throws for $reason', ({ reason, state }) => {
     expect(
