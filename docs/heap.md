@@ -354,7 +354,7 @@ Agreed on 28 November 2026:
   sorting. The hash table's banner isn't copied.
 - **It opens with 7 random keys in a max-heap**, which is a full three-level
   tree. `Clear` empties it.
-- **Share links carry the order as a prefix**, for example `max-120734`
+- **Share links carry the order as a prefix**, for example `max-340712`
   (two-digit keys in array order). A plain key list such as `120734` inserts
   the keys in order into a max-heap. A link whose keys aren't a valid heap of
   its order loads by inserting them in order too.
@@ -364,6 +364,46 @@ Agreed on 28 November 2026:
 Pure TypeScript: encoding and decoding the order and the array, and keeping the
 order through `snapshotState`/`restoreState` so a re-theme mid-run redraws the
 same heap in the same order.
+
+The contract, in `client/src/visualiser-src/heap-visualiser/util/`:
+
+- `heapState.ts`:
+  - `HEAP_CAPACITY = 15`, the same as the engine's `DEFAULT_CAPACITY`.
+  - `type HeapState = { order: HeapOrder; items: number[] }`, the whole heap.
+    It's what `GraphicalHeap.snapshotState()` will return in 2c.
+  - `isHeap(order, items)`: true when no key is better than its parent, using
+    the engine's rule. "Better" means strictly greater for max and strictly
+    smaller for min, so equal keys are fine.
+  - `readHeapState(state: unknown): HeapState | undefined`: what
+    `restoreState` will use. It returns a fresh copy for an object with
+    `order` `'min'` or `'max'` and `items` an array of at most 15 integers
+    from 0 to 99 that is a heap of that order. Anything else gives
+    `undefined`.
+- `shareEncoding.ts`:
+  - `encodeHeapShare(state)`: the order, then a dash, then each key as two
+    digits in array order, for example `max-340712`. An empty heap is the order
+    alone (`max`, `min`). It throws for more than 15 keys, a key outside 0 to
+    99, or items that aren't a heap of the order, since none of these can come
+    from the visualiser.
+  - `type ParsedHeapShare = { kind: 'heap'; state: HeapState } | { kind: 'keys'; order: HeapOrder; keys: number[] }`.
+    `'heap'` loads as it stands. `'keys'` loads by inserting the keys in order
+    into an empty heap of that order.
+  - `decodeHeapShare(segment: string | undefined): ParsedHeapShare | undefined`:
+    - `max` or `min` alone gives an empty `'heap'`.
+    - `max-` or `min-` followed by 1 to 15 two-digit keys gives `'heap'` when
+      the keys are a heap of that order, and `'keys'` with that order when they
+      aren't.
+    - 1 to 15 two-digit keys with no prefix (`120734`) give `'keys'` with order
+      max.
+    - The prefix isn't case-sensitive (`MAX-12`), like the hash table's `S`.
+    - Anything else gives `undefined`: a missing or empty segment, an unknown
+      prefix, an odd number of digits, a character that isn't a digit, a dash
+      with no keys (`max-`), or more than 15 keys.
+- **Re-theming.** The session already rebuilds a run from the state it started
+  on (hash table step 2a), so the heap needs no new session code. The tests
+  check, with a stand-in heap structure that keeps a `HeapState`, that
+  re-theming while idle and mid-run keeps the order and items for both orders,
+  including in the middle of a switch of order.
 
 **You'll know it's done when** Vitest covers round trips, malformed links and
 re-theming with each order.
