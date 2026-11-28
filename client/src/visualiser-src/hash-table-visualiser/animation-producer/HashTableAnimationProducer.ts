@@ -1,4 +1,4 @@
-import type { Element } from '@svgdotjs/svg.js';
+import { Runner, type Element } from '@svgdotjs/svg.js';
 import type { HashOp, HashSlot, HashStep } from '@/Services/challenges/challenges';
 import AnimationProducer, { DrawingBounds } from '@/visualiser-src/common/AnimationProducer';
 import { HashTableView, addValueText } from '../data-structure/HashTableCanvas';
@@ -63,6 +63,7 @@ export default class HashTableAnimationProducer extends AnimationProducer {
     if (step.kind === 'probe') this.probes = step.probeNumber;
     this.currentStatus = stepBanner(this.op.key, this.start, this.probes, step);
     this.highlightCode(lineForStep(this.op.kind, step, this.lastProbed));
+    this.addSequenceAnimation(new Runner(FADE_MS));
     this.showWrap(isWrapProbe(step));
     const index = stepSlotIndex(step);
     this.moveHighlight(index);

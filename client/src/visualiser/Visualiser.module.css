@@ -165,6 +165,8 @@
   }
 
   .hashStage {
+    --zoom-column-height: 154;
+    --fit-inset-top: var(--zoom-column-height);
     --fit-inset-right: 0;
   }
 }
