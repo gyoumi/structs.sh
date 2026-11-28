@@ -147,6 +147,13 @@ fn rebuild_is_inserting_the_old_items_in_index_order() {
                 "{ctx}: items {what}: expected {want_items:?}, got {got:?}"
             );
             invariants(&ctx, &to, 15, &old, &HeapOp::Rebuild, &result);
+            // The rebuilt heap is a valid input for rebuilding back to the first order.
+            let (call, back) = run_ok(&from, 15, &result.items, &HeapOp::Rebuild);
+            let ctx = format!(
+                "{call} [the result of {ctx}, rebuilt back to {}]",
+                name(&from)
+            );
+            invariants(&ctx, &from, 15, &result.items, &HeapOp::Rebuild, &back);
         }
     }
 }

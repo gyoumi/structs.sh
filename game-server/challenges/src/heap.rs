@@ -118,6 +118,7 @@ pub struct HeapRunResult {
     /// How many [`HeapStep::CompareParent`] and [`HeapStep::CompareChildren`]
     /// steps `steps` holds.
     pub comparisons: u32,
+    /// How many [`HeapStep::Swap`] steps `steps` holds.
     pub swaps: u32,
     /// The removed root after a successful pop, otherwise `None`.
     pub popped: Option<i32>,
