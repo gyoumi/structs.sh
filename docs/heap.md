@@ -85,7 +85,7 @@ that change goes to the hash table thread before more is built on it.
 `challenges.heap.test.ts` passes, with `cargo clippy` clean for
 `wasm32-unknown-unknown`.
 
-**Status:** 1a done (#108). 1b and 1c to go.
+**Status:** 1a done (#108), 1b done (#109). 1c to go.
 
 ### 2. It plays
 
@@ -297,6 +297,8 @@ in `tests/common/`, to stay under the 500-line limit for test files:
 `game-server/` and PR 1a merges into `heap`.
 
 ### 1b. `step_log` variant and TypeScript bridge
+
+**Done in #109.**
 
 - Add a `BinaryHeap { order, capacity, items, op }` variant, tagged
   `"binary-heap"`, to `StepLogRequest` in
